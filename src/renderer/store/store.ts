@@ -1,0 +1,429 @@
+import { create } from 'zustand';
+import type {
+    Track,
+    Album,
+    Playlist,
+    Collection,
+    PlayerState,
+    AuthState,
+    LastfmState,
+    CacheStats,
+    AppSettings,
+    ViewType,
+    RadioStation,
+    RadioState,
+} from '../../shared/types';
+
+// ============================================================================
+// Store Types
+// ============================================================================
+
+interface AuthSlice {
+    auth: AuthState;
+    setAuth: (auth: AuthState) => void;
+    login: () => Promise<void>;
+    logout: () => Promise<void>;
+    checkSession: () => Promise<void>;
+}
+
+interface PlayerSlice {
+    player: PlayerState;
+    setPlayerState: (state: Partial<PlayerState>) => void;
+    play: (track?: Track) => Promise<void>;
+    pause: () => Promise<void>;
+    togglePlay: () => Promise<void>;
+    next: () => Promise<void>;
+    previous: () => Promise<void>;
+    seek: (time: number) => Promise<void>;
+    setVolume: (volume: number) => Promise<void>;
+    toggleMute: () => Promise<void>;
+    toggleShuffle: () => Promise<void>;
+    setRepeat: (mode: 'off' | 'one' | 'all') => Promise<void>;
+}
+
+interface QueueSlice {
+    queue: { items: Array<{ id: string; track: Track }>; currentIndex: number };
+    addToQueue: (track: Track, playNext?: boolean) => Promise<void>;
+    addAlbumToQueue: (album: Album) => Promise<void>;
+    removeFromQueue: (id: string) => Promise<void>;
+    clearQueue: () => Promise<void>;
+    reorderQueue: (from: number, to: number) => Promise<void>;
+    playQueueIndex: (index: number) => Promise<void>;
+}
+
+interface CollectionSlice {
+    collection: Collection | null;
+    isLoadingCollection: boolean;
+    collectionError: string | null;
+    fetchCollection: (forceRefresh?: boolean) => Promise<void>;
+    searchCollection: (query: string) => Promise<Collection>;
+    getAlbumDetails: (url: string) => Promise<Album | null>;
+}
+
+interface PlaylistSlice {
+    playlists: Playlist[];
+    selectedPlaylist: Playlist | null;
+    fetchPlaylists: () => Promise<void>;
+    selectPlaylist: (id: string) => Promise<void>;
+    createPlaylist: (name: string, description?: string) => Promise<Playlist>;
+    updatePlaylist: (id: string, name?: string, description?: string) => Promise<void>;
+    deletePlaylist: (id: string) => Promise<void>;
+    addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
+    removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
+}
+
+interface RadioSlice {
+    radioStations: RadioStation[];
+    radioState: RadioState;
+    fetchRadioStations: () => Promise<void>;
+    playRadioStation: (station: RadioStation) => Promise<void>;
+    stopRadio: () => Promise<void>;
+}
+
+interface CacheSlice {
+    cacheStats: CacheStats | null;
+    downloadingTracks: Set<string>;
+    downloadTrack: (track: Track) => Promise<void>;
+    deleteFromCache: (trackId: string) => Promise<void>;
+    clearCache: () => Promise<void>;
+    fetchCacheStats: () => Promise<void>;
+}
+
+interface ScrobblerSlice {
+    lastfm: LastfmState;
+    connectLastfm: () => Promise<void>;
+    disconnectLastfm: () => Promise<void>;
+}
+
+interface SettingsSlice {
+    settings: AppSettings | null;
+    fetchSettings: () => Promise<void>;
+    updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
+}
+
+interface UISlice {
+    currentView: ViewType;
+    selectedPlaylistId: string | null;
+    isQueueVisible: boolean;
+    isMiniPlayer: boolean;
+    isSettingsOpen: boolean;
+    searchQuery: string;
+    setView: (view: ViewType) => void;
+    setSelectedPlaylistId: (id: string | null) => void;
+    toggleQueue: () => void;
+    toggleMiniPlayer: () => void;
+    toggleSettings: () => void;
+    setSearchQuery: (query: string) => void;
+}
+
+type StoreState = AuthSlice &
+    PlayerSlice &
+    QueueSlice &
+    CollectionSlice &
+    PlaylistSlice &
+    RadioSlice &
+    CacheSlice &
+    ScrobblerSlice &
+    SettingsSlice &
+    UISlice;
+
+// ============================================================================
+// Store Implementation
+// ============================================================================
+
+export const useStore = create<StoreState>((set, get) => ({
+    // ---- Auth Slice ----
+    auth: { isAuthenticated: false, user: null },
+    setAuth: (auth) => set({ auth }),
+    login: async () => {
+        console.log('Store: initiating login');
+        const result = await window.electron.auth.login();
+        console.log('Store: login result', result);
+        set({ auth: result });
+        if (result.isAuthenticated) {
+            get().fetchCollection();
+            get().fetchPlaylists();
+        }
+    },
+    logout: async () => {
+        console.log('Store: initiating logout');
+        await window.electron.auth.logout();
+        set({ auth: { isAuthenticated: false, user: null }, collection: null });
+    },
+    checkSession: async () => {
+        console.log('Store: checking session');
+        const result = await window.electron.auth.checkSession();
+        console.log('Store: session result', result);
+        set({ auth: result });
+        if (result.isAuthenticated) {
+            get().fetchCollection();
+            get().fetchPlaylists();
+        }
+    },
+
+    // ---- Player Slice ----
+    player: {
+        isPlaying: false,
+        currentTrack: null,
+        currentTime: 0,
+        duration: 0,
+        volume: 0.8,
+        isMuted: false,
+        repeatMode: 'off',
+        isShuffled: false,
+        queue: { items: [], currentIndex: -1 },
+    },
+    setPlayerState: (state) => set((s) => ({ player: { ...s.player, ...state } })),
+    play: async (track) => {
+        await window.electron.player.play(track);
+    },
+    pause: async () => {
+        await window.electron.player.pause();
+    },
+    togglePlay: async () => {
+        await window.electron.player.togglePlay();
+    },
+    next: async () => {
+        await window.electron.player.next();
+    },
+    previous: async () => {
+        await window.electron.player.previous();
+    },
+    seek: async (time) => {
+        await window.electron.player.seek(time);
+    },
+    setVolume: async (volume) => {
+        await window.electron.player.setVolume(volume);
+    },
+    toggleMute: async () => {
+        await window.electron.player.toggleMute();
+    },
+    toggleShuffle: async () => {
+        await window.electron.player.toggleShuffle();
+    },
+    setRepeat: async (mode) => {
+        await window.electron.player.setRepeat(mode);
+    },
+
+    // ---- Queue Slice ----
+    queue: { items: [], currentIndex: -1 },
+    addToQueue: async (track, playNext) => {
+        await window.electron.queue.addTrack(track, playNext);
+    },
+    addAlbumToQueue: async (album) => {
+        await window.electron.queue.addAlbum(album);
+    },
+    removeFromQueue: async (id) => {
+        await window.electron.queue.remove(id);
+    },
+    clearQueue: async () => {
+        await window.electron.queue.clear();
+    },
+    reorderQueue: async (from, to) => {
+        await window.electron.queue.reorder(from, to);
+    },
+    playQueueIndex: async (index) => {
+        await window.electron.queue.playIndex(index);
+    },
+
+    // ---- Collection Slice ----
+    collection: null,
+    isLoadingCollection: false,
+    collectionError: null,
+    fetchCollection: async (forceRefresh = false) => {
+        set({ isLoadingCollection: true, collectionError: null });
+        try {
+            const collection = forceRefresh
+                ? await window.electron.collection.refresh()
+                : await window.electron.collection.fetch();
+            set({ collection, isLoadingCollection: false });
+        } catch (error) {
+            set({
+                collectionError: error instanceof Error ? error.message : 'Failed to fetch collection',
+                isLoadingCollection: false,
+            });
+        }
+    },
+    searchCollection: async (query) => {
+        return window.electron.collection.search(query);
+    },
+    getAlbumDetails: async (url) => {
+        return window.electron.collection.getAlbum(url);
+    },
+
+    // ---- Playlist Slice ----
+    playlists: [],
+    selectedPlaylist: null,
+    fetchPlaylists: async () => {
+        const playlists = await window.electron.playlist.getAll();
+        set({ playlists });
+    },
+    selectPlaylist: async (id) => {
+        const playlist = await window.electron.playlist.getById(id);
+        set({ selectedPlaylist: playlist, currentView: 'playlist-detail', selectedPlaylistId: id });
+    },
+    createPlaylist: async (name, description) => {
+        const playlist = await window.electron.playlist.create({ name, description });
+        set((s) => ({ playlists: [...s.playlists, playlist] }));
+        return playlist;
+    },
+    updatePlaylist: async (id, name, description) => {
+        await window.electron.playlist.update({ id, name, description });
+        get().fetchPlaylists();
+        if (get().selectedPlaylist?.id === id) {
+            get().selectPlaylist(id);
+        }
+    },
+    deletePlaylist: async (id) => {
+        await window.electron.playlist.delete(id);
+        set((s) => ({
+            playlists: s.playlists.filter((p) => p.id !== id),
+            selectedPlaylist: s.selectedPlaylist?.id === id ? null : s.selectedPlaylist,
+            currentView: s.selectedPlaylistId === id ? 'playlists' : s.currentView,
+        }));
+    },
+    addTrackToPlaylist: async (playlistId, track) => {
+        await window.electron.playlist.addTrack(playlistId, track);
+        if (get().selectedPlaylist?.id === playlistId) {
+            get().selectPlaylist(playlistId);
+        }
+    },
+    removeTrackFromPlaylist: async (playlistId, trackId) => {
+        await window.electron.playlist.removeTrack(playlistId, trackId);
+        if (get().selectedPlaylist?.id === playlistId) {
+            get().selectPlaylist(playlistId);
+        }
+    },
+
+    // ---- Radio Slice ----
+    radioStations: [],
+    radioState: { isActive: false, currentStation: null, currentTrack: null },
+    fetchRadioStations: async () => {
+        const stations = await window.electron.radio.getStations();
+        set({ radioStations: stations });
+    },
+    playRadioStation: async (station) => {
+        await window.electron.radio.playStation(station);
+    },
+    stopRadio: async () => {
+        await window.electron.radio.stop();
+    },
+
+    // ---- Cache Slice ----
+    cacheStats: null,
+    downloadingTracks: new Set(),
+    downloadTrack: async (track) => {
+        set((s) => ({ downloadingTracks: new Set([...s.downloadingTracks, track.id]) }));
+        try {
+            await window.electron.cache.downloadTrack(track);
+        } finally {
+            set((s) => {
+                const updated = new Set(s.downloadingTracks);
+                updated.delete(track.id);
+                return { downloadingTracks: updated };
+            });
+        }
+    },
+    deleteFromCache: async (trackId) => {
+        await window.electron.cache.deleteTrack(trackId);
+        get().fetchCacheStats();
+    },
+    clearCache: async () => {
+        await window.electron.cache.clear();
+        get().fetchCacheStats();
+    },
+    fetchCacheStats: async () => {
+        const stats = await window.electron.cache.getStats();
+        set({ cacheStats: stats });
+    },
+
+    // ---- Scrobbler Slice ----
+    lastfm: { isConnected: false, user: null },
+    connectLastfm: async () => {
+        const result = await window.electron.scrobbler.connect();
+        set({ lastfm: result });
+    },
+    disconnectLastfm: async () => {
+        await window.electron.scrobbler.disconnect();
+        set({ lastfm: { isConnected: false, user: null } });
+    },
+
+    // ---- Settings Slice ----
+    settings: null,
+    fetchSettings: async () => {
+        const settings = await window.electron.settings.get();
+        set({ settings });
+    },
+    updateSettings: async (newSettings) => {
+        const updated = await window.electron.settings.set(newSettings);
+        set({ settings: updated });
+    },
+
+    // ---- UI Slice ----
+    currentView: 'collection',
+    selectedPlaylistId: null,
+    isQueueVisible: false,
+    isMiniPlayer: false,
+    isSettingsOpen: false,
+    searchQuery: '',
+    setView: (view) => set({ currentView: view }),
+    setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
+    toggleQueue: () => set((s) => ({ isQueueVisible: !s.isQueueVisible })),
+    toggleMiniPlayer: async () => {
+        await window.electron.window.toggleMiniPlayer();
+        set((s) => ({ isMiniPlayer: !s.isMiniPlayer }));
+    },
+    toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+}));
+
+// ============================================================================
+// IPC Event Subscriptions (called once on app init)
+// ============================================================================
+
+export function initializeStoreSubscriptions() {
+    const { setPlayerState, setAuth } = useStore.getState();
+
+    // Player state updates
+    window.electron.player.onStateChanged((state) => {
+        setPlayerState(state);
+    });
+
+    window.electron.player.onTrackChanged((track) => {
+        setPlayerState({ currentTrack: track });
+    });
+
+    window.electron.player.onTimeUpdate(({ currentTime, duration }) => {
+        setPlayerState({ currentTime, duration });
+    });
+
+    // Queue updates
+    window.electron.queue.onUpdated((queue) => {
+        useStore.setState({ queue });
+    });
+
+    // Auth updates
+    window.electron.auth.onAuthChanged((auth) => {
+        setAuth(auth);
+    });
+
+    // Cache stats updates
+    window.electron.cache.onStatsUpdated((stats) => {
+        useStore.setState({ cacheStats: stats });
+    });
+
+    // Scrobbler updates
+    window.electron.scrobbler.onStateChanged((state) => {
+        useStore.setState({ lastfm: state });
+    });
+
+    // Settings updates
+    window.electron.settings.onChanged((settings) => {
+        useStore.setState({ settings });
+    });
+
+    // Radio updates
+    window.electron.radio.onStateChanged((state) => {
+        useStore.setState({ radioState: state });
+    });
+}

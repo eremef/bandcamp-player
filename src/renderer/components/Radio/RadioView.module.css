@@ -1,0 +1,236 @@
+.container {
+    padding: var(--spacing-xl);
+    min-height: 100%;
+}
+
+.header {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.headerContent h1 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--spacing-xs);
+}
+
+.headerContent p {
+    color: var(--text-secondary);
+}
+
+/* Now playing */
+.nowPlaying {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    background: var(--accent-muted);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.nowPlayingContent {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.waveform {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+}
+
+.waveform span {
+    width: 3px;
+    height: 100%;
+    background: var(--accent-primary);
+    border-radius: var(--radius-full);
+    animation: wave 1s ease-in-out infinite;
+}
+
+.waveform span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.waveform span:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.waveform span:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.waveform span:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.waveform span:nth-child(5) {
+    animation-delay: 0.4s;
+}
+
+@keyframes wave {
+
+    0%,
+    100% {
+        transform: scaleY(0.5);
+    }
+
+    50% {
+        transform: scaleY(1);
+    }
+}
+
+.nowPlayingInfo {
+    display: flex;
+    flex-direction: column;
+}
+
+.nowPlayingLabel {
+    font-size: var(--font-size-xs);
+    color: var(--accent-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.nowPlayingInfo h3 {
+    font-size: var(--font-size-md);
+    margin: var(--spacing-xs) 0;
+}
+
+.nowPlayingInfo p {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.stopBtn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+
+.stopBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-xl);
+}
+
+.card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: 1px solid transparent;
+}
+
+.card:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card.active {
+    border-color: var(--accent-primary);
+    background: var(--accent-muted);
+}
+
+.cardImage {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: var(--bg-tertiary);
+}
+
+.cardImage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholderImage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    opacity: 0.3;
+}
+
+.cardOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.card:hover .cardOverlay {
+    opacity: 1;
+}
+
+.card.active .cardOverlay {
+    opacity: 1;
+}
+
+.playBtn {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    border-radius: var(--radius-full);
+    font-size: 1.5rem;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-lg);
+}
+
+.playBtn:hover {
+    transform: scale(1.1);
+}
+
+.cardInfo {
+    padding: var(--spacing-lg);
+}
+
+.cardTitle {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-xs);
+}
+
+.cardDescription {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Loading */
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    gap: var(--spacing-lg);
+    color: var(--text-secondary);
+}

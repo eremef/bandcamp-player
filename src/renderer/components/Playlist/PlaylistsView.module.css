@@ -1,0 +1,203 @@
+.container {
+    padding: var(--spacing-xl);
+    min-height: 100%;
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.headerContent h1 {
+    font-size: var(--font-size-2xl);
+    margin-bottom: var(--spacing-xs);
+}
+
+.headerContent p {
+    color: var(--text-secondary);
+}
+
+.createBtn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--accent-gradient);
+    color: var(--text-on-accent);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+
+.createBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.createBtn span {
+    font-size: 1.2rem;
+}
+
+/* Empty state */
+.empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    text-align: center;
+}
+
+.emptyIcon {
+    font-size: 4rem;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.5;
+}
+
+.empty h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--spacing-sm);
+}
+
+.empty p {
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xl);
+}
+
+.createBtnLarge {
+    padding: var(--spacing-md) var(--spacing-2xl);
+    background: var(--accent-gradient);
+    color: var(--text-on-accent);
+    font-weight: var(--font-weight-medium);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-md);
+    transition: all var(--transition-fast);
+}
+
+.createBtnLarge:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+/* Grid */
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-xl);
+}
+
+.card {
+    position: relative;
+    cursor: pointer;
+    border-radius: var(--radius-lg);
+    background: var(--bg-secondary);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+}
+
+.card:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.cardArtwork {
+    position: relative;
+    aspect-ratio: 1;
+    background: var(--bg-tertiary);
+}
+
+.cardArtwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.placeholderArtwork {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    opacity: 0.3;
+}
+
+.cardOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.card:hover .cardOverlay {
+    opacity: 1;
+}
+
+.playBtn {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    border-radius: var(--radius-full);
+    font-size: 1.2rem;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-lg);
+}
+
+.playBtn:hover {
+    transform: scale(1.1);
+}
+
+.cardInfo {
+    padding: var(--spacing-lg);
+}
+
+.cardTitle {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cardMeta {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deleteBtn {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: var(--radius-full);
+    opacity: 0;
+    transition: all var(--transition-fast);
+    backdrop-filter: blur(4px);
+}
+
+.card:hover .deleteBtn {
+    opacity: 1;
+}
+
+.deleteBtn:hover {
+    background: var(--color-error);
+}

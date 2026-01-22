@@ -1,0 +1,213 @@
+.playerBar {
+    height: var(--player-bar-height);
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--spacing-lg);
+    gap: var(--spacing-xl);
+    flex-shrink: 0;
+}
+
+/* Track Info */
+.trackInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 250px;
+    min-width: 180px;
+}
+
+.artwork {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--bg-tertiary);
+    flex-shrink: 0;
+}
+
+.artwork img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.trackDetails {
+    min-width: 0;
+    flex: 1;
+}
+
+.trackTitle {
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trackArtist {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.noTrack {
+    color: var(--text-tertiary);
+    font-size: var(--font-size-sm);
+}
+
+/* Controls */
+.controls {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    max-width: 700px;
+}
+
+.controlButtons {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.controlBtn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-radius: var(--radius-full);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.controlBtn:hover {
+    color: var(--text-primary);
+    transform: scale(1.1);
+}
+
+.controlBtn.active {
+    color: var(--accent-primary);
+}
+
+.playBtn {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-gradient);
+    border-radius: var(--radius-full);
+    font-size: 1.2rem;
+    color: var(--text-on-accent);
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-glow);
+}
+
+.playBtn:hover {
+    transform: scale(1.05);
+}
+
+/* Progress */
+.progressContainer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+}
+
+.time {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+}
+
+.time:first-child {
+    text-align: right;
+}
+
+.progressBar {
+    flex: 1;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.progressTrack {
+    position: relative;
+    width: 100%;
+    height: 4px;
+    background: var(--bg-active);
+    border-radius: var(--radius-full);
+}
+
+.progressFill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: var(--accent-primary);
+    border-radius: var(--radius-full);
+    transition: width 0.1s linear;
+}
+
+.progressThumb {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    background: var(--text-primary);
+    border-radius: var(--radius-full);
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    box-shadow: var(--shadow-md);
+}
+
+.progressBar:hover .progressThumb {
+    opacity: 1;
+}
+
+/* Extras */
+.extras {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 200px;
+    justify-content: flex-end;
+}
+
+.volumeSlider {
+    width: 80px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-active);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+}
+
+.volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    background: var(--text-primary);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.volumeSlider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
