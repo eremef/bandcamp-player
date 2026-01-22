@@ -18,7 +18,7 @@
     "test": "vitest run",
     "package": "electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild"
+    "postinstall": "npm run rebuild && electron-builder install-app-deps"
   },
   "dependencies": {
     "axios": "^1.6.7",
