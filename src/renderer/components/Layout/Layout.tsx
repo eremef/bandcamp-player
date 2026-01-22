@@ -4,6 +4,7 @@ import { MainContent } from './MainContent';
 import { PlayerBar } from './PlayerBar';
 import { QueuePanel } from '../Player/QueuePanel';
 import { SettingsModal } from '../Settings/SettingsModal';
+import { Toast } from '../UI/Toast';
 import styles from './Layout.module.css';
 
 export function Layout() {
@@ -27,7 +28,11 @@ export function Layout() {
             <PlayerBar />
 
             {/* Settings modal */}
+            {/* Settings modal */}
             {isSettingsOpen && <SettingsModal onClose={toggleSettings} />}
+
+            {/* Toast notifications */}
+            <Toast />
         </div>
     );
 }

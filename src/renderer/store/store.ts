@@ -108,12 +108,15 @@ interface UISlice {
     isMiniPlayer: boolean;
     isSettingsOpen: boolean;
     searchQuery: string;
+    toast: { message: string; type: 'success' | 'error' } | null;
     setView: (view: ViewType) => void;
     setSelectedPlaylistId: (id: string | null) => void;
     toggleQueue: () => void;
     toggleMiniPlayer: () => void;
     toggleSettings: () => void;
     setSearchQuery: (query: string) => void;
+    showToast: (message: string, type?: 'success' | 'error') => void;
+    hideToast: () => void;
 }
 
 type StoreState = AuthSlice &
@@ -284,8 +287,9 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     addTrackToPlaylist: async (playlistId, track) => {
         await window.electron.playlist.addTrack(playlistId, track);
-        if (get().selectedPlaylist?.id === playlistId) {
-            get().selectPlaylist(playlistId);
+        const playlist = get().playlists.find(p => p.id === playlistId);
+        if (playlist) {
+            get().showToast(`Item ${track.title} added to the ${playlist.name}`, 'success');
         }
     },
     removeTrackFromPlaylist: async (playlistId, trackId) => {
@@ -375,6 +379,9 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
     setSearchQuery: (query) => set({ searchQuery: query }),
+    toast: null,
+    showToast: (message, type = 'success') => set({ toast: { message, type } }),
+    hideToast: () => set({ toast: null }),
 }));
 
 // ============================================================================
