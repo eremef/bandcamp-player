@@ -58,7 +58,28 @@ npm run build
 npm run package
 ```
 
-## Configuration
+## Settings & Configuration
+
+### Application Settings
+
+Access the settings menu (gear icon) to configure:
+
+- **Playback**
+  - Set default start volume
+  
+- **Offline Cache**
+  - Toggle caching on/off
+  - Set maximum cache size (1-50 GB)
+  - View cache usage statistics
+  - Clear cache to free up space
+
+- **Last.fm**
+  - Connect/disconnect Last.fm account
+  - Toggle automatic scrobbling
+
+- **Window**
+  - Minimize to Tray: Keep app running in background when closed
+  - Show Notifications: Desktop notifications on track change
 
 ### Last.fm Integration
 
@@ -87,6 +108,9 @@ src/
 │   └── database/           # SQLite database
 ├── renderer/               # React frontend
 │   ├── components/         # UI components
+│   │   ├── Settings/       # Settings modal
+│   │   ├── Radio/          # Radio player
+│   │   └── UI/             # Common UI elements
 │   ├── store/             # Zustand store
 │   └── styles/            # CSS styles
 └── shared/                # Shared types
