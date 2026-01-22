@@ -163,3 +163,27 @@
     font-size: var(--font-size-sm);
     color: var(--text-tertiary);
 }
+
+.loadMoreContainer {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0 4rem;
+}
+
+.loadMoreBtn {
+    background: var(--accent-primary);
+    color: white;
+    border: none;
+    padding: 0.8rem 2rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.loadMoreBtn:hover {
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

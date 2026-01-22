@@ -1,9 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../../store/store';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
     const { radioStations, fetchRadioStations, playRadioStation, radioState, stopRadio } = useStore();
+    const [visibleCount, setVisibleCount] = useState(20);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 20);
+    };
 
     useEffect(() => {
         if (radioStations.length === 0) {
@@ -47,7 +52,7 @@ export function RadioView() {
 
             {/* Stations grid */}
             <div className={styles.grid}>
-                {radioStations.map((station) => (
+                {radioStations.slice(0, visibleCount).map((station) => (
                     <div
                         key={station.id}
                         className={`${styles.card} ${radioState.currentStation?.id === station.id ? styles.active : ''}`}
@@ -55,7 +60,7 @@ export function RadioView() {
                     >
                         <div className={styles.cardImage}>
                             {station.imageUrl ? (
-                                <img src={station.imageUrl} alt="" />
+                                <img src={station.imageUrl} alt="" loading="lazy" />
                             ) : (
                                 <div className={styles.placeholderImage}>📻</div>
                             )}
@@ -74,6 +79,17 @@ export function RadioView() {
                     </div>
                 ))}
             </div>
+
+            {visibleCount < radioStations.length && (
+                <div className={styles.loadMoreContainer}>
+                    <button
+                        className={styles.loadMoreBtn}
+                        onClick={handleLoadMore}
+                    >
+                        Load More Shows
+                    </button>
+                </div>
+            )}
 
             {radioStations.length === 0 && (
                 <div className={styles.loading}>

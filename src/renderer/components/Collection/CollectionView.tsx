@@ -6,6 +6,11 @@ import styles from './CollectionView.module.css';
 export function CollectionView() {
     const { collection, isLoadingCollection, collectionError, fetchCollection, searchQuery, setSearchQuery } = useStore();
     const [filteredItems, setFilteredItems] = useState(collection?.items || []);
+    const [visibleCount, setVisibleCount] = useState(20);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 20);
+    };
 
     useEffect(() => {
         if (!collection) {
@@ -95,7 +100,7 @@ export function CollectionView() {
             {/* Collection grid */}
             {filteredItems.length > 0 ? (
                 <div className={styles.grid}>
-                    {filteredItems.map((item) =>
+                    {filteredItems.slice(0, visibleCount).map((item) =>
                         item.type === 'album' && item.album ? (
                             <AlbumCard key={item.id} album={item.album} />
                         ) : item.type === 'track' && item.track ? (
@@ -126,6 +131,17 @@ export function CollectionView() {
                             </p>
                         </>
                     )}
+                </div>
+            )}
+
+            {filteredItems.length > visibleCount && (
+                <div className={styles.loadMoreContainer}>
+                    <button
+                        className={styles.loadMoreBtn}
+                        onClick={handleLoadMore}
+                    >
+                        Load More Items
+                    </button>
                 </div>
             )}
         </div>

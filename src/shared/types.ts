@@ -48,6 +48,7 @@ export interface Artist {
 export interface CollectionItem {
     id: string;
     type: 'album' | 'track';
+    token?: string;
     album?: Album;
     track?: Track;
     purchaseDate: string;

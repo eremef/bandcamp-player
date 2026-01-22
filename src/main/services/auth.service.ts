@@ -156,16 +156,7 @@ export class AuthService {
                 if (identity.fan_id || identity.id) {
                     const fanId = String(identity.fan_id || identity.id);
 
-                    // If we have full info in the cookie (rare but happens)
-                    if (identity.username) {
-                        return {
-                            id: fanId,
-                            username: identity.username,
-                            displayName: identity.name || undefined,
-                            avatarUrl: identity.image || undefined,
-                            profileUrl: `https://bandcamp.com/${identity.username}`,
-                        };
-                    }
+                    // We prioritize Menubar API over cookie data for correctness
 
                     // Otherwise, we need to fetch info from the profile page
                     return await this.fetchProfileFromId(fanId);
@@ -237,7 +228,7 @@ export class AuthService {
                                 }
 
                                 resolve({
-                                    id: fanId,
+                                    id: String(user.id || user.fan_id || fanId),
                                     username: user.username,
                                     displayName: user.name,
                                     avatarUrl: avatarUrl,
