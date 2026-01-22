@@ -361,7 +361,7 @@ export class ScraperService {
                         name: episode.title || `Bandcamp Weekly ${episode.id}`,
                         description: episode.subtitle || episode.desc,
                         imageUrl: episode.image_id ? `https://f4.bcbits.com/img/${episode.image_id}_16.jpg` : undefined,
-                        streamUrl: episode.audio_stream?.['mp3-128'] || '',
+                        streamUrl: '', // Will be fetched on demand
                     });
                 }
             }
@@ -411,5 +411,59 @@ export class ScraperService {
             totalCount: filteredItems.length,
             lastUpdated: this.cachedCollection.lastUpdated,
         };
+    }
+
+    /**
+     * Get stream URL for a specific radio station/episode
+     */
+    async getStationStreamUrl(showId: string): Promise<string> {
+        try {
+            console.log(`Fetching stream URL for radio show ${showId}...`);
+            // 1. Fetch the show page
+            const response = await this.http.get(`https://bandcamp.com/?show=${showId}`);
+            const $ = cheerio.load(response.data);
+
+            // 2. Extract data blob from ArchiveApp div
+            const dataBlob = $('#ArchiveApp').attr('data-blob');
+            if (!dataBlob) {
+                console.error('No data-blob found in ArchiveApp div');
+                return '';
+            }
+
+            try {
+                const appData = JSON.parse(dataBlob);
+                // Find the show in the shows list
+                const show = appData.appData?.shows?.find((s: any) => String(s.showId) === showId);
+
+                if (!show || !show.audioTrackId) {
+                    console.error('Show or audioTrackId not found in data blob');
+                    return '';
+                }
+
+                const audioTrackId = show.audioTrackId;
+                console.log(`Found audioTrackId: ${audioTrackId} for show ${showId}`);
+
+                // 3. Fetch track details from mobile API
+                // Using band_id=1 as generic system ID often works for radio
+                const trackResponse = await this.http.get(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`);
+
+                if (trackResponse.data && trackResponse.data.tracks && trackResponse.data.tracks.length > 0) {
+                    const streamUrl = trackResponse.data.tracks[0].streaming_url?.['mp3-128'];
+                    if (streamUrl) {
+                        console.log('Successfully retrieved radio stream URL');
+                        return streamUrl;
+                    }
+                }
+
+                console.error('Stream URL not found in API response');
+                return '';
+            } catch (e) {
+                console.error('Error parsing radio page data:', e);
+                return '';
+            }
+        } catch (error) {
+            console.error(`Error fetching station stream URL for ${showId}:`, error);
+            return '';
+        }
     }
 }

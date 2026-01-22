@@ -33,7 +33,18 @@ export function PlayerBar() {
         }
 
         if (isPlaying) {
-            audio.play().catch(console.error);
+            console.log('Attempting to play URL:', currentTrack.streamUrl);
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    if (error.name !== 'AbortError') {
+                        console.error('Playback error:', error);
+                        if (audio.error) {
+                            console.error('Audio element error:', audio.error.code, audio.error.message);
+                        }
+                    }
+                });
+            }
         } else {
             audio.pause();
         }
@@ -63,14 +74,24 @@ export function PlayerBar() {
             next();
         };
 
+        const handleError = (e: Event) => {
+            const target = e.target as HTMLAudioElement;
+            console.error('Audio error event:', e);
+            if (target.error) {
+                console.error('Audio error details:', target.error.code, target.error.message);
+            }
+        };
+
         audio.addEventListener('timeupdate', handleTimeUpdate);
         audio.addEventListener('loadedmetadata', handleLoadedMetadata);
         audio.addEventListener('ended', handleEnded);
+        audio.addEventListener('error', handleError);
 
         return () => {
             audio.removeEventListener('timeupdate', handleTimeUpdate);
             audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
             audio.removeEventListener('ended', handleEnded);
+            audio.removeEventListener('error', handleError);
         };
     }, [next]);
 

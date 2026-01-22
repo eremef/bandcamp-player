@@ -201,3 +201,52 @@
 .deleteBtn:hover {
     background: var(--color-error);
 }
+
+/* Creation Form */
+.createForm {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.createInput {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+    width: 200px;
+}
+
+.createInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(29, 185, 84, 0.2);
+    /* Fallback if accent-rgb not defined */
+}
+
+.iconBtn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-full);
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.iconBtn:hover {
+    background: var(--bg-tertiary);
+}
+
+.saveBtn {
+    color: var(--accent-primary);
+}
+
+.cancelBtn {
+    color: var(--text-secondary);
+}

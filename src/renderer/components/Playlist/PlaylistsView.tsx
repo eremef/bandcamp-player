@@ -1,14 +1,30 @@
+import { useState } from 'react';
 import { useStore } from '../../store/store';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
     const { playlists, selectPlaylist, createPlaylist, deletePlaylist } = useStore();
 
+    const [isCreating, setIsCreating] = useState(false);
+    const [newPlaylistName, setNewPlaylistName] = useState('');
+
     const handleCreate = () => {
-        const name = prompt('Enter playlist name:');
-        if (name?.trim()) {
-            createPlaylist(name.trim());
+        setIsCreating(true);
+        // Focus will be handled by autoFocus on input
+    };
+
+    const handleSubmit = (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (newPlaylistName.trim()) {
+            createPlaylist(newPlaylistName.trim());
+            setNewPlaylistName('');
+            setIsCreating(false);
         }
+    };
+
+    const handleCancel = () => {
+        setIsCreating(false);
+        setNewPlaylistName('');
     };
 
     return (
@@ -18,9 +34,31 @@ export function PlaylistsView() {
                     <h1>Playlists</h1>
                     <p>{playlists.length} playlists</p>
                 </div>
-                <button className={styles.createBtn} onClick={handleCreate}>
-                    <span>+</span> Create Playlist
-                </button>
+                {isCreating ? (
+                    <form className={styles.createForm} onSubmit={handleSubmit}>
+                        <input
+                            className={styles.createInput}
+                            type="text"
+                            placeholder="Playlist Name"
+                            value={newPlaylistName}
+                            onChange={(e) => setNewPlaylistName(e.target.value)}
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Escape') handleCancel();
+                            }}
+                        />
+                        <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
+                            ✔️
+                        </button>
+                        <button type="button" className={`${styles.iconBtn} ${styles.cancelBtn}`} onClick={handleCancel} title="Cancel">
+                            ❌
+                        </button>
+                    </form>
+                ) : (
+                    <button className={styles.createBtn} onClick={handleCreate}>
+                        <span>+</span> Create Playlist
+                    </button>
+                )}
             </header>
 
             {playlists.length === 0 ? (

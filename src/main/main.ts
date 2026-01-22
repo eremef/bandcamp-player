@@ -135,7 +135,7 @@ async function initializeServices() {
     cacheService = new CacheService(database, path.join(userDataPath, 'cache'));
     playlistService = new PlaylistService(database);
     scrobblerService = new ScrobblerService(database);
-    playerService = new PlayerService(cacheService, scrobblerService);
+    playerService = new PlayerService(cacheService, scrobblerService, scraperService);
 
     // Register IPC handlers
     registerIpcHandlers(ipcMain, {
@@ -150,6 +150,15 @@ async function initializeServices() {
         getMiniPlayerWindow: () => miniPlayerWindow,
         toggleMiniPlayer,
     });
+
+    // Inject headers for all requests to Bandcamp
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+        { urls: ['*://*.bandcamp.com/*', '*://*.bcbits.com/*'] },
+        (details, callback) => {
+            details.requestHeaders['Referer'] = 'https://bandcamp.com/';
+            callback({ requestHeaders: details.requestHeaders });
+        }
+    );
 }
 
 function toggleMiniPlayer() {

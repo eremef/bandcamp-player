@@ -2,6 +2,7 @@ import { EventEmitter } from 'events';
 import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState } from '../../shared/types';
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
+import { ScraperService } from './scraper.service';
 
 // ============================================================================
 // Player Service
@@ -10,6 +11,7 @@ import { ScrobblerService } from './scrobbler.service';
 export class PlayerService extends EventEmitter {
     private cacheService: CacheService;
     private scrobblerService: ScrobblerService;
+    private scraperService: ScraperService;
 
     // Player state
     private isPlaying = false;
@@ -34,10 +36,11 @@ export class PlayerService extends EventEmitter {
     private isRadioActive = false;
     private currentStation: RadioStation | null = null;
 
-    constructor(cacheService: CacheService, scrobblerService: ScrobblerService) {
+    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService) {
         super();
         this.cacheService = cacheService;
         this.scrobblerService = scrobblerService;
+        this.scraperService = scraperService;
     }
 
     // ---- Playback Control ----
@@ -97,6 +100,20 @@ export class PlayerService extends EventEmitter {
         this.currentStation = station;
         this.isRadioActive = true;
 
+        // Fetch stream URL on demand if missing
+        let streamUrl = station.streamUrl;
+        if (!streamUrl) {
+            console.log(`Resolving stream URL for station: ${station.name}`);
+            streamUrl = await this.scraperService.getStationStreamUrl(station.id);
+            if (!streamUrl) {
+                console.error(`Failed to resolve stream URL for station: ${station.name}`);
+                // Could handle error here? But for now let it fail or play silence.
+            } else {
+                // Update station object too
+                station.streamUrl = streamUrl;
+            }
+        }
+
         const radioTrack: Track = {
             id: `radio-${station.id}`,
             title: station.name,
@@ -104,12 +121,13 @@ export class PlayerService extends EventEmitter {
             album: station.description || '',
             duration: 0,
             artworkUrl: station.imageUrl || '',
-            streamUrl: station.streamUrl,
+            streamUrl: streamUrl,
             bandcampUrl: 'https://bandcamp.com',
             isCached: false
         };
 
         this.currentTrack = radioTrack;
+        console.log('Playing radio station track:', JSON.stringify(radioTrack, null, 2));
         this.isPlaying = true;
         this.emitStateChange();
         this.emitTrackChange();
