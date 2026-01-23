@@ -14,7 +14,7 @@ export function RadioView() {
         if (radioStations.length === 0) {
             fetchRadioStations();
         }
-    }, []);
+    }, [radioStations.length, fetchRadioStations]);
 
     return (
         <div className={styles.container}>

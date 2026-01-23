@@ -16,7 +16,7 @@ export function CollectionView() {
         if (!collection) {
             fetchCollection();
         }
-    }, []);
+    }, [collection, fetchCollection]);
 
     useEffect(() => {
         if (!collection) return;
@@ -122,7 +122,7 @@ export function CollectionView() {
             ) : (
                 <div className={styles.empty}>
                     {searchQuery ? (
-                        <p>No results for "{searchQuery}"</p>
+                        <p>No results for &quot;{searchQuery}&quot;</p>
                     ) : (
                         <>
                             <p>Your collection is empty</p>

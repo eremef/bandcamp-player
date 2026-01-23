@@ -1,4 +1,4 @@
-import { Session, BrowserWindow } from 'electron';
+import { Session, BrowserWindow, net } from 'electron';
 import type { AuthState, BandcampUser } from '../../shared/types';
 
 // ============================================================================
@@ -193,7 +193,7 @@ export class AuthService {
             console.log('Fetching profile info from Bandcamp menubar API...');
             const cookies = await this.getSessionCookies();
 
-            const { net } = require('electron');
+            // const { net } = require('electron');
             return new Promise((resolve) => {
                 const request = net.request({
                     method: 'POST',

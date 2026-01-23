@@ -8,7 +8,7 @@ interface AlbumCardProps {
 }
 
 export function AlbumCard({ album }: AlbumCardProps) {
-    const { getAlbumDetails, addAlbumToQueue, play, playlists, addTrackToPlaylist, downloadTrack, clearQueue, playQueueIndex } = useStore();
+    const { getAlbumDetails, addAlbumToQueue, playlists, addTrackToPlaylist, downloadTrack, clearQueue, playQueueIndex } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
 

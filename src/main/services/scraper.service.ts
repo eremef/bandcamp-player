@@ -53,7 +53,7 @@ export class ScraperService {
 
             // Extract collection data from the page
             // Bandcamp embeds collection data in a script tag
-            const pageDataScript = $('script[data-tralbum]').attr('data-tralbum');
+            // const pageDataScript = $('script[data-tralbum]').attr('data-tralbum');
             const collectionScript = $('script').filter((_, el) => {
                 const text = $(el).html() || '';
                 return text.includes('CollectionData') || text.includes('collection_data');
@@ -79,8 +79,8 @@ export class ScraperService {
                                 }
                             }
                         }
-                    } catch (e) {
-                        console.error('Error parsing collection data:', e);
+                    } catch (__e) {
+                        console.error('Error parsing collection data:', __e);
                     }
                 }
             }
@@ -108,7 +108,7 @@ export class ScraperService {
                     if (pd.fan_id) {
                         pageFanId = Number(pd.fan_id);
                     }
-                } catch (e) {
+                } catch {
                     const directId = pagedataMatch[1].match(/fan_id\s*:\s*(\d+)/);
                     if (directId) {
                         pageFanId = parseInt(directId[1], 10);
@@ -437,13 +437,13 @@ export class ScraperService {
             if (match) {
                 try {
                     // Clean the JSON (handle JS syntax)
-                    let jsonStr = match[1]
+                    const jsonStr = match[1]
                         .replace(/'/g, '"')
                         .replace(/(\w+):/g, '"$1":')
                         .replace(/,\s*}/g, '}')
                         .replace(/,\s*]/g, ']');
                     tralbumData = JSON.parse(jsonStr);
-                } catch (e) {
+                } catch {
                     // Try eval-based approach (safer alternative)
                     try {
                         tralbumData = new Function(`return ${match[1]}`)();

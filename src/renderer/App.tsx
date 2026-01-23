@@ -15,7 +15,7 @@ function App() {
         checkSession();
         fetchSettings();
         fetchRadioStations();
-    }, []);
+    }, [checkSession, fetchSettings, fetchRadioStations]);
 
     // Show login prompt if not authenticated
     if (!auth.isAuthenticated) {

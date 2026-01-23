@@ -62,7 +62,7 @@ export function LoginPrompt() {
                 </button>
 
                 <p className={styles.note}>
-                    You'll be redirected to Bandcamp to sign in securely
+                    You&apos;ll be redirected to Bandcamp to sign in securely
                 </p>
             </div>
 

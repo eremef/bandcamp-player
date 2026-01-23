@@ -109,7 +109,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(QUEUE_CHANNELS.ADD_TRACKS, (_, tracks: Track[]) =>
         playerService.addTracksToQueue(tracks)
     );
-    ipcMain.handle(QUEUE_CHANNELS.ADD_ALBUM, (_, album: Album, playNext?: boolean) => {
+    ipcMain.handle(QUEUE_CHANNELS.ADD_ALBUM, (_, album: Album, _playNext?: boolean) => {
         playerService.addTracksToQueue(album.tracks, 'collection');
     });
     ipcMain.handle(QUEUE_CHANNELS.ADD_PLAYLIST, (_, playlist: Playlist) => {

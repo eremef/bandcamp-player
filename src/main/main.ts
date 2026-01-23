@@ -15,6 +15,8 @@ import { registerIpcHandlers } from './ipc-handlers';
 // ============================================================================
 
 // Disable hardware acceleration to fix FFmpeg pixel format errors
+app.commandLine.appendSwitch('disable-gpu');
+app.commandLine.appendSwitch('disable-software-rasterizer');
 app.disableHardwareAcceleration();
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -250,6 +252,7 @@ if (!gotTheLock) {
 
     app.on('before-quit', () => {
         appIsQuitting = true;
+        trayService?.destroy();
         database?.close();
     });
 }

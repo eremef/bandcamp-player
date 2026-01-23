@@ -1,4 +1,5 @@
 import axios from 'axios';
+import * as crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { Database } from '../database/database';
@@ -162,7 +163,7 @@ export class ScrobblerService extends EventEmitter {
                     imageUrl: response.data.user.image?.[1]?.['#text'],
                 };
             }
-        } catch (error) {
+        } catch {
             this.sessionKey = null;
             this.user = null;
             this.database.setSettings({ lastfmSessionKey: undefined });
@@ -328,7 +329,6 @@ export class ScrobblerService extends EventEmitter {
         str += LASTFM_API_SECRET;
 
         // MD5 hash
-        const crypto = require('crypto');
         return crypto.createHash('md5').update(str, 'utf8').digest('hex');
     }
 

@@ -3,7 +3,7 @@ import * as path from 'path';
 import axios from 'axios';
 import { EventEmitter } from 'events';
 import { Database } from '../database/database';
-import type { Track, CacheStats, CacheEntry } from '../../shared/types';
+import type { Track, CacheStats } from '../../shared/types';
 
 // ============================================================================
 // Cache Service
@@ -221,7 +221,7 @@ export class CacheService extends EventEmitter {
         return path.join(this.cacheDir, `${safeId}.mp3`);
     }
 
-    private async ensureCacheSpace(track: Track): Promise<void> {
+    private async ensureCacheSpace(_track: Track): Promise<void> {
         const settings = this.database.getSettings();
         const maxSize = (settings?.cacheMaxSizeGB || 5) * 1024 * 1024 * 1024;
         const estimatedTrackSize = 10 * 1024 * 1024; // Estimate 10MB per track

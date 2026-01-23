@@ -34,3 +34,5 @@ cache/
 
 # Debug
 debug_*.json
+.gemini/
+gha-creds-*.json
