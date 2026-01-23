@@ -24,6 +24,7 @@ A feature-rich Electron desktop application for playing Bandcamp music with fan 
 - **SQLite** (better-sqlite3) - Local database
 - **Vite** - Build tool for renderer
 - **Cheerio** - Web scraping
+- **Axios** - HTTP client
 
 ## Getting Started
 
@@ -99,17 +100,22 @@ src/
 │   ├── ipc-handlers.ts     # IPC communication
 │   ├── services/           # Backend services
 │   │   ├── auth.service.ts
-│   │   ├── scraper.service.ts
-│   │   ├── player.service.ts
 │   │   ├── cache.service.ts
+│   │   ├── player.service.ts
 │   │   ├── playlist.service.ts
+│   │   ├── scraper.service.ts
 │   │   ├── scrobbler.service.ts
 │   │   └── tray.service.ts
 │   └── database/           # SQLite database
 ├── renderer/               # React frontend
 │   ├── components/         # UI components
-│   │   ├── Settings/       # Settings modal
-│   │   ├── Radio/          # Radio player
+│   │   ├── Auth/           # Auth Components
+│   │   ├── Collection/     # Collection Views
+│   │   ├── Layout/         # Layout Components
+│   │   ├── Player/         # Player Controls
+│   │   ├── Playlist/       # Playlist Management
+│   │   ├── Radio/          # Radio Player
+│   │   ├── Settings/       # Settings Modal
 │   │   └── UI/             # Common UI elements
 │   ├── store/             # Zustand store
 │   └── styles/            # CSS styles

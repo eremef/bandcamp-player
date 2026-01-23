@@ -1,5 +1,3 @@
-# Technical Specification
-
 ## 1. Architecture Overview
 
 The Bandcamp Player is a desktop application built with **Electron**, leveraging a **React** frontend (Renderer process) and a robust **Node.js** backend (Main process). 
@@ -17,7 +15,7 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 
 ### Database & Storage
 - **better-sqlite3**: Synchronous, high-performance SQLite driver for local data persistence.
-- **electron-store**: Simple data persistence (likely for window state or simple prefs, though SQLite is primary).
+- **electron-store**: Simple data persistence.
 
 ### State Management
 - **Zustand**: Lightweight state management for the React frontend.
@@ -38,15 +36,19 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 Represents a single audio track.
 ```typescript
 interface Track {
-  id: string;
-  title: string;
-  artist: string;
-  album: string;
-  duration: number; // seconds
-  streamUrl: string;
-  artworkUrl: string;
-  isCached: boolean;
-  cachedPath?: string;
+    id: string;
+    title: string;
+    artist: string;
+    artistId?: string;
+    album: string;
+    albumId?: string;
+    duration: number; // in seconds
+    trackNumber?: number;
+    artworkUrl: string;
+    streamUrl: string;
+    bandcampUrl: string;
+    isCached: boolean;
+    cachedPath?: string;
 }
 ```
 
@@ -54,12 +56,15 @@ interface Track {
 Represents a music album containing multiple tracks.
 ```typescript
 interface Album {
-  id: string;
-  title: string;
-  artist: string;
-  artworkUrl: string;
-  tracks: Track[];
-  trackCount: number;
+    id: string;
+    title: string;
+    artist: string;
+    artistId?: string;
+    artworkUrl: string;
+    bandcampUrl: string;
+    releaseDate?: string;
+    tracks: Track[];
+    trackCount: number;
 }
 ```
 
@@ -67,11 +72,38 @@ interface Album {
 User-created collection of tracks.
 ```typescript
 interface Playlist {
-  id: string;
-  name: string;
-  description?: string;
-  tracks: Track[];
-  createdAt: string;
+    id: string;
+    name: string;
+    description?: string;
+    tracks: Track[];
+    trackCount: number;
+    totalDuration: number; // in seconds
+    artworkUrl?: string; // First track's artwork or custom
+    createdAt: string;
+    updatedAt: string;
+}
+```
+
+#### QueueItem
+Items in the playback queue.
+```typescript
+interface QueueItem {
+    id: string; // Unique queue item ID
+    track: Track;
+    source: 'collection' | 'playlist' | 'radio' | 'search';
+    sourceId?: string; // Playlist ID if from playlist
+}
+```
+
+#### RadioStation
+Curated radio station stream.
+```typescript
+interface RadioStation {
+    id: string;
+    name: string;
+    description?: string;
+    imageUrl?: string;
+    streamUrl: string;
 }
 ```
 
@@ -81,13 +113,26 @@ interface Playlist {
 Current status of audio playback.
 - `isPlaying`: boolean
 - `currentTrack`: Track | null
+- `currentTime`: number
+- `duration`: number
 - `volume`: number (0-1)
+- `isMuted`: boolean
+- `repeatMode`: 'off' | 'one' | 'all'
+- `isShuffled`: boolean
 - `queue`: Queue object
 
-#### AuthState
-User authentication status.
-- `isAuthenticated`: boolean
-- `user`: BandcampUser profile data
+#### AppSettings
+Application configuration.
+- `cacheEnabled`: boolean
+- `cacheMaxSizeGB`: number
+- `cacheLocation`: string
+- `defaultVolume`: number
+- `crossfadeDuration`: number
+- `startMinimized`: boolean
+- `minimizeToTray`: boolean
+- `showNotifications`: boolean
+- `scrobblingEnabled`: boolean
+- `scrobbleThreshold`: number
 
 ## 4. Database Schema
 
@@ -114,6 +159,13 @@ Join table linking tracks to playlists with ordering.
 - `position` (INTEGER): Sort order
 - `added_at` (TEXT)
 
+### `collection_cache`
+Cached collection data for faster loading.
+- `id` (TEXT PK)
+- `type` (TEXT): 'album' | 'track'
+- `data` (TEXT): JSON stringified data
+- `cached_at` (TEXT)
+
 ### `audio_cache`
 Tracks downloaded for offline playback.
 - `track_id` (TEXT PK)
@@ -127,14 +179,17 @@ Offline queue for Last.fm scrobbles.
 - `id` (INTEGER PK AUTOINCREMENT)
 - `artist` (TEXT)
 - `track` (TEXT)
+- `album` (TEXT)
+- `duration` (INTEGER)
 - `timestamp` (INTEGER)
+- `created_at` (TEXT)
 
 ## 5. Key Workflows
 
 ### Authentication
 The app does not use the official Bandcamp API (which is limited/closed). Instead, it relies on:
 1. User provides Bandcamp credentials (via web login flow or cookie extraction).
-2. App scrapes the user's "Collection" page to parse purchased items.
+2. App scraper service fetches user library data.
 3. Authenticated session cookies are managed for subsequent requests.
 
 ### Offline Caching
