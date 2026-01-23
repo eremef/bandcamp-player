@@ -12,63 +12,55 @@ export function AlbumCard({ album }: AlbumCardProps) {
     const [isLoading, setIsLoading] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
 
-    const handlePlay = async () => {
-        setIsLoading(true);
-        try {
-            // Fetch full album details if we don't have tracks
-            let albumWithTracks = album;
-            if (album.tracks.length === 0 && album.bandcampUrl) {
+    const ensureAlbumTracks = async () => {
+        // If we have no tracks, or we have tracks but they are missing stream URLs (and not cached), we need to fetch
+        const hasValidTracks = album.tracks.length > 0 && album.tracks.every(t => !!t.streamUrl || !!t.isCached);
+
+        if (hasValidTracks) {
+            return album;
+        }
+
+        if (album.bandcampUrl) {
+            setIsLoading(true);
+            try {
                 const details = await getAlbumDetails(album.bandcampUrl);
                 if (details) {
-                    albumWithTracks = details;
+                    return details;
                 }
+            } catch (error) {
+                console.error('Error fetching album details:', error);
+            } finally {
+                setIsLoading(false);
             }
+        }
+        return album;
+    };
 
-            if (albumWithTracks.tracks.length > 0) {
-                await clearQueue(false);
-                await addAlbumToQueue(albumWithTracks);
-                await playQueueIndex(0);
-            }
-        } catch (error) {
-            console.error('Error playing album:', error);
-        } finally {
-            setIsLoading(false);
+    const handlePlay = async () => {
+        const albumWithTracks = await ensureAlbumTracks();
+
+        if (albumWithTracks.tracks.length > 0) {
+            await clearQueue(false);
+            await addAlbumToQueue(albumWithTracks);
+            await playQueueIndex(0);
         }
     };
 
     const handleAddToQueue = async () => {
         setShowMenu(false);
-        let albumWithTracks = album;
-        if (album.tracks.length === 0 && album.bandcampUrl) {
-            const details = await getAlbumDetails(album.bandcampUrl);
-            if (details) {
-                albumWithTracks = details;
-            }
-        }
+        const albumWithTracks = await ensureAlbumTracks();
         await addAlbumToQueue(albumWithTracks);
     };
 
     const handleAddToPlaylist = async (playlistId: string) => {
         setShowMenu(false);
-        let albumWithTracks = album;
-        if (album.tracks.length === 0 && album.bandcampUrl) {
-            const details = await getAlbumDetails(album.bandcampUrl);
-            if (details) {
-                albumWithTracks = details;
-            }
-        }
+        const albumWithTracks = await ensureAlbumTracks();
         await addTracksToPlaylist(playlistId, albumWithTracks.tracks);
     };
 
     const handleDownload = async () => {
         setShowMenu(false);
-        let albumWithTracks = album;
-        if (album.tracks.length === 0 && album.bandcampUrl) {
-            const details = await getAlbumDetails(album.bandcampUrl);
-            if (details) {
-                albumWithTracks = details;
-            }
-        }
+        const albumWithTracks = await ensureAlbumTracks();
         for (const track of albumWithTracks.tracks) {
             await downloadTrack(track);
         }

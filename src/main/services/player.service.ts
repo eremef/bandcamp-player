@@ -46,8 +46,13 @@ export class PlayerService extends EventEmitter {
     // ---- Playback Control ----
 
     async play(track?: Track): Promise<void> {
+
         if (track) {
             // Play a specific track
+            if (!track.streamUrl) {
+                console.error('[PlayerService] CRITICAL: Track has no stream URL!');
+            }
+
             this.currentTrack = track;
             this.currentTime = 0;
             this.isPlaying = true;
@@ -66,6 +71,8 @@ export class PlayerService extends EventEmitter {
         } else if (this.queue.length > 0) {
             // Play first item in queue
             this.playIndex(0);
+        } else {
+            console.warn('[PlayerService] play called but nothing to play');
         }
     }
 

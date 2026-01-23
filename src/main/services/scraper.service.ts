@@ -383,19 +383,48 @@ export class ScraperService {
                 return null;
             }
 
-            const tracks: Track[] = (tralbumData.trackinfo || []).map((trackInfo: any, index: number) => ({
-                id: String(trackInfo.track_id || `${tralbumData.id}-${index}`),
-                title: trackInfo.title,
-                artist: tralbumData.artist,
-                artistId: String(tralbumData.band_id),
-                album: tralbumData.current?.title || tralbumData.album_title,
-                albumId: String(tralbumData.id),
-                duration: trackInfo.duration || 0,
-                trackNumber: trackInfo.track_num || index + 1,
-                artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
-                streamUrl: trackInfo.file?.['mp3-128'] || '',
-                bandcampUrl: trackInfo.title_link ? `${tralbumData.url}${trackInfo.title_link}` : albumUrl,
-                isCached: false,
+            const tracks: Track[] = await Promise.all((tralbumData.trackinfo || []).map(async (trackInfo: any, index: number) => {
+                let streamUrl = trackInfo.file?.['mp3-128'] || trackInfo.file?.['mp3-v0'] || '';
+
+                // Fallback to Mobile API if stream URL is missing
+                if (!streamUrl && tralbumData.band_id && trackInfo.track_id) {
+                    try {
+                        console.log(`[ScraperService] Fetching fallback stream for ${trackInfo.title} via Mobile API...`);
+                        const mobileUrl = `https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${tralbumData.band_id}&tralbum_type=t&tralbum_id=${trackInfo.track_id}`;
+                        const response = await this.http.get(mobileUrl, { headers: { Cookie: cookies } });
+
+                        if (response.data && response.data.tracks && response.data.tracks.length > 0) {
+                            const mobileTrack = response.data.tracks[0];
+                            streamUrl = mobileTrack.streaming_url?.['mp3-128'] || mobileTrack.streaming_url?.['mp3-v0'] || '';
+                            if (streamUrl) {
+                                console.log('[ScraperService] Successfully retrieved fallback stream URL');
+                            }
+                        }
+                    } catch (e: any) {
+                        console.error('[ScraperService] Mobile API fallback failed:', e.message);
+                    }
+                }
+
+                if (!streamUrl) {
+                    console.warn(`[ScraperService] No stream URL found for track ${trackInfo.title} (ID: ${trackInfo.track_id})`);
+                    console.log('[ScraperService] Full trackInfo object:', JSON.stringify(trackInfo, null, 2));
+                    console.log('[ScraperService] TralbumData ID:', tralbumData.id);
+                }
+
+                return {
+                    id: String(trackInfo.track_id || `${tralbumData.id}-${index}`),
+                    title: trackInfo.title,
+                    artist: tralbumData.artist,
+                    artistId: String(tralbumData.band_id),
+                    album: tralbumData.current?.title || tralbumData.album_title,
+                    albumId: String(tralbumData.id),
+                    duration: trackInfo.duration || 0,
+                    trackNumber: trackInfo.track_num || index + 1,
+                    artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
+                    streamUrl,
+                    bandcampUrl: trackInfo.title_link ? `${tralbumData.url}${trackInfo.title_link}` : albumUrl,
+                    isCached: false,
+                };
             }));
 
             return {

@@ -35,6 +35,7 @@ export function QueuePanel() {
                                         ? styles.played
                                         : ''
                                     }`}
+                                onDoubleClick={() => playQueueIndex(index)}
                             >
                                 <button
                                     className={styles.playBtn}

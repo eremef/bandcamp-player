@@ -28,8 +28,6 @@ export class AuthService {
                 c.domain?.includes('bandcamp.com')
             );
 
-            console.log(`Checking session: found ${cookies.length} cookies, hasSession: ${hasSession}`);
-
             if (hasSession && !this.currentUser) {
                 // Fetch user info from cookies or by making a request
                 this.currentUser = await this.fetchUserFromSession();
