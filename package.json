@@ -19,7 +19,7 @@
     "package": "electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "npm run rebuild && electron-builder install-app-deps",
-    "restart": "taskkill /IM electron.exe /F & taskkill /IM node.exe /F && npm run dev && npm run start",
+    "restart": "taskkill /F /IM electron.exe /T & taskkill /F /IM node.exe /T & npm run dev:start",
     "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\""
   },
   "dependencies": {
@@ -55,7 +55,8 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.21.0",
     "vite": "^6.0.7",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.18",
+    "wait-on": "^9.0.3"
   },
   "build": {
     "appId": "com.bandcamp.player",
@@ -74,6 +75,15 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
+    }
+  },
+  "overrides": {
+    "tar": "7.5.4",
+    "@electron/rebuild": {
+      "tar": "6.2.1"
+    },
+    "electron-builder": {
+      "tar": "6.2.1"
     }
   }
 }
