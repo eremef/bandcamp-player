@@ -169,12 +169,16 @@ export class Database {
         if (!playlistRow) return null;
 
         const trackRows = this.db.prepare(`
-      SELECT track_data FROM playlist_tracks 
+      SELECT id, track_data FROM playlist_tracks 
       WHERE playlist_id = ? 
       ORDER BY position
-    `).all(id) as Array<{ track_data: string }>;
+    `).all(id) as Array<{ id: string; track_data: string }>;
 
-        const tracks: Track[] = trackRows.map(row => JSON.parse(row.track_data));
+        const tracks: Track[] = trackRows.map(row => {
+            const track = JSON.parse(row.track_data);
+            track.playlistEntryId = row.id;
+            return track;
+        });
         const totalDuration = tracks.reduce((sum, t) => sum + t.duration, 0);
 
         return {
@@ -237,6 +241,38 @@ export class Database {
     `).run(trackId, playlistId, JSON.stringify(track), position, now);
 
         this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(now, playlistId);
+    }
+
+    addTracksToPlaylist(playlistId: string, tracks: Track[]): void {
+        if (tracks.length === 0) return;
+
+        const now = new Date().toISOString();
+
+        // Get current max position
+        const maxPos = this.db.prepare(
+            'SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?'
+        ).get(playlistId) as { max: number | null };
+
+        let currentPos = (maxPos.max ?? -1) + 1;
+
+        const insertStmt = this.db.prepare(`
+            INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at)
+            VALUES (?, ?, ?, ?, ?)
+        `);
+
+        // Use transaction for bulk insert
+        const transaction = this.db.transaction(() => {
+            for (const track of tracks) {
+                // Generate a unique ID for the playlist item
+                const trackId = `${playlistId}-${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                insertStmt.run(trackId, playlistId, JSON.stringify(track), currentPos++, now);
+            }
+
+            // Update playlist timestamp
+            this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(now, playlistId);
+        });
+
+        transaction();
     }
 
     removeTrackFromPlaylist(playlistId: string, trackId: string): void {

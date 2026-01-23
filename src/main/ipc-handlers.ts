@@ -140,6 +140,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(PLAYLIST_CHANNELS.ADD_TRACK, (_, playlistId: string, track: Track) =>
         playlistService.addTrack(playlistId, track)
     );
+    ipcMain.handle(PLAYLIST_CHANNELS.ADD_TRACKS, (_, playlistId: string, tracks: Track[]) =>
+        playlistService.addTracks(playlistId, tracks)
+    );
     ipcMain.handle(PLAYLIST_CHANNELS.REMOVE_TRACK, (_, playlistId: string, trackId: string) =>
         playlistService.removeTrack(playlistId, trackId)
     );

@@ -20,6 +20,7 @@ export interface Track {
     bandcampUrl: string;
     isCached: boolean;
     cachedPath?: string;
+    playlistEntryId?: string;
 }
 
 export interface Album {

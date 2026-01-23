@@ -79,6 +79,7 @@ export const PLAYLIST_CHANNELS = {
     UPDATE: 'playlist:update',
     DELETE: 'playlist:delete',
     ADD_TRACK: 'playlist:add-track',
+    ADD_TRACKS: 'playlist:add-tracks',
     REMOVE_TRACK: 'playlist:remove-track',
     REORDER_TRACKS: 'playlist:reorder-tracks',
     ON_UPDATED: 'playlist:on-updated',

@@ -51,6 +51,13 @@ export class PlaylistService {
     }
 
     /**
+     * Add multiple tracks to playlist
+     */
+    addTracks(playlistId: string, tracks: Track[]): void {
+        this.database.addTracksToPlaylist(playlistId, tracks);
+    }
+
+    /**
      * Add track to playlist
      */
     addTrack(playlistId: string, track: Track): void {

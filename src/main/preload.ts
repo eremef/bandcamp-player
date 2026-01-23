@@ -123,6 +123,8 @@ const electronAPI = {
         delete: (id: string): Promise<void> => ipcRenderer.invoke(PLAYLIST_CHANNELS.DELETE, id),
         addTrack: (playlistId: string, track: Track): Promise<void> =>
             ipcRenderer.invoke(PLAYLIST_CHANNELS.ADD_TRACK, playlistId, track),
+        addTracks: (playlistId: string, tracks: Track[]): Promise<void> =>
+            ipcRenderer.invoke(PLAYLIST_CHANNELS.ADD_TRACKS, playlistId, tracks),
         removeTrack: (playlistId: string, trackId: string): Promise<void> =>
             ipcRenderer.invoke(PLAYLIST_CHANNELS.REMOVE_TRACK, playlistId, trackId),
         reorderTracks: (playlistId: string, fromIndex: number, toIndex: number): Promise<void> =>

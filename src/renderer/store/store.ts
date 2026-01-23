@@ -69,6 +69,7 @@ interface PlaylistSlice {
     updatePlaylist: (id: string, name?: string, description?: string) => Promise<void>;
     deletePlaylist: (id: string) => Promise<void>;
     addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
+    addTracksToPlaylist: (playlistId: string, tracks: Track[]) => Promise<void>;
     removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
 }
 
@@ -287,13 +288,24 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     addTrackToPlaylist: async (playlistId, track) => {
         await window.electron.playlist.addTrack(playlistId, track);
+        get().fetchPlaylists(); // Refresh to update counts
         const playlist = get().playlists.find(p => p.id === playlistId);
         if (playlist) {
             get().showToast(`Item ${track.title} added to the ${playlist.name}`, 'success');
         }
     },
+    addTracksToPlaylist: async (playlistId, tracks) => {
+        if (tracks.length === 0) return;
+        await window.electron.playlist.addTracks(playlistId, tracks);
+        get().fetchPlaylists(); // Refresh to update counts
+        const playlist = get().playlists.find(p => p.id === playlistId);
+        if (playlist) {
+            get().showToast(`${tracks.length} tracks added to ${playlist.name}`, 'success');
+        }
+    },
     removeTrackFromPlaylist: async (playlistId, trackId) => {
         await window.electron.playlist.removeTrack(playlistId, trackId);
+        get().fetchPlaylists(); // Refresh to update counts
         if (get().selectedPlaylist?.id === playlistId) {
             get().selectPlaylist(playlistId);
         }

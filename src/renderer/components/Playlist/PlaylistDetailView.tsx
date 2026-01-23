@@ -119,7 +119,7 @@ export function PlaylistDetailView() {
                                     <td className={styles.colActions}>
                                         <button
                                             className={styles.removeBtn}
-                                            onClick={() => removeTrackFromPlaylist(selectedPlaylist.id, track.id)}
+                                            onClick={() => removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id)}
                                             title="Remove from playlist"
                                         >
                                             ✕
