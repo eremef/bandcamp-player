@@ -178,6 +178,34 @@
     opacity: 1;
 }
 
+.progressHover {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.hoverTime {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.progressBar:hover .progressTrack {
+    height: 6px;
+    transition: height var(--transition-fast);
+}
+
 /* Extras */
 .extras {
     display: flex;

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useStore } from '../../store/store';
 import styles from './PlayerBar.module.css';
 
@@ -20,6 +20,7 @@ export function PlayerBar() {
 
     const audioRef = useRef<HTMLAudioElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
+    const [hoverTime, setHoverTime] = useState<number | null>(null);
 
     const { isPlaying, currentTrack, currentTime, duration, volume, isMuted, isShuffled, repeatMode } = player;
 
@@ -103,10 +104,23 @@ export function PlayerBar() {
     };
 
     const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!progressRef.current || !duration || !audioRef.current) return;
+        const rect = progressRef.current.getBoundingClientRect();
+        const percent = (e.clientX - rect.left) / rect.width;
+        const seekTime = percent * duration;
+        audioRef.current.currentTime = seekTime;
+        seek(seekTime);
+    };
+
+    const handleProgressHover = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!progressRef.current || !duration) return;
         const rect = progressRef.current.getBoundingClientRect();
         const percent = (e.clientX - rect.left) / rect.width;
-        seek(percent * duration);
+        setHoverTime(percent * duration);
+    };
+
+    const handleProgressLeave = () => {
+        setHoverTime(null);
     };
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,9 +185,23 @@ export function PlayerBar() {
 
                 <div className={styles.progressContainer}>
                     <span className={styles.time}>{formatTime(currentTime)}</span>
-                    <div className={styles.progressBar} ref={progressRef} onClick={handleProgressClick}>
+                    <div
+                        className={styles.progressBar}
+                        ref={progressRef}
+                        onClick={handleProgressClick}
+                        onMouseMove={handleProgressHover}
+                        onMouseLeave={handleProgressLeave}
+                    >
                         <div className={styles.progressTrack}>
                             <div className={styles.progressFill} style={{ width: `${progress}%` }} />
+                            {hoverTime !== null && (
+                                <div
+                                    className={styles.progressHover}
+                                    style={{ left: `${(hoverTime / duration) * 100}%` }}
+                                >
+                                    <span className={styles.hoverTime}>{formatTime(hoverTime)}</span>
+                                </div>
+                            )}
                             <div className={styles.progressThumb} style={{ left: `${progress}%` }} />
                         </div>
                     </div>
