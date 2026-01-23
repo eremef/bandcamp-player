@@ -44,7 +44,7 @@ npm run build
 
 ### Environment Note
 
-- **Shell**: When running multiple commands in a single `run_shell_command` call, use `;` as a separator instead of `&&`, as the environment uses a version of PowerShell that does not support `&&`.
+- **Shell**: Use proper command separators depending on the environment where the CLI is executed. Since `run_shell_command` typically executes via PowerShell on Windows, prefer `;` for sequential commands. In environments supporting `&&` (like CMD or PowerShell 7+), use it for conditional execution. Avoid assuming `&&` is always available.
 
 ## Project Structure
 
