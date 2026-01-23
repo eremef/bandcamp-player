@@ -1,14 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
+import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
     const { radioStations, fetchRadioStations, playRadioStation, radioState, stopRadio } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
 
-    const handleLoadMore = () => {
+    const handleLoadMore = useCallback(() => {
         setVisibleCount(prev => prev + 20);
-    };
+    }, []);
+
+    const targetRef = useIntersectionObserver({
+        onIntersect: handleLoadMore,
+        enabled: visibleCount < radioStations.length,
+    });
 
     useEffect(() => {
         if (radioStations.length === 0) {
@@ -81,13 +87,8 @@ export function RadioView() {
             </div>
 
             {visibleCount < radioStations.length && (
-                <div className={styles.loadMoreContainer}>
-                    <button
-                        className={styles.loadMoreBtn}
-                        onClick={handleLoadMore}
-                    >
-                        Load More Shows
-                    </button>
+                <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
+                    {/* Sentinel element for infinite scroll */}
                 </div>
             )}
 

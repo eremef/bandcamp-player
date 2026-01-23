@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
+import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import { AlbumCard } from './AlbumCard';
 import styles from './CollectionView.module.css';
 
@@ -8,9 +9,14 @@ export function CollectionView() {
     const [filteredItems, setFilteredItems] = useState(collection?.items || []);
     const [visibleCount, setVisibleCount] = useState(20);
 
-    const handleLoadMore = () => {
+    const handleLoadMore = useCallback(() => {
         setVisibleCount(prev => prev + 20);
-    };
+    }, []);
+
+    const targetRef = useIntersectionObserver({
+        onIntersect: handleLoadMore,
+        enabled: filteredItems.length > visibleCount,
+    });
 
     useEffect(() => {
         if (!collection) {
@@ -135,13 +141,8 @@ export function CollectionView() {
             )}
 
             {filteredItems.length > visibleCount && (
-                <div className={styles.loadMoreContainer}>
-                    <button
-                        className={styles.loadMoreBtn}
-                        onClick={handleLoadMore}
-                    >
-                        Load More Items
-                    </button>
+                <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
+                    {/* Sentinel element for infinite scroll */}
                 </div>
             )}
         </div>

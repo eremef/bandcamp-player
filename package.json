@@ -18,7 +18,9 @@
     "test": "vitest run",
     "package": "electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild && electron-builder install-app-deps"
+    "postinstall": "npm run rebuild && electron-builder install-app-deps",
+    "restart": "taskkill /IM electron.exe /F & taskkill /IM node.exe /F && npm run dev && npm run start",
+    "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\""
   },
   "dependencies": {
     "axios": "^1.6.7",
