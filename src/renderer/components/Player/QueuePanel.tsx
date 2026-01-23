@@ -9,7 +9,7 @@ export function QueuePanel() {
             <header className={styles.header}>
                 <h2>Queue</h2>
                 <div className={styles.headerActions}>
-                    <button className={styles.clearBtn} onClick={clearQueue} title="Clear queue">
+                    <button className={styles.clearBtn} onClick={() => clearQueue()} title="Clear queue">
                         Clear
                     </button>
                     <button className={styles.closeBtn} onClick={toggleQueue} title="Close">
@@ -29,7 +29,12 @@ export function QueuePanel() {
                         {queue.items.map((item, index) => (
                             <li
                                 key={item.id}
-                                className={`${styles.item} ${index === queue.currentIndex ? styles.current : ''}`}
+                                className={`${styles.item} ${index === queue.currentIndex
+                                    ? styles.current
+                                    : index < queue.currentIndex
+                                        ? styles.played
+                                        : ''
+                                    }`}
                             >
                                 <button
                                     className={styles.playBtn}

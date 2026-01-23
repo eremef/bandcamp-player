@@ -15,6 +15,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         cacheStats,
         clearCache,
         fetchCacheStats,
+        auth,
+        logout,
     } = useStore();
 
     // Fetch cache stats on mount
@@ -195,6 +197,35 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 />
                                 <span className={styles.slider}></span>
                             </label>
+                        </div>
+                    </section>
+
+                    {/* Account */}
+                    <section className={styles.section}>
+                        <h3>Account</h3>
+                        <div className={styles.userProfile}>
+                            <div className={styles.userInfo}>
+                                <div className={styles.userAvatar}>
+                                    {auth.user?.avatarUrl ? (
+                                        <img src={auth.user.avatarUrl} alt="" />
+                                    ) : (
+                                        <span>👤</span>
+                                    )}
+                                </div>
+                                <div className={styles.userDetails}>
+                                    <span className={styles.userName}>{auth.user?.displayName || auth.user?.username || 'User'}</span>
+                                    <span className={styles.userStatus}>Logged In</span>
+                                </div>
+                            </div>
+                            <button
+                                className={styles.logoutBtn}
+                                onClick={() => {
+                                    logout();
+                                    onClose();
+                                }}
+                            >
+                                🚪 Logout
+                            </button>
                         </div>
                     </section>
 

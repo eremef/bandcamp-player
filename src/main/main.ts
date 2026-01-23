@@ -14,6 +14,9 @@ import { registerIpcHandlers } from './ipc-handlers';
 // App Configuration
 // ============================================================================
 
+// Disable hardware acceleration to fix FFmpeg pixel format errors
+app.disableHardwareAcceleration();
+
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;

@@ -93,6 +93,7 @@ export class PlayerService extends EventEmitter {
         this.emitStateChange();
         this.emitTrackChange();
         this.emitRadioStateChange();
+        this.emitQueueUpdate();
     }
 
     async playStation(station: RadioStation): Promise<void> {
@@ -225,7 +226,7 @@ export class PlayerService extends EventEmitter {
 
     // ---- Queue Management ----
 
-    addToQueue(track: Track, source: QueueItem['source'] = 'collection', playNext = false): void {
+    addToQueue(track: Track, source: QueueItem['source'] = 'collection', playNext = false, emitUpdate = true): void {
         const queueItem: QueueItem = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             track,
@@ -242,13 +243,16 @@ export class PlayerService extends EventEmitter {
             this.generateShuffleOrder();
         }
 
-        this.emitQueueUpdate();
+        if (emitUpdate) {
+            this.emitQueueUpdate();
+        }
     }
 
     addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection'): void {
         for (const track of tracks) {
-            this.addToQueue(track, source, false);
+            this.addToQueue(track, source, false, false);
         }
+        this.emitQueueUpdate();
     }
 
     removeFromQueue(queueItemId: string): void {
@@ -277,10 +281,20 @@ export class PlayerService extends EventEmitter {
         this.emitQueueUpdate();
     }
 
-    clearQueue(): void {
+    clearQueue(keepCurrent = true): void {
         const currentItem = this.currentIndex >= 0 ? this.queue[this.currentIndex] : null;
-        this.queue = currentItem ? [currentItem] : [];
-        this.currentIndex = currentItem ? 0 : -1;
+
+        if (keepCurrent && currentItem) {
+            this.queue = [currentItem];
+            this.currentIndex = 0;
+        } else {
+            if (!keepCurrent) {
+                this.stop();
+            }
+            this.queue = [];
+            this.currentIndex = -1;
+        }
+
         this.shuffleOrder = [];
         this.emitQueueUpdate();
     }
@@ -314,6 +328,7 @@ export class PlayerService extends EventEmitter {
         this.currentIndex = index;
         const queueItem = this.queue[index];
         this.play(queueItem.track);
+        this.emitQueueUpdate();
     }
 
     getQueue(): { items: QueueItem[]; currentIndex: number } {

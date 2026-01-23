@@ -8,7 +8,7 @@ interface AlbumCardProps {
 }
 
 export function AlbumCard({ album }: AlbumCardProps) {
-    const { getAlbumDetails, addAlbumToQueue, play, playlists, addTrackToPlaylist, downloadTrack } = useStore();
+    const { getAlbumDetails, addAlbumToQueue, play, playlists, addTrackToPlaylist, downloadTrack, clearQueue, playQueueIndex } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
 
@@ -25,8 +25,9 @@ export function AlbumCard({ album }: AlbumCardProps) {
             }
 
             if (albumWithTracks.tracks.length > 0) {
+                await clearQueue(false);
                 await addAlbumToQueue(albumWithTracks);
-                await play(albumWithTracks.tracks[0]);
+                await playQueueIndex(0);
             }
         } catch (error) {
             console.error('Error playing album:', error);

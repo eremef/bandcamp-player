@@ -46,7 +46,7 @@ interface QueueSlice {
     addToQueue: (track: Track, playNext?: boolean) => Promise<void>;
     addAlbumToQueue: (album: Album) => Promise<void>;
     removeFromQueue: (id: string) => Promise<void>;
-    clearQueue: () => Promise<void>;
+    clearQueue: (keepCurrent?: boolean) => Promise<void>;
     reorderQueue: (from: number, to: number) => Promise<void>;
     playQueueIndex: (index: number) => Promise<void>;
 }
@@ -219,8 +219,8 @@ export const useStore = create<StoreState>((set, get) => ({
     removeFromQueue: async (id) => {
         await window.electron.queue.remove(id);
     },
-    clearQueue: async () => {
-        await window.electron.queue.clear();
+    clearQueue: async (keepCurrent?: boolean) => {
+        await window.electron.queue.clear(keepCurrent);
     },
     reorderQueue: async (from, to) => {
         await window.electron.queue.reorder(from, to);

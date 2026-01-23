@@ -100,7 +100,7 @@ const electronAPI = {
             ipcRenderer.invoke(QUEUE_CHANNELS.ADD_PLAYLIST, playlist),
         remove: (queueItemId: string): Promise<void> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.REMOVE, queueItemId),
-        clear: (): Promise<void> => ipcRenderer.invoke(QUEUE_CHANNELS.CLEAR),
+        clear: (keepCurrent?: boolean): Promise<void> => ipcRenderer.invoke(QUEUE_CHANNELS.CLEAR, keepCurrent),
         reorder: (fromIndex: number, toIndex: number): Promise<void> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.REORDER, fromIndex, toIndex),
         playIndex: (index: number): Promise<void> =>

@@ -118,7 +118,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(QUEUE_CHANNELS.REMOVE, (_, queueItemId: string) =>
         playerService.removeFromQueue(queueItemId)
     );
-    ipcMain.handle(QUEUE_CHANNELS.CLEAR, () => playerService.clearQueue());
+    ipcMain.handle(QUEUE_CHANNELS.CLEAR, (_, keepCurrent?: boolean) => playerService.clearQueue(keepCurrent));
     ipcMain.handle(QUEUE_CHANNELS.REORDER, (_, fromIndex: number, toIndex: number) =>
         playerService.reorderQueue(fromIndex, toIndex)
     );

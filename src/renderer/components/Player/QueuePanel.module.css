@@ -101,6 +101,10 @@
     background: var(--accent-muted);
 }
 
+.item.played {
+    opacity: 0.5;
+}
+
 .playBtn {
     width: 28px;
     height: 28px;

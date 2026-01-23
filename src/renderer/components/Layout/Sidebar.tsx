@@ -9,7 +9,6 @@ export function Sidebar() {
         playlists,
         selectPlaylist,
         auth,
-        logout,
         toggleSettings,
     } = useStore();
 
@@ -60,9 +59,9 @@ export function Sidebar() {
                         <li key={playlist.id}>
                             <button
                                 className={`${styles.playlistItem} ${currentView === 'playlist-detail' &&
-                                        useStore.getState().selectedPlaylistId === playlist.id
-                                        ? styles.active
-                                        : ''
+                                    useStore.getState().selectedPlaylistId === playlist.id
+                                    ? styles.active
+                                    : ''
                                     }`}
                                 onClick={() => selectPlaylist(playlist.id)}
                             >
@@ -101,13 +100,6 @@ export function Sidebar() {
                         title="Settings"
                     >
                         ⚙️
-                    </button>
-                    <button
-                        className={styles.iconButton}
-                        onClick={logout}
-                        title="Logout"
-                    >
-                        🚪
                     </button>
                 </div>
             </div>
