@@ -170,6 +170,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         </div>
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Start Minimized</span>
+                                <span className={styles.settingHint}>Start application minimized to tray</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.startMinimized ?? false}
+                                    onChange={(e) => updateSettings({ startMinimized: e.target.checked })}
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Show Notifications</span>
                                 <span className={styles.settingHint}>Display track change notifications</span>
                             </div>

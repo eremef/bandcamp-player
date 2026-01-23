@@ -34,7 +34,7 @@ let scrobblerService: ScrobblerService;
 // Window Creation
 // ============================================================================
 
-function createMainWindow(): BrowserWindow {
+function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow {
     const window = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -67,16 +67,32 @@ function createMainWindow(): BrowserWindow {
 
     // Show window when ready
     window.once('ready-to-show', () => {
-        window.show();
+        if (options.forceShow) {
+            window.show();
+            return;
+        }
+
+        const settings = database?.getSettings();
+        if (!settings?.startMinimized) {
+            window.show();
+        }
     });
 
     // Handle window close
     window.on('close', (event) => {
+        // If app is quitting, just let the window close
+        if (appIsQuitting) return;
+
         // Check if we should minimize to tray instead of closing
-        const settings = database?.getSettings();
-        if (settings?.minimizeToTray && !appIsQuitting) {
-            event.preventDefault();
-            window.hide();
+        try {
+            const settings = database?.getSettings();
+            if (settings?.minimizeToTray) {
+                event.preventDefault();
+                window.hide();
+            }
+        } catch (error) {
+            // Fallback if database access fails
+            console.error('Error reading settings on close:', error);
         }
     });
 
@@ -214,7 +230,9 @@ if (!gotTheLock) {
 
         app.on('activate', () => {
             if (BrowserWindow.getAllWindows().length === 0) {
-                mainWindow = createMainWindow();
+                mainWindow = createMainWindow({ forceShow: true });
+            } else {
+                mainWindow?.show();
             }
         });
     }).catch(err => {

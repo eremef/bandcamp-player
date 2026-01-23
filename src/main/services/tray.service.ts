@@ -25,7 +25,8 @@ export class TrayService {
         this.quitCallback = quitCallback;
 
         // Create tray icon
-        const iconPath = path.join(__dirname, '../../assets/icons/tray.ico');
+        // Try png first (generated), then ico
+        const iconPath = path.join(__dirname, '../../assets/icons/tray.png');
         let icon: NativeImage;
 
         try {
