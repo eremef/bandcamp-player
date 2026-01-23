@@ -19,11 +19,11 @@
     "package": "electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
     "postinstall": "npm run rebuild && electron-builder install-app-deps",
-    "restart": "taskkill /F /IM electron.exe /T & taskkill /F /IM node.exe /T & npm run dev:start",
     "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\""
   },
   "dependencies": {
     "axios": "^1.6.7",
+    "better-sqlite3": "^12.6.2",
     "cheerio": "^1.0.0-rc.12",
     "electron-store": "^8.1.0",
     "react": "^19.2.3",
