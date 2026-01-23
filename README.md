@@ -5,6 +5,10 @@
 
 AI-generated, feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
+⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️ 
+
+However, it should be quite safe, as you can listen and cache only your collected tracks and radio shows.
+
 ## Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
