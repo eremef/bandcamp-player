@@ -20,7 +20,10 @@ export function PlayerBar() {
 
     const audioRef = useRef<HTMLAudioElement>(null);
     const progressRef = useRef<HTMLDivElement>(null);
+    const volumeRef = useRef<HTMLDivElement>(null);
     const [hoverTime, setHoverTime] = useState<number | null>(null);
+    const [hoverVolume, setHoverVolume] = useState<number | null>(null);
+    const [isDraggingVolume, setIsDraggingVolume] = useState(false);
 
     const { isPlaying, currentTrack, currentTime, duration, volume, isMuted, isShuffled, repeatMode } = player;
 
@@ -123,11 +126,56 @@ export function PlayerBar() {
         setHoverTime(null);
     };
 
-    const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setVolume(parseFloat(e.target.value));
+    const updateVolumeFromMouse = (clientX: number) => {
+        if (!volumeRef.current) return;
+        const rect = volumeRef.current.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        setVolume(percent);
+    };
+
+    const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        setIsDraggingVolume(true);
+        updateVolumeFromMouse(e.clientX);
+    };
+
+    useEffect(() => {
+        if (!isDraggingVolume) return;
+
+        const handleGlobalMove = (e: MouseEvent) => {
+            updateVolumeFromMouse(e.clientX);
+        };
+
+        const handleGlobalUp = () => {
+            setIsDraggingVolume(false);
+        };
+
+        window.addEventListener('mousemove', handleGlobalMove);
+        window.addEventListener('mouseup', handleGlobalUp);
+        return () => {
+            window.removeEventListener('mousemove', handleGlobalMove);
+            window.removeEventListener('mouseup', handleGlobalUp);
+        };
+    }, [isDraggingVolume]);
+
+    const handleVolumeMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!volumeRef.current) return;
+        const rect = volumeRef.current.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        setHoverVolume(percent);
+    };
+
+    const handleVolumeMouseLeave = () => {
+        setHoverVolume(null);
+    };
+
+    const handleVolumeScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+        const delta = e.deltaY > 0 ? -0.05 : 0.05;
+        const newVolume = Math.max(0, Math.min(1, volume + delta));
+        setVolume(newVolume);
     };
 
     const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+    const volumePercent = Math.round((isMuted ? 0 : volume) * 100);
 
     return (
         <div className={styles.playerBar}>
@@ -214,15 +262,36 @@ export function PlayerBar() {
                 <button className={styles.controlBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
                     {isMuted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
                 </button>
-                <input
-                    type="range"
-                    className={styles.volumeSlider}
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                />
+                <div className={styles.volumeContainer}>
+                    <div
+                        className={styles.volumeSlider}
+                        ref={volumeRef}
+                        onMouseDown={handleVolumeMouseDown}
+                        onMouseMove={handleVolumeMouseMove}
+                        onMouseLeave={handleVolumeMouseLeave}
+                        onWheel={handleVolumeScroll}
+                    >
+                        <div className={styles.volumeTrack}>
+                            <div
+                                className={styles.volumeFill}
+                                style={{ width: `${volumePercent}%` }}
+                            />
+                            {hoverVolume !== null && (
+                                <div
+                                    className={styles.volumeHover}
+                                    style={{ left: `${hoverVolume * 100}%` }}
+                                >
+                                    <span className={styles.volumeHoverText}>{Math.round(hoverVolume * 100)}%</span>
+                                </div>
+                            )}
+                            <div
+                                className={styles.volumeThumb}
+                                style={{ left: `${volumePercent}%` }}
+                            />
+                        </div>
+                    </div>
+                    <span className={styles.volumeText}>{volumePercent}%</span>
+                </div>
                 <button
                     className={`${styles.controlBtn} ${isQueueVisible ? styles.active : ''}`}
                     onClick={toggleQueue}

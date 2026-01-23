@@ -12,17 +12,20 @@ export class TrayService {
     private playerService: PlayerService;
     private showWindowCallback: () => void;
     private quitCallback: () => void;
+    private isDev: boolean;
 
     constructor(
         mainWindow: BrowserWindow,
         playerService: PlayerService,
         showWindowCallback: () => void,
-        quitCallback: () => void
+        quitCallback: () => void,
+        isDev: boolean = false
     ) {
         this.mainWindow = mainWindow;
         this.playerService = playerService;
         this.showWindowCallback = showWindowCallback;
         this.quitCallback = quitCallback;
+        this.isDev = isDev;
 
         // Create tray icon
         // Try png first (generated), then ico
@@ -66,7 +69,7 @@ export class TrayService {
         const isPlaying = playerState.isPlaying;
         const hasTrack = playerState.currentTrack !== null;
 
-        const contextMenu = Menu.buildFromTemplate([
+        const template: any[] = [
             {
                 label: playerState.currentTrack
                     ? `${playerState.currentTrack.title} - ${playerState.currentTrack.artist}`
@@ -103,14 +106,30 @@ export class TrayService {
                 },
             },
             { type: 'separator' },
-            {
-                label: 'Quit',
-                click: () => {
-                    this.quitCallback();
-                },
-            },
-        ]);
+        ];
 
+        if (this.isDev) {
+            template.push({
+                label: 'Toggle DevTools',
+                click: () => {
+                    if (this.mainWindow.webContents.isDevToolsOpened()) {
+                        this.mainWindow.webContents.closeDevTools();
+                    } else {
+                        this.mainWindow.webContents.openDevTools();
+                    }
+                },
+            });
+            template.push({ type: 'separator' });
+        }
+
+        template.push({
+            label: 'Quit',
+            click: () => {
+                this.quitCallback();
+            },
+        });
+
+        const contextMenu = Menu.buildFromTemplate(template);
         this.tray.setContextMenu(contextMenu);
     }
 

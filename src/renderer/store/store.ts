@@ -400,8 +400,12 @@ export const useStore = create<StoreState>((set, get) => ({
 // IPC Event Subscriptions (called once on app init)
 // ============================================================================
 
-export function initializeStoreSubscriptions() {
+export async function initializeStoreSubscriptions() {
     const { setPlayerState, setAuth } = useStore.getState();
+
+    // Fetch initial player state
+    const initialState = await window.electron.player.getState();
+    setPlayerState(initialState);
 
     // Player state updates
     window.electron.player.onStateChanged((state) => {

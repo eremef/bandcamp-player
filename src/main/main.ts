@@ -20,6 +20,7 @@ app.commandLine.appendSwitch('disable-software-rasterizer');
 app.disableHardwareAcceleration();
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+console.log('App starting. isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV, 'isPackaged:', app.isPackaged);
 
 let mainWindow: BrowserWindow | null = null;
 let miniPlayerWindow: BrowserWindow | null = null;
@@ -66,6 +67,13 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
     if (isDev) {
         window.loadURL('http://localhost:5173');
         window.webContents.openDevTools();
+
+        // Add keyboard shortcuts for DevTools in development
+        window.webContents.on('before-input-event', (event, input) => {
+            if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+                window.webContents.toggleDevTools();
+            }
+        });
     } else {
         window.loadFile(path.join(__dirname, '../renderer/index.html'));
     }
@@ -156,7 +164,7 @@ async function initializeServices() {
     cacheService = new CacheService(database, path.join(userDataPath, 'cache'));
     playlistService = new PlaylistService(database);
     scrobblerService = new ScrobblerService(database);
-    playerService = new PlayerService(cacheService, scrobblerService, scraperService);
+    playerService = new PlayerService(cacheService, scrobblerService, scraperService, database);
 
     // Register IPC handlers
     registerIpcHandlers(ipcMain, {
@@ -230,7 +238,8 @@ if (!gotTheLock) {
                 // Quit callback
                 appIsQuitting = true;
                 app.quit();
-            }
+            },
+            isDev
         );
 
         app.on('activate', () => {

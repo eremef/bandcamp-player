@@ -3,6 +3,7 @@ import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioStat
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
+import { Database } from '../database/database';
 
 // ============================================================================
 // Player Service
@@ -12,6 +13,7 @@ export class PlayerService extends EventEmitter {
     private cacheService: CacheService;
     private scrobblerService: ScrobblerService;
     private scraperService: ScraperService;
+    private database: Database;
 
     // Player state
     private isPlaying = false;
@@ -36,11 +38,18 @@ export class PlayerService extends EventEmitter {
     private isRadioActive = false;
     private currentStation: RadioStation | null = null;
 
-    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService) {
+    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, database: Database) {
         super();
         this.cacheService = cacheService;
         this.scrobblerService = scrobblerService;
         this.scraperService = scraperService;
+        this.database = database;
+
+        // Initialize volume from settings
+        const settings = this.database.getSettings();
+        if (settings) {
+            this.volume = settings.defaultVolume;
+        }
     }
 
     // ---- Playback Control ----
@@ -210,6 +219,10 @@ export class PlayerService extends EventEmitter {
     setVolume(volume: number): void {
         this.volume = Math.max(0, Math.min(1, volume));
         this.isMuted = false;
+
+        // Save to settings
+        this.database.setSettings({ defaultVolume: this.volume });
+
         this.emitStateChange();
     }
 
