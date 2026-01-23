@@ -28,7 +28,7 @@ jobs:
         run: npm run build
 
       - name: Package
-        run: npm run package
+        run: npm run package -- -p never
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
