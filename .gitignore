@@ -31,3 +31,6 @@ Thumbs.db
 
 # Audio cache
 cache/
+
+# Debug
+debug_*.json
