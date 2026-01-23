@@ -42,6 +42,10 @@ npm run build
 - `npm run dev:renderer`: Vite dev server for Renderer
 - `npm run package`: Package application for distribution via `electron-builder`
 
+### Environment Note
+
+- **Shell**: When running multiple commands in a single `run_shell_command` call, use `;` as a separator instead of `&&`, as the environment uses a version of PowerShell that does not support `&&`.
+
 ## Project Structure
 
 ```text
