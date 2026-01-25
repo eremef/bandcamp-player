@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-na
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2 } from 'lucide-react-native';
 import { router } from 'expo-router';
 
 export default function PlayerScreen() {
@@ -21,7 +21,9 @@ export default function PlayerScreen() {
         setRepeat,
         repeatMode,
         isShuffled,
-        disconnect
+        disconnect,
+        volume,
+        setVolume
     } = useStore();
 
     const handleDisconnect = () => {
@@ -143,6 +145,24 @@ export default function PlayerScreen() {
                         )}
                     </TouchableOpacity>
                 </View>
+
+                {/* Volume */}
+                <View style={styles.volumeWrapper}>
+                    <View style={styles.volumeRow}>
+                        <Volume2 size={20} color="#666" />
+                        <Slider
+                            style={styles.volumeSlider}
+                            minimumValue={0}
+                            maximumValue={1}
+                            value={volume || 0.8}
+                            onSlidingComplete={setVolume}
+                            minimumTrackTintColor="#666"
+                            maximumTrackTintColor="#333"
+                            thumbTintColor="#666"
+                        />
+                    </View>
+                    <Text style={styles.volumeText}>{Math.round((volume || 0) * 100)}%</Text>
+                </View>
             </View>
         </SafeAreaView>
     );
@@ -170,12 +190,12 @@ const styles = StyleSheet.create({
         padding: 24,
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingBottom: 48,
+        paddingBottom: 80, // Increased to account for tab bar and new volume control
         paddingTop: 12,
     },
     artworkContainer: {
-        width: 300,
-        height: 300,
+        width: 220,
+        height: 220,
         borderRadius: 12,
         overflow: 'hidden',
         marginTop: 24,
@@ -272,5 +292,26 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 8,
         fontWeight: 'bold',
+    },
+    volumeWrapper: {
+        width: '100%',
+        marginTop: 32,
+        alignItems: 'center',
+        paddingHorizontal: 16,
+    },
+    volumeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        gap: 12,
+    },
+    volumeSlider: {
+        flex: 1,
+    },
+    volumeText: {
+        color: '#666',
+        fontSize: 12,
+        marginTop: 4,
+        fontWeight: '600',
     }
 });
