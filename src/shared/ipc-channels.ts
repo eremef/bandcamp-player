@@ -150,6 +150,18 @@ export const WINDOW_CHANNELS = {
 } as const;
 
 // ============================================================================
+// Remote Control Channels
+// ============================================================================
+
+export const REMOTE_CHANNELS = {
+    START: 'remote:start',
+    STOP: 'remote:stop',
+    GET_STATUS: 'remote:get-status',
+    ON_STATUS_CHANGED: 'remote:on-status-changed',
+    ON_CONNECTIONS_CHANGED: 'remote:on-connections-changed',
+} as const;
+
+// ============================================================================
 // System Channels
 // ============================================================================
 
@@ -174,6 +186,7 @@ export const IPC_CHANNELS = {
     ...SCROBBLER_CHANNELS,
     ...SETTINGS_CHANNELS,
     ...WINDOW_CHANNELS,
+    ...REMOTE_CHANNELS,
     ...SYSTEM_CHANNELS,
 } as const;
 

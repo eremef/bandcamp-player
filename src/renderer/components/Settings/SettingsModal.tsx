@@ -1,5 +1,6 @@
 import { useStore } from '../../store/store';
 import styles from './SettingsModal.module.css';
+import { QRCodeCanvas } from 'qrcode.react';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -17,11 +18,18 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         fetchCacheStats,
         auth,
         logout,
+        remoteStatus,
+        fetchRemoteStatus,
     } = useStore();
 
     // Fetch cache stats on mount
     if (!cacheStats) {
         fetchCacheStats();
+    }
+
+    // Fetch remote status on mount
+    if (!remoteStatus && settings?.remoteEnabled) {
+        fetchRemoteStatus();
     }
 
     const formatBytes = (bytes: number) => {
@@ -198,6 +206,51 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <span className={styles.slider}></span>
                             </label>
                         </div>
+                    </section>
+
+                    {/* Remote Control */}
+                    <section className={styles.section}>
+                        <h3>Remote Control</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Enable Remote Control</span>
+                                <span className={styles.settingHint}>Control playback from your mobile device</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.remoteEnabled ?? false}
+                                    onChange={(e) => updateSettings({ remoteEnabled: e.target.checked })}
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+
+                        {settings?.remoteEnabled && remoteStatus && (
+                            <div className={styles.remoteInfo}>
+                                <div className={styles.remoteDetails}>
+                                    <div className={styles.remoteQr}>
+                                        <QRCodeCanvas
+                                            value={remoteStatus.url}
+                                            size={128}
+                                            bgColor="#ffffff"
+                                            fgColor="#000000"
+                                            level="L"
+                                            includeMargin={true}
+                                        />
+                                    </div>
+                                    <div className={styles.remoteText}>
+                                        <p className={styles.remoteUrl}>{remoteStatus.url}</p>
+                                        <p className={styles.remoteHint}>Scan this QR code or open the URL in your mobile browser</p>
+                                        <div className={styles.remoteConnections}>
+                                            <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
+                                                ● {remoteStatus.connections} connected {remoteStatus.connections === 1 ? 'device' : 'devices'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     {/* Account */}

@@ -98,14 +98,25 @@ export class Database {
             showNotifications: true,
             scrobblingEnabled: true,
             scrobbleThreshold: 50,
+            remoteEnabled: true,
         };
 
-        const existing = this.db.prepare('SELECT key FROM settings WHERE key = ?').get('app_settings');
+        const existing = this.db.prepare('SELECT value FROM settings WHERE key = ?').get('app_settings') as { value: string } | undefined;
         if (!existing) {
             this.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(
                 'app_settings',
                 JSON.stringify(defaultSettings)
             );
+        } else {
+            // Force enable remote for debugging/setup if it was disabled
+            const current = JSON.parse(existing.value);
+            if (!current.remoteEnabled) {
+                current.remoteEnabled = true;
+                this.db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(
+                    JSON.stringify(current),
+                    'app_settings'
+                );
+            }
         }
     }
 
