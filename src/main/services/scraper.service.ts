@@ -131,8 +131,6 @@ export class ScraperService {
             }
 
             const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
-            // console.log(`Using Fan ID: ${activeFanId}`);
-
             // Fetch more items via API
             // We use blind fetching logic: try to fetch more until we get 0 items
             // This is robust against missing totalCounts

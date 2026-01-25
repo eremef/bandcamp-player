@@ -102,6 +102,13 @@ interface SettingsSlice {
     updateSettings: (settings: Partial<AppSettings>) => Promise<void>;
 }
 
+interface RemoteSlice {
+    remoteStatus: { isRunning: boolean; port: number; ip: string; url: string; connections: number } | null;
+    fetchRemoteStatus: () => Promise<void>;
+    startRemote: () => Promise<void>;
+    stopRemote: () => Promise<void>;
+}
+
 interface UISlice {
     currentView: ViewType;
     selectedPlaylistId: string | null;
@@ -129,6 +136,7 @@ type StoreState = AuthSlice &
     CacheSlice &
     ScrobblerSlice &
     SettingsSlice &
+    RemoteSlice &
     UISlice;
 
 // ============================================================================
@@ -373,6 +381,31 @@ export const useStore = create<StoreState>((set, get) => ({
     updateSettings: async (newSettings) => {
         const updated = await window.electron.settings.set(newSettings);
         set({ settings: updated });
+
+        // Auto-start/stop remote service based on setting
+        if ('remoteEnabled' in newSettings) {
+            if (newSettings.remoteEnabled) {
+                await window.electron.remote.start();
+            } else {
+                await window.electron.remote.stop();
+            }
+            get().fetchRemoteStatus();
+        }
+    },
+
+    // ---- Remote Slice ----
+    remoteStatus: null,
+    fetchRemoteStatus: async () => {
+        const status = await window.electron.remote.getStatus();
+        set({ remoteStatus: status });
+    },
+    startRemote: async () => {
+        await window.electron.remote.start();
+        get().fetchRemoteStatus();
+    },
+    stopRemote: async () => {
+        await window.electron.remote.stop();
+        get().fetchRemoteStatus();
     },
 
     // ---- UI Slice ----
@@ -448,5 +481,18 @@ export async function initializeStoreSubscriptions() {
     // Radio updates
     window.electron.radio.onStateChanged((state) => {
         useStore.setState({ radioState: state });
+    });
+
+    // Remote updates
+    window.electron.remote.onStatusChanged(() => {
+        useStore.getState().fetchRemoteStatus();
+    });
+    window.electron.remote.onConnectionsChanged((count) => {
+        const current = useStore.getState().remoteStatus;
+        if (current) {
+            useStore.setState({ remoteStatus: { ...current, connections: count } });
+        } else {
+            useStore.getState().fetchRemoteStatus();
+        }
     });
 }

@@ -138,7 +138,6 @@ export class AuthService {
 
             // Parse identity cookie to extract user info
             const identityValue = decodeURIComponent(identityCookie.value);
-            console.log(`Decoding identity cookie: ${identityValue}`);
 
             // Try to extract fan_id from identity cookie JSON
             try {

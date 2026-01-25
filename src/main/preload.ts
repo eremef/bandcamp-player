@@ -10,6 +10,7 @@ import {
     SCROBBLER_CHANNELS,
     SETTINGS_CHANNELS,
     WINDOW_CHANNELS,
+    REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
 } from '../shared/ipc-channels';
 import type {
@@ -186,6 +187,16 @@ const electronAPI = {
         toggleMiniPlayer: (): Promise<void> => ipcRenderer.invoke(WINDOW_CHANNELS.TOGGLE_MINI_PLAYER),
         setAlwaysOnTop: (value: boolean): Promise<void> =>
             ipcRenderer.invoke(WINDOW_CHANNELS.SET_ALWAYS_ON_TOP, value),
+    },
+
+    // ---- Remote Control ----
+    remote: {
+        start: (): Promise<void> => ipcRenderer.invoke(REMOTE_CHANNELS.START),
+        stop: (): Promise<void> => ipcRenderer.invoke(REMOTE_CHANNELS.STOP),
+        getStatus: (): Promise<{ isRunning: boolean; port: number; ip: string; url: string; connections: number }> =>
+            ipcRenderer.invoke(REMOTE_CHANNELS.GET_STATUS),
+        onStatusChanged: createEventSubscriber<boolean>(REMOTE_CHANNELS.ON_STATUS_CHANGED),
+        onConnectionsChanged: createEventSubscriber<number>(REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED),
     },
 
     // ---- System ----

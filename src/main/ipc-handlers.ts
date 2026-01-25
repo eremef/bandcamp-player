@@ -10,6 +10,7 @@ import {
     SCROBBLER_CHANNELS,
     SETTINGS_CHANNELS,
     WINDOW_CHANNELS,
+    REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
 } from '../shared/ipc-channels';
 import type { Track, Album, Playlist, RepeatMode, RadioStation } from '../shared/types';
@@ -19,6 +20,7 @@ import { PlayerService } from './services/player.service';
 import { CacheService } from './services/cache.service';
 import { PlaylistService } from './services/playlist.service';
 import { ScrobblerService } from './services/scrobbler.service';
+import { RemoteControlService } from './services/remote.service';
 import { Database } from './database/database';
 
 // ============================================================================
@@ -32,6 +34,7 @@ interface Services {
     cacheService: CacheService;
     playlistService: PlaylistService;
     scrobblerService: ScrobblerService;
+    remoteService: RemoteControlService;
     database: Database;
     getMainWindow: () => BrowserWindow | null;
     getMiniPlayerWindow: () => BrowserWindow | null;
@@ -46,6 +49,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         cacheService,
         playlistService,
         scrobblerService,
+        remoteService,
         database,
         getMainWindow,
         getMiniPlayerWindow,
@@ -203,6 +207,18 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(SETTINGS_CHANNELS.RESET, () => {
         // Reset would reinitialize default settings
         return database.getSettings();
+    });
+
+    // ---- Remote Control ----
+    ipcMain.handle(REMOTE_CHANNELS.START, () => remoteService.start());
+    ipcMain.handle(REMOTE_CHANNELS.STOP, () => remoteService.stop());
+    ipcMain.handle(REMOTE_CHANNELS.GET_STATUS, () => remoteService.getStatus());
+
+    remoteService.on('status-changed', (isRunning) => {
+        broadcast(REMOTE_CHANNELS.ON_STATUS_CHANGED, isRunning);
+    });
+    remoteService.on('connections-changed', (count) => {
+        broadcast(REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED, count);
     });
 
     // ---- Window ----

@@ -200,6 +200,7 @@ export interface AppSettings {
     startMinimized: boolean;
     minimizeToTray: boolean;
     showNotifications: boolean;
+    remoteEnabled: boolean;
 
     // Scrobbling
     scrobblingEnabled: boolean;

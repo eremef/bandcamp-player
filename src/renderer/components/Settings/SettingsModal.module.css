@@ -314,6 +314,57 @@
     transform: translateY(-2px);
 }
 
+/* Remote Control Styles */
+.remoteInfo {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+}
+
+.remoteDetails {
+    display: flex;
+    gap: var(--spacing-lg);
+    align-items: center;
+}
+
+.remoteQr {
+    background: white;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+}
+
+.remoteText {
+    flex: 1;
+}
+
+.remoteUrl {
+    font-family: monospace;
+    font-size: var(--font-size-lg);
+    color: var(--accent-primary);
+    margin: 0 0 var(--spacing-xs) 0;
+}
+
+.remoteHint {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-md) 0;
+}
+
+.remoteConnections {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.connected {
+    color: var(--color-success);
+}
+
+.disconnected {
+    color: var(--text-secondary);
+}
+
 /* About */
 .about {
     text-align: center;
