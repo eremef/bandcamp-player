@@ -61,14 +61,16 @@ export default function PlayerScreen() {
             <View style={styles.content}>
                 {/* Artwork */}
                 <View style={styles.artworkContainer}>
-                    {currentTrack ? (
+                    {currentTrack && currentTrack.artworkUrl ? (
                         <Image
                             source={{ uri: currentTrack.artworkUrl }}
                             style={styles.artwork}
                         />
                     ) : (
                         <View style={[styles.artwork, styles.placeholderArtwork]}>
-                            <Text style={styles.placeholderText}>No Track</Text>
+                            <Text style={styles.placeholderText}>
+                                {currentTrack ? 'No Art' : 'No Track'}
+                            </Text>
                         </View>
                     )}
                 </View>

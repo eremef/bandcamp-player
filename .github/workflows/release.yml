@@ -69,7 +69,7 @@ jobs:
       - name: Prebuild Android
         run: |
           cd mobile
-          npx expo prebuild --platform android --no-install
+          npx expo prebuild --platform android
 
       - name: Build APK
         run: |
