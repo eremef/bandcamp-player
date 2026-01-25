@@ -493,6 +493,14 @@ export class RemoteControlService extends EventEmitter {
                     <button class="sec-btn" onclick="sendCommand('next')">⏭</button>
                 </div>
 
+                <div id="progress-container" style="width: 80%; margin-top: 2rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                    <input type="range" id="progress-slider" min="0" max="100" value="0" style="width: 100%;" oninput="seek(this.value)">
+                </div>
+
                 <div id="volume-container">
                     <span>🔈</span>
                     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
@@ -563,6 +571,17 @@ export class RemoteControlService extends EventEmitter {
                 document.getElementById('artwork').src = state.currentTrack.artworkUrl;
                 document.getElementById('play-pause').innerText = state.isPlaying ? '⏸' : '▶';
                 document.getElementById('volume-slider').value = state.volume;
+                
+                // Update Progress
+                const slider = document.getElementById('progress-slider');
+                slider.max = state.duration;
+                // Only update if not currently dragging (implied simple check for now, can improve)
+                if (document.activeElement !== slider) {
+                    slider.value = state.currentTime;
+                }
+                
+                document.getElementById('current-time').innerText = formatTime(state.currentTime);
+                document.getElementById('total-time').innerText = formatTime(state.duration);
                 
                 // Update Shuffle/Repeat UI
                 document.getElementById('btn-shuffle').style.color = state.isShuffled ? 'var(--accent-color)' : 'var(--text-secondary)';
@@ -643,6 +662,10 @@ export class RemoteControlService extends EventEmitter {
 
         function setVolume(val) {
             sendCommand('set-volume', parseFloat(val));
+        }
+
+        function seek(val) {
+            sendCommand('seek', parseFloat(val));
         }
 
         function renderPlaylists(playlists) {
