@@ -26,7 +26,6 @@
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.0.0-rc.12",
     "electron-store": "^8.1.0",
-    "expo": "^54.0.32",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

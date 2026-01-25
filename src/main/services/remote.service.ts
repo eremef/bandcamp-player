@@ -135,7 +135,31 @@ export class RemoteControlService extends EventEmitter {
                 break;
             case 'get-collection':
                 const collection = await this.scraperService.fetchCollection();
-                this.sendToClient(ws, 'collection-data', collection);
+                // Map to flat structure expected by remote client
+                const simplifiedCollection = {
+                    ...collection,
+                    items: collection.items.map(item => {
+                        if (item.type === 'album' && item.album) {
+                            return {
+                                ...item,
+                                title: item.album.title,
+                                artist: item.album.artist,
+                                artworkUrl: item.album.artworkUrl,
+                                item_url: item.album.bandcampUrl
+                            };
+                        } else if (item.type === 'track' && item.track) {
+                            return {
+                                ...item,
+                                title: item.track.title,
+                                artist: item.track.artist,
+                                artworkUrl: item.track.artworkUrl,
+                                item_url: item.track.bandcampUrl
+                            };
+                        }
+                        return item;
+                    })
+                };
+                this.sendToClient(ws, 'collection-data', simplifiedCollection);
                 break;
             case 'get-radio-stations':
                 const stations = await this.scraperService.getRadioStations();
@@ -161,7 +185,10 @@ export class RemoteControlService extends EventEmitter {
                 await this.playerService.setRepeat(payload);
                 break;
             case 'play-album':
-                // For simplicity, we assume payload is album URL or object
+                if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
+                    console.error('[RemoteService] Invalid play-album payload:', payload);
+                    return;
+                }
                 const album = await this.scraperService.getAlbumDetails(payload);
                 if (album) {
                     this.playerService.clearQueue(false);
@@ -170,7 +197,42 @@ export class RemoteControlService extends EventEmitter {
                 }
                 break;
             case 'play-track':
-                this.playerService.play(payload);
+                let trackToPlay = payload;
+
+                // Handle simplified collection item structure
+                if (payload.item_url && !payload.streamUrl) {
+                    trackToPlay = {
+                        ...payload,
+                        bandcampUrl: payload.item_url
+                    };
+                }
+
+                // If no stream URL, try to resolve it
+                if (!trackToPlay.streamUrl && trackToPlay.bandcampUrl) {
+                    try {
+                        console.log(`[RemoteService] Resolving stream URL for track: ${trackToPlay.title}`);
+                        const albumDetails = await this.scraperService.getAlbumDetails(trackToPlay.bandcampUrl);
+                        if (albumDetails && albumDetails.tracks.length > 0) {
+                            // Use the first track if it's a track page, or try to match by title/ID
+                            // For collection items pointing to track pages, it's usually the first (and only) track
+                            const resolvedTrack = albumDetails.tracks[0];
+                            // Merge with original payload to preserve IDs/metadata if needed, but prefer resolved data
+                            trackToPlay = {
+                                ...trackToPlay,
+                                ...resolvedTrack,
+                                id: trackToPlay.id || resolvedTrack.id // Keep original ID if present (e.g. from playlist)
+                            };
+                        }
+                    } catch (e) {
+                        console.error('[RemoteService] Failed to resolve track stream:', e);
+                    }
+                }
+
+                if (trackToPlay.streamUrl) {
+                    this.playerService.play(trackToPlay);
+                } else {
+                    console.error('[RemoteService] Could not play track, missing stream URL:', trackToPlay.title);
+                }
                 break;
             case 'play-station':
                 await this.playerService.playStation(payload);
