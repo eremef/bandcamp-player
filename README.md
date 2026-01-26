@@ -3,7 +3,7 @@
 (To be honest, this whole repository is a beta version, probably forever)
 
 <p align="center">
-  <img width="800" alt="image" src="https://github.com/user-attachments/assets/b665c480-a90b-44e5-8523-0becd3d092a2" />
+  <img <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
 </p>
 
 AI-generated, feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
