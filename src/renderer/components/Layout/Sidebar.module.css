@@ -44,11 +44,15 @@
 }
 
 .navIcon {
-    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .navLabel {
     flex: 1;
+    display: flex;
+    align-items: center;
 }
 
 /* Playlists */
@@ -127,11 +131,15 @@
 }
 
 .playlistIcon {
-    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .playlistName {
     flex: 1;
+    display: flex;
+    align-items: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -140,6 +148,8 @@
 .playlistCount {
     font-size: var(--font-size-xs);
     color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
 }
 
 .emptyPlaylists {

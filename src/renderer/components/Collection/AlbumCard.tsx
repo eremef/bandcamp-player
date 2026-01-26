@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
 import type { Album } from '../../../shared/types';
+import { MoreHorizontal, Play, List, Music, Download } from 'lucide-react';
 import styles from './AlbumCard.module.css';
 
 interface AlbumCardProps {
@@ -91,7 +92,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
                         onClick={() => setShowMenu(!showMenu)}
                         title="More options"
                     >
-                        ⋯
+                        <MoreHorizontal size={20} />
                     </button>
                 </div>
             </div>
@@ -105,21 +106,21 @@ export function AlbumCard({ album }: AlbumCardProps) {
             {/* Context menu */}
             {showMenu && (
                 <div className={styles.menu}>
-                    <button onClick={handlePlay}>▶️ Play Now</button>
-                    <button onClick={handleAddToQueue}>📋 Add to Queue</button>
+                    <button onClick={handlePlay}><Play size={16} /> Play Now</button>
+                    <button onClick={handleAddToQueue}><List size={16} /> Add to Queue</button>
                     <div className={styles.menuDivider} />
                     {playlists.length > 0 && (
                         <>
                             <span className={styles.menuLabel}>Add to Playlist</span>
                             {playlists.map((playlist) => (
                                 <button key={playlist.id} onClick={() => handleAddToPlaylist(playlist.id)}>
-                                    🎵 {playlist.name}
+                                    <Music size={14} /> {playlist.name}
                                 </button>
                             ))}
                             <div className={styles.menuDivider} />
                         </>
                     )}
-                    <button onClick={handleDownload}>📥 Download for Offline</button>
+                    <button onClick={handleDownload}><Download size={16} /> Download for Offline</button>
                 </div>
             )}
         </div>

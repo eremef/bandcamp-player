@@ -1,4 +1,5 @@
 import { useStore } from '../../store/store';
+import { ArrowLeft, Music, Play, Pencil, Trash2, X } from 'lucide-react';
 import styles from './PlaylistDetailView.module.css';
 
 export function PlaylistDetailView() {
@@ -48,14 +49,15 @@ export function PlaylistDetailView() {
             {/* Header */}
             <header className={styles.header}>
                 <button className={styles.backBtn} onClick={() => setView('playlists')}>
-                    ← Back
+                    <ArrowLeft size={18} />
+                    <span>Back</span>
                 </button>
                 <div className={styles.headerContent}>
                     <div className={styles.artwork}>
                         {selectedPlaylist.artworkUrl ? (
                             <img src={selectedPlaylist.artworkUrl} alt="" />
                         ) : (
-                            <div className={styles.placeholderArtwork}>🎵</div>
+                            <div className={styles.placeholderArtwork}><Music size={48} /></div>
                         )}
                     </div>
                     <div className={styles.info}>
@@ -69,10 +71,12 @@ export function PlaylistDetailView() {
                         </p>
                         <div className={styles.actions}>
                             <button className={styles.playBtn} onClick={handlePlayAll} disabled={selectedPlaylist.tracks.length === 0}>
-                                ▶️ Play All
+                                <Play size={18} fill="currentColor" />
+                                <span>Play All</span>
                             </button>
                             <button className={styles.actionBtn} onClick={handleRename}>
-                                ✏️ Rename
+                                <Pencil size={18} />
+                                <span>Rename</span>
                             </button>
                         </div>
                     </div>
@@ -103,7 +107,7 @@ export function PlaylistDetailView() {
                                     <td className={styles.colNum}>
                                         <button className={styles.playTrackBtn} onClick={() => play(track)}>
                                             <span className={styles.trackNumber}>{index + 1}</span>
-                                            <span className={styles.playIcon}>▶</span>
+                                            <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
                                         </button>
                                     </td>
                                     <td className={styles.colTitle}>
@@ -122,7 +126,7 @@ export function PlaylistDetailView() {
                                             onClick={() => removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id)}
                                             title="Remove from playlist"
                                         >
-                                            ✕
+                                            <Trash2 size={16} />
                                         </button>
                                     </td>
                                 </tr>

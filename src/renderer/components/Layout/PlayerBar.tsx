@@ -1,5 +1,9 @@
 import { useRef, useEffect, useState } from 'react';
 import { useStore } from '../../store/store';
+import {
+    Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
+    VolumeX, Volume1, Volume2, List, Maximize2
+} from 'lucide-react';
 import styles from './PlayerBar.module.css';
 
 export function PlayerBar() {
@@ -207,16 +211,16 @@ export function PlayerBar() {
                         onClick={toggleShuffle}
                         title="Shuffle"
                     >
-                        🔀
+                        <Shuffle size={18} />
                     </button>
                     <button className={styles.controlBtn} onClick={previous} title="Previous">
-                        ⏮️
+                        <SkipBack size={20} fill="currentColor" />
                     </button>
                     <button className={styles.playBtn} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Play'}>
-                        {isPlaying ? '⏸️' : '▶️'}
+                        {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" style={{ marginLeft: '2px' }} />}
                     </button>
                     <button className={styles.controlBtn} onClick={next} title="Next">
-                        ⏭️
+                        <SkipForward size={20} fill="currentColor" />
                     </button>
                     <button
                         className={`${styles.controlBtn} ${repeatMode !== 'off' ? styles.active : ''}`}
@@ -227,7 +231,7 @@ export function PlayerBar() {
                         }}
                         title={`Repeat: ${repeatMode}`}
                     >
-                        {repeatMode === 'one' ? '🔂' : '🔁'}
+                        {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                     </button>
                 </div>
 
@@ -260,7 +264,13 @@ export function PlayerBar() {
             {/* Volume & extras */}
             <div className={styles.extras}>
                 <button className={styles.controlBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-                    {isMuted || volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊'}
+                    {isMuted || volume === 0 ? (
+                        <VolumeX size={20} />
+                    ) : volume < 0.5 ? (
+                        <Volume1 size={20} />
+                    ) : (
+                        <Volume2 size={20} />
+                    )}
                 </button>
                 <div className={styles.volumeContainer}>
                     <div
@@ -297,12 +307,12 @@ export function PlayerBar() {
                     onClick={toggleQueue}
                     title="Queue"
                 >
-                    📋
+                    <List size={20} />
                 </button>
                 <button className={styles.controlBtn} onClick={toggleMiniPlayer} title="Mini Player">
-                    🔲
+                    <Maximize2 size={20} />
                 </button>
             </div>
-        </div>
+        </div >
     );
 }

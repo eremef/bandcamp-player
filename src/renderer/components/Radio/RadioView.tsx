@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
+import { Radio, Square, Play, Pause } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -26,7 +27,7 @@ export function RadioView() {
         <div className={styles.container}>
             <header className={styles.header}>
                 <div className={styles.headerContent}>
-                    <h1>📻 Bandcamp Radio</h1>
+                    <h1><Radio size={32} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '12px' }} /> Bandcamp Radio</h1>
                     <p>Discover new music curated by Bandcamp</p>
                 </div>
             </header>
@@ -51,7 +52,8 @@ export function RadioView() {
                         </div>
                     </div>
                     <button className={styles.stopBtn} onClick={stopRadio}>
-                        ⏹️ Stop
+                        <Square size={16} fill="currentColor" />
+                        <span>Stop</span>
                     </button>
                 </div>
             )}
@@ -68,11 +70,11 @@ export function RadioView() {
                             {station.imageUrl ? (
                                 <img src={station.imageUrl} alt="" loading="lazy" />
                             ) : (
-                                <div className={styles.placeholderImage}>📻</div>
+                                <div className={styles.placeholderImage}><Radio size={48} /></div>
                             )}
                             <div className={styles.cardOverlay}>
                                 <button className={styles.playBtn}>
-                                    {radioState.currentStation?.id === station.id ? '⏸️' : '▶️'}
+                                    {radioState.currentStation?.id === station.id ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" />}
                                 </button>
                             </div>
                         </div>

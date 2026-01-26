@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
+import { Check, X, Plus, ListMusic, Music, Play, Trash2 } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
@@ -48,22 +49,23 @@ export function PlaylistsView() {
                             }}
                         />
                         <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
-                            ✔️
+                            <Check size={18} />
                         </button>
                         <button type="button" className={`${styles.iconBtn} ${styles.cancelBtn}`} onClick={handleCancel} title="Cancel">
-                            ❌
+                            <X size={18} />
                         </button>
                     </form>
                 ) : (
                     <button className={styles.createBtn} onClick={handleCreate}>
-                        <span>+</span> Create Playlist
+                        <Plus size={18} />
+                        <span>Create Playlist</span>
                     </button>
                 )}
             </header>
 
             {playlists.length === 0 ? (
                 <div className={styles.empty}>
-                    <div className={styles.emptyIcon}>📝</div>
+                    <div className={styles.emptyIcon}><ListMusic size={48} /></div>
                     <h3>No playlists yet</h3>
                     <p>Create a playlist to organize your favorite tracks</p>
                     <button className={styles.createBtnLarge} onClick={handleCreate}>
@@ -78,11 +80,11 @@ export function PlaylistsView() {
                                 {playlist.artworkUrl ? (
                                     <img src={playlist.artworkUrl} alt="" />
                                 ) : (
-                                    <div className={styles.placeholderArtwork}>🎵</div>
+                                    <div className={styles.placeholderArtwork}><Music size={48} /></div>
                                 )}
                                 <div className={styles.cardOverlay}>
                                     <button className={styles.playBtn} title="Play">
-                                        ▶️
+                                        <Play size={32} fill="currentColor" />
                                     </button>
                                 </div>
                             </div>
@@ -103,7 +105,7 @@ export function PlaylistsView() {
                                 }}
                                 title="Delete playlist"
                             >
-                                🗑️
+                                <Trash2 size={18} />
                             </button>
                         </div>
                     ))}

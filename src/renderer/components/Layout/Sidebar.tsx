@@ -1,5 +1,6 @@
 import { useStore } from '../../store/store';
 import type { ViewType } from '../../../shared/types';
+import { Library, ListMusic, Radio, Music, User, Settings, Plus } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
 export function Sidebar() {
@@ -12,10 +13,10 @@ export function Sidebar() {
         toggleSettings,
     } = useStore();
 
-    const navItems: { view: ViewType; label: string; icon: string }[] = [
-        { view: 'collection', label: 'Collection', icon: '📚' },
-        { view: 'playlists', label: 'Playlists', icon: '📝' },
-        { view: 'radio', label: 'Radio', icon: '📻' },
+    const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
+        { view: 'collection', label: 'Collection', icon: <Library size={20} /> },
+        { view: 'playlists', label: 'Playlists', icon: <ListMusic size={20} /> },
+        { view: 'radio', label: 'Radio', icon: <Radio size={20} /> },
     ];
 
     return (
@@ -51,7 +52,7 @@ export function Sidebar() {
                         }}
                         title="Create Playlist"
                     >
-                        +
+                        <Plus size={18} />
                     </button>
                 </div>
                 <ul className={styles.playlistList}>
@@ -65,7 +66,7 @@ export function Sidebar() {
                                     }`}
                                 onClick={() => selectPlaylist(playlist.id)}
                             >
-                                <span className={styles.playlistIcon}>🎵</span>
+                                <span className={styles.playlistIcon}><Music size={16} /></span>
                                 <span className={styles.playlistName}>{playlist.name}</span>
                                 <span className={styles.playlistCount}>{playlist.trackCount}</span>
                             </button>
@@ -86,7 +87,7 @@ export function Sidebar() {
                         {auth.user?.avatarUrl ? (
                             <img src={auth.user.avatarUrl} alt="" />
                         ) : (
-                            <span>👤</span>
+                            <User size={24} />
                         )}
                     </div>
                     <div className={styles.userName}>
@@ -99,7 +100,7 @@ export function Sidebar() {
                         onClick={toggleSettings}
                         title="Settings"
                     >
-                        ⚙️
+                        <Settings size={20} />
                     </button>
                 </div>
             </div>
