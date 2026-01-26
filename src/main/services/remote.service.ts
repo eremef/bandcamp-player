@@ -6,7 +6,6 @@ import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
 import { Database } from '../database/database';
-import type { PlayerState, Track, Album, Collection, RadioStation } from '../../shared/types';
 
 export class RemoteControlService extends EventEmitter {
     private server: any;
@@ -133,7 +132,7 @@ export class RemoteControlService extends EventEmitter {
             case 'set-volume':
                 this.playerService.setVolume(payload);
                 break;
-            case 'get-collection':
+            case 'get-collection': {
                 const collection = await this.scraperService.fetchCollection();
                 // Map to flat structure expected by remote client
                 const simplifiedCollection = {
@@ -161,15 +160,18 @@ export class RemoteControlService extends EventEmitter {
                 };
                 this.sendToClient(ws, 'collection-data', simplifiedCollection);
                 break;
-            case 'get-radio-stations':
+            }
+            case 'get-radio-stations': {
                 const stations = await this.scraperService.getRadioStations();
                 this.sendToClient(ws, 'radio-data', stations);
                 break;
-            case 'get-playlists':
+            }
+            case 'get-playlists': {
                 const playlists = this.playlistService.getAll();
                 this.sendToClient(ws, 'playlists-data', playlists);
                 break;
-            case 'play-playlist':
+            }
+            case 'play-playlist': {
                 const playlist = this.playlistService.getById(payload);
                 if (playlist && playlist.tracks.length > 0) {
                     this.playerService.clearQueue(false);
@@ -178,13 +180,14 @@ export class RemoteControlService extends EventEmitter {
                     await this.playerService.playIndex(0);
                 }
                 break;
+            }
             case 'toggle-shuffle':
                 await this.playerService.toggleShuffle();
                 break;
             case 'set-repeat':
                 await this.playerService.setRepeat(payload);
                 break;
-            case 'play-album':
+            case 'play-album': {
                 if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
                     console.error('[RemoteService] Invalid play-album payload:', payload);
                     return;
@@ -196,7 +199,8 @@ export class RemoteControlService extends EventEmitter {
                     await this.playerService.playIndex(0);
                 }
                 break;
-            case 'play-track':
+            }
+            case 'play-track': {
                 let trackToPlay = payload;
 
                 // Handle simplified collection item structure
@@ -234,6 +238,7 @@ export class RemoteControlService extends EventEmitter {
                     console.error('[RemoteService] Could not play track, missing stream URL:', trackToPlay.title);
                 }
                 break;
+            }
             case 'play-station':
                 await this.playerService.playStation(payload);
                 break;
