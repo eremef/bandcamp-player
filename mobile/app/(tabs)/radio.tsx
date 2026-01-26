@@ -45,6 +45,9 @@ export default function RadioScreen() {
                 )}
                 <View style={styles.itemInfo}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{item.name}</Text>
+                    {item.date && (
+                        <Text style={styles.itemDate}>{item.date}</Text>
+                    )}
                     <Text style={styles.itemSubtitle} numberOfLines={2}>{item.description}</Text>
                 </View>
             </TouchableOpacity>
@@ -137,6 +140,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 4,
+    },
+    itemDate: {
+        color: '#1da1f2',
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 2,
+        textTransform: 'uppercase',
     },
     itemSubtitle: {
         color: '#888',

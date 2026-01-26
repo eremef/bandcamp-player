@@ -80,6 +80,9 @@ export function RadioView() {
                         </div>
                         <div className={styles.cardInfo}>
                             <h3 className={styles.cardTitle}>{station.name}</h3>
+                            {station.date && (
+                                <p className={styles.cardDate}>{station.date}</p>
+                            )}
                             {station.description && (
                                 <p className={styles.cardDescription}>{station.description}</p>
                             )}

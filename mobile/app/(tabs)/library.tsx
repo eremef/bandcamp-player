@@ -1,9 +1,9 @@
-import React, { useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState, useMemo } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
-import { RefreshCw, MoreVertical } from 'lucide-react-native';
+import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 
@@ -12,6 +12,28 @@ export default function LibraryScreen() {
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
     const disconnect = useStore((state) => state.disconnect);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredCollection = useMemo(() => {
+        if (!collection?.items) return [];
+        if (!searchQuery.trim()) return collection.items;
+
+        const query = searchQuery.toLowerCase();
+        return collection.items.filter((item) => {
+            if (item.type === 'album' && item.album) {
+                return (
+                    item.album.title.toLowerCase().includes(query) ||
+                    item.album.artist.toLowerCase().includes(query)
+                );
+            } else if (item.type === 'track' && item.track) {
+                return (
+                    item.track.title.toLowerCase().includes(query) ||
+                    item.track.artist.toLowerCase().includes(query)
+                );
+            }
+            return false;
+        });
+    }, [collection, searchQuery]);
 
     const handleRefresh = () => {
         if (webSocketService) {
@@ -101,8 +123,22 @@ export default function LibraryScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            <View style={styles.searchContainer}>
+                <Search size={20} color="#888" style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search library..."
+                    placeholderTextColor="#888"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                />
+            </View>
+
             <FlatList
-                data={collection.items}
+                data={filteredCollection}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={2}
@@ -138,6 +174,25 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1a1a1a',
+        margin: 16,
+        marginTop: 0,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        height: 48,
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        color: '#fff',
+        fontSize: 16,
+        height: '100%',
     },
     headerButtons: {
         flexDirection: 'row',

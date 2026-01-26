@@ -133,6 +133,7 @@ export interface RadioStation {
     description?: string;
     imageUrl?: string;
     streamUrl: string;
+    date?: string;
 }
 
 export interface RadioState {
