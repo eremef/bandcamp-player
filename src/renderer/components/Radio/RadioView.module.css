@@ -214,6 +214,15 @@
     margin-bottom: var(--spacing-xs);
 }
 
+.cardDate {
+    font-size: var(--font-size-xs);
+    color: var(--accent-primary);
+    margin-bottom: var(--spacing-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: var(--font-weight-medium);
+}
+
 .cardDescription {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);

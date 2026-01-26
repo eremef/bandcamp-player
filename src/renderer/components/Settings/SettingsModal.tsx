@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useStore } from '../../store/store';
 import { X, Trash2, Music, User, LogOut } from 'lucide-react';
 import styles from './SettingsModal.module.css';
@@ -22,6 +23,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         remoteStatus,
         fetchRemoteStatus,
     } = useStore();
+
+    const [appVersion, setAppVersion] = useState<string>('1.0.0');
+
+    useEffect(() => {
+        window.electron.system.getAppVersion().then(setAppVersion);
+    }, []);
 
     // Fetch cache stats on mount
     if (!cacheStats) {
@@ -291,8 +298,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <h3>About</h3>
                         <div className={styles.about}>
                             <p><strong>Bandcamp Player</strong></p>
-                            <p className={styles.version}>Version 1.0.0</p>
-                            <p className={styles.copyright}>© 2024 Bandcamp Player</p>
+                            <p className={styles.version}>Version {appVersion}</p>
+                            <p className={styles.copyright}>© {new Date().getFullYear()} Bandcamp Desktop Player</p>
                         </div>
                     </section>
                 </div>
