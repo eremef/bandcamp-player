@@ -103,6 +103,17 @@ export function PlayerBar() {
         };
     }, [next]);
 
+    useEffect(() => {
+        const unsubscribe = window.electron.player.onSeek((time) => {
+            if (audioRef.current && Math.abs(audioRef.current.currentTime - time) > 0.5) {
+                audioRef.current.currentTime = time;
+            }
+        });
+        return () => {
+            unsubscribe();
+        };
+    }, []);
+
     const formatTime = (seconds: number) => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
         const mins = Math.floor(seconds / 60);

@@ -85,6 +85,7 @@ const electronAPI = {
         onStateChanged: createEventSubscriber<PlayerState>(PLAYER_CHANNELS.ON_STATE_CHANGED),
         onTrackChanged: createEventSubscriber<Track | null>(PLAYER_CHANNELS.ON_TRACK_CHANGED),
         onTimeUpdate: createEventSubscriber<{ currentTime: number; duration: number }>(PLAYER_CHANNELS.ON_TIME_UPDATE),
+        onSeek: createEventSubscriber<number>(PLAYER_CHANNELS.ON_SEEK),
         updateTime: (currentTime: number, duration: number): Promise<void> =>
             ipcRenderer.invoke(PLAYER_CHANNELS.UPDATE_TIME, currentTime, duration),
     },
