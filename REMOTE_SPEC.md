@@ -1,6 +1,8 @@
 # Bandcamp Player Remote Protocol Specification
 
-This document specifies the WebSocket protocol used to remote control the Bandcamp Player desktop application. Developers can use this to build native mobile apps or alternative remote interfaces.
+This document specifies the WebSocket protocol used to remote control the Bandcamp Player desktop application.
+
+**Official Implementation**: The `mobile/` directory contains a helper React Native application that implements this protocol for Android.
 
 ## Connection
 
@@ -111,6 +113,7 @@ Clients send these messages to control the player.
   - **Payload**: `string` (Album URL, e.g., from `CollectionItem.album.bandcampUrl` or `item_url`)
 - `play-track`: Plays a specific track.
   - **Payload**: [`Track`](#track)
+    > Note: If the Track object lacks a `streamUrl` (e.g. from the Collection view), the Desktop app will automatically attempt to resolve it using the `bandcampUrl` or `item_url`.
 - `play-station`: Starts a radio station.
   - **Payload**: [`RadioStation`](#radiostation)
 - `play-playlist`: Plays a playlist.

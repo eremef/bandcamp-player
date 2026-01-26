@@ -11,7 +11,9 @@ This project is a desktop application for playing Bandcamp music, built with **E
 - **State Management:** Zustand
 - **Database:** SQLite (`better-sqlite3`) for local data, `electron-store` for simple persistence
 - **Networking:** Axios, Cheerio (for scraping)
+- **Networking:** Axios, Cheerio (for scraping)
 - **Tools:** ESLint, Prettier, Electron Builder
+- **Mobile:** React Native, Expo, Expo Router
 
 ## Architecture
 
@@ -62,6 +64,12 @@ src/
 ├── shared/                 # Shared Types & Constants
 │   ├── types.ts            # Domain models (Track, Album, Playlist)
 │   └── ipc-channels.ts     # IPC channel names
+├── shared/                 # Shared Types & Constants
+│   ├── types.ts            # Domain models (Track, Album, Playlist)
+│   └── ipc-channels.ts     # IPC channel names
+├── mobile/                 # React Native Mobile App
+│   ├── app/                # Expo Router screens
+│   └── android/            # Native Android project
 └── assets/                 # Static assets (Icons, images)
 ```
 
@@ -89,4 +97,6 @@ The app uses a local SQLite database (`user_data/database.sqlite`) managed by `b
 
 - **Authentication**: Custom implementation scraping login cookies.
 - **Offline Mode**: Downloads audio files to `AppData` and serves them via `file://` protocol when cached.
+- **Offline Mode**: Downloads audio files to `AppData` and serves them via `file://` protocol when cached.
 - **Scrobbling**: Custom Last.fm integration respecting offline scenarios.
+- **Mobile Remote**: Android app for remote control via WebSocket.
