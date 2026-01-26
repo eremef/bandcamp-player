@@ -21,6 +21,7 @@ However, it should be quite safe, as you can listen and cache only your collecte
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
 - 📱 **Mobile Companion App** - Remote control via Android application
+- 🌐 **Web Remote Control** - Control playback via any web browser on local network
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 

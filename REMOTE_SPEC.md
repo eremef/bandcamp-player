@@ -11,7 +11,13 @@ This document specifies the WebSocket protocol used to remote control the Bandca
 - **URL**: `ws://<host-ip>:9999`
 
 > [!NOTE]
-> The desktop app also serves a static discovery/remote-control page at `http://<host-ip>:9999`.
+> The desktop app also serves a fully functional **Web Remote Interface** at `http://<host-ip>:9999`.
+> This web client provides:
+>
+> - **Playback Controls**: Play, Pause, Previous, Next, Shuffle, Repeat.
+> - **Visual Feedback**: Real-time progress bar with seek capability and time display.
+> - **Volume Control**: Slider with percentage display.
+> - **Browsing**: Access to Collection, Playlists, and Radio stations.
 
 ---
 

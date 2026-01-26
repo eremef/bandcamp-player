@@ -100,3 +100,4 @@ The app uses a local SQLite database (`user_data/database.sqlite`) managed by `b
 - **Offline Mode**: Downloads audio files to `AppData` and serves them via `file://` protocol when cached.
 - **Scrobbling**: Custom Last.fm integration respecting offline scenarios.
 - **Mobile Remote**: Android app for remote control via WebSocket.
+- **Web Remote**: Built-in web interface for remote control from any browser.

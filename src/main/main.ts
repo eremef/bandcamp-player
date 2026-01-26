@@ -120,8 +120,8 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
 
 function createMiniPlayerWindow(): BrowserWindow {
     const window = new BrowserWindow({
-        width: 350,
-        height: 100,
+        width: 450,
+        height: 120,
         resizable: false,
         frame: false,
         alwaysOnTop: true,
