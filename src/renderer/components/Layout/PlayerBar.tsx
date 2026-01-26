@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
@@ -130,12 +130,12 @@ export function PlayerBar() {
         setHoverTime(null);
     };
 
-    const updateVolumeFromMouse = (clientX: number) => {
+    const updateVolumeFromMouse = useCallback((clientX: number) => {
         if (!volumeRef.current) return;
         const rect = volumeRef.current.getBoundingClientRect();
         const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
         setVolume(percent);
-    };
+    }, [setVolume]);
 
     const handleVolumeMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         setIsDraggingVolume(true);
@@ -159,7 +159,7 @@ export function PlayerBar() {
             window.removeEventListener('mousemove', handleGlobalMove);
             window.removeEventListener('mouseup', handleGlobalUp);
         };
-    }, [isDraggingVolume]);
+    }, [isDraggingVolume, updateVolumeFromMouse]);
 
     const handleVolumeMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
         if (!volumeRef.current) return;

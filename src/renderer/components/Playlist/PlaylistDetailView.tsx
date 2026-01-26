@@ -1,5 +1,5 @@
 import { useStore } from '../../store/store';
-import { ArrowLeft, Music, Play, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pencil, Trash2 } from 'lucide-react';
 import styles from './PlaylistDetailView.module.css';
 
 export function PlaylistDetailView() {
