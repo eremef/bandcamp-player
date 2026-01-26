@@ -1,11 +1,12 @@
 # Unofficial Bandcamp Desktop Player - Beta version
+
 <p align="center">
   <img width="800" alt="image" src="https://github.com/user-attachments/assets/b665c480-a90b-44e5-8523-0becd3d092a2" />
 </p>
 
 AI-generated, feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
-⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️ 
+⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️
 
 However, it should be quite safe, as you can listen and cache only your collected tracks and radio shows.
 
@@ -19,6 +20,7 @@ However, it should be quite safe, as you can listen and cache only your collecte
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
+- 📱 **Mobile Companion App** - Remote control via Android application
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 
@@ -33,11 +35,17 @@ However, it should be quite safe, as you can listen and cache only your collecte
 - **Cheerio** - Web scraping
 - **Axios** - HTTP client
 
+### Mobile App
+
+- **React Native** - Cross-platform mobile framework
+- **Expo** - Build and development platform
+- **Zustand** - State management
+
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Installation
@@ -93,13 +101,13 @@ Access the settings menu (gear icon) to configure:
 
 To enable scrobbling, you need to register a Last.fm API application:
 
-1. Go to https://www.last.fm/api/account/create
+1. Go to <https://www.last.fm/api/account/create>
 2. Create a new application
 3. Update `src/main/services/scrobbler.service.ts` with your API key and secret
 
 ## Project Structure
 
-```
+```text
 src/
 ├── main/                    # Electron main process
 │   ├── main.ts             # Entry point
@@ -137,6 +145,28 @@ src/
 4. **Create Playlists** - Use the + button in the sidebar to create playlists
 5. **Add to Queue** - Right-click on albums/tracks to add to queue
 6. **Offline Mode** - Download tracks via the context menu for offline playback
+
+## Mobile Companion App
+
+The project includes a companion Android application in the `mobile/` directory.
+
+### Features of the Mobile App
+
+- Remote control (Play/Pause, Next/Prev, Volume, Seek)
+- Browse and play from Collection, Playlists, and Radio
+- Offline-ready UI (relies on Desktop for audio)
+- Automatic local network discovery
+
+### Building Mobile App
+
+```bash
+cd mobile
+# Install dependencies
+npm install
+
+# Build APK (requires Expo account)
+npx eas-cli build --platform android
+```
 
 ## License
 
