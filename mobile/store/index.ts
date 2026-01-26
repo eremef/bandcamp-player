@@ -1,6 +1,7 @@
 import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
+import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface AppState extends PlayerState {
@@ -21,7 +22,10 @@ interface AppState extends PlayerState {
     connect: (ip?: string) => Promise<void>;
     disconnect: () => void;
     autoConnect: () => Promise<void>;
+    startScan: () => Promise<void>;
     removeRecentIp: (ip: string) => Promise<void>;
+
+    isScanning: boolean;
 
     // Playback Actions
     play: () => void;
@@ -60,6 +64,7 @@ export const useStore = create<AppState>((set, get) => ({
     collection: null,
     playlists: [],
     radioStations: [],
+    isScanning: false,
 
     setHostIp: async (ip: string) => {
         set({ hostIp: ip });
@@ -96,6 +101,28 @@ export const useStore = create<AppState>((set, get) => ({
         if (lastIp) {
             set({ hostIp: lastIp });
             get().connect(lastIp);
+        } else {
+            // If no last IP, try scanning automatically? Or let user decide.
+            // Let's just ready the recents.
+        }
+    },
+
+    startScan: async () => {
+        if (get().isScanning) return;
+        set({ isScanning: true });
+
+        try {
+            const ip = await DiscoveryService.scanNetwork((progress) => {
+                // Could expose progress if needed
+                console.log(`Scan progress: ${Math.round(progress * 100)}%`);
+            });
+
+            if (ip) {
+                console.log('Discovery found IP:', ip);
+                get().connect(ip);
+            }
+        } finally {
+            set({ isScanning: false });
         }
     },
 

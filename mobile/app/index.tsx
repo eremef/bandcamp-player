@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Wifi, AlertCircle } from 'lucide-react-native';
 
 export default function ConnectScreen() {
-    const { connect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp } = useStore();
+    const { connect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp, startScan, isScanning } = useStore();
     const [ipInput, setIpInput] = useState(hostIp);
     const [isAutoConnecting, setIsAutoConnecting] = useState(true);
 
@@ -73,6 +73,18 @@ export default function ConnectScreen() {
                         <ActivityIndicator color="white" />
                     ) : (
                         <Text style={styles.buttonText}>Connect</Text>
+                    )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={[styles.scanButton, isScanning && styles.buttonDisabled]}
+                    onPress={() => startScan()}
+                    disabled={connectionStatus === 'connecting' || isScanning}
+                >
+                    {isScanning ? (
+                        <ActivityIndicator color="#1da1f2" />
+                    ) : (
+                        <Text style={styles.scanButtonText}>Auto Scan Network</Text>
                     )}
                 </TouchableOpacity>
 
@@ -162,6 +174,23 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
+    },
+    scanButton: {
+        width: '100%',
+        height: 56,
+        backgroundColor: 'transparent',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'row',
+        marginTop: 12,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    scanButtonText: {
+        color: '#1da1f2',
+        fontSize: 16,
+        fontWeight: '600',
     },
     buttonDisabled: {
         opacity: 0.7,
