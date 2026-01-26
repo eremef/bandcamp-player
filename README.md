@@ -177,4 +177,4 @@ npx eas-cli build --platform android
 
 MIT
 
-However, I can't imagine any legal commercial usage of this app, except for usage by Bandcamp Ventures LLC.
+I can't imagine any legal commercial usage of this app, except for usage by Bandcamp Ventures LLC.
