@@ -553,7 +553,14 @@ export class RemoteControlService extends EventEmitter {
                         <span id="current-time">0:00</span>
                         <span id="total-time">0:00</span>
                     </div>
-                    <input type="range" id="progress-slider" min="0" max="100" value="0" style="width: 100%;" oninput="seek(this.value)">
+                    <input type="range" id="progress-slider" min="0" max="100" value="0" step="0.1" style="width: 100%;" 
+                        oninput="onSeekInput(this.value)" 
+                        onchange="onSeekChange(this.value)"
+                        onmousedown="isScrubbing=true"
+                        ontouchstart="isScrubbing=true"
+                        onmouseup="isScrubbing=false"
+                        ontouchend="isScrubbing=false"
+                    >
                 </div>
 
                 <div class="controls">
@@ -599,6 +606,14 @@ export class RemoteControlService extends EventEmitter {
         let ws;
         let currentState = {};
         let fullCollectionItems = [];
+        let isScrubbing = false;
+
+        function formatTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return mins + ':' + (secs < 10 ? '0' : '') + secs;
+        }
         
         function connect() {
             const host = window.location.host;
@@ -650,9 +665,10 @@ export class RemoteControlService extends EventEmitter {
                 // Update Progress
                 const slider = document.getElementById('progress-slider');
                 slider.max = state.duration;
-                // Only update if not currently dragging (implied simple check for now, can improve)
-                if (document.activeElement !== slider) {
+                // Only update if not currently dragging
+                if (!isScrubbing) {
                     slider.value = state.currentTime;
+                    updateSliderFill(slider);
                 }
                 
                 document.getElementById('current-time').innerText = formatTime(state.currentTime);
@@ -664,15 +680,62 @@ export class RemoteControlService extends EventEmitter {
                 const repeatBtn = document.getElementById('btn-repeat');
                 repeatBtn.style.color = state.repeatMode !== 'off' ? 'var(--accent-color)' : 'var(--text-secondary)';
                 repeatBtn.innerText = state.repeatMode === 'one' ? '🔂' : '🔁';
+
+                if (state.isPlaying) {
+                    if (!progressInterval) startProgressLoop();
+                } else {
+                    stopProgressLoop();
+                }
             }
         }
 
+        let progressInterval;
+        let lastUpdateTime = 0;
+
+        function startProgressLoop() {
+            if (progressInterval) cancelAnimationFrame(progressInterval);
+            
+            function loop() {
+                if (currentState.isPlaying) {
+                    const now = Date.now();
+                    const elapsed = (now - lastUpdateTime) / 1000;
+                    currentState.currentTime += elapsed;
+                    lastUpdateTime = now;
+                    
+                    if (currentState.currentTime > currentState.duration) {
+                        currentState.currentTime = currentState.duration;
+                    }
+                    
+                    updateProgressUI(currentState.currentTime, currentState.duration);
+                }
+                progressInterval = requestAnimationFrame(loop);
+            }
+            lastUpdateTime = Date.now();
+            loop();
+        }
+
+        function stopProgressLoop() {
+            if (progressInterval) cancelAnimationFrame(progressInterval);
+        }
+
         function updateProgress(data) {
-            const { currentTime, duration } = data;
             const slider = document.getElementById('progress-slider');
             
-            if (slider && document.activeElement !== slider) {
-                slider.max = duration; // Ensure max is up to date
+            // Only update from server if NOT dragging to prevent jitter
+            if (!isScrubbing) {
+                const { currentTime, duration } = data;
+                currentState.currentTime = currentTime;
+                currentState.duration = duration;
+                lastUpdateTime = Date.now();
+                updateProgressUI(currentTime, duration);
+            }
+        }
+
+        function updateProgressUI(currentTime, duration) {
+            const slider = document.getElementById('progress-slider');
+            
+            if (slider && !isScrubbing) {
+                slider.max = duration || 1; 
                 slider.value = currentTime;
                 updateSliderFill(slider);
             }
@@ -699,10 +762,35 @@ export class RemoteControlService extends EventEmitter {
             slider.style.background = \`linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) \${percentage}%, rgba(255, 255, 255, 0.1) \${percentage}%, rgba(255, 255, 255, 0.1) 100%)\`;
         }
 
-        function seek(val) {
+        function onSeekInput(val) {
+            const time = parseFloat(val);
             const slider = document.getElementById('progress-slider');
             updateSliderFill(slider);
-            sendCommand('seek', parseFloat(val));
+            
+            // Optimistic update
+            currentState.currentTime = time;
+            lastUpdateTime = Date.now();
+            
+            const currentEl = document.getElementById('current-time');
+            if (currentEl) currentEl.innerText = formatTime(time);
+        }
+
+        function onSeekChange(val) {
+            const time = parseFloat(val);
+            const slider = document.getElementById('progress-slider');
+            if (slider) {
+                slider.value = time;
+                updateSliderFill(slider);
+            }
+            
+            // Optimistic update
+            currentState.currentTime = time;
+            lastUpdateTime = Date.now();
+            
+            const currentEl = document.getElementById('current-time');
+            if (currentEl) currentEl.innerText = formatTime(time);
+
+            sendCommand('seek', time);
         }
 
         function switchTab(tabId) {

@@ -212,8 +212,11 @@ export class PlayerService extends EventEmitter {
     }
 
     seek(time: number): void {
-        this.currentTime = Math.max(0, Math.min(time, this.duration));
+        const seekTime = Number(time);
+        this.currentTime = Math.max(0, Math.min(seekTime, this.duration));
         this.emitTimeUpdate();
+        // Emit command to renderer to actually seek the audio element
+        this.emit('seek-command', this.currentTime);
     }
 
     setVolume(volume: number): void {

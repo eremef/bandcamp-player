@@ -105,6 +105,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     playerService.on('time-update', (data) => {
         broadcast(PLAYER_CHANNELS.ON_TIME_UPDATE, data);
     });
+    playerService.on('seek-command', (time) => {
+        broadcast(PLAYER_CHANNELS.ON_SEEK, time);
+    });
 
     // ---- Queue ----
     ipcMain.handle(QUEUE_CHANNELS.ADD_TRACK, (_, track: Track, playNext?: boolean) =>
