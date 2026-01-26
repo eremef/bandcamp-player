@@ -1,5 +1,7 @@
 # Unofficial Bandcamp Desktop Player - Beta version
 
+(To be honest, this whole repository is a beta version, probably forever)
+
 <p align="center">
   <img width="800" alt="image" src="https://github.com/user-attachments/assets/b665c480-a90b-44e5-8523-0becd3d092a2" />
 </p>
@@ -8,7 +10,7 @@ AI-generated, feature-rich Electron desktop application for playing Bandcamp mus
 
 ⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️
 
-However, it should be quite safe, as you can listen and cache only your collected tracks and radio shows.
+However, it should be quite safe, as you can listen to and cache only the tracks and radio shows you have collected.
 
 ## Features
 
@@ -21,7 +23,7 @@ However, it should be quite safe, as you can listen and cache only your collecte
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
 - 📱 **Mobile Companion App** - Remote control via Android application
-- 🌐 **Web Remote Control** - Control playback via any web browser on local network
+- 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 
@@ -95,12 +97,12 @@ Access the settings menu (gear icon) to configure:
   - Toggle automatic scrobbling
 
 - **Window**
-  - Minimize to Tray: Keep app running in background when closed
+  - Minimize to Tray: Keep the app running in the background when closed
   - Show Notifications: Desktop notifications on track change
 
 ### Last.fm Integration
 
-To enable scrobbling, you need to register a Last.fm API application:
+To enable scrobbling, you need to register with Last.fm API application:
 
 1. Go to <https://www.last.fm/api/account/create>
 2. Create a new application
