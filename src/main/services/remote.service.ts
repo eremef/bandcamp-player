@@ -373,8 +373,29 @@ export class RemoteControlService extends EventEmitter {
         .controls {
             margin-top: 2rem;
             display: flex;
-            gap: 2rem;
+            gap: 1rem;
             align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .volume-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+            margin-top: 20px;
+            min-width: 150px;
+        }
+
+        @media (max-width: 600px) {
+            .volume-wrapper {
+                width: 100%;
+                margin-left: 0;
+                justify-content: center;
+                margin-top: 1rem;
+            }
         }
 
         .main-btn {
@@ -397,16 +418,37 @@ export class RemoteControlService extends EventEmitter {
             font-size: 1.8rem;
         }
 
-        #volume-container {
-            width: 80%;
-            margin-top: 3rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
+
 
         input[type=range] {
             flex: 1;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            margin-top: -5px;
+            cursor: pointer;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+
+        /* Specific style for progress slider to show fill */
+        #progress-slider {
+            background: linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) 0%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%);
         }
 
         /* List Styles */
@@ -447,11 +489,7 @@ export class RemoteControlService extends EventEmitter {
             color: var(--text-secondary);
         }
 
-        .transport-extras {
-            display: flex;
-            gap: 2rem;
-            margin-top: 1.5rem;
-        }
+
 
         .icon-btn {
             background: none;
@@ -482,18 +520,9 @@ export class RemoteControlService extends EventEmitter {
                     <p id="artist">Connect to your desktop app</p>
                 </div>
 
-                <div class="transport-extras">
-                    <button id="btn-shuffle" class="icon-btn" onclick="sendCommand('toggle-shuffle')">🔀</button>
-                    <button id="btn-repeat" class="icon-btn" onclick="cycleRepeat()">🔁</button>
-                </div>
-                
-                <div class="controls">
-                    <button class="sec-btn" onclick="sendCommand('previous')">⏮</button>
-                    <button id="play-pause" class="main-btn" onclick="togglePlay()">▶</button>
-                    <button class="sec-btn" onclick="sendCommand('next')">⏭</button>
-                </div>
 
-                <div id="progress-container" style="width: 80%; margin-top: 2rem;">
+                
+                <div id="progress-container" style="width: 80%; margin-top: 1rem;">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
                         <span id="current-time">0:00</span>
                         <span id="total-time">0:00</span>
@@ -501,10 +530,25 @@ export class RemoteControlService extends EventEmitter {
                     <input type="range" id="progress-slider" min="0" max="100" value="0" style="width: 100%;" oninput="seek(this.value)">
                 </div>
 
-                <div id="volume-container">
-                    <span>🔈</span>
-                    <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
-                    <span>🔊</span>
+                <div class="controls">
+                    <button id="btn-shuffle" class="icon-btn" onclick="sendCommand('toggle-shuffle')">🔀</button>
+                    <button class="sec-btn" onclick="sendCommand('previous')">⏮</button>
+                    <button id="play-pause" class="main-btn" onclick="togglePlay()">▶</button>
+                    <button class="sec-btn" onclick="sendCommand('next')">⏭</button>
+                    <button id="btn-repeat" class="icon-btn" onclick="cycleRepeat()">🔁</button>
+                    <div style="display: flex; flex-direction: column; align-items: center; margin-left: 1rem;">
+                        <div class="volume-wrapper" style="margin-left: 0;">
+                            <span>🔈</span>
+                            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
+                            <span>🔊</span>
+                        </div>
+                        <span id="volume-percent" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">80%</span>
+                    </div>
+                </div>
+
+
+
+                    
                 </div>
             </div>
         </div>
@@ -560,6 +604,8 @@ export class RemoteControlService extends EventEmitter {
                 renderRadio(payload);
             } else if (type === 'playlists-data') {
                 renderPlaylists(payload);
+            } else if (type === 'time-update') {
+                updateProgress(payload);
             }
         }
 
@@ -571,6 +617,7 @@ export class RemoteControlService extends EventEmitter {
                 document.getElementById('artwork').src = state.currentTrack.artworkUrl;
                 document.getElementById('play-pause').innerText = state.isPlaying ? '⏸' : '▶';
                 document.getElementById('volume-slider').value = state.volume;
+                updateVolumeText(state.volume);
                 
                 // Update Progress
                 const slider = document.getElementById('progress-slider');
@@ -590,6 +637,44 @@ export class RemoteControlService extends EventEmitter {
                 repeatBtn.style.color = state.repeatMode !== 'off' ? 'var(--accent-color)' : 'var(--text-secondary)';
                 repeatBtn.innerText = state.repeatMode === 'one' ? '🔂' : '🔁';
             }
+        }
+
+        function updateProgress(data) {
+            const { currentTime, duration } = data;
+            const slider = document.getElementById('progress-slider');
+            
+            if (slider && document.activeElement !== slider) {
+                slider.max = duration; // Ensure max is up to date
+                slider.value = currentTime;
+                updateSliderFill(slider);
+            }
+            
+            const currentEl = document.getElementById('current-time');
+            const totalEl = document.getElementById('total-time');
+            
+            if (currentEl) currentEl.innerText = formatTime(currentTime);
+            if (totalEl) totalEl.innerText = formatTime(duration);
+        }
+
+        function updateSliderFill(slider) {
+            if (!slider) return;
+            const val = slider.value;
+            const min = parseFloat(slider.min || 0);
+            const max = parseFloat(slider.max || 100);
+            
+            let percentage = 0;
+            if (max > min) {
+                percentage = ((val - min) / (max - min)) * 100;
+            }
+            if (!isFinite(percentage)) percentage = 0;
+            
+            slider.style.background = \`linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) \${percentage}%, rgba(255, 255, 255, 0.1) \${percentage}%, rgba(255, 255, 255, 0.1) 100%)\`;
+        }
+
+        function seek(val) {
+            const slider = document.getElementById('progress-slider');
+            updateSliderFill(slider);
+            sendCommand('seek', parseFloat(val));
         }
 
         function switchTab(tabId) {
@@ -661,7 +746,14 @@ export class RemoteControlService extends EventEmitter {
         }
 
         function setVolume(val) {
+            updateVolumeText(val);
             sendCommand('set-volume', parseFloat(val));
+        }
+
+        function updateVolumeText(val) {
+            const percent = Math.round(val * 100);
+            const el = document.getElementById('volume-percent');
+            if (el) el.innerText = percent + '%';
         }
 
         function seek(val) {
@@ -687,14 +779,14 @@ export class RemoteControlService extends EventEmitter {
                     <img src="\${artwork}" alt="" style="background:#333">
                     <div class="list-item-info">
                         <div class="list-item-title">\${playlist.name}</div>
-                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatDuration(playlist.totalDuration)}</div>
+                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatTime(playlist.totalDuration)}</div>
                     </div>
                 \`;
                 list.appendChild(div);
             });
         }
 
-        function formatDuration(seconds) {
+        function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = Math.floor(seconds % 60);
             return \`\${mins}:\${secs.toString().padStart(2, '0')}\`;
