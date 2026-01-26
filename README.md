@@ -17,7 +17,8 @@ However, it should be quite safe, as you can listen to and cache only the tracks
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📝 **Playlist Management** - Create and manage custom playlists
 - 📥 **Offline Caching** - Download tracks for offline playback
-- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio streams
+- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
+- 🔍 **Smart Search** - Filter your collection instantly on all platforms (Desktop, Mobile, Web)
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes

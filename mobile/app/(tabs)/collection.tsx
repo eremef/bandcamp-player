@@ -7,7 +7,7 @@ import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 
-export default function LibraryScreen() {
+export default function CollectionScreen() {
     const collection = useStore((state) => state.collection);
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
@@ -128,7 +128,7 @@ export default function LibraryScreen() {
                 <Search size={20} color="#888" style={styles.searchIcon} />
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Search library..."
+                    placeholder="Search collection..."
                     placeholderTextColor="#888"
                     value={searchQuery}
                     onChangeText={setSearchQuery}

@@ -18,6 +18,7 @@ This document specifies the WebSocket protocol used to remote control the Bandca
 > - **Visual Feedback**: Real-time progress bar with seek capability and time display.
 > - **Volume Control**: Slider with percentage display.
 > - **Browsing**: Access to Collection, Playlists, and Radio stations.
+> - **Search**: Filter Collection items by title or artist.
 
 ---
 
@@ -221,6 +222,7 @@ Clients send these messages to control the player.
   description: string;
   imageUrl: string;
   streamUrl: string;
+  date?: string;
 }
 ```
 

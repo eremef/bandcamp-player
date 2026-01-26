@@ -501,7 +501,11 @@ export class ScraperService {
                         description: episode.subtitle || episode.desc,
                         imageUrl: episode.image_id ? `https://f4.bcbits.com/img/${episode.image_id}_16.jpg` : undefined,
                         streamUrl: '', // Will be fetched on demand
-                        date: episode.published_date,
+                        date: episode.published_date ? new Date(episode.published_date).toLocaleDateString('en-US', {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric'
+                        }) : undefined,
                     });
                 }
             }

@@ -216,7 +216,7 @@
 
 .cardDate {
     font-size: var(--font-size-xs);
-    color: var(--accent-primary);
+    /* color: var(--accent-primary); */
     margin-bottom: var(--spacing-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;

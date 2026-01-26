@@ -36,6 +36,13 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
+                name="collection"
+                options={{
+                    title: 'Collection',
+                    tabBarIcon: ({ color, size }: { color: string; size: number }) => <Library color={color} size={size} />,
+                }}
+            />
+            <Tabs.Screen
                 name="playlists"
                 options={{
                     title: 'Playlists',
@@ -47,13 +54,6 @@ export default function TabLayout() {
                 options={{
                     title: 'Radio',
                     tabBarIcon: ({ color, size }: { color: string; size: number }) => <Radio color={color} size={size} />,
-                }}
-            />
-            <Tabs.Screen
-                name="library"
-                options={{
-                    title: 'Library',
-                    tabBarIcon: ({ color, size }: { color: string; size: number }) => <Library color={color} size={size} />,
                 }}
             />
         </Tabs>

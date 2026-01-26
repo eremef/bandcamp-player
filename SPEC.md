@@ -36,11 +36,11 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 - **React 18**: Component-based UI library.
 - **CSS Modules**: Scoped styling.
 
-### Mobile App
-
-- **React Native**: Cross-platform mobile UI.
-- **Expo**: Development platform and build tools.
-- **Expo Router**: File-based routing.
+- **Mobile App**:
+  - **Player**: Current playback control.
+  - **Collection**: Browse user's collection (Grid view) with real-time search.
+  - **Playlists**: Manage and play playlists.
+  - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
 
 ## 3. Data Models
 
@@ -128,6 +128,7 @@ interface RadioStation {
     description?: string;
     imageUrl?: string;
     streamUrl: string;
+    date?: string;
 }
 ```
 
@@ -254,3 +255,9 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status).
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`) to all connected clients.
+
+### Collection Search
+
+1. **Client-Side Filtering**: For performance and offline capability, the full collection is loaded into memory on the client (Desktop Renderer, Mobile App, Web Remote).
+2. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array.
+3. **Optimized Rendering**: UI only renders the filtered subset, ensuring responsiveness even with large collections.

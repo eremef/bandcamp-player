@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
-    VolumeX, Volume1, Volume2, List, Maximize2
+    VolumeX, Volume1, Volume2, List, Minimize2
 } from 'lucide-react';
 import styles from './PlayerBar.module.css';
 
@@ -310,7 +310,7 @@ export function PlayerBar() {
                     <List size={20} />
                 </button>
                 <button className={styles.controlBtn} onClick={toggleMiniPlayer} title="Mini Player">
-                    <Maximize2 size={20} />
+                    <Minimize2 size={20} />
                 </button>
             </div>
         </div >

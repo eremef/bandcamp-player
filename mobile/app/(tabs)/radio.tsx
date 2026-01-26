@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     itemDate: {
-        color: '#1da1f2',
+        color: '#fff',
         fontSize: 12,
         fontWeight: 'bold',
         marginBottom: 2,
