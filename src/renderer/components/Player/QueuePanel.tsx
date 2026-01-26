@@ -1,4 +1,5 @@
 import { useStore } from '../../store/store';
+import { X, Play, Trash2 } from 'lucide-react';
 import styles from './QueuePanel.module.css';
 
 export function QueuePanel() {
@@ -13,7 +14,7 @@ export function QueuePanel() {
                         Clear
                     </button>
                     <button className={styles.closeBtn} onClick={toggleQueue} title="Close">
-                        ✕
+                        <X size={18} />
                     </button>
                 </div>
             </header>
@@ -43,7 +44,7 @@ export function QueuePanel() {
                                     title="Play"
                                 >
                                     {index === queue.currentIndex && player.isPlaying ? (
-                                        <span className={styles.playing}>▶</span>
+                                        <span className={styles.playing}><Play size={14} fill="currentColor" /></span>
                                     ) : (
                                         <span className={styles.trackNumber}>{index + 1}</span>
                                     )}
@@ -60,7 +61,7 @@ export function QueuePanel() {
                                     onClick={() => removeFromQueue(item.id)}
                                     title="Remove"
                                 >
-                                    ✕
+                                    <Trash2 size={16} />
                                 </button>
                             </li>
                         ))}

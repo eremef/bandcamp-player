@@ -1,4 +1,5 @@
 import { useStore } from '../../store/store';
+import { Music, Download, Radio, Headphones, ArrowRight } from 'lucide-react';
 import styles from './LoginPrompt.module.css';
 
 export function LoginPrompt() {
@@ -30,19 +31,19 @@ export function LoginPrompt() {
                 {/* Features */}
                 <div className={styles.features}>
                     <div className={styles.feature}>
-                        <span className={styles.featureIcon}>🎵</span>
+                        <Music className={styles.featureIcon} size={20} />
                         <span>Play your purchased music</span>
                     </div>
                     <div className={styles.feature}>
-                        <span className={styles.featureIcon}>📥</span>
+                        <Download className={styles.featureIcon} size={20} />
                         <span>Offline caching</span>
                     </div>
                     <div className={styles.feature}>
-                        <span className={styles.featureIcon}>📻</span>
+                        <Radio className={styles.featureIcon} size={20} />
                         <span>Bandcamp Radio</span>
                     </div>
                     <div className={styles.feature}>
-                        <span className={styles.featureIcon}>🎧</span>
+                        <Headphones className={styles.featureIcon} size={20} />
                         <span>Last.fm scrobbling</span>
                     </div>
                 </div>
@@ -50,15 +51,7 @@ export function LoginPrompt() {
                 {/* Login Button */}
                 <button className={styles.loginButton} onClick={login}>
                     <span>Login with Bandcamp</span>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                        <path
-                            d="M4 10h12M12 6l4 4-4 4"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-                    </svg>
+                    <ArrowRight size={20} />
                 </button>
 
                 <p className={styles.note}>

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import { AlbumCard } from './AlbumCard';
+import { Search, X, RefreshCw } from 'lucide-react';
 import styles from './CollectionView.module.css';
 
 export function CollectionView() {
@@ -84,7 +85,7 @@ export function CollectionView() {
                 </div>
                 <div className={styles.headerActions}>
                     <div className={styles.searchBox}>
-                        <span className={styles.searchIcon}>🔍</span>
+                        <Search className={styles.searchIcon} size={18} />
                         <input
                             type="text"
                             placeholder="Search your collection..."
@@ -93,12 +94,12 @@ export function CollectionView() {
                         />
                         {searchQuery && (
                             <button className={styles.clearSearch} onClick={() => setSearchQuery('')}>
-                                ✕
+                                <X size={16} />
                             </button>
                         )}
                     </div>
                     <button className={styles.refreshBtn} onClick={() => fetchCollection(true)} title="Refresh">
-                        🔄
+                        <RefreshCw size={18} />
                     </button>
                 </div>
             </header>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useStore } from '../../store/store';
+import { SkipBack, Play, Pause, SkipForward, ExternalLink } from 'lucide-react';
 import styles from './MiniPlayer.module.css';
 
 export function MiniPlayer() {
@@ -47,19 +48,19 @@ export function MiniPlayer() {
                 {/* Controls */}
                 <div className={styles.controls}>
                     <button className={styles.controlBtn} onClick={previous} title="Previous">
-                        ⏮️
+                        <SkipBack size={18} fill="currentColor" />
                     </button>
                     <button className={styles.playBtn} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Play'}>
-                        {isPlaying ? '⏸️' : '▶️'}
+                        {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" style={{ marginLeft: '1px' }} />}
                     </button>
                     <button className={styles.controlBtn} onClick={next} title="Next">
-                        ⏭️
+                        <SkipForward size={18} fill="currentColor" />
                     </button>
                 </div>
 
                 {/* Window Control */}
                 <button className={styles.restoreBtn} onClick={toggleMiniPlayer} title="Restore to Main Window">
-                    ↗️
+                    <ExternalLink size={16} />
                 </button>
             </div>
         </div>

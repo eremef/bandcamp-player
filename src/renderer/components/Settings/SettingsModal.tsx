@@ -1,4 +1,5 @@
 import { useStore } from '../../store/store';
+import { X, Trash2, Music, User, LogOut } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 
@@ -46,7 +47,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 <header className={styles.header}>
                     <h2>Settings</h2>
                     <button className={styles.closeBtn} onClick={onClose}>
-                        ✕
+                        <X size={20} />
                     </button>
                 </header>
 
@@ -114,7 +115,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     <span>{cacheStats.trackCount} tracks cached</span>
                                 </div>
                                 <button className={styles.clearCacheBtn} onClick={clearCache}>
-                                    🗑️ Clear Cache
+                                    <Trash2 size={16} />
+                                    <span>Clear Cache</span>
                                 </button>
                             </div>
                         )}
@@ -140,7 +142,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             <div className={styles.lastfmDisconnected}>
                                 <p>Connect your Last.fm account to scrobble tracks</p>
                                 <button className={styles.connectBtn} onClick={connectLastfm}>
-                                    🎵 Connect to Last.fm
+                                    <Music size={18} />
+                                    <span>Connect to Last.fm</span>
                                 </button>
                             </div>
                         )}
@@ -262,7 +265,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     {auth.user?.avatarUrl ? (
                                         <img src={auth.user.avatarUrl} alt="" />
                                     ) : (
-                                        <span>👤</span>
+                                        <User size={32} />
                                     )}
                                 </div>
                                 <div className={styles.userDetails}>
@@ -277,7 +280,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     onClose();
                                 }}
                             >
-                                🚪 Logout
+                                <LogOut size={18} />
+                                <span>Logout</span>
                             </button>
                         </div>
                     </section>
