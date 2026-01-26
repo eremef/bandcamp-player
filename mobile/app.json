@@ -2,7 +2,7 @@
   "expo": {
     "name": "Bandcamp Remote",
     "slug": "bandcamp-remote",
-    "version": "1.0.0",
+    "version": "1.3.1-beta",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "bandcamp-remote",
