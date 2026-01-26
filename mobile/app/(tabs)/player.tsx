@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
@@ -7,6 +7,7 @@ import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volu
 import { router } from 'expo-router';
 
 export default function PlayerScreen() {
+    const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const {
         currentTrack,
         isPlaying,
@@ -90,6 +91,10 @@ export default function PlayerScreen() {
                     </Text>
                 </View>
 
+
+                {/* Spacer to push controls to bottom */}
+                <View style={{ flex: 1 }} />
+
                 {/* Progress */}
                 <View style={styles.progressContainer}>
                     <Slider
@@ -144,25 +149,46 @@ export default function PlayerScreen() {
                             </View>
                         )}
                     </TouchableOpacity>
+
+                    {/* Volume Button */}
+                    <TouchableOpacity
+                        style={styles.volumeButtonRowItem}
+                        onPress={() => setIsVolumeVisible(true)}
+                    >
+                        <Volume2 size={24} color="#fff" />
+                        <Text style={styles.volumeButtonTextRow}>{Math.round((volume || 0) * 100)}%</Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Volume */}
-                <View style={styles.volumeWrapper}>
-                    <View style={styles.volumeRow}>
-                        <Volume2 size={20} color="#666" />
-                        <Slider
-                            style={styles.volumeSlider}
-                            minimumValue={0}
-                            maximumValue={1}
-                            value={volume || 0.8}
-                            onSlidingComplete={setVolume}
-                            minimumTrackTintColor="#666"
-                            maximumTrackTintColor="#333"
-                            thumbTintColor="#666"
-                        />
-                    </View>
-                    <Text style={styles.volumeText}>{Math.round((volume || 0) * 100)}%</Text>
-                </View>
+                {/* Vertical Volume Modal */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={isVolumeVisible}
+                    onRequestClose={() => setIsVolumeVisible(false)}
+                >
+                    <Pressable
+                        style={styles.modalOverlay}
+                        onPress={() => setIsVolumeVisible(false)}
+                    >
+                        <View style={styles.verticalVolumeContainer}>
+                            <View style={styles.sliderWrapper}>
+                                <Slider
+                                    style={styles.verticalSlider}
+                                    minimumValue={0}
+                                    maximumValue={1}
+                                    value={volume || 0.8}
+                                    onSlidingComplete={setVolume}
+                                    minimumTrackTintColor="#1da1f2"
+                                    maximumTrackTintColor="#333"
+                                    thumbTintColor="#fff"
+                                />
+                            </View>
+                            <Text style={styles.modalVolumeText}>{Math.round((volume || 0) * 100)}%</Text>
+
+                        </View>
+                    </Pressable>
+                </Modal>
             </View>
         </SafeAreaView>
     );
@@ -189,13 +215,12 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingBottom: 80, // Increased to account for tab bar and new volume control
+        paddingBottom: 80,
         paddingTop: 12,
     },
     artworkContainer: {
-        width: 220,
-        height: 220,
+        width: 260,
+        height: 260,
         borderRadius: 12,
         overflow: 'hidden',
         marginTop: 24,
@@ -255,7 +280,7 @@ const styles = StyleSheet.create({
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 0,
+        paddingHorizontal: 15,
     },
     timeText: {
         color: '#888',
@@ -264,10 +289,9 @@ const styles = StyleSheet.create({
     controlsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'space-between', // Try 'space-around' if it crowds
         width: '100%',
-        marginTop: 32,
-        paddingHorizontal: 16,
+        paddingHorizontal: 10, // Reduce padding to fit more items
     },
     playButton: {
         width: 72,
@@ -293,25 +317,55 @@ const styles = StyleSheet.create({
         fontSize: 8,
         fontWeight: 'bold',
     },
-    volumeWrapper: {
-        width: '100%',
-        marginTop: 32,
+    volumeButtonRowItem: {
         alignItems: 'center',
-        paddingHorizontal: 16,
+        justifyContent: 'center',
+        width: 30,
+        paddingBottom: 3,
+        marginBottom: 10,
     },
-    volumeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    volumeButtonTextRow: {
+        color: '#fff',
+        fontSize: 10,
+        marginTop: 2,
+        fontWeight: 'bold',
+        position: 'absolute',
+        bottom: -14,
         width: '100%',
-        gap: 12,
+        textAlign: 'center',
     },
-    volumeSlider: {
+    modalOverlay: {
         flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        paddingRight: 25,
+        paddingTop: 125,
+        alignItems: 'flex-end',
     },
-    volumeText: {
-        color: '#666',
-        fontSize: 12,
-        marginTop: 4,
-        fontWeight: '600',
+    verticalVolumeContainer: {
+        backgroundColor: '#1e1e1e',
+        padding: 20,
+        borderRadius: 24,
+        alignItems: 'center',
+        height: 300,
+        justifyContent: 'space-between',
+        width: 90,
+    },
+    sliderWrapper: {
+        height: 200,
+        width: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    verticalSlider: {
+        width: 200,
+        height: 40,
+        transform: [{ rotate: '-90deg' }],
+    },
+    modalVolumeText: {
+        color: '#fff',
+        fontSize: 16,
+        bottom: 15,
+        fontWeight: 'bold'
     }
 });
