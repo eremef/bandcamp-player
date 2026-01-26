@@ -76,9 +76,12 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
+      - name: Rename APK
+        run: mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
+
       - name: Release APK
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: mobile/android/app/build/outputs/apk/release/bandcamp-companion-app.apk
+          files: mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
           generate_release_notes: true
