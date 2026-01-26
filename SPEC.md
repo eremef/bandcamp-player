@@ -5,8 +5,8 @@
 The Bandcamp Player is a desktop application built with **Electron**, leveraging a **React** frontend (Renderer process) and a robust **Node.js** backend (Main process).
 
 - **Main Process**: Handles system integration, file operations, database management (SQLite), web scraping (Cheerio), and audio playback control via system media keys.
-- **Renderer Process**: Provides the user interface using React and manages application state with Zustand.
-- **Mobile App**: A React Native companion app connecting via WebSocket to the Main process for remote control and library browsing.
+- **Renderer Process**: Provides the user interface using React. Depending on the route, it renders either the main `Layout` or the dedicated compact `MiniPlayer`.
+- **Remote Clients**: A React Native companion app (Mobile) and a built-in Web Interface, both connecting via WebSocket to the Main process for remote control and library browsing.
 - **IPC Communication**: The two processes communicate securely via a preload script exposing specific APIs (`window.electron`) for actions like player control, database queries, and setting updates.
 
 ## 2. Technology Stack
@@ -247,9 +247,9 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 2. **Scrobble**: Sent when track completes or passes 50% completion.
 3. **Offline**: If network fails, scrobbles are saved to `scrobble_queue` and retried on next app start or network recovery.
 
-### Remote Control (Mobile App)
+### Remote Control (Mobile & Web)
 
-1. **Discovery**: Mobile app scans local network or User inputs IP.
+1. **Discovery**: Mobile app scans local network or User inputs IP. Web client is accessed directly via browser at `http://<host-ip>:9999`.
 2. **Connection**: Establishes WebSocket connection to Desktop on port `9999`.
 3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status).
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
