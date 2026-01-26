@@ -1,6 +1,6 @@
 {
   "name": "bandcamp-player",
-  "version": "1.3.2-beta",
+  "version": "1.3.3-beta",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "Bandcamp Player",
