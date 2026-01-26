@@ -343,6 +343,11 @@ export class RemoteControlService extends EventEmitter {
             display: block;
         }
 
+        #collection-tab.active {
+            display: flex;
+            flex-direction: column;
+        }
+
         /* Now Playing Styles */
         #now-playing {
             display: flex;
@@ -504,6 +509,22 @@ export class RemoteControlService extends EventEmitter {
             cursor: pointer;
             transition: color 0.2s;
         }
+
+        #collection-search {
+            width: 100%;
+            padding: 1rem;
+            background: #000;
+            border: none;
+            border-bottom: 1px solid #333;
+            color: var(--text-color);
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        #collection-search::placeholder {
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -558,8 +579,9 @@ export class RemoteControlService extends EventEmitter {
             </div>
         </div>
 
-        <div id="collection-tab" class="tab-content">
-            <div id="collection-list">Loading collection...</div>
+        <div id="collection-tab" class="tab-content" style="padding: 0;">
+            <input type="text" id="collection-search" placeholder="Search collection..." oninput="filterCollection(this.value)">
+            <div id="collection-list" style="padding: 1.5rem; overflow-y: auto; flex: 1;">Loading collection...</div>
         </div>
 
         <div id="playlists-tab" class="tab-content">
@@ -576,6 +598,7 @@ export class RemoteControlService extends EventEmitter {
     <script>
         let ws;
         let currentState = {};
+        let fullCollectionItems = [];
         
         function connect() {
             const host = window.location.host;
@@ -698,11 +721,25 @@ export class RemoteControlService extends EventEmitter {
             }
         }
 
+        function filterCollection(query) {
+            const lowerQuery = query.toLowerCase();
+            const filtered = fullCollectionItems.filter(item => 
+                (item.title && item.title.toLowerCase().includes(lowerQuery)) ||
+                (item.artist && item.artist.toLowerCase().includes(lowerQuery))
+            );
+            renderCollectionItems(filtered);
+        }
+
         function renderCollection(collection) {
+            fullCollectionItems = collection.items;
+            renderCollectionItems(fullCollectionItems);
+        }
+
+        function renderCollectionItems(items) {
             const list = document.getElementById('collection-list');
             list.innerHTML = '';
             
-            collection.items.forEach(item => {
+            items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'list-item';
                 div.onclick = () => sendCommand('play-album', item.albumUrl || item.item_url);
@@ -729,6 +766,7 @@ export class RemoteControlService extends EventEmitter {
                     <img src="\${station.imageUrl}" alt="">
                     <div class="list-item-info">
                         <div class="list-item-title">\${station.name}</div>
+                        \${station.date ? \`<div class="list-item-subtitle" style="color:var(--text-color); margin-bottom:0.2rem; font-size:0.8rem; text-transform:uppercase;">\${station.date}</div>\` : ''}
                         <div class="list-item-subtitle">\${station.description}</div>
                     </div>
                 \`;
