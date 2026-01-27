@@ -155,6 +155,23 @@ export class PlayerService extends EventEmitter {
         this.stop();
     }
 
+    private finishQueue(): void {
+        this.isPlaying = false;
+        this.currentTrack = null;
+        this.currentTime = 0;
+        this.duration = 0;
+        // Set index to the end (length) effectively saying "we are past the last track"
+        this.currentIndex = this.queue.length;
+
+        this.isRadioActive = false;
+        this.currentStation = null;
+
+        this.emitStateChange();
+        this.emitTrackChange();
+        this.emitRadioStateChange();
+        this.emitQueueUpdate();
+    }
+
     async next(): Promise<void> {
         if (this.queue.length === 0) return;
 
@@ -172,7 +189,7 @@ export class PlayerService extends EventEmitter {
             if (this.repeatMode === 'all') {
                 nextIndex = 0;
             } else {
-                this.stop();
+                this.finishQueue();
                 return;
             }
         }
