@@ -33,6 +33,16 @@ export default function PlaylistsScreen() {
         );
     };
 
+    const formatDuration = (seconds?: number) => {
+        if (!seconds) return '0 min';
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes} min`;
+    };
+
     const renderItem = ({ item }: { item: Playlist }) => {
         return (
             <TouchableOpacity style={styles.item} onPress={() => handlePlayPlaylist(item)}>
@@ -45,7 +55,9 @@ export default function PlaylistsScreen() {
                 )}
                 <View style={styles.itemInfo}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.itemSubtitle}>{item.trackCount} tracks</Text>
+                    <Text style={styles.itemSubtitle}>
+                        {item.trackCount} tracks • {formatDuration(item.totalDuration)}
+                    </Text>
                 </View>
             </TouchableOpacity>
         );

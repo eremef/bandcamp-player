@@ -28,6 +28,16 @@ export function PlaylistsView() {
         setNewPlaylistName('');
     };
 
+    const formatDuration = (seconds: number) => {
+        if (!seconds) return '0 min';
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        }
+        return `${minutes} min`;
+    };
+
     return (
         <div className={styles.container}>
             <header className={styles.header}>
@@ -91,7 +101,7 @@ export function PlaylistsView() {
                             <div className={styles.cardInfo}>
                                 <h3 className={styles.cardTitle}>{playlist.name}</h3>
                                 <p className={styles.cardMeta}>
-                                    {playlist.trackCount} tracks
+                                    {playlist.trackCount} tracks • {formatDuration(playlist.totalDuration)}
                                     {playlist.description && ` • ${playlist.description}`}
                                 </p>
                             </div>

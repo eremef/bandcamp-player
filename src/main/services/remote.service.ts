@@ -30,6 +30,15 @@ export class RemoteControlService extends EventEmitter {
         this.database = database;
     }
 
+    // Event handlers
+    private handleStateChanged = (state: any) => this.broadcast('state-changed', state);
+    private handleTrackChanged = (track: any) => this.broadcast('track-changed', track);
+    private handleTimeUpdate = (data: any) => this.broadcast('time-update', data);
+    private handlePlaylistsChanged = () => {
+        const playlists = this.playlistService.getAll();
+        this.broadcast('playlists-data', playlists);
+    };
+
     start(): void {
         if (this.isRunning) return;
 
@@ -75,13 +84,22 @@ export class RemoteControlService extends EventEmitter {
         });
 
         // Listen for player events to broadcast
-        this.playerService.on('state-changed', (state) => this.broadcast('state-changed', state));
-        this.playerService.on('track-changed', (track) => this.broadcast('track-changed', track));
-        this.playerService.on('time-update', (data) => this.broadcast('time-update', data));
+        this.playerService.on('state-changed', this.handleStateChanged);
+        this.playerService.on('track-changed', this.handleTrackChanged);
+        this.playerService.on('time-update', this.handleTimeUpdate);
+
+        // Listen for playlist changes
+        this.playlistService.on('playlists-changed', this.handlePlaylistsChanged);
     }
 
     stop(): void {
         if (!this.isRunning) return;
+
+        // Remove listeners
+        this.playerService.off('state-changed', this.handleStateChanged);
+        this.playerService.off('track-changed', this.handleTrackChanged);
+        this.playerService.off('time-update', this.handleTimeUpdate);
+        this.playlistService.off('playlists-changed', this.handlePlaylistsChanged);
 
         this.wss?.close();
         this.server.close();
@@ -929,6 +947,17 @@ export class RemoteControlService extends EventEmitter {
             const secs = Math.floor(seconds % 60);
             return mins + ':' + (secs < 10 ? '0' : '') + secs;
         }
+
+        function formatDuration(seconds) {
+            if (!seconds || isNaN(seconds)) return '0 min';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (hours > 0) {
+                return hours + 'h ' + minutes + 'm';
+            }
+            return minutes + ' min';
+        }
         
         function connect() {
             const host = window.location.host;
@@ -1297,7 +1326,7 @@ export class RemoteControlService extends EventEmitter {
                     <img src="\${artwork}" alt="" style="background:var(--bg-tertiary)">
                     <div class="list-item-info">
                         <div class="list-item-title">\${playlist.name}</div>
-                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatTime(playlist.totalDuration)}</div>
+                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatDuration(playlist.totalDuration)}</div>
                     </div>
                 \`;
                 list.appendChild(div);

@@ -124,9 +124,9 @@
 /* Context menu */
 .menu {
     position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
+    top: calc(var(--spacing-sm) + 36px);
+    right: var(--spacing-sm);
+    width: 200px;
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);

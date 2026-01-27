@@ -143,7 +143,8 @@ export class Database {
         const rows = this.db.prepare(`
       SELECT p.*, 
         (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
-        (SELECT SUM(json_extract(track_data, '$.duration')) FROM playlist_tracks WHERE playlist_id = p.id) as total_duration
+        (SELECT SUM(json_extract(track_data, '$.duration')) FROM playlist_tracks WHERE playlist_id = p.id) as total_duration,
+        (SELECT json_extract(track_data, '$.artworkUrl') FROM playlist_tracks WHERE playlist_id = p.id ORDER BY position ASC LIMIT 1) as artwork_url
       FROM playlists p
       ORDER BY p.updated_at DESC
     `).all() as Array<{
@@ -154,6 +155,7 @@ export class Database {
             updated_at: string;
             track_count: number;
             total_duration: number;
+            artwork_url: string | null;
         }>;
 
         return rows.map(row => ({
@@ -163,6 +165,7 @@ export class Database {
             tracks: [],
             trackCount: row.track_count,
             totalDuration: row.total_duration || 0,
+            artworkUrl: row.artwork_url || undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         }));
