@@ -1,3 +1,4 @@
+import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from '../database/database';
 import type { Playlist, PlaylistCreateInput, PlaylistUpdateInput, Track } from '../../shared/types';
@@ -6,10 +7,11 @@ import type { Playlist, PlaylistCreateInput, PlaylistUpdateInput, Track } from '
 // Playlist Service
 // ============================================================================
 
-export class PlaylistService {
+export class PlaylistService extends EventEmitter {
     private database: Database;
 
     constructor(database: Database) {
+        super();
         this.database = database;
     }
 
@@ -32,7 +34,9 @@ export class PlaylistService {
      */
     create(input: PlaylistCreateInput): Playlist {
         const id = uuidv4();
-        return this.database.createPlaylist(id, input.name, input.description);
+        const playlist = this.database.createPlaylist(id, input.name, input.description);
+        this.emit('playlists-changed');
+        return playlist;
     }
 
     /**
@@ -40,6 +44,7 @@ export class PlaylistService {
      */
     update(input: PlaylistUpdateInput): Playlist | null {
         this.database.updatePlaylist(input.id, input.name, input.description);
+        this.emit('playlists-changed');
         return this.database.getPlaylistById(input.id);
     }
 
@@ -48,6 +53,7 @@ export class PlaylistService {
      */
     delete(id: string): void {
         this.database.deletePlaylist(id);
+        this.emit('playlists-changed');
     }
 
     /**
@@ -55,6 +61,7 @@ export class PlaylistService {
      */
     addTracks(playlistId: string, tracks: Track[]): void {
         this.database.addTracksToPlaylist(playlistId, tracks);
+        this.emit('playlists-changed');
     }
 
     /**
@@ -63,6 +70,7 @@ export class PlaylistService {
     addTrack(playlistId: string, track: Track): void {
         const trackId = `${playlistId}-${track.id}-${Date.now()}`;
         this.database.addTrackToPlaylist(playlistId, trackId, track);
+        this.emit('playlists-changed');
     }
 
     /**
@@ -70,6 +78,7 @@ export class PlaylistService {
      */
     removeTrack(playlistId: string, trackId: string): void {
         this.database.removeTrackFromPlaylist(playlistId, trackId);
+        this.emit('playlists-changed');
     }
 
     /**
@@ -77,5 +86,6 @@ export class PlaylistService {
      */
     reorderTracks(playlistId: string, fromIndex: number, toIndex: number): void {
         this.database.reorderPlaylistTracks(playlistId, fromIndex, toIndex);
+        this.emit('playlists-changed');
     }
 }
