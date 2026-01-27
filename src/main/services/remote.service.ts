@@ -6,6 +6,11 @@ import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
 import { Database } from '../database/database';
+import {
+    Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
+    VolumeX, Volume1, Volume2, List, Library, ListMusic, Radio, Search,
+    IconNode
+} from 'lucide';
 
 export class RemoteControlService extends EventEmitter {
     private server: any;
@@ -108,6 +113,32 @@ export class RemoteControlService extends EventEmitter {
             }
         }
         return 'localhost';
+    }
+
+    private iconToSvg(icon: IconNode, size: number = 24, className: string = ''): string {
+        // Lucide icons are [tag, attrs, children][] - wait, actually the Lucide package exports 
+        // the icon definition as `[tag, attrs, children][]` is internal?
+        // Let's rely on the structure I verified: array of [tag, attrs]
+
+        // The structure inspected was: [["path", { d: "..." }]]
+        // LucideIcon type is: type IconNode = [elementName: string, attrs: Record<string, string>][]
+
+        const children = (icon as any).map(([tag, attrs]: [string, any]) => {
+            const attrStr = Object.entries(attrs)
+                .map(([k, v]) => `${k}="${v}"`)
+                .join(' ');
+            return `<${tag} ${attrStr}></${tag}>`;
+        }).join('');
+
+        return `<svg xmlns="http://www.w3.org/2000/svg" 
+            width="${size}" height="${size}" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round" 
+            class="${className}">${children}</svg>`;
     }
 
     private async handleMessage(ws: WebSocket, message: { type: string; payload?: any }): Promise<void> {
@@ -242,6 +273,9 @@ export class RemoteControlService extends EventEmitter {
             case 'play-station':
                 await this.playerService.playStation(payload);
                 break;
+            case 'toggle-mute':
+                this.playerService.toggleMute();
+                break;
             default:
                 console.warn('[RemoteService] Unknown message type:', type);
         }
@@ -264,8 +298,63 @@ export class RemoteControlService extends EventEmitter {
     }
 
     private getRemoteHtml(): string {
-        // This will be a large string containing the entire remote UI
-        // I'll define it in a separate step or a helper file
+        const cssVariables = `
+            :root {
+                /* ---- Colors ---- */
+                --bg-primary: #0a0a0a;
+                --bg-secondary: #141414;
+                --bg-tertiary: #1e1e1e;
+                --bg-elevated: #252525;
+                --bg-hover: #2a2a2a;
+                --bg-active: #333333;
+                
+                --accent-primary: #1da0c3;
+                --accent-hover: #22b8e0;
+                --accent-muted: rgba(29, 160, 195, 0.15);
+                --accent-gradient: linear-gradient(135deg, #1da0c3 0%, #0d7a99 100%);
+                
+                --text-primary: #ffffff;
+                --text-secondary: #a0a0a0;
+                --text-tertiary: #666666;
+                --text-link: #1da0c3;
+                --text-on-accent: #ffffff;
+                
+                --color-error: #e74c3c;
+                
+                --border-subtle: rgba(255, 255, 255, 0.06);
+                
+                /* ---- Spacing ---- */
+                --spacing-sm: 0.5rem;
+                --spacing-md: 0.75rem;
+                --spacing-lg: 1rem;
+                
+                /* ---- Radius ---- */
+                --radius-md: 6px;
+                --radius-full: 9999px;
+
+                /* ---- Font ---- */
+                --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            }
+        `;
+
+        const icons = {
+            Play: this.iconToSvg(Play),
+            Pause: this.iconToSvg(Pause),
+            SkipBack: this.iconToSvg(SkipBack),
+            SkipForward: this.iconToSvg(SkipForward),
+            Shuffle: this.iconToSvg(Shuffle),
+            Repeat: this.iconToSvg(Repeat),
+            Repeat1: this.iconToSvg(Repeat1),
+            VolumeX: this.iconToSvg(VolumeX),
+            Volume1: this.iconToSvg(Volume1),
+            Volume2: this.iconToSvg(Volume2),
+            List: this.iconToSvg(List),
+            Library: this.iconToSvg(Library),
+            ListMusic: this.iconToSvg(ListMusic),
+            Radio: this.iconToSvg(Radio),
+            Search: this.iconToSvg(Search)
+        };
+
         return `
 <!DOCTYPE html>
 <html>
@@ -274,21 +363,14 @@ export class RemoteControlService extends EventEmitter {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bandcamp Remote</title>
     <style>
-        :root {
-            --bg-color: #121212;
-            --surface-color: #1e1e1e;
-            --primary-color: #62b1ff;
-            --text-color: #ffffff;
-            --text-secondary: #b3b3b3;
-            --accent-color: #2ab1ff;
-        }
+        ${cssVariables}
 
         body {
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: var(--bg-color);
-            color: var(--text-color);
+            font-family: var(--font-family);
+            background: var(--bg-primary);
+            color: var(--text-primary);
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -298,16 +380,17 @@ export class RemoteControlService extends EventEmitter {
         header {
             padding: 1rem;
             text-align: center;
-            border-bottom: 1px solid #333;
-            font-weight: bold;
-            font-size: 1.2rem;
-            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-subtle);
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--accent-primary);
+            background: var(--bg-secondary);
         }
 
         #tabs {
             display: flex;
-            background: var(--surface-color);
-            border-bottom: 1px solid #333;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-subtle);
         }
 
         .tab-btn {
@@ -316,14 +399,25 @@ export class RemoteControlService extends EventEmitter {
             border: none;
             background: none;
             color: var(--text-secondary);
-            font-weight: bold;
+            font-weight: 500;
             cursor: pointer;
             transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.8rem;
+        }
+
+        .tab-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
         }
 
         .tab-btn.active {
-            color: var(--primary-color);
-            border-bottom: 2px solid var(--primary-color);
+            color: var(--accent-primary);
+            background: var(--bg-tertiary);
         }
 
         #content {
@@ -355,110 +449,165 @@ export class RemoteControlService extends EventEmitter {
             align-items: center;
             justify-content: center;
             text-align: center;
+            height: 100%;
         }
 
         #artwork {
-            width: 80%;
-            max-width: 300px;
+            width: 70%;
+            max-width: 280px;
             aspect-ratio: 1;
-            border-radius: 8px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.5);
-            background: #333;
+            border-radius: var(--radius-md);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            background: var(--bg-tertiary);
             margin-bottom: 2rem;
             object-fit: cover;
         }
 
         #track-info h2 {
             margin: 0;
-            font-size: 1.5rem;
+            font-size: 1.25rem;
+            font-weight: 600;
             margin-bottom: 0.5rem;
+            color: var(--text-primary);
         }
 
         #track-info p {
             margin: 0;
             color: var(--text-secondary);
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
+        /* Progress */
+        #progress-container {
+            width: 85%; 
+            margin-top: 2rem;
+        }
+        
+        .time-labels {
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.8rem; 
+            color: var(--text-tertiary); 
+            margin-bottom: 0.2rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+            outline: none;
+            cursor: pointer;
+            height: 16px; /* Touch target */
+            margin: 0;
+            /* Ensure the gradient track is centered and correct height */
+            background-size: 100% 4px;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* Track */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: transparent; /* Remove grey line */
+            border-radius: var(--radius-full);
+        }
+        
+        /* Thumb */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            margin-top: -4px; /* adjusted for transparent track */
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            transition: transform 0.1s;
+        }
+
+        input[type=range]:active::-webkit-slider-thumb {
+            transform: scale(1.2);
+        }
+
+        /* Generated via JS for fill */
+        #progress-slider {
+            /* Fallback or initial state */
+            background-image: linear-gradient(to right, var(--accent-primary) 0%, var(--accent-primary) 0%, var(--bg-active) 0%, var(--bg-active) 100%);
+        }
+
+        /* Controls */
         .controls {
             margin-top: 2rem;
             display: flex;
-            gap: 1rem;
+            gap: 1.5rem;
             align-items: center;
             justify-content: center;
-            flex-wrap: wrap;
             width: 100%;
         }
 
-        .volume-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-left: 1rem;
-            margin-top: 20px;
-            min-width: 150px;
-        }
-
-        @media (max-width: 600px) {
-            .volume-wrapper {
-                width: 100%;
-                margin-left: 0;
-                justify-content: center;
-                margin-top: 1rem;
-            }
-        }
-
-        .main-btn {
-            background: var(--primary-color);
-            border: none;
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            color: #000;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .sec-btn {
+        .control-btn {
             background: none;
             border: none;
-            color: var(--text-color);
-            font-size: 1.8rem;
-        }
-
-
-
-        input[type=range] {
-            flex: 1;
-            -webkit-appearance: none;
-            background: rgba(255, 255, 255, 0.1);
-            height: 6px;
-            border-radius: 3px;
-            outline: none;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s, transform 0.1s;
             border-radius: 50%;
-            background: var(--primary-color);
-            margin-top: -5px;
-            cursor: pointer;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
         }
 
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            border-radius: 3px;
+        .control-btn.active {
+            color: var(--accent-primary);
+            background: rgba(29, 160, 195, 0.1);
         }
 
-        /* Specific style for progress slider to show fill */
-        #progress-slider {
-            background: linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) 0%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.1) 100%);
+        .control-btn svg {
+            width: 24px;
+            height: 24px;
+            stroke-width: 2;
+        }
+
+        .play-btn {
+            width: 64px;
+            height: 64px;
+            background: var(--text-primary);
+            border-radius: 50%;
+            color: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 12px rgba(255,255,255,0.2);
+        }
+
+        .play-btn:active {
+            transform: scale(0.95);
+        }
+
+        .play-btn svg {
+            width: 32px;
+            height: 32px;
+            fill: var(--bg-primary);
+            stroke: var(--bg-primary);
+        }
+
+        .volume-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-left: 0.5rem;
+            min-width: 40px;
         }
 
         /* List Styles */
@@ -467,63 +616,68 @@ export class RemoteControlService extends EventEmitter {
             align-items: center;
             gap: 1rem;
             padding: 1rem;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border-subtle);
             cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .list-item:active {
+            background: var(--bg-hover);
         }
 
         .list-item img {
             width: 50px;
             height: 50px;
-            border-radius: 4px;
+            border-radius: var(--radius-md);
+            background: var(--bg-tertiary);
+            object-fit: cover;
         }
 
         .list-item-info {
             flex: 1;
+            min-width: 0;
         }
 
         .list-item-title {
-            font-weight: bold;
-            margin-bottom: 0.2rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .list-item-subtitle {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         #status-bar {
             padding: 0.5rem;
-            background: #000;
-            font-size: 0.8rem;
+            background: var(--bg-secondary);
+            font-size: 0.75rem;
             text-align: center;
-            color: var(--text-secondary);
-        }
-
-
-
-        .icon-btn {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: color 0.2s;
+            color: var(--text-tertiary);
+            border-top: 1px solid var(--border-subtle);
         }
 
         #collection-search {
             width: 100%;
             padding: 1rem;
-            background: #000;
+            background: var(--bg-secondary);
             border: none;
-            border-bottom: 1px solid #333;
-            color: var(--text-color);
+            border-bottom: 1px solid var(--border-subtle);
+            color: var(--text-primary);
             font-size: 1rem;
             box-sizing: border-box;
             outline: none;
+            font-family: inherit;
         }
 
         #collection-search::placeholder {
-            color: var(--text-secondary);
+            color: var(--text-tertiary);
         }
     </style>
 </head>
@@ -531,29 +685,39 @@ export class RemoteControlService extends EventEmitter {
     <header>Bandcamp Remote</header>
     
     <div id="tabs">
-        <button class="tab-btn active" onclick="switchTab('now-playing')">Player</button>
-        <button class="tab-btn" onclick="switchTab('collection')">Collection</button>
-        <button class="tab-btn" onclick="switchTab('playlists')">Playlists</button>
-        <button class="tab-btn" onclick="switchTab('radio')">Radio</button>
+        <button class="tab-btn active" onclick="switchTab('now-playing')">
+            ${icons.Play}
+            <span>Player</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('collection')">
+            ${icons.Library}
+            <span>Collection</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('playlists')">
+            ${icons.ListMusic}
+            <span>Playlists</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('radio')">
+            ${icons.Radio}
+            <span>Radio</span>
+        </button>
     </div>
 
     <div id="content">
         <div id="now-playing-tab" class="tab-content active">
             <div id="now-playing">
-                <img id="artwork" src="" alt="Album Art">
+                <img id="artwork" src="" alt="">
                 <div id="track-info">
                     <h2 id="title">Not Playing</h2>
-                    <p id="artist">Connect to your desktop app</p>
+                    <p id="artist">Connect to desktop app</p>
                 </div>
-
-
                 
-                <div id="progress-container" style="width: 80%; margin-top: 1rem;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                <div id="progress-container">
+                    <div class="time-labels">
                         <span id="current-time">0:00</span>
                         <span id="total-time">0:00</span>
                     </div>
-                    <input type="range" id="progress-slider" min="0" max="100" value="0" step="0.1" style="width: 100%;" 
+                    <input type="range" id="progress-slider" min="0" max="100" value="0" step="0.1" 
                         oninput="onSeekInput(this.value)" 
                         onchange="onSeekChange(this.value)"
                         onmousedown="isScrubbing=true"
@@ -564,45 +728,59 @@ export class RemoteControlService extends EventEmitter {
                 </div>
 
                 <div class="controls">
-                    <button id="btn-shuffle" class="icon-btn" onclick="sendCommand('toggle-shuffle')">🔀</button>
-                    <button class="sec-btn" onclick="sendCommand('previous')">⏮</button>
-                    <button id="play-pause" class="main-btn" onclick="togglePlay()">▶</button>
-                    <button class="sec-btn" onclick="sendCommand('next')">⏭</button>
-                    <button id="btn-repeat" class="icon-btn" onclick="cycleRepeat()">🔁</button>
-                    <div style="display: flex; flex-direction: column; align-items: center; margin-left: 1rem;">
-                        <div class="volume-wrapper" style="margin-left: 0;">
-                            <span>🔈</span>
-                            <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
-                            <span>🔊</span>
-                        </div>
-                        <span id="volume-percent" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">80%</span>
-                    </div>
+                    <button id="btn-shuffle" class="control-btn" onclick="sendCommand('toggle-shuffle')">
+                        ${icons.Shuffle}
+                    </button>
+                    <button class="control-btn" onclick="sendCommand('previous')">
+                        ${icons.SkipBack}
+                    </button>
+                    <button id="play-pause" class="play-btn" onclick="togglePlay()">
+                        ${icons.Play}
+                    </button>
+                    <button class="control-btn" onclick="sendCommand('next')">
+                        ${icons.SkipForward}
+                    </button>
+                    <button id="btn-repeat" class="control-btn" onclick="cycleRepeat()">
+                        ${icons.Repeat}
+                    </button>
                 </div>
-
-
-
-                    
+                
+                <div style="width: 85%; max-width: 300px; margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary);">
+                     <button id="volume-icon" class="control-btn" style="padding: 4px;" onclick="toggleMute()">
+                        ${icons.Volume2}
+                     </button>
+                     <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
+                     <span id="volume-value" style="font-size: 0.8rem; font-variant-numeric: tabular-nums; width: 3.5ch; text-align: right;">80%</span>
                 </div>
             </div>
         </div>
 
         <div id="collection-tab" class="tab-content" style="padding: 0;">
             <input type="text" id="collection-search" placeholder="Search collection..." oninput="filterCollection(this.value)">
-            <div id="collection-list" style="padding: 1.5rem; overflow-y: auto; flex: 1;">Loading collection...</div>
+            <div id="collection-list" style="padding: 0; overflow-y: auto; flex: 1;">
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+            </div>
         </div>
 
-        <div id="playlists-tab" class="tab-content">
-            <div id="playlists-list">Loading playlists...</div>
+        <div id="playlists-tab" class="tab-content" style="padding: 0;">
+            <div id="playlists-list" style="padding: 0;">
+                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+            </div>
         </div>
 
-        <div id="radio-tab" class="tab-content">
-            <div id="radio-list">Loading radio stations...</div>
+        <div id="radio-tab" class="tab-content" style="padding: 0;">
+            <div id="radio-list" style="padding: 0;">
+                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+            </div>
         </div>
     </div>
 
     <div id="status-bar">Connecting...</div>
 
     <script>
+        // Inject server-side generated icons
+        const ICONS = ${JSON.stringify(icons)};
+        
         let ws;
         let currentState = {};
         let fullCollectionItems = [];
@@ -621,7 +799,7 @@ export class RemoteControlService extends EventEmitter {
 
             ws.onopen = () => {
                 document.getElementById('status-bar').innerText = 'Connected';
-                document.getElementById('status-bar').style.color = '#2ecc71';
+                document.getElementById('status-bar').style.color = 'var(--color-success)';
             };
 
             ws.onmessage = (event) => {
@@ -631,7 +809,7 @@ export class RemoteControlService extends EventEmitter {
 
             ws.onclose = () => {
                 document.getElementById('status-bar').innerText = 'Disconnected. Retrying...';
-                document.getElementById('status-bar').style.color = '#e74c3c';
+                document.getElementById('status-bar').style.color = 'var(--color-error)';
                 setTimeout(connect, 3000);
             };
         }
@@ -658,34 +836,54 @@ export class RemoteControlService extends EventEmitter {
                 document.getElementById('title').innerText = state.currentTrack.title;
                 document.getElementById('artist').innerText = state.currentTrack.artist;
                 document.getElementById('artwork').src = state.currentTrack.artworkUrl;
-                document.getElementById('play-pause').innerText = state.isPlaying ? '⏸' : '▶';
-                document.getElementById('volume-slider').value = state.volume;
-                updateVolumeText(state.volume);
                 
-                // Update Progress
+                // Play/Pause Icon
+                const playBtn = document.getElementById('play-pause');
+                playBtn.innerHTML = state.isPlaying ? ICONS.Pause : ICONS.Play;
+                
+                // Volume
+                const volSlider = document.getElementById('volume-slider');
+                volSlider.value = state.volume;
+                updateRangeFill(volSlider, 'var(--text-primary)', 'var(--bg-active)');
+                updateVolumeIcon(state.volume, state.isMuted);
+                document.getElementById('volume-value').innerText = Math.round(state.volume * 100) + '%';
+                
+                // Progress
                 const slider = document.getElementById('progress-slider');
                 slider.max = state.duration;
-                // Only update if not currently dragging
                 if (!isScrubbing) {
                     slider.value = state.currentTime;
-                    updateSliderFill(slider);
+                    updateRangeFill(slider, 'var(--accent-primary)', 'var(--bg-active)');
                 }
                 
                 document.getElementById('current-time').innerText = formatTime(state.currentTime);
                 document.getElementById('total-time').innerText = formatTime(state.duration);
                 
-                // Update Shuffle/Repeat UI
-                document.getElementById('btn-shuffle').style.color = state.isShuffled ? 'var(--accent-color)' : 'var(--text-secondary)';
+                // Shuffle
+                const shuffleBtn = document.getElementById('btn-shuffle');
+                shuffleBtn.classList.toggle('active', state.isShuffled);
                 
+                // Repeat
                 const repeatBtn = document.getElementById('btn-repeat');
-                repeatBtn.style.color = state.repeatMode !== 'off' ? 'var(--accent-color)' : 'var(--text-secondary)';
-                repeatBtn.innerText = state.repeatMode === 'one' ? '🔂' : '🔁';
+                repeatBtn.classList.toggle('active', state.repeatMode !== 'off');
+                repeatBtn.innerHTML = state.repeatMode === 'one' ? ICONS.Repeat1 : ICONS.Repeat;
 
                 if (state.isPlaying) {
                     if (!progressInterval) startProgressLoop();
                 } else {
                     stopProgressLoop();
                 }
+            }
+        }
+
+        function updateVolumeIcon(volume, isMuted) {
+            const btn = document.getElementById('volume-icon');
+            if (isMuted || volume === 0) {
+                btn.innerHTML = ICONS.VolumeX;
+            } else if (volume < 0.5) {
+                btn.innerHTML = ICONS.Volume1;
+            } else {
+                btn.innerHTML = ICONS.Volume2;
             }
         }
 
@@ -719,9 +917,6 @@ export class RemoteControlService extends EventEmitter {
         }
 
         function updateProgress(data) {
-            const slider = document.getElementById('progress-slider');
-            
-            // Only update from server if NOT dragging to prevent jitter
             if (!isScrubbing) {
                 const { currentTime, duration } = data;
                 currentState.currentTime = currentTime;
@@ -737,7 +932,7 @@ export class RemoteControlService extends EventEmitter {
             if (slider && !isScrubbing) {
                 slider.max = duration || 1; 
                 slider.value = currentTime;
-                updateSliderFill(slider);
+                updateRangeFill(slider, 'var(--accent-primary)', 'var(--bg-active)');
             }
             
             const currentEl = document.getElementById('current-time');
@@ -747,9 +942,9 @@ export class RemoteControlService extends EventEmitter {
             if (totalEl) totalEl.innerText = formatTime(duration);
         }
 
-        function updateSliderFill(slider) {
+        function updateRangeFill(slider, activeColor, inactiveColor) {
             if (!slider) return;
-            const val = slider.value;
+            const val = parseFloat(slider.value);
             const min = parseFloat(slider.min || 0);
             const max = parseFloat(slider.max || 100);
             
@@ -757,17 +952,15 @@ export class RemoteControlService extends EventEmitter {
             if (max > min) {
                 percentage = ((val - min) / (max - min)) * 100;
             }
-            if (!isFinite(percentage)) percentage = 0;
             
-            slider.style.background = \`linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) \${percentage}%, rgba(255, 255, 255, 0.1) \${percentage}%, rgba(255, 255, 255, 0.1) 100%)\`;
+            slider.style.backgroundImage = \`linear-gradient(to right, \${activeColor} 0%, \${activeColor} \${percentage}%, \${inactiveColor} \${percentage}%, \${inactiveColor} 100%)\`;
         }
 
         function onSeekInput(val) {
             const time = parseFloat(val);
             const slider = document.getElementById('progress-slider');
-            updateSliderFill(slider);
+            updateRangeFill(slider, 'var(--accent-primary)', 'var(--bg-active)');
             
-            // Optimistic update
             currentState.currentTime = time;
             lastUpdateTime = Date.now();
             
@@ -780,10 +973,9 @@ export class RemoteControlService extends EventEmitter {
             const slider = document.getElementById('progress-slider');
             if (slider) {
                 slider.value = time;
-                updateSliderFill(slider);
+                updateRangeFill(slider, 'var(--accent-primary)', 'var(--bg-active)');
             }
             
-            // Optimistic update
             currentState.currentTime = time;
             lastUpdateTime = Date.now();
             
@@ -827,6 +1019,11 @@ export class RemoteControlService extends EventEmitter {
             const list = document.getElementById('collection-list');
             list.innerHTML = '';
             
+            if (items.length === 0) {
+                 list.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">No items found</div>';
+                 return;
+            }
+            
             items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'list-item';
@@ -854,8 +1051,34 @@ export class RemoteControlService extends EventEmitter {
                     <img src="\${station.imageUrl}" alt="">
                     <div class="list-item-info">
                         <div class="list-item-title">\${station.name}</div>
-                        \${station.date ? \`<div class="list-item-subtitle" style="color:var(--text-color); margin-bottom:0.2rem; font-size:0.8rem; text-transform:uppercase;">\${station.date}</div>\` : ''}
+                        \${station.date ? \`<div class="list-item-subtitle" style="color:var(--text-primary); margin-bottom:0.2rem; font-size:0.75rem; text-transform:uppercase;">\${station.date}</div>\` : ''}
                         <div class="list-item-subtitle">\${station.description}</div>
+                    </div>
+                \`;
+                list.appendChild(div);
+            });
+        }
+        
+        function renderPlaylists(playlists) {
+            const list = document.getElementById('playlists-list');
+            list.innerHTML = '';
+            
+            if (playlists.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-tertiary)">No playlists found</div>';
+                return;
+            }
+
+            playlists.forEach(playlist => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.onclick = () => sendCommand('play-playlist', playlist.id);
+                // Use first track artwork or default
+                const artwork = playlist.artworkUrl || 'https://bandcamp.com/img/0.gif'; 
+                div.innerHTML = \`
+                    <img src="\${artwork}" alt="" style="background:var(--bg-tertiary)">
+                    <div class="list-item-info">
+                        <div class="list-item-title">\${playlist.name}</div>
+                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatTime(playlist.totalDuration)}</div>
                     </div>
                 \`;
                 list.appendChild(div);
@@ -867,6 +1090,10 @@ export class RemoteControlService extends EventEmitter {
                 ws.send(JSON.stringify({ type, payload }));
             }
         }
+        
+        function toggleMute() {
+             sendCommand('toggle-mute');
+        }
 
         function togglePlay() {
             if (currentState.isPlaying) {
@@ -877,50 +1104,10 @@ export class RemoteControlService extends EventEmitter {
         }
 
         function setVolume(val) {
-            updateVolumeText(val);
+            updateRangeFill(document.getElementById('volume-slider'), 'var(--text-primary)', 'var(--bg-active)');
+            updateVolumeIcon(val, currentState.isMuted);
+            document.getElementById('volume-value').innerText = Math.round(val * 100) + '%';
             sendCommand('set-volume', parseFloat(val));
-        }
-
-        function updateVolumeText(val) {
-            const percent = Math.round(val * 100);
-            const el = document.getElementById('volume-percent');
-            if (el) el.innerText = percent + '%';
-        }
-
-        function seek(val) {
-            sendCommand('seek', parseFloat(val));
-        }
-
-        function renderPlaylists(playlists) {
-            const list = document.getElementById('playlists-list');
-            list.innerHTML = '';
-            
-            if (playlists.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-secondary)">No playlists found</div>';
-                return;
-            }
-
-            playlists.forEach(playlist => {
-                const div = document.createElement('div');
-                div.className = 'list-item';
-                div.onclick = () => sendCommand('play-playlist', playlist.id);
-                // Use first track artwork or default
-                const artwork = playlist.artworkUrl || 'https://bandcamp.com/img/0.gif'; 
-                div.innerHTML = \`
-                    <img src="\${artwork}" alt="" style="background:#333">
-                    <div class="list-item-info">
-                        <div class="list-item-title">\${playlist.name}</div>
-                        <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatTime(playlist.totalDuration)}</div>
-                    </div>
-                \`;
-                list.appendChild(div);
-            });
-        }
-
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = Math.floor(seconds % 60);
-            return \`\${mins}:\${secs.toString().padStart(2, '0')}\`;
         }
 
         function cycleRepeat() {

@@ -45,7 +45,13 @@ export default function CollectionScreen() {
         if (item.type === 'album' && item.album?.bandcampUrl) {
             playAlbum(item.album.bandcampUrl);
         } else if (item.type === 'track' && item.track) {
-            playTrack(item.track);
+            // Use playAlbum even for tracks if they have a URL, this ensures queue is updated/replaced
+            // on the desktop side, matching web remote behavior
+            if (item.track.bandcampUrl) {
+                playAlbum(item.track.bandcampUrl);
+            } else {
+                playTrack(item.track);
+            }
         }
     };
 
