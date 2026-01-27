@@ -101,3 +101,9 @@ The app uses a local SQLite database (`user_data/database.sqlite`) managed by `b
 - **Scrobbling**: Custom Last.fm integration respecting offline scenarios.
 - **Mobile Remote**: Android app for remote control via WebSocket.
 - **Web Remote**: Built-in web interface for remote control from any browser.
+
+## Rules
+
+- do not use MCP
+- use git cli when it helps save context
+- when you can, use multiple git commands in one line, connected with `;` (e.g. `git add . ; git commit -m "message" ; git push ...` etc.)

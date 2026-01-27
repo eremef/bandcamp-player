@@ -248,6 +248,15 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 2. **Scrobble**: Sent when track completes or passes 50% completion.
 3. **Offline**: If network fails, scrobbles are saved to `scrobble_queue` and retried on next app start or network recovery.
 
+### Queue Completion
+
+1. **End of Queue**: When the last track in the queue finishes playing, or the user skips "Next" on the last track:
+   - Playback stops immediately.
+   - `currentTrack` becomes `null`.
+   - `isPlaying` becomes `false`.
+   - The queue index moves to the end (`queue.length`), visually indicating the queue is finished.
+   - Remote clients reflect this "No Track" state (`Not Playing`).
+
 ### Remote Control (Mobile & Web)
 
 1. **Discovery**: Mobile app scans local network or User inputs IP. Web client is accessed directly via browser at `http://<host-ip>:9999`.

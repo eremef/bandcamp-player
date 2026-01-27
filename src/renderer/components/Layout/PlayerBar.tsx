@@ -34,27 +34,33 @@ export function PlayerBar() {
     // Sync audio element with player state
     useEffect(() => {
         const audio = audioRef.current;
-        if (!audio || !currentTrack) return;
+        if (!audio) return;
 
-        if (audio.src !== currentTrack.streamUrl) {
-            audio.src = currentTrack.streamUrl;
-        }
+        if (currentTrack) {
+            if (audio.src !== currentTrack.streamUrl) {
+                audio.src = currentTrack.streamUrl;
+            }
 
-        if (isPlaying) {
-            console.log('Attempting to play URL:', currentTrack.streamUrl);
-            const playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    if (error.name !== 'AbortError') {
-                        console.error('Playback error:', error);
-                        if (audio.error) {
-                            console.error('Audio element error:', audio.error.code, audio.error.message);
+            if (isPlaying) {
+                console.log('Attempting to play URL:', currentTrack.streamUrl);
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        if (error.name !== 'AbortError') {
+                            console.error('Playback error:', error);
+                            if (audio.error) {
+                                console.error('Audio element error:', audio.error.code, audio.error.message);
+                            }
                         }
-                    }
-                });
+                    });
+                }
+            } else {
+                audio.pause();
             }
         } else {
+            // No track playing, ensure stopped
             audio.pause();
+            audio.src = ''; // Clear source to stop buffering/loading
         }
     }, [isPlaying, currentTrack]);
 

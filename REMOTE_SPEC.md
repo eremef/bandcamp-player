@@ -16,6 +16,7 @@ This document specifies the WebSocket protocol used to remote control the Bandca
 >
 > - **Playback Controls**: Play, Pause, Previous, Next, Shuffle, Repeat.
 > - **Visual Feedback**: Real-time progress bar with seek capability and time display.
+> - **Idle State**: Clear indication when no track is playing ("No Track" placeholder, disabled play button).
 > - **Volume Control**: Slider with percentage display.
 > - **Browsing**: Access to Collection, Playlists, and Radio stations.
 > - **Search**: Filter Collection items by title or artist.
@@ -93,7 +94,7 @@ Clients send these messages to control the player.
 
 ### Playback Controls
 
-- `play`: Resumes or starts playback. No payload.
+- `play`: Resumes or starts playback. No payload. (Client should prevent sending if queue is finished/empty).
 - `pause`: Pauses playback. No payload.
 - `next`: Skips to next track. No payload.
 - `previous`: Goes to previous track or restarts current. No payload.
