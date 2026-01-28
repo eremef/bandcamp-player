@@ -8,7 +8,7 @@ AI-generated, feature-rich Electron desktop application for playing Bandcamp mus
 
 ⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️
 
-However, it should be quite safe, as you can listen to and cache only the tracks and radio shows you have collected.
+However, it should be quite safe, as you can listen to and cache only the tracks you have collected and radio shows.
 
 ## Features
 
