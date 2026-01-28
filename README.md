@@ -42,6 +42,7 @@ However, it should be quite safe, as you can listen to and cache only the tracks
 - **React Native** - Cross-platform mobile framework
 - **Expo** - Build and development platform
 - **Zustand** - State management
+- **React Native Track Player** - Native audio playback & media controls
 
 ## Getting Started
 
@@ -72,6 +73,7 @@ npm start
 # Build for production
 npm run build
 ```
+
 > **Note**: The applications have been tested so far only on Windows 11 and Android 14.
 
 > **Note**: The applications have been tested so far only on Windows 11 and Android 14.
@@ -163,14 +165,28 @@ The project includes a companion Android application in the `mobile/` directory.
 
 ### Building Mobile App
 
-```bash
-cd mobile
-# Install dependencies
-npm install
+> **Prerequisites**:
+>
+> - **Java 17** (Required for Android builds. Java 24+ is currently incompatible).
+> - **Android SDK** with **CMake 3.22.1** installed.
+> - **Android NDK** (Side-by-side versions).
 
-# Build APK (requires Expo account)
-npx eas-cli build --platform android
-```
+1. **Configure SDK**:
+   Create a `local.properties` file in `mobile/android/` pointing to your SDK:
+
+   ```properties
+   sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk
+   ```
+
+2. **Build**:
+
+   ```bash
+   cd mobile
+   npm install
+   
+   # Build and run on connected Android device/emulator
+   npm run android:build
+   ```
 
 ## License
 

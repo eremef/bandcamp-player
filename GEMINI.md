@@ -48,6 +48,8 @@ npm run build
 ### Environment Note
 
 - **Shell**: Use proper command separators depending on the environment where the CLI is executed. Since `run_shell_command` typically executes via PowerShell on Windows, prefer `;` for sequential commands. In environments supporting `&&` (like CMD or PowerShell 7+), use it for conditional execution. Avoid assuming `&&` is always available.
+- **Java**: Android builds currently require **OpenJDK 17**. Do NOT use JDK 24+ as it conflicts with the build tools. Point `JAVA_HOME` to Android Studio's `jbr` if needed.
+- **Android SDK**: Ensure `mobile/android/local.properties` exists and points to your SDK. CMake 3.22.1 is required.
 
 ## Project Structure
 
@@ -70,6 +72,7 @@ src/
 │   └── ipc-channels.ts     # IPC channel names
 ├── mobile/                 # React Native Mobile App
 │   ├── app/                # Expo Router screens
+│   ├── services/           # Native integrations (TrackPlayer)
 │   └── android/            # Native Android project
 └── assets/                 # Static assets (Icons, images)
 ```
