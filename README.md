@@ -1,7 +1,5 @@
 # Unofficial Bandcamp Desktop Player - Beta version
 
-(To be honest, this whole repository is a beta version, probably forever)
-
 <p align="center">
   <img <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
 </p>
@@ -74,6 +72,7 @@ npm start
 # Build for production
 npm run build
 ```
+> **Note**: The applications have been tested so far only on Windows 11 and Android 14.
 
 > **Note**: The applications have been tested so far only on Windows 11 and Android 14.
 
@@ -83,9 +82,6 @@ npm run build
 
 Access the settings menu (gear icon) to configure:
 
-- **Playback**
-  - Set default start volume
-  
 - **Offline Cache**
   - Toggle caching on/off
   - Set maximum cache size (1-50 GB)
