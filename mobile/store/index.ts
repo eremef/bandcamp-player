@@ -174,7 +174,7 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
     // Sync with TrackPlayer
     try {
         if (payload.currentTrack && payload.currentTrack.id !== prevTrackId) {
-            await addTrack(payload.currentTrack);
+            await addTrack(payload.currentTrack, currentState.hostIp);
         }
 
         if (payload.isPlaying !== undefined) {
@@ -201,11 +201,23 @@ webSocketService.on('radio-data', (radioStations) => {
     useStore.setState({ radioStations });
 });
 
-webSocketService.on('time-update', (payload) => {
+webSocketService.on('time-update', async (payload) => {
     useStore.setState(payload);
 
-    // Sync TrackPlayer progress (optional but nice for notification)
+    // Sync TrackPlayer progress (Smart Sync)
+    // Only seek if we are significantly out of sync (> 2s) to avoid stuttering
     if (payload.currentTime !== undefined) {
-        TrackPlayer.seekTo(payload.currentTime);
+        try {
+            const progress = await TrackPlayer.getProgress();
+            const currentPosition = progress.position;
+            const timeDiff = Math.abs(currentPosition - payload.currentTime);
+
+            if (timeDiff > 2) {
+                // console.log(`Syncing time: remote=${payload.currentTime}, local=${currentPosition}, diff=${timeDiff}`);
+                await TrackPlayer.seekTo(payload.currentTime);
+            }
+        } catch (e) {
+            // Ignore errors (e.g. if player not ready)
+        }
     }
 });

@@ -76,8 +76,6 @@ npm run build
 
 > **Note**: The applications have been tested so far only on Windows 11 and Android 14.
 
-> **Note**: The applications have been tested so far only on Windows 11 and Android 14.
-
 ## Settings & Configuration
 
 ### Application Settings
