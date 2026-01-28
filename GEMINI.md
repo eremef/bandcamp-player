@@ -12,7 +12,7 @@ This project is a desktop application for playing Bandcamp music, built with **E
 - **Database:** SQLite (`better-sqlite3`) for local data, `electron-store` for simple persistence
 - **Networking:** Axios, Cheerio (for scraping)
 - **Networking:** Axios, Cheerio (for scraping)
-- **Tools:** ESLint, Prettier, Electron Builder
+- **Tools:** ESLint, Prettier, Electron Builder, Jimp (Icon Gen)
 - **Mobile:** React Native, Expo, Expo Router
 
 ## Architecture
@@ -42,7 +42,8 @@ npm run build
 
 - `npm run dev:main`: Watch mode for Main process
 - `npm run dev:renderer`: Vite dev server for Renderer
-- `npm run package`: Package application for distribution via `electron-builder`
+- `npm run package`: Build and package application for distribution via `electron-builder`
+- `node scripts/generate-icons.js`: Generate icons for all platforms from source
 
 ### Environment Note
 
