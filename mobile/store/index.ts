@@ -3,6 +3,8 @@ import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TrackPlayer, { State as TrackPlayerState } from 'react-native-track-player';
+import { addTrack } from '../services/player';
 
 interface AppState extends PlayerState {
     // Connection State
@@ -163,8 +165,28 @@ webSocketService.on('connection-status', (status) => {
     }
 });
 
-webSocketService.on('state-changed', (payload) => {
+webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
+    const currentState = useStore.getState();
+    const prevTrackId = currentState.currentTrack?.id;
+
     useStore.setState(payload);
+
+    // Sync with TrackPlayer
+    try {
+        if (payload.currentTrack && payload.currentTrack.id !== prevTrackId) {
+            await addTrack(payload.currentTrack);
+        }
+
+        if (payload.isPlaying !== undefined) {
+            if (payload.isPlaying) {
+                await TrackPlayer.play();
+            } else {
+                await TrackPlayer.pause();
+            }
+        }
+    } catch (e) {
+        console.error('Failed to sync TrackPlayer state', e);
+    }
 });
 
 webSocketService.on('collection-data', (collection) => {
@@ -181,4 +203,9 @@ webSocketService.on('radio-data', (radioStations) => {
 
 webSocketService.on('time-update', (payload) => {
     useStore.setState(payload);
+
+    // Sync TrackPlayer progress (optional but nice for notification)
+    if (payload.currentTime !== undefined) {
+        TrackPlayer.seekTo(payload.currentTime);
+    }
 });

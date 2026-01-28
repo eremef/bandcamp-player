@@ -4,10 +4,11 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
-    "build:apk": "eas-cli build --platform android"
+    "build:apk": "npx eas-cli build --platform android",
+    "android:build": "expo run:android"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
@@ -15,6 +16,7 @@
     "expo": "~54.0.32",
     "expo-build-properties": "^1.0.10",
     "expo-constants": "~18.0.13",
+    "expo-dev-client": "^6.0.20",
     "expo-linking": "~8.0.11",
     "expo-network": "^8.0.8",
     "expo-router": "~6.0.22",
@@ -27,11 +29,22 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-track-player": "^5.0.0-alpha0-nightly-359af5a12d712d3b685530aed9b9625865a25d74",
+    "react-native-web": "^0.21.2",
     "zustand": "^5.0.10"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": [
+          "react-native-track-player"
+        ]
+      }
+    }
+  }
 }

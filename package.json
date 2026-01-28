@@ -7,6 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\"",
     "dev:main": "tsc -p tsconfig.main.json --watch",
     "dev:renderer": "vite",
     "build": "npm run build:main && npm run build:renderer && node scripts/copy-assets.js",
@@ -16,10 +17,9 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "package": "npm run build &&electron-builder",
+    "package": "npm run build && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild && electron-builder install-app-deps",
-    "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\""
+    "postinstall": "npm run rebuild && electron-builder install-app-deps"
   },
   "dependencies": {
     "axios": "^1.6.7",
