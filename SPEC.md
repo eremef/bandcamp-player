@@ -38,7 +38,8 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 - **CSS Modules**: Scoped styling.
 
 - **Mobile App**:
-  - **Player**: Current playback control.
+  - **Player**: Current playback control (synchronized via WebSocket).
+  - **Native Integration**: `react-native-track-player` for background audio and system media controls (Lock Screen, Notification Center).
   - **Collection**: Browse user's collection (Grid view) with real-time search.
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
@@ -264,7 +265,8 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 2. **Connection**: Establishes WebSocket connection to Desktop on port `9999`.
 3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status).
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
-5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`) to all connected clients.
+5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
+6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
 
 ### Collection Search
 
