@@ -62,7 +62,7 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
             sandbox: false, // Required for better-sqlite3
         },
         show: false,
-        icon: path.join(__dirname, '../assets/icons/icon.ico'),
+        icon: path.join(__dirname, '../assets/icons/icon.png'),
     });
 
     // Load the app
