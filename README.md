@@ -73,10 +73,9 @@ npm start
 ```bash
 # Build for production
 npm run build
-
-# Package as installer
-npm run package
 ```
+
+> **Note**: The applications have been tested so far only on Windows 11 and Android 14.
 
 ## Settings & Configuration
 
@@ -138,7 +137,8 @@ src/
 │   │   └── UI/             # Common UI elements
 │   ├── store/             # Zustand store
 │   └── styles/            # CSS styles
-└── shared/                # Shared types
+├── shared/                # Shared types
+└── assets/                # Static assets (icons)
 ```
 
 ## Usage

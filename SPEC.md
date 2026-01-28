@@ -16,6 +16,7 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 - **Electron**: Desktop runtime environment.
 - **TypeScript**: Static typing for both Main and Renderer processes.
 - **Vite**: Build tool and dev server for the Renderer.
+- **Jimp**: Image manipulation for asset generation.
 
 ### Database & Storage
 
