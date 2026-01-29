@@ -181,10 +181,9 @@ describe('Database', () => {
             database.addCacheEntry({
                 trackId: 'cache-1',
                 filePath: '/path/to/file.mp3',
-                originalUrl: 'https://example.com/stream.mp3',
-                size: 1024000,
-                createdAt: new Date().toISOString(),
-                lastAccessed: new Date().toISOString(),
+                fileSize: 1024000,
+                cachedAt: new Date().toISOString(),
+                lastAccessedAt: new Date().toISOString(),
             });
 
             expect(mockRun).toHaveBeenCalled();
@@ -194,10 +193,9 @@ describe('Database', () => {
             mockGet.mockReturnValue({
                 track_id: 'cache-1',
                 file_path: '/path/to/file.mp3',
-                original_url: 'https://example.com',
-                size: 1024000,
-                created_at: '2024-01-01',
-                last_accessed: '2024-01-01',
+                file_size: 1024000,
+                cached_at: '2024-01-01',
+                last_accessed_at: '2024-01-01',
             });
 
             const result = database.getCacheEntry('cache-1');
