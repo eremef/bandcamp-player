@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1769706058072" clover="3.2.0">
-  <project timestamp="1769706058072" name="All files">
-    <metrics statements="353" coveredstatements="101" conditionals="196" coveredconditionals="27" methods="134" coveredmethods="28" elements="683" coveredelements="156" complexity="0" loc="353" ncloc="353" packages="5" files="14" classes="14"/>
+<coverage generated="1769708216561" clover="3.2.0">
+  <project timestamp="1769708216561" name="All files">
+    <metrics statements="353" coveredstatements="135" conditionals="196" coveredconditionals="35" methods="134" coveredmethods="39" elements="683" coveredelements="209" complexity="0" loc="353" ncloc="353" packages="5" files="14" classes="14"/>
     <package name="app">
       <metrics statements="45" coveredstatements="0" conditionals="30" coveredconditionals="0" methods="21" coveredmethods="0"/>
       <file name="+not-found.tsx" path="D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\+not-found.tsx">
@@ -187,27 +187,27 @@
       </file>
     </package>
     <package name="services">
-      <metrics statements="120" coveredstatements="80" conditionals="44" coveredconditionals="25" methods="36" coveredmethods="23"/>
+      <metrics statements="120" coveredstatements="114" conditionals="44" coveredconditionals="33" methods="36" coveredmethods="34"/>
       <file name="TrackPlayerService.ts" path="D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\services\TrackPlayerService.ts">
-        <metrics statements="18" coveredstatements="0" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="0"/>
-        <line num="5" count="0" type="stmt"/>
-        <line num="6" count="0" type="stmt"/>
-        <line num="9" count="0" type="stmt"/>
-        <line num="10" count="0" type="stmt"/>
-        <line num="13" count="0" type="stmt"/>
-        <line num="14" count="0" type="stmt"/>
-        <line num="17" count="0" type="stmt"/>
-        <line num="18" count="0" type="stmt"/>
-        <line num="21" count="0" type="stmt"/>
-        <line num="22" count="0" type="stmt"/>
-        <line num="25" count="0" type="stmt"/>
-        <line num="26" count="0" type="stmt"/>
-        <line num="27" count="0" type="stmt"/>
-        <line num="30" count="0" type="stmt"/>
-        <line num="31" count="0" type="stmt"/>
-        <line num="32" count="0" type="stmt"/>
-        <line num="35" count="0" type="stmt"/>
-        <line num="36" count="0" type="stmt"/>
+        <metrics statements="18" coveredstatements="18" conditionals="0" coveredconditionals="0" methods="9" coveredmethods="9"/>
+        <line num="5" count="9" type="stmt"/>
+        <line num="6" count="1" type="stmt"/>
+        <line num="9" count="9" type="stmt"/>
+        <line num="10" count="1" type="stmt"/>
+        <line num="13" count="9" type="stmt"/>
+        <line num="14" count="1" type="stmt"/>
+        <line num="17" count="9" type="stmt"/>
+        <line num="18" count="1" type="stmt"/>
+        <line num="21" count="9" type="stmt"/>
+        <line num="22" count="1" type="stmt"/>
+        <line num="25" count="9" type="stmt"/>
+        <line num="26" count="1" type="stmt"/>
+        <line num="27" count="1" type="stmt"/>
+        <line num="30" count="9" type="stmt"/>
+        <line num="31" count="1" type="stmt"/>
+        <line num="32" count="1" type="stmt"/>
+        <line num="35" count="9" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
       </file>
       <file name="WebSocketService.ts" path="D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\services\WebSocketService.ts">
         <metrics statements="54" coveredstatements="51" conditionals="23" coveredconditionals="16" methods="17" coveredmethods="16"/>
@@ -302,23 +302,23 @@
         <line num="70" count="607" type="stmt"/>
       </file>
       <file name="player.ts" path="D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\services\player.ts">
-        <metrics statements="16" coveredstatements="0" conditionals="9" coveredconditionals="0" methods="2" coveredmethods="0"/>
-        <line num="7" count="0" type="stmt"/>
-        <line num="8" count="0" type="stmt"/>
-        <line num="9" count="0" type="stmt"/>
-        <line num="10" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="11" count="0" type="stmt"/>
-        <line num="15" count="0" type="cond" truecount="0" falsecount="2"/>
-        <line num="16" count="0" type="stmt"/>
-        <line num="17" count="0" type="stmt"/>
-        <line num="32" count="0" type="stmt"/>
-        <line num="34" count="0" type="stmt"/>
-        <line num="42" count="0" type="stmt"/>
-        <line num="45" count="0" type="cond" truecount="0" falsecount="5"/>
-        <line num="46" count="0" type="stmt"/>
-        <line num="49" count="0" type="stmt"/>
-        <line num="50" count="0" type="stmt"/>
-        <line num="60" count="0" type="stmt"/>
+        <metrics statements="16" coveredstatements="16" conditionals="9" coveredconditionals="8" methods="2" coveredmethods="2"/>
+        <line num="7" count="3" type="stmt"/>
+        <line num="8" count="3" type="stmt"/>
+        <line num="9" count="3" type="stmt"/>
+        <line num="10" count="1" type="cond" truecount="1" falsecount="1"/>
+        <line num="11" count="1" type="stmt"/>
+        <line num="15" count="3" type="cond" truecount="2" falsecount="0"/>
+        <line num="16" count="2" type="stmt"/>
+        <line num="17" count="2" type="stmt"/>
+        <line num="32" count="2" type="stmt"/>
+        <line num="34" count="3" type="stmt"/>
+        <line num="42" count="4" type="stmt"/>
+        <line num="45" count="4" type="cond" truecount="5" falsecount="0"/>
+        <line num="46" count="2" type="stmt"/>
+        <line num="49" count="4" type="stmt"/>
+        <line num="50" count="4" type="stmt"/>
+        <line num="60" count="4" type="stmt"/>
       </file>
     </package>
     <package name="store">

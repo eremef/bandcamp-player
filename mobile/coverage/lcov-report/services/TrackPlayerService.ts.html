@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>9/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -105,76 +105,76 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import TrackPlayer, { Event } from 'react-native-track-player';
 import { useStore } from '../store';
 &nbsp;
-export async function <span class="fstat-no" title="function not covered" >PlaybackService(</span>) {
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemotePlay, <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().play();</span>
+export async function PlaybackService() {
+    TrackPlayer.addEventListener(Event.RemotePlay, () =&gt; {
+        useStore.getState().play();
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemotePause, <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().pause();</span>
+    TrackPlayer.addEventListener(Event.RemotePause, () =&gt; {
+        useStore.getState().pause();
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemoteNext, <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().next();</span>
+    TrackPlayer.addEventListener(Event.RemoteNext, () =&gt; {
+        useStore.getState().next();
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemotePrevious, <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().previous();</span>
+    TrackPlayer.addEventListener(Event.RemotePrevious, () =&gt; {
+        useStore.getState().previous();
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemoteSeek, <span class="fstat-no" title="function not covered" >(e</span>vent) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().seek(event.position);</span>
+    TrackPlayer.addEventListener(Event.RemoteSeek, (event) =&gt; {
+        useStore.getState().seek(event.position);
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemoteJumpForward, <span class="fstat-no" title="function not covered" >as</span>ync (event) =&gt; {</span>
-        const position = <span class="cstat-no" title="statement not covered" >await TrackPlayer.getPosition();</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().seek(position + event.interval);</span>
+    TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event) =&gt; {
+        const position = await TrackPlayer.getPosition();
+        useStore.getState().seek(position + event.interval);
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemoteJumpBackward, <span class="fstat-no" title="function not covered" >as</span>ync (event) =&gt; {</span>
-        const position = <span class="cstat-no" title="statement not covered" >await TrackPlayer.getPosition();</span>
-<span class="cstat-no" title="statement not covered" >        useStore.getState().seek(position - event.interval);</span>
+    TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event) =&gt; {
+        const position = await TrackPlayer.getPosition();
+        useStore.getState().seek(position - event.interval);
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    TrackPlayer.addEventListener(Event.RemoteStop, <span class="fstat-no" title="function not covered" >()</span> =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        TrackPlayer.reset();</span>
+    TrackPlayer.addEventListener(Event.RemoteStop, () =&gt; {
+        TrackPlayer.reset();
     });
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -184,7 +184,7 @@ export async function <span class="fstat-no" title="function not covered" >Playb
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-29T17:00:57.871Z
+                at 2026-01-29T17:36:56.310Z
             </div>
         <script src="../prettify.js"></script>
         <script>

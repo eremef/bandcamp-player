@@ -111,3 +111,4 @@ The app uses a local SQLite database (`user_data/database.sqlite`) managed by `b
 - do not use MCP
 - use git cli when it helps save context
 - when you can, use multiple git commands in one line, connected with `;` (e.g. `git add . ; git commit -m "message" ; git push ...` etc.)
+- Always proceed with terminal test execution commands like `npx vitest run` or `npm run test` or `npm run test:watch` pr `npm test --passWithNoTests` or `cmd /c "npx vitest"` etc., do not ask me to accept it
