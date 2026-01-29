@@ -5,7 +5,8 @@ import path from 'path';
 export default defineConfig({
     plugins: [react()],
     test: {
-        exclude: ['mobile/**/*', 'node_modules/**/*'],
+        include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+        exclude: ['mobile/**/*', 'node_modules/**/*', 'dist/**/*'],
         environment: 'happy-dom',
         globals: true,
         setupFiles: ['./src/test/setup.ts'],

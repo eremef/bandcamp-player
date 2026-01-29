@@ -1,114 +1,13 @@
-# Bandcamp Player Context
+# Bandcamp Player
 
-## Project Overview
+Electron + React + TypeScript desktop app for Bandcamp music with offline caching, Last.fm scrobbling, and mobile/web remote control. Uses Cheerio scraping (no official Bandcamp API).
 
-This project is a desktop application for playing Bandcamp music, built with **Electron**, **React**, and **TypeScript**. It offers features beyond the standard web player, including offline caching, playlist management, global media controls, and Last.fm integration. The application relies on web scraping (Cheerio) to interact with Bandcamp as there is no official public API for these features.
+## Critical Notes
 
-## Tech Stack
+- **Shell**: Use `;` for sequential commands (PowerShell on Windows)
+- **Android**: Requires OpenJDK 17 (not 24+), CMake 3.22.1. Ensure `mobile/android/local.properties` points to SDK.
+- **IPC**: Channels in `src/shared/ipc-channels.ts`, handlers in `src/main/ipc-handlers.ts`
 
-- **Runtime:** Electron (Main Process), Node.js
-- **Frontend:** React 18, TypeScript, Vite, CSS Modules
-- **State Management:** Zustand
-- **Database:** SQLite (`better-sqlite3`) for local data, `electron-store` for simple persistence
-- **Networking:** Axios, Cheerio (for scraping)
-- **Networking:** Axios, Cheerio (for scraping)
-- **Tools:** ESLint, Prettier, Electron Builder, Jimp (Icon Gen)
-- **Mobile:** React Native, Expo, Expo Router
-
-## Architecture
-
-The application follows a standard Electron multi-process architecture:
-
-- **Main Process (`src/main`)**: Handles backend logic, file system access, database operations, scraping, and native integrations (tray, media keys).
-- **Renderer Process (`src/renderer`)**: Handles the UI/UX using React. Communicates with the Main process via secure IPC.
-- **IPC Layer**: Defined in `src/shared/ipc-channels.ts` and `src/main/preload.ts`.
-
-## Development Workflows
-
-### Setup & Run
-
-```bash
-# Install dependencies
-npm install
-
-# Run in development mode (concurrently starts main and renderer)
-npm run dev
-
-# Build for production
-npm run build
-```
-
-### Key Scripts
-
-- `npm run dev:main`: Watch mode for Main process
-- `npm run dev:renderer`: Vite dev server for Renderer
-- `npm run package`: Build and package application for distribution via `electron-builder`
-- `node scripts/generate-icons.js`: Generate icons for all platforms from source
-
-### Environment Note
-
-- **Shell**: Use proper command separators depending on the environment where the CLI is executed. Since `run_shell_command` typically executes via PowerShell on Windows, prefer `;` for sequential commands. In environments supporting `&&` (like CMD or PowerShell 7+), use it for conditional execution. Avoid assuming `&&` is always available.
-- **Java**: Android builds currently require **OpenJDK 17**. Do NOT use JDK 24+ as it conflicts with the build tools. Point `JAVA_HOME` to Android Studio's `jbr` if needed.
-- **Android SDK**: Ensure `mobile/android/local.properties` exists and points to your SDK. CMake 3.22.1 is required.
-
-## Project Structure
-
-```text
-src/
-├── main/                    # Electron Main Process
-│   ├── services/           # Business logic (Auth, Player, Cache, etc.)
-│   ├── database/           # SQLite setup and queries
-│   ├── ipc-handlers.ts     # IPC message handling
-│   └── main.ts             # Entry point
-├── renderer/               # React Frontend
-│   ├── components/         # React components organized by feature
-│   ├── store/              # Zustand state store
-│   └── App.tsx             # Root component
-├── shared/                 # Shared Types & Constants
-│   ├── types.ts            # Domain models (Track, Album, Playlist)
-│   └── ipc-channels.ts     # IPC channel names
-├── shared/                 # Shared Types & Constants
-│   ├── types.ts            # Domain models (Track, Album, Playlist)
-│   └── ipc-channels.ts     # IPC channel names
-├── mobile/                 # React Native Mobile App
-│   ├── app/                # Expo Router screens
-│   ├── services/           # Native integrations (TrackPlayer)
-│   └── android/            # Native Android project
-└── assets/                 # Static assets (Icons, images)
-```
-
-## Core Data Models
-
-(Defined in `src/shared/types.ts` and `SPEC.md`)
-
-- **Track**: Basic audio unit with metadata and stream/local URL.
-- **Album**: Collection of tracks.
-- **Playlist**: User-created ordered list of tracks.
-- **QueueItem**: Item in the playback queue.
-
-## Database Schema
-
-The app uses a local SQLite database (`user_data/database.sqlite`) managed by `better-sqlite3`.
-
-- **`settings`**: Key-value application config.
-- **`playlists`**: Playlist metadata.
-- **`playlist_tracks`**: Tracks within playlists (denormalized track data).
-- **`collection_cache`**: Cached Bandcamp scrape results.
-- **`audio_cache`**: Tracking for offline downloaded files.
-- **`scrobble_queue`**: Offline scrobbles to be retried.
-
-## Key Features & Implementation Details
-
-- **Authentication**: Custom implementation scraping login cookies.
-- **Offline Mode**: Downloads audio files to `AppData` and serves them via `file://` protocol when cached.
-- **Offline Mode**: Downloads audio files to `AppData` and serves them via `file://` protocol when cached.
-- **Scrobbling**: Custom Last.fm integration respecting offline scenarios.
-- **Mobile Remote**: Android app for remote control via WebSocket.
-- **Web Remote**: Built-in web interface for remote control from any browser.
-
-## Rules
+## User Rules
 
 - do not use MCP
-- use git cli when it helps save context
-- when you can, use multiple git commands in one line, connected with `;` (e.g. `git add . ; git commit -m "message" ; git push ...` etc.)
-- Always proceed with terminal test execution commands like `npx vitest run` or `npm run test` or `npm run test:watch` pr `npm test --passWithNoTests` or `cmd /c "npx vitest"` etc., do not ask me to accept it
