@@ -88,6 +88,29 @@ Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
 
 ## Current Test Coverage
 
-- **Desktop Store**: `src/renderer/store/store.test.ts` (Auth flow, Player state)
-- **Scraper Service**: `src/main/services/scraper.test.ts` (HTML parsing, Collection fetching)
-- **Mobile Store**: `mobile/store/index.test.ts` (WebSocket connection, State management)
+### Desktop (`npm test` - Vitest)
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `src/main/database/database.test.ts` | Database CRUD operations (mocked) | 20 |
+| `src/main/services/auth.test.ts` | Authentication flow, cookies, login window | 5 |
+| `src/main/services/playlist.test.ts` | Playlist CRUD operations | 9 |
+| `src/main/services/scrobbler.test.ts` | Last.fm scrobbling, offline queue | 8 |
+| `src/main/services/scraper.test.ts` | HTML parsing, collection fetching | 4 |
+| `src/main/services/player.test.ts` | Playback controls, queue management | 12 |
+| `src/main/services/cache.test.ts` | Audio caching, cleanup | 7 |
+| `src/renderer/store/store.test.ts` | Frontend Zustand store | 3 |
+
+**Total: 68 tests passed, 1 skipped**
+
+### Mobile (`npm run test:mobile` - Jest)
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `mobile/store/index.test.ts` | Zustand store, WebSocket actions | 3 |
+| `mobile/services/WebSocketService.test.ts` | Connection, reconnection, messages | 12 |
+| `mobile/services/discovery.service.test.ts` | mDNS discovery | 4 |
+| `mobile/services/player.test.ts` | TrackPlayer setup, addTrack | 6 |
+| `mobile/services/TrackPlayerService.test.ts` | Remote event handlers | 8 |
+
+**Total: 30 tests passed**
