@@ -143,8 +143,9 @@ src/
 2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view
 3. **Play Music** - Click on an album to start playing
 4. **Create Playlists** - Use the + button in the sidebar to create playlists
-5. **Add to Queue** - Right-click on albums/tracks to add to queue
-6. **Offline Mode** - Download tracks via the context menu for offline playback
+5. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
+6. **Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
+7. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile Companion App
 
