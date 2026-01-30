@@ -68,7 +68,14 @@ export function AlbumCard({ album }: AlbumCardProps) {
     };
 
     return (
-        <div className={styles.card} onMouseLeave={() => setShowMenu(false)}>
+        <div
+            className={styles.card}
+            onMouseLeave={() => setShowMenu(false)}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                setShowMenu(true);
+            }}
+        >
             {/* Artwork */}
             <div className={styles.artworkContainer}>
                 <img src={album.artworkUrl} alt={album.title} className={styles.artwork} />

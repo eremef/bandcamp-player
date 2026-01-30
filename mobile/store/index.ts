@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, CollectionItem } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -44,6 +44,12 @@ interface AppState extends PlayerState {
     playAlbum: (albumUrl: string) => void;
     playPlaylist: (playlistId: string) => void;
     playStation: (station: RadioStation) => void;
+    addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
+    addStationToPlaylist: (playlistId: string, station: RadioStation) => void;
+    addTrackToQueue: (track: Track, playNext?: boolean) => void;
+    addAlbumToQueue: (albumUrl: string, playNext?: boolean) => void;
+    addTrackToPlaylist: (playlistId: string, track: Track) => void;
+    addAlbumToPlaylist: (playlistId: string, albumUrl: string) => void;
 }
 
 const initialState: Omit<PlayerState, 'queue'> = {
@@ -148,6 +154,12 @@ export const useStore = create<AppState>((set, get) => ({
     playAlbum: (url) => webSocketService.send('play-album', url),
     playPlaylist: (id) => webSocketService.send('play-playlist', id),
     playStation: (station) => webSocketService.send('play-station', station),
+    addStationToQueue: (station, playNext) => webSocketService.send('add-station-to-queue', { station, playNext }),
+    addStationToPlaylist: (playlistId, station) => webSocketService.send('add-station-to-playlist', { playlistId, station }),
+    addTrackToQueue: (track, playNext) => webSocketService.send('add-track-to-queue', { track, playNext }),
+    addAlbumToQueue: (albumUrl, playNext) => webSocketService.send('add-album-to-queue', { albumUrl, playNext }),
+    addTrackToPlaylist: (playlistId, track) => webSocketService.send('add-track-to-playlist', { playlistId, track }),
+    addAlbumToPlaylist: (playlistId, albumUrl) => webSocketService.send('add-album-to-playlist', { playlistId, albumUrl }),
 
     // Initialize
     // This is called automatically when store is created? No, we need to call it.

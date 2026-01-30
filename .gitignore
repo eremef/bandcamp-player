@@ -36,3 +36,12 @@ cache/
 debug_*.json
 .gemini/
 gha-creds-*.json
+
+# test coverage
+/coverage
+mobile/coverage/
+
+# TypeScript build output (generated from .ts files)
+src/shared/*.js
+src/shared/*.d.ts
+src/shared/*.d.ts.map

@@ -162,6 +162,13 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(RADIO_CHANNELS.PLAY_STATION, (_, station: RadioStation) => playerService.playStation(station));
     ipcMain.handle(RADIO_CHANNELS.STOP, () => playerService.stopRadio());
     ipcMain.handle(RADIO_CHANNELS.GET_STATE, () => playerService.getRadioState());
+    ipcMain.handle(RADIO_CHANNELS.ADD_TO_QUEUE, (_, station: RadioStation, playNext?: boolean) =>
+        playerService.addStationToQueue(station, playNext)
+    );
+    ipcMain.handle(RADIO_CHANNELS.ADD_TO_PLAYLIST, async (_, playlistId: string, station: RadioStation) => {
+        const radioTrack = await playerService.stationToTrack(station);
+        playlistService.addTrack(playlistId, radioTrack);
+    });
 
     playerService.on('radio-state-changed', (state) => {
         broadcast(RADIO_CHANNELS.ON_STATE_CHANGED, state);

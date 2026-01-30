@@ -181,4 +181,89 @@ describe('PlayerService', () => {
             expect(playerService.getState().isMuted).toBe(false);
         });
     });
+
+    describe('Radio Functionality', () => {
+        const mockStation: any = {
+            id: 1,
+            name: 'Test Radio',
+            description: 'Test Description',
+            imageUrl: 'http://image.url',
+            streamUrl: 'http://stream.url',
+            date: '2023'
+        };
+
+        it('should convert station to track correctly', async () => {
+            const track = await playerService.stationToTrack(mockStation);
+            expect(track.id).toBe('radio-1');
+            expect(track.title).toBe('Test Radio');
+            expect(track.artist).toBe('Bandcamp Radio');
+            expect(track.streamUrl).toBe('http://stream.url');
+        });
+
+        it('should fetch stream URL if missing', async () => {
+            const stationWithoutStream = { ...mockStation, streamUrl: undefined };
+            mockScraperService.getStationStreamUrl.mockResolvedValue('http://fetched.stream');
+
+            const track = await playerService.stationToTrack(stationWithoutStream);
+
+            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith(1);
+            expect(track.streamUrl).toBe('http://fetched.stream');
+        });
+
+        it('should add station to queue', async () => {
+            await playerService.addStationToQueue(mockStation);
+            const queue = playerService.getQueue();
+            expect(queue.items).toHaveLength(1);
+            expect(queue.items[0].track.title).toBe('Test Radio');
+            expect(queue.items[0].source).toBe('radio');
+        });
+
+        it('should play station next (add to queue next)', async () => {
+            // Setup plays a track first correctly
+            playerService.addToQueue(mockTrack);
+            playerService.playIndex(0);
+
+            await playerService.addStationToQueue(mockStation, true);
+
+            const queue = playerService.getQueue();
+            expect(queue.items).toHaveLength(2);
+            // Index 0 is current track, Index 1 should be radio
+            expect(queue.items[1].track.title).toBe('Test Radio');
+        });
+
+        it('should refresh radio stream URL on play if track id indicates radio', async () => {
+            const radioTrack = {
+                ...mockTrack,
+                id: 'radio-123',
+                streamUrl: 'http://old.url'
+            };
+
+            mockScraperService.getStationStreamUrl.mockResolvedValue('http://new.url');
+
+            await playerService.play(radioTrack);
+
+            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith('123');
+            expect(playerService.getState().currentTrack?.streamUrl).toBe('http://new.url');
+        });
+
+        it('should not refresh regular track stream URL', async () => {
+            const regularTrack = { ...mockTrack, id: '123' };
+            await playerService.play(regularTrack);
+            expect(mockScraperService.getStationStreamUrl).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Bulk Queue Operations', () => {
+        it('should add multiple tracks to queue', () => {
+            const tracks = [
+                { ...mockTrack, id: '1' },
+                { ...mockTrack, id: '2' },
+                { ...mockTrack, id: '3' }
+            ];
+            playerService.addTracksToQueue(tracks);
+            expect(playerService.getQueue().items).toHaveLength(3);
+            expect(playerService.getQueue().items[0].track.id).toBe('1');
+            expect(playerService.getQueue().items[2].track.id).toBe('3');
+        });
+    });
 });

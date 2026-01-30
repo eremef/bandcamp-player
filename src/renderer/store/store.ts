@@ -49,6 +49,7 @@ interface QueueSlice {
     clearQueue: (keepCurrent?: boolean) => Promise<void>;
     reorderQueue: (from: number, to: number) => Promise<void>;
     playQueueIndex: (index: number) => Promise<void>;
+    addTracksToQueue: (tracks: Track[]) => Promise<void>;
 }
 
 interface CollectionSlice {
@@ -79,6 +80,8 @@ interface RadioSlice {
     fetchRadioStations: () => Promise<void>;
     playRadioStation: (station: RadioStation) => Promise<void>;
     stopRadio: () => Promise<void>;
+    addRadioToQueue: (station: RadioStation, playNext?: boolean) => Promise<void>;
+    addRadioToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
 }
 
 interface CacheSlice {
@@ -237,6 +240,9 @@ export const useStore = create<StoreState>((set, get) => ({
     playQueueIndex: async (index) => {
         await window.electron.queue.playIndex(index);
     },
+    addTracksToQueue: async (tracks) => {
+        await window.electron.queue.addTracks(tracks);
+    },
 
     // ---- Collection Slice ----
     collection: null,
@@ -331,6 +337,18 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     stopRadio: async () => {
         await window.electron.radio.stop();
+    },
+    addRadioToQueue: async (station, playNext) => {
+        await window.electron.radio.addToQueue(station, playNext);
+        get().showToast(`${station.name} added to queue`, 'success');
+    },
+    addRadioToPlaylist: async (playlistId, station) => {
+        await window.electron.radio.addToPlaylist(playlistId, station);
+        get().fetchPlaylists();
+        const playlist = get().playlists.find(p => p.id === playlistId);
+        if (playlist) {
+            get().showToast(`${station.name} added to ${playlist.name}`, 'success');
+        }
     },
 
     // ---- Cache Slice ----

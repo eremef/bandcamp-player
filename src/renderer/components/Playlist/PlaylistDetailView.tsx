@@ -10,6 +10,9 @@ export function PlaylistDetailView() {
         addToQueue,
         removeTrackFromPlaylist,
         updatePlaylist,
+        clearQueue,
+        addTracksToQueue,
+        playQueueIndex,
     } = useStore();
 
     if (!selectedPlaylist) {
@@ -30,10 +33,12 @@ export function PlaylistDetailView() {
         return `${mins} min`;
     };
 
-    const handlePlayAll = () => {
+    const handlePlayAll = async () => {
         if (selectedPlaylist.tracks.length > 0) {
-            play(selectedPlaylist.tracks[0]);
-            selectedPlaylist.tracks.slice(1).forEach((track) => addToQueue(track));
+            // Replace entire queue with playlist
+            await clearQueue(false); // Clear and stop
+            await addTracksToQueue(selectedPlaylist.tracks);
+            await playQueueIndex(0);
         }
     };
 
