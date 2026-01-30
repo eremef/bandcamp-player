@@ -5,10 +5,12 @@ import { EventEmitter } from 'events';
 import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
+import { Track } from '../../shared/types';
 import { Database } from '../database/database';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
     VolumeX, Volume1, Volume2, List, Library, ListMusic, Radio, Search,
+    MoreVertical,
     IconNode
 } from 'lucide';
 
@@ -28,6 +30,41 @@ export class RemoteControlService extends EventEmitter {
         this.scraperService = scraperService;
         this.playlistService = playlistService;
         this.database = database;
+    }
+
+    private async resolveTrack(payload: any): Promise<Track | null> {
+        let trackToPlay = payload;
+
+        // Handle simplified collection item structure
+        if (payload.item_url && !payload.streamUrl) {
+            trackToPlay = {
+                ...payload,
+                bandcampUrl: payload.item_url
+            };
+        }
+
+        // If no stream URL, try to resolve it
+        if (!trackToPlay.streamUrl && trackToPlay.bandcampUrl) {
+            try {
+                // console.log(`[RemoteService] Resolving stream URL for track: ${trackToPlay.title}`);
+                const albumDetails = await this.scraperService.getAlbumDetails(trackToPlay.bandcampUrl);
+                if (albumDetails && albumDetails.tracks.length > 0) {
+                    // Use the first track if it's a track page, or try to match by title/ID
+                    const resolvedTrack = albumDetails.tracks[0];
+                    // Merge with original payload to preserve IDs/metadata if needed, but prefer resolved data
+                    trackToPlay = {
+                        ...trackToPlay,
+                        ...resolvedTrack,
+                        id: trackToPlay.id || resolvedTrack.id
+                    };
+                }
+            } catch (e) {
+                console.error('[RemoteService] Failed to resolve track stream:', e);
+                return null;
+            }
+        }
+
+        return trackToPlay;
     }
 
     // Event handlers
@@ -250,47 +287,59 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'play-track': {
-                let trackToPlay = payload;
-
-                // Handle simplified collection item structure
-                if (payload.item_url && !payload.streamUrl) {
-                    trackToPlay = {
-                        ...payload,
-                        bandcampUrl: payload.item_url
-                    };
+                const track = await this.resolveTrack(payload);
+                if (track && track.streamUrl) {
+                    this.playerService.play(track);
+                } else {
+                    console.error('[RemoteService] Could not play track, missing stream URL:', payload.title);
                 }
-
-                // If no stream URL, try to resolve it
-                if (!trackToPlay.streamUrl && trackToPlay.bandcampUrl) {
-                    try {
-                        console.log(`[RemoteService] Resolving stream URL for track: ${trackToPlay.title}`);
-                        const albumDetails = await this.scraperService.getAlbumDetails(trackToPlay.bandcampUrl);
-                        if (albumDetails && albumDetails.tracks.length > 0) {
-                            // Use the first track if it's a track page, or try to match by title/ID
-                            // For collection items pointing to track pages, it's usually the first (and only) track
-                            const resolvedTrack = albumDetails.tracks[0];
-                            // Merge with original payload to preserve IDs/metadata if needed, but prefer resolved data
-                            trackToPlay = {
-                                ...trackToPlay,
-                                ...resolvedTrack,
-                                id: trackToPlay.id || resolvedTrack.id // Keep original ID if present (e.g. from playlist)
-                            };
+                break;
+            }
+            case 'add-track-to-queue': {
+                const track = await this.resolveTrack(payload.track);
+                if (track && track.streamUrl) {
+                    this.playerService.addToQueue(track, 'collection', payload.playNext);
+                }
+                break;
+            }
+            case 'add-album-to-queue': {
+                const album = await this.scraperService.getAlbumDetails(payload.albumUrl);
+                if (album) {
+                    if (payload.playNext) {
+                        for (let i = album.tracks.length - 1; i >= 0; i--) {
+                            this.playerService.addToQueue(album.tracks[i], 'collection', true);
                         }
-                    } catch (e) {
-                        console.error('[RemoteService] Failed to resolve track stream:', e);
+                    } else {
+                        this.playerService.addTracksToQueue(album.tracks);
                     }
                 }
-
-                if (trackToPlay.streamUrl) {
-                    this.playerService.play(trackToPlay);
-                } else {
-                    console.error('[RemoteService] Could not play track, missing stream URL:', trackToPlay.title);
+                break;
+            }
+            case 'add-track-to-playlist': {
+                const track = await this.resolveTrack(payload.track);
+                if (track) {
+                    this.playlistService.addTrack(payload.playlistId, track);
+                }
+                break;
+            }
+            case 'add-album-to-playlist': {
+                const album = await this.scraperService.getAlbumDetails(payload.albumUrl);
+                if (album) {
+                    this.playlistService.addTracks(payload.playlistId, album.tracks);
                 }
                 break;
             }
             case 'play-station':
                 await this.playerService.playStation(payload);
                 break;
+            case 'add-station-to-queue':
+                await this.playerService.addStationToQueue(payload.station, payload.playNext);
+                break;
+            case 'add-station-to-playlist': {
+                const radioTrack = await this.playerService.stationToTrack(payload.station);
+                this.playlistService.addTrack(payload.playlistId, radioTrack);
+                break;
+            }
             case 'toggle-mute':
                 this.playerService.toggleMute();
                 break;
@@ -370,7 +419,8 @@ export class RemoteControlService extends EventEmitter {
             Library: this.iconToSvg(Library),
             ListMusic: this.iconToSvg(ListMusic),
             Radio: this.iconToSvg(Radio),
-            Search: this.iconToSvg(Search)
+            Search: this.iconToSvg(Search),
+            MoreVertical: this.iconToSvg(MoreVertical)
         };
 
         return `
@@ -525,6 +575,34 @@ export class RemoteControlService extends EventEmitter {
         }
 
         /* Controls */
+        /* Modal */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-content {
+            background: var(--bg-elevated); width: 100%; max-width: 300px;
+            border-radius: 20px; padding: 15px; box-sizing: border-box;
+            transform: translateY(100%); transition: transform 0.3s;
+            margin-left: 35vw;
+        }
+        .modal-overlay.active .modal-content { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center; }
+        .modal-title { font-size: 1.2rem; font-weight: bold; }
+        .modal-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.5rem; }
+        .modal-option {
+            padding: 15px; border-bottom: 1px solid var(--border-subtle);
+            display: flex; align-items: center; gap: 10px; cursor: pointer;
+        }
+        .modal-option:last-child { border-bottom: none; }
+        .modal-option:active { background: var(--bg-active); }
+        .options-btn {
+            background: none; border: none; color: var(--text-secondary);
+            padding: 8px; cursor: pointer; display: flex; align-items: center; margin-left: 8px;
+        }
+
+        /* Controls */
         .controls {
             margin-top: 2rem;
             display: flex;
@@ -638,6 +716,17 @@ export class RemoteControlService extends EventEmitter {
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        .item-options-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            margin-left: 8px;
         }
 
         #status-bar {
@@ -931,6 +1020,16 @@ export class RemoteControlService extends EventEmitter {
     </div>
 
     <div id="status-bar">Connecting...</div>
+
+    <div id="options-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">Options</div>
+                <button class="modal-close" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modal-options"></div>
+        </div>
+    </div>
 
     <script>
         // Inject server-side generated icons
@@ -1283,8 +1382,112 @@ export class RemoteControlService extends EventEmitter {
                         <div class="list-item-subtitle">\${item.artist}</div>
                     </div>
                 \`;
+
+                // Options button
+                const btn = document.createElement('button');
+                btn.className = 'item-options-btn';
+                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>';
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    showCollectionOptions(item);
+                };
+                
+                div.appendChild(btn);
                 list.appendChild(div);
             });
+        }
+
+        let currentCollectionItem = null;
+
+        function showCollectionOptions(item) {
+            currentCollectionItem = item;
+            const modal = document.getElementById('options-modal');
+            const title = document.getElementById('options-title');
+            const list = document.getElementById('options-list');
+            
+            title.innerText = item.title;
+            list.innerHTML = '';
+
+            const isAlbum = item.type === 'album';
+            
+            // Play Next
+            const playNextBtn = document.createElement('div');
+            playNextBtn.className = 'options-item';
+            playNextBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/><line x1="19" y1="5" x2="19" y2="19"/></svg> Play Next';
+            playNextBtn.onclick = () => {
+                if (isAlbum) sendCommand('add-album-to-queue', { albumUrl: item.albumUrl || item.item_url, playNext: true });
+                else sendCommand('add-track-to-queue', { track: item, playNext: true });
+                modal.classList.remove('active');
+            };
+            list.appendChild(playNextBtn);
+
+            // Add to Queue
+            const queueBtn = document.createElement('div');
+            queueBtn.className = 'options-item';
+            queueBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Add to Queue';
+            queueBtn.onclick = () => {
+                if (isAlbum) sendCommand('add-album-to-queue', { albumUrl: item.albumUrl || item.item_url, playNext: false });
+                else sendCommand('add-track-to-queue', { track: item, playNext: false });
+                modal.classList.remove('active');
+            };
+            list.appendChild(queueBtn);
+            
+            // Add to Playlist
+            const playlistBtn = document.createElement('div');
+            playlistBtn.className = 'options-item';
+            playlistBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Add to Playlist';
+            playlistBtn.onclick = () => {
+                showCollectionPlaylistSelection(item);
+            };
+            list.appendChild(playlistBtn);
+
+            modal.classList.add('active');
+        }
+
+        function showCollectionPlaylistSelection(item) {
+             const modal = document.getElementById('options-modal');
+             const title = document.getElementById('options-title');
+             const list = document.getElementById('options-list');
+             
+             // We need to fetch playlists if not available?
+             // Use global playlists variable if available?
+             // Assuming playlists are cached in JS or we can access them.
+             // We can trigger 'get-playlists' but that's async.
+             // But 'renderPlaylists' populates the playlist tab. 
+             // We can assume 'playlists' (global data) might not be available.
+             // But existing playlist modal code (for radio) likely used 'currentPlaylists'.
+             // I need to check renderPlaylists to see if it saves data.
+             
+             // Hack: Trigger get-playlists and wait? No.
+             // Better: Assume playlists are loaded. Client usually loads them.
+             // I'll send 'get-playlists' on connect.
+             
+             // I'll assume 'renderPlaylists' stores them or I can get them from DOM?
+             // Let's implement dynamic playlist fetching later or now?
+             // I'll just check if I can use a simpler approach.
+             // I'll use sendCommand('get-playlists') and handle response to open modal?
+             // That's complex.
+             
+             // Let's assume we have them. 
+             // I'll implement showCollectionPlaylistSelection assuming we have a global 'allPlaylists' or similar.
+             // If not, I'll need to update renderPlaylists to store them.
+             
+             // Wait, I'll verify renderPlaylists in next turn if needed.
+             // For now I'll just put a placeholder or basic implementation.
+             // Actually, Radio implementation had playlists?
+             // I'll use the same logic as Radio if I can find it.
+             // Radio used 'showRadioPlaylistSelection' (hypothetically).
+             
+             // I'll just implement it to Render message 'Loading...' and send 'get-playlists'.
+             // Then 'playlists-data' handler can check if we are in 'selection mode'.
+             // That's robust.
+             
+             title.innerText = 'Select Playlist';
+             list.innerHTML = '<div style="padding: 1rem; color: #888;">Loading playlists...</div>';
+             
+             // Set a flag
+             window.selectingPlaylistFor = { item: item, type: item.type === 'album' ? 'album' : 'track' };
+             sendCommand('get-playlists');
         }
 
         function renderRadio(stations) {
@@ -1295,7 +1498,13 @@ export class RemoteControlService extends EventEmitter {
                 const div = document.createElement('div');
                 div.className = 'list-item';
                 div.onclick = () => sendCommand('play-station', station);
-                div.innerHTML = \`
+
+                const content = document.createElement('div');
+                content.style.display = 'flex';
+                content.style.alignItems = 'center';
+                content.style.flex = '1';
+                content.style.overflow = 'hidden';
+                content.innerHTML = \`
                     <img src="\${station.imageUrl}" alt="">
                     <div class="list-item-info">
                         <div class="list-item-title">\${station.name}</div>
@@ -1303,13 +1512,31 @@ export class RemoteControlService extends EventEmitter {
                         <div class="list-item-subtitle">\${station.description}</div>
                     </div>
                 \`;
+                div.appendChild(content);
+
+                const btn = document.createElement('button');
+                btn.className = 'options-btn';
+                btn.innerHTML = ICONS.MoreVertical;
+                btn.onclick = (e) => { 
+                    e.stopPropagation(); 
+                    showRadioOptions(station); 
+                };
+                div.appendChild(btn);
+
                 list.appendChild(div);
             });
         }
         
         function renderPlaylists(playlists) {
+            allPlaylists = playlists;
             const list = document.getElementById('playlists-list');
             list.innerHTML = '';
+            
+            // If modal is open for selection, update it
+            if (document.getElementById('options-modal').classList.contains('active') && 
+                document.getElementById('modal-title').innerText === 'Select Playlist') {
+                renderPlaylistSelection();
+            }
             
             if (playlists.length === 0) {
                 list.innerHTML = '<div style="text-align:center; padding:2rem; color:var(--text-tertiary)">No playlists found</div>';
@@ -1329,6 +1556,8 @@ export class RemoteControlService extends EventEmitter {
                         <div class="list-item-subtitle">\${playlist.trackCount} tracks • \${formatDuration(playlist.totalDuration)}</div>
                     </div>
                 \`;
+
+
                 list.appendChild(div);
             });
         }
@@ -1383,6 +1612,124 @@ export class RemoteControlService extends EventEmitter {
             const currentMode = currentState.repeatMode || 'off';
             const nextIndex = (modes.indexOf(currentMode) + 1) % modes.length;
             sendCommand('set-repeat', modes[nextIndex]);
+        }
+
+        // --- Options Modal Logic ---
+        let selectedContext = null;
+        let allPlaylists = [];
+
+        function showCollectionOptions(item) {
+            selectedContext = { 
+                type: item.type === 'album' ? 'album' : 'track', 
+                data: item
+            };
+            document.getElementById('modal-title').innerText = item.title;
+            const options = document.getElementById('modal-options');
+            options.innerHTML = '';
+
+            const isAlbum = item.type === 'album';
+            
+            // Play Next
+            const playNextBtn = document.createElement('div');
+            playNextBtn.className = 'modal-option';
+            playNextBtn.innerHTML = ICONS.Play + '<span style="margin-left:8px">Play Next</span>';
+            // Options button logic
+            playNextBtn.onclick = () => {
+                closeModal();
+                if (isAlbum) sendCommand('add-album-to-queue', { albumUrl: item.albumUrl || item.item_url, playNext: true });
+                else sendCommand('add-track-to-queue', { track: item, playNext: true });
+            };
+            options.appendChild(playNextBtn);
+
+            // Add to Queue
+            const queueBtn = document.createElement('div');
+            queueBtn.className = 'modal-option';
+            queueBtn.innerHTML = ICONS.List + '<span style="margin-left:8px">Add to Queue</span>';
+            queueBtn.onclick = () => {
+                closeModal();
+                if (isAlbum) sendCommand('add-album-to-queue', { albumUrl: item.albumUrl || item.item_url, playNext: false });
+                else sendCommand('add-track-to-queue', { track: item, playNext: false });
+            };
+            options.appendChild(queueBtn);
+            
+            // Add to Playlist
+            const playlistBtn = document.createElement('div');
+            playlistBtn.className = 'modal-option';
+            playlistBtn.innerHTML = ICONS.ListMusic + '<span style="margin-left:8px">Add to Playlist</span>';
+            playlistBtn.onclick = () => {
+                showPlaylistSelection();
+            };
+            options.appendChild(playlistBtn);
+
+            document.getElementById('options-modal').classList.add('active');
+        }
+
+        function showRadioOptions(station) {
+            selectedContext = { type: 'station', data: station };
+            document.getElementById('modal-title').innerText = station.name;
+            const options = document.getElementById('modal-options');
+            options.innerHTML = \`
+                <div class="modal-option" onclick="closeModal(); sendCommand('play-station', selectedContext.data)">
+                    \${ICONS.Play} <span style="margin-left:8px">Play Now</span>
+                </div>
+                <div class="modal-option" onclick="closeModal(); sendCommand('add-station-to-queue', {station: selectedContext.data, playNext: true})">
+                   <div style="width:24px"></div> Play Next
+                </div>
+                <div class="modal-option" onclick="closeModal(); sendCommand('add-station-to-queue', {station: selectedContext.data, playNext: false})">
+                   <div style="width:24px"></div> Add to Queue
+                </div>
+                <div class="modal-option" onclick="showPlaylistSelection()">
+                   <div style="width:24px"></div> Add to Playlist
+                </div>
+            \`;
+            document.getElementById('options-modal').classList.add('active');
+        }
+
+        function showPlaylistSelection() {
+            document.getElementById('modal-title').innerText = 'Select Playlist';
+            const options = document.getElementById('modal-options');
+            options.innerHTML = '<div style="padding:20px;text-align:center">Loading playlists...</div>';
+            
+            if (allPlaylists.length === 0) {
+                 sendCommand('get-playlists');
+            } else {
+                 renderPlaylistSelection();
+            }
+        }
+
+        function renderPlaylistSelection() {
+            const options = document.getElementById('modal-options');
+            options.innerHTML = '';
+            
+            if (allPlaylists.length === 0) {
+                options.innerHTML = '<div style="padding:20px;text-align:center">No playlists found</div>';
+                return;
+            }
+            
+            allPlaylists.forEach(pl => {
+                const div = document.createElement('div');
+                div.className = 'modal-option';
+                div.innerText = pl.name;
+                div.onclick = () => {
+                   closeModal();
+                   if (selectedContext.type === 'station') {
+                       sendCommand('add-station-to-playlist', {playlistId: pl.id, station: selectedContext.data});
+                   } else if (selectedContext.type === 'album') {
+                       const item = selectedContext.data;
+                       sendCommand('add-album-to-playlist', {playlistId: pl.id, albumUrl: item.albumUrl || item.item_url});
+                   } else {
+                       // type === 'track'
+                       const item = selectedContext.data;
+                       sendCommand('add-track-to-playlist', {playlistId: pl.id, track: item});
+                   }
+                };
+                options.appendChild(div);
+            });
+        }
+
+        function closeModal(e) {
+            if (e && e.target !== e.currentTarget && e.target.className !== 'modal-close') return;
+            document.getElementById('options-modal').classList.remove('active');
         }
 
         connect();

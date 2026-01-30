@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
 import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
+import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 
@@ -12,7 +13,61 @@ export default function CollectionScreen() {
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
     const disconnect = useStore((state) => state.disconnect);
+    const playlists = useStore((state) => state.playlists);
+    const addTrackToQueue = useStore((state) => state.addTrackToQueue);
+    const addAlbumToQueue = useStore((state) => state.addAlbumToQueue);
+    const addTrackToPlaylist = useStore((state) => state.addTrackToPlaylist);
+    const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
+
     const [searchQuery, setSearchQuery] = useState('');
+    const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
+
+    const handleLongPress = (item: CollectionItem) => {
+        const title = item.type === 'album' ? item.album?.title : item.track?.title;
+        Alert.alert(
+            title || 'Item',
+            "Choose an action",
+            [
+                {
+                    text: "Play Next",
+                    onPress: () => {
+                        if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, true);
+                        else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
+                    }
+                },
+                {
+                    text: "Add to Queue",
+                    onPress: () => {
+                        if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, false);
+                        else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
+                    }
+                },
+                {
+                    text: "Add to Playlist",
+                    onPress: () => {
+                        setSelectedItem(item);
+                        setPlaylistModalVisible(true);
+                    }
+                },
+                { text: "Cancel", style: "cancel" }
+            ]
+        );
+    };
+
+    const handleSelectPlaylist = (playlistId: string) => {
+        if (!selectedItem) return;
+
+        if (selectedItem.type === 'album' && selectedItem.album?.bandcampUrl) {
+            addAlbumToPlaylist(playlistId, selectedItem.album.bandcampUrl);
+        } else if (selectedItem.type === 'track' && selectedItem.track) {
+            addTrackToPlaylist(playlistId, selectedItem.track);
+        }
+
+        setPlaylistModalVisible(false);
+        setSelectedItem(null);
+        Alert.alert("Success", "Added to playlist");
+    };
 
     const filteredCollection = useMemo(() => {
         if (!collection?.items) return [];
@@ -89,7 +144,12 @@ export default function CollectionScreen() {
         }
 
         return (
-            <TouchableOpacity style={styles.item} onPress={() => handlePlayItem(item)}>
+            <TouchableOpacity
+                style={styles.item}
+                onPress={() => handlePlayItem(item)}
+                onLongPress={() => handleLongPress(item)}
+                delayLongPress={500}
+            >
                 {artworkUrl ? (
                     <Image source={{ uri: artworkUrl }} style={styles.artwork} />
                 ) : (
@@ -150,6 +210,12 @@ export default function CollectionScreen() {
                 numColumns={2}
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
+            />
+            <PlaylistSelectionModal
+                visible={playlistModalVisible}
+                onClose={() => setPlaylistModalVisible(false)}
+                onSelect={handleSelectPlaylist}
+                playlists={playlists}
             />
         </SafeAreaView>
     );

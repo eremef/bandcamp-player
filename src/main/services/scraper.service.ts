@@ -27,6 +27,19 @@ export class ScraperService {
     }
 
     /**
+     * Clean artist name by removing "by Artist" suffix patterns
+     * Bandcamp data sometimes includes formats like "Artistby Artist" or "Artist by Artist"
+     */
+    private cleanArtistName(name: string | undefined | null): string {
+        if (!name) return '';
+        // Remove " by Artist" or "by Artist" suffix
+        let cleaned = name.replace(/\s*by\s+.+$/i, '').trim();
+        // Also strip leading "by " if present
+        cleaned = cleaned.replace(/^by\s+/i, '').trim();
+        return cleaned;
+    }
+
+    /**
      * Fetch user's collection (purchased music)
      */
     async fetchCollection(forceRefresh = false): Promise<Collection> {
@@ -265,6 +278,15 @@ export class ScraperService {
         try {
             const isAlbum = item.item_type === 'album' || item.tralbum_type === 'a';
             const id = String(item.item_id || item.tralbum_id);
+            const artist = this.cleanArtistName(item.band_name);
+
+            // The item_title sometimes contains "Album by Artist" format - strip the " by Artist" suffix
+            let rawTitle = item.album_title || item.item_title || '';
+            // If title ends with " by ArtistName", strip it since we display artist separately
+            if (artist && rawTitle.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
+                rawTitle = rawTitle.slice(0, -` by ${artist}`.length);
+            }
+            const title = rawTitle.trim() || 'Untitled';
 
             if (isAlbum) {
                 return {
@@ -273,8 +295,8 @@ export class ScraperService {
                     token: item.token || item.sale_token, // Capture token
                     album: {
                         id,
-                        title: item.album_title || item.item_title,
-                        artist: item.band_name,
+                        title,
+                        artist,
                         artistId: String(item.band_id),
                         artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
                         bandcampUrl: item.item_url || item.bandcamp_url,
@@ -284,14 +306,20 @@ export class ScraperService {
                     purchaseDate: item.purchased || item.added || new Date().toISOString(),
                 };
             } else {
+                // Also clean track title if it has " by Artist" format
+                let trackTitle = item.item_title || item.track_title || '';
+                if (artist && trackTitle.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
+                    trackTitle = trackTitle.slice(0, -` by ${artist}`.length);
+                }
+
                 return {
                     id,
                     type: 'track',
                     token: item.token || item.sale_token, // Capture token
                     track: {
                         id,
-                        title: item.item_title || item.track_title,
-                        artist: item.band_name,
+                        title: trackTitle.trim() || 'Untitled',
+                        artist,
                         album: item.album_title || '',
                         duration: item.duration || 0,
                         artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
@@ -314,7 +342,7 @@ export class ScraperService {
     private parseCollectionItemFromDOM($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): CollectionItem | null {
         try {
             const title = $item.find('.collection-item-title').text().trim();
-            const artist = $item.find('.collection-item-artist').text().replace('by ', '').trim();
+            const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', ''));
             const url = $item.find('a.item-link').attr('href') || '';
             const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
@@ -412,7 +440,7 @@ export class ScraperService {
                 return {
                     id: String(trackInfo.track_id || `${tralbumData.id}-${index}`),
                     title: trackInfo.title,
-                    artist: tralbumData.artist,
+                    artist: this.cleanArtistName(tralbumData.artist),
                     artistId: String(tralbumData.band_id),
                     album: tralbumData.current?.title || tralbumData.album_title,
                     albumId: String(tralbumData.id),
@@ -428,7 +456,7 @@ export class ScraperService {
             return {
                 id: String(tralbumData.id),
                 title: tralbumData.current?.title || tralbumData.album_title,
-                artist: tralbumData.artist,
+                artist: this.cleanArtistName(tralbumData.artist),
                 artistId: String(tralbumData.band_id),
                 artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
                 bandcampUrl: albumUrl,

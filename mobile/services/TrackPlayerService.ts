@@ -23,13 +23,13 @@ export async function PlaybackService() {
     });
 
     TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event) => {
-        const position = await TrackPlayer.getPosition();
-        useStore.getState().seek(position + event.interval);
+        const progress = await TrackPlayer.getProgress();
+        useStore.getState().seek(progress.position + event.interval);
     });
 
     TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event) => {
-        const position = await TrackPlayer.getPosition();
-        useStore.getState().seek(position - event.interval);
+        const progress = await TrackPlayer.getProgress();
+        useStore.getState().seek(progress.position - event.interval);
     });
 
     TrackPlayer.addEventListener(Event.RemoteStop, () => {

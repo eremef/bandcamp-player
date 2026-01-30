@@ -5,6 +5,7 @@ import { useRouter, useSegments } from 'expo-router';
 import TrackPlayer from 'react-native-track-player';
 import { PlaybackService } from '../services/TrackPlayerService';
 import { setupPlayer } from '../services/player';
+import { useVolumeButtons } from '../services/useVolumeButtons';
 
 // Register the playback service
 TrackPlayer.registerPlaybackService(() => PlaybackService);
@@ -14,6 +15,9 @@ export default function RootLayout() {
     const connectionStatus = useStore((state) => state.connectionStatus);
     const router = useRouter();
     const segments = useSegments();
+
+    // Listen for hardware volume button presses
+    useVolumeButtons();
 
     useEffect(() => {
         setupPlayer();

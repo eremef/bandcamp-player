@@ -57,6 +57,25 @@ export class PlayerService extends EventEmitter {
     async play(track?: Track): Promise<void> {
 
         if (track) {
+            // Check if it's a radio track and stream URL needs valid check
+            if (track.id.startsWith('radio-')) {
+                const stationId = track.id.replace('radio-', '');
+                console.log(`[PlayerService] Checking radio stream URL for: ${track.title}`);
+
+                try {
+                    // Always refresh radio stream URL as they expire
+                    const newUrl = await this.scraperService.getStationStreamUrl(stationId);
+                    if (newUrl) {
+                        console.log('[PlayerService] Refreshed radio stream URL');
+                        track.streamUrl = newUrl;
+                    } else {
+                        console.warn('[PlayerService] Failed to refresh radio stream URL');
+                    }
+                } catch (error) {
+                    console.error('[PlayerService] Error refreshing radio stream URL:', error);
+                }
+            }
+
             // Play a specific track
             if (!track.streamUrl) {
                 console.error('[PlayerService] CRITICAL: Track has no stream URL!');
@@ -117,21 +136,31 @@ export class PlayerService extends EventEmitter {
         this.currentStation = station;
         this.isRadioActive = true;
 
-        // Fetch stream URL on demand if missing
+        const radioTrack = await this.stationToTrack(station);
+
+        this.currentTrack = radioTrack;
+        console.log('Playing radio station track:', JSON.stringify(radioTrack, null, 2));
+        this.isPlaying = true;
+        this.emitStateChange();
+        this.emitTrackChange();
+        this.emitRadioStateChange();
+    }
+
+    /**
+     * Convert a RadioStation to a Track object for queue/playlist use
+     */
+    async stationToTrack(station: RadioStation): Promise<Track> {
+        // Resolve stream URL if missing
         let streamUrl = station.streamUrl;
         if (!streamUrl) {
             console.log(`Resolving stream URL for station: ${station.name}`);
             streamUrl = await this.scraperService.getStationStreamUrl(station.id);
-            if (!streamUrl) {
-                console.error(`Failed to resolve stream URL for station: ${station.name}`);
-                // Could handle error here? But for now let it fail or play silence.
-            } else {
-                // Update station object too
+            if (streamUrl) {
                 station.streamUrl = streamUrl;
             }
         }
 
-        const radioTrack: Track = {
+        return {
             id: `radio-${station.id}`,
             title: station.name,
             artist: 'Bandcamp Radio',
@@ -142,13 +171,14 @@ export class PlayerService extends EventEmitter {
             bandcampUrl: 'https://bandcamp.com',
             isCached: false
         };
+    }
 
-        this.currentTrack = radioTrack;
-        console.log('Playing radio station track:', JSON.stringify(radioTrack, null, 2));
-        this.isPlaying = true;
-        this.emitStateChange();
-        this.emitTrackChange();
-        this.emitRadioStateChange();
+    /**
+     * Add a radio station to the queue as a track
+     */
+    async addStationToQueue(station: RadioStation, playNext = false): Promise<void> {
+        const radioTrack = await this.stationToTrack(station);
+        this.addToQueue(radioTrack, 'radio', playNext);
     }
 
     stopRadio(): void {

@@ -1,18 +1,52 @@
-import React from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
 import { router } from 'expo-router';
-import { MoreVertical } from 'lucide-react-native';
+import { MoreVertical, X } from 'lucide-react-native';
 
 export default function RadioScreen() {
     const radioStations = useStore((state) => state.radioStations);
+    const playlists = useStore((state) => state.playlists);
     const playStation = useStore((state) => state.playStation);
     const disconnect = useStore((state) => state.disconnect);
+    const addStationToQueue = useStore((state) => state.addStationToQueue);
+    const addStationToPlaylist = useStore((state) => state.addStationToPlaylist);
+
+    const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
 
     const handlePlayStation = (station: RadioStation) => {
         playStation(station);
+    };
+
+    const handleLongPress = (station: RadioStation) => {
+        Alert.alert(
+            station.name,
+            "Choose an action",
+            [
+                { text: "Play Next", onPress: () => addStationToQueue(station, true) },
+                { text: "Add to Queue", onPress: () => addStationToQueue(station, false) },
+                {
+                    text: "Add to Playlist",
+                    onPress: () => {
+                        setSelectedStation(station);
+                        setPlaylistModalVisible(true);
+                    }
+                },
+                { text: "Cancel", style: "cancel" }
+            ]
+        );
+    };
+
+    const handleAddToPlaylist = (playlistId: string) => {
+        if (selectedStation) {
+            addStationToPlaylist(playlistId, selectedStation);
+            setPlaylistModalVisible(false);
+            setSelectedStation(null);
+            Alert.alert("Success", "Added to playlist");
+        }
     };
 
     const handleDisconnect = () => {
@@ -35,7 +69,12 @@ export default function RadioScreen() {
 
     const renderItem = ({ item }: { item: RadioStation }) => {
         return (
-            <TouchableOpacity style={styles.item} onPress={() => handlePlayStation(item)}>
+            <TouchableOpacity
+                style={styles.item}
+                onPress={() => handlePlayStation(item)}
+                onLongPress={() => handleLongPress(item)}
+                delayLongPress={500}
+            >
                 {item.imageUrl ? (
                     <Image source={{ uri: item.imageUrl }} style={styles.artwork} />
                 ) : (
@@ -75,6 +114,43 @@ export default function RadioScreen() {
                     contentContainerStyle={styles.listContent}
                 />
             )}
+
+            {/* Playlist Selection Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={playlistModalVisible}
+                onRequestClose={() => setPlaylistModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Add to Playlist</Text>
+                            <TouchableOpacity onPress={() => setPlaylistModalVisible(false)}>
+                                <X size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {playlists.length > 0 ? (
+                            <FlatList
+                                data={playlists}
+                                keyExtractor={(item) => item.id}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={styles.playlistItem}
+                                        onPress={() => handleAddToPlaylist(item.id)}
+                                    >
+                                        <Text style={styles.playlistName}>{item.name}</Text>
+                                        <Text style={styles.playlistCount}>{item.tracks.length} tracks</Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        ) : (
+                            <Text style={styles.emptyText}>No playlists available</Text>
+                        )}
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -104,6 +180,8 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#888',
         fontSize: 16,
+        textAlign: 'center',
+        marginTop: 20,
     },
     listContent: {
         padding: 16,
@@ -151,5 +229,48 @@ const styles = StyleSheet.create({
     itemSubtitle: {
         color: '#888',
         fontSize: 14,
+    },
+
+    // Modal Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: '#1e1e1e',
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        padding: 16,
+        maxHeight: '60%',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#333',
+    },
+    modalTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    playlistItem: {
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#2a2a2a',
+    },
+    playlistName: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    playlistCount: {
+        color: '#888',
+        fontSize: 12,
+        marginTop: 4,
     },
 });

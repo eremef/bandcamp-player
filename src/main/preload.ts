@@ -142,6 +142,10 @@ const electronAPI = {
         stop: (): Promise<void> => ipcRenderer.invoke(RADIO_CHANNELS.STOP),
         getState: (): Promise<RadioState> => ipcRenderer.invoke(RADIO_CHANNELS.GET_STATE),
         onStateChanged: createEventSubscriber<RadioState>(RADIO_CHANNELS.ON_STATE_CHANGED),
+        addToQueue: (station: RadioStation, playNext?: boolean): Promise<void> =>
+            ipcRenderer.invoke(RADIO_CHANNELS.ADD_TO_QUEUE, station, playNext),
+        addToPlaylist: (playlistId: string, station: RadioStation): Promise<void> =>
+            ipcRenderer.invoke(RADIO_CHANNELS.ADD_TO_PLAYLIST, playlistId, station),
     },
 
     // ---- Cache ----

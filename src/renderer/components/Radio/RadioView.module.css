@@ -204,6 +204,28 @@
     transform: scale(1.1);
 }
 
+.menuButton {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    border-radius: var(--radius-full);
+    font-size: 1.2rem;
+    backdrop-filter: blur(4px);
+    transition: all var(--transition-fast);
+    z-index: 10;
+}
+
+.menuButton:hover {
+    background: var(--accent-primary);
+}
+
 .cardInfo {
     padding: var(--spacing-lg);
 }
@@ -266,4 +288,84 @@
     background: var(--accent-hover);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Context Menu */
+.contextMenu {
+    position: fixed;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xs);
+    min-width: 200px;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    animation: fadeIn 0.1s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.menuItem {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-sm);
+    transition: background 0.1s;
+}
+
+.menuItem:hover {
+    background: var(--bg-hover);
+}
+
+.menuItemIcon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+}
+
+.menuSeparator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-xs) 0;
+}
+
+.submenuContainer {
+    position: relative;
+}
+
+.submenuTrigger {
+    display: flex;
+    justify-content: space-between;
+}
+
+.submenu {
+    position: absolute;
+    left: 100%;
+    top: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-xs);
+    min-width: 200px;
+    box-shadow: var(--shadow-lg);
+    display: none;
+    margin-left: var(--spacing-xs);
+}
+
+.submenuContainer:hover .submenu {
+    display: block;
 }
