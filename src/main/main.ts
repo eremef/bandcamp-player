@@ -20,6 +20,11 @@ app.commandLine.appendSwitch('disable-gpu');
 app.commandLine.appendSwitch('disable-software-rasterizer');
 app.disableHardwareAcceleration();
 
+// Set App User Model ID for Windows (required for proper app name in SMTC)
+if (process.platform === 'win32') {
+    app.setAppUserModelId('xyz.eremef.bandcamp.player');
+}
+
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 console.log('App starting. isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV, 'isPackaged:', app.isPackaged);
 

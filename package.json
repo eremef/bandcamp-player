@@ -73,7 +73,7 @@
     "wait-on": "^9.0.3"
   },
   "build": {
-    "appId": "com.bandcamp.player",
+    "appId": "xyz.eremef.bandcamp.player",
     "productName": "Bandcamp Player",
     "directories": {
       "output": "release"

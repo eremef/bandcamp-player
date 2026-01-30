@@ -90,6 +90,12 @@ export function PlayerBar() {
 
         const handleError = (e: Event) => {
             const target = e.target as HTMLAudioElement;
+            // Ignore empty src errors (happens on initial load or when track is cleared)
+            // Check getAttribute because the .src property converts empty string to full page URL
+            const srcAttr = target.getAttribute('src');
+            if (target.error?.code === 4 && (srcAttr === '' || srcAttr === null)) return;
+            // Also ignore if the error message indicates empty src
+            if (target.error?.message?.includes('Empty src')) return;
             console.error('Audio error event:', e);
             if (target.error) {
                 console.error('Audio error details:', target.error.code, target.error.message);
@@ -119,6 +125,64 @@ export function PlayerBar() {
             unsubscribe();
         };
     }, []);
+
+    // Media Session API for Windows SMTC integration
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+
+        // Set action handlers for media keys and Windows controls
+        navigator.mediaSession.setActionHandler('play', () => {
+            togglePlay();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            togglePlay();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            next();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            previous();
+        });
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime !== undefined && audioRef.current) {
+                audioRef.current.currentTime = details.seekTime;
+                seek(details.seekTime);
+            }
+        });
+
+        return () => {
+            // Clean up handlers
+            navigator.mediaSession.setActionHandler('play', null);
+            navigator.mediaSession.setActionHandler('pause', null);
+            navigator.mediaSession.setActionHandler('nexttrack', null);
+            navigator.mediaSession.setActionHandler('previoustrack', null);
+            navigator.mediaSession.setActionHandler('seekto', null);
+        };
+    }, [togglePlay, next, previous, seek]);
+
+    // Update Media Session metadata when track changes
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+
+        if (currentTrack) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: currentTrack.title,
+                artist: currentTrack.artist,
+                album: currentTrack.album || '',
+                artwork: currentTrack.artworkUrl ? [
+                    { src: currentTrack.artworkUrl, sizes: '512x512', type: 'image/jpeg' }
+                ] : []
+            });
+        } else {
+            navigator.mediaSession.metadata = null;
+        }
+    }, [currentTrack]);
+
+    // Update Media Session playback state
+    useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }, [isPlaying]);
 
     const formatTime = (seconds: number) => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
