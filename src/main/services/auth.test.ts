@@ -13,6 +13,13 @@ const mockBrowserWindowInstance = {
     on: vi.fn(),
 };
 
+const mockNetRequest = {
+    setHeader: vi.fn(),
+    on: vi.fn(),
+    write: vi.fn(),
+    end: vi.fn(),
+};
+
 vi.mock('electron', () => {
     const MockBrowserWindow = vi.fn(function () {
         return mockBrowserWindowInstance;
@@ -20,12 +27,7 @@ vi.mock('electron', () => {
     return {
         BrowserWindow: MockBrowserWindow,
         net: {
-            request: vi.fn(() => ({
-                setHeader: vi.fn(),
-                on: vi.fn(),
-                write: vi.fn(),
-                end: vi.fn(),
-            })),
+            request: vi.fn(() => mockNetRequest),
         },
     };
 });
@@ -57,17 +59,64 @@ describe('AuthService', () => {
             expect(result.user).toBeNull();
         });
 
-        // Skipped: fetchProfileFromId uses electron.net which requires complex mock setup
-        it.skip('should return authenticated if identity cookie exists', async () => {
+        it('should return authenticated and fetch profile if identity cookie exists', async () => {
             mockSession.cookies.get.mockResolvedValue([
-                { name: 'identity', domain: '.bandcamp.com', value: '{"fan_id": "123", "username": "testuser"}' }
+                { name: 'identity', domain: '.bandcamp.com', value: encodeURIComponent('{"fan_id": 123, "username": "testuser"}') }
             ]);
-            // This test just verifies the flow is called, not the full async chain
-            // because fetchProfileFromId uses electron.net which is difficult to mock fully
+
+            // Setup mock for net.request to simulate successful profile fetch
+            const mockResponse = {
+                on: vi.fn((event, callback) => {
+                    if (event === 'data') {
+                        callback(Buffer.from(JSON.stringify({
+                            fan: {
+                                fan_id: 123,
+                                username: 'testuser',
+                                name: 'Test User',
+                                imageId: '12345'
+                            }
+                        })));
+                    }
+                    if (event === 'end') {
+                        callback();
+                    }
+                }),
+            };
+
+            mockNetRequest.on.mockImplementation((event, callback) => {
+                if (event === 'response') {
+                    callback(mockResponse);
+                }
+            });
+
             const result = await authService.checkSession();
-            expect(mockSession.cookies.get).toHaveBeenCalled();
-            // The result depends on the internal fetchUserFromSession which calls net.request
-            // We verify the entry point was called; full integration testing would require more setup
+            
+            expect(result.isAuthenticated).toBe(true);
+            expect(result.user).toEqual({
+                id: '123',
+                username: 'testuser',
+                displayName: 'Test User',
+                avatarUrl: 'https://f4.bcbits.com/img/0012345_10.jpg',
+                profileUrl: 'https://bandcamp.com/testuser'
+            });
+        });
+
+        it('should fallback to minimal info if profile fetch fails', async () => {
+            mockSession.cookies.get.mockResolvedValue([
+                { name: 'identity', domain: '.bandcamp.com', value: encodeURIComponent('{"fan_id": 123}') }
+            ]);
+
+            mockNetRequest.on.mockImplementation((event, callback) => {
+                if (event === 'error') {
+                    callback(new Error('Network error'));
+                }
+            });
+
+            const result = await authService.checkSession();
+            
+            expect(result.isAuthenticated).toBe(true);
+            expect(result.user?.id).toBe('123');
+            expect(result.user?.username).toBe('fan123');
         });
     });
 

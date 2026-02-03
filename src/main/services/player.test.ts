@@ -157,13 +157,6 @@ describe('PlayerService', () => {
             expect(state.isShuffled).toBe(true);
             expect(state.queue.shuffleOrder).toBeDefined();
             expect(state.queue.shuffleOrder).toHaveLength(3);
-
-            // Ensure current playing track is first in shuffle order (logic check)
-            // The implementation moves current index to front of shuffle order?
-            // Checking implementation: yes, shuffleOrder[0] swapped with shuffleOrder[indexOf(currentIndex)]
-            // Since currentIndex is 0, it might remain at 0 or be swapped back.
-            // Actually, implementation does: currentPos = indexOf(currentIndex), then swap 0 and currentPos.
-            // So playIndex(0) makes currentIndex=0. 
         });
     });
 
@@ -219,7 +212,6 @@ describe('PlayerService', () => {
         });
 
         it('should play station next (add to queue next)', async () => {
-            // Setup plays a track first correctly
             playerService.addToQueue(mockTrack);
             playerService.playIndex(0);
 
@@ -227,7 +219,6 @@ describe('PlayerService', () => {
 
             const queue = playerService.getQueue();
             expect(queue.items).toHaveLength(2);
-            // Index 0 is current track, Index 1 should be radio
             expect(queue.items[1].track.title).toBe('Test Radio');
         });
 
