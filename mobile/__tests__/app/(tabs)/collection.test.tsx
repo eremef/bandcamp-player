@@ -27,7 +27,7 @@ jest.mock('../../../services/WebSocketService', () => ({
 // Mock ActionSheet
 jest.mock('../../../components/ActionSheet', () => ({
     ActionSheet: ({ visible, title }: any) => {
-        const { Text } = require('react-native');
+        const { Text } = jest.requireActual('react-native');
         return visible ? <Text>{`ActionSheet: ${title}`}</Text> : null;
     },
 }));
