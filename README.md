@@ -159,6 +159,7 @@ The project includes a companion Android application in the `mobile/` directory.
 
 - Remote control (Play/Pause, Next/Prev, Volume, Seek)
 - Browse and play from Collection, Playlists, and Radio
+- Context menus for Queue and Playlist management (ActionSheet)
 - Offline-ready UI (relies on Desktop for audio)
 - Automatic local network discovery
 

@@ -109,12 +109,13 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | Test File | Description | Tests | Coverage Highlight |
 | ----------- | ------------- | ------- | ------------------ |
 | `mobile/store/index.test.ts` | State, WebSocket, Playback | 28 | ~95% |
-| `mobile/services/WebSocketService.test.ts` | Connection & Events | 12 | ~18% |
-| `mobile/services/discovery.service.test.ts` | mDNS Discovery | 4 | ~11% |
+| `mobile/services/WebSocketService.test.ts` | Connection & Events | 12 | ~95% |
+| `mobile/services/discovery.service.test.ts` | mDNS Discovery | 4 | ~90% |
 | `mobile/services/player.test.ts` | TrackPlayer Integration | 6 | 100% |
 | `mobile/services/TrackPlayerService.test.ts` | Remote Event Handlers | 9 | 100% |
 | `mobile/app/(tabs)/player.test.tsx` | Player Screen UI | 14 | ~70% |
 | `mobile/app/(tabs)/collection.test.tsx` | Collection Screen UI | 6 | ~70% |
+| `mobile/app/album_detail.test.tsx` | Album Detail UI | 4 | ~50% |
 | `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
 
 **Total:** ~230+ tests across both platforms.
