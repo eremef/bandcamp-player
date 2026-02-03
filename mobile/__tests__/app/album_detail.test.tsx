@@ -116,7 +116,6 @@ describe('AlbumDetailScreen', () => {
             socketCallback(mockAlbum);
         });
 
-        const { useStore } = require('../../store');
         const mockStore = useStore.getState();
 
         fireEvent.press(getByText('Play Album'));
@@ -130,7 +129,6 @@ describe('AlbumDetailScreen', () => {
             socketCallback(mockAlbum);
         });
 
-        const { useStore } = require('../../store');
         const mockStore = useStore.getState();
 
         fireEvent.press(getByText('Track 1'));
