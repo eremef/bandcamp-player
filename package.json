@@ -1,6 +1,6 @@
 {
   "name": "bandcamp-player",
-  "version": "1.4.5-beta",
+  "version": "1.4.6-beta",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "Bandcamp Player",
@@ -92,7 +92,8 @@
         "AppImage",
         "deb"
       ],
-      "icon": "src/assets/icons"
+      "icon": "src/assets/icons",
+      "maintainer": "Bandcamp Player <eremef.xyz@gmail.com>"
     },
     "mac": {
       "target": "dmg",
