@@ -16,7 +16,7 @@ export default function ConnectScreen() {
             setIsAutoConnecting(false);
         };
         init();
-    }, []);
+    }, [autoConnect]);
 
     useEffect(() => {
         setIpInput(hostIp);

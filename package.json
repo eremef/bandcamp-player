@@ -15,6 +15,7 @@
     "build:renderer": "vite build",
     "start": "electron .",
     "lint": "eslint src",
+    "lint:mobile": "eslint mobile",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:mobile": "cd mobile && npm test",

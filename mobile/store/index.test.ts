@@ -19,7 +19,8 @@ jest.mock('react-native-track-player', () => ({
 }));
 
 // Mock WebSocketService
-const socketListeners: Record<string, Function> = {};
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const socketListeners: Record<string, (payload?: any) => void> = {};
 
 jest.mock('../services/WebSocketService', () => ({
     webSocketService: {

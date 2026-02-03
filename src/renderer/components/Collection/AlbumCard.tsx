@@ -9,7 +9,7 @@ interface AlbumCardProps {
 }
 
 export function AlbumCard({ album }: AlbumCardProps) {
-    const { getAlbumDetails, addAlbumToQueue, playlists, addTracksToPlaylist, downloadTrack, clearQueue, playQueueIndex } = useStore();
+    const { getAlbumDetails, addAlbumToQueue, playlists, addTracksToPlaylist, downloadTrack, clearQueue, playQueueIndex, selectAlbum } = useStore();
     const [isLoading, setIsLoading] = useState(false);
     const [showMenu, setShowMenu] = useState(false);
 
@@ -37,13 +37,33 @@ export function AlbumCard({ album }: AlbumCardProps) {
         return album;
     };
 
-    const handlePlay = async () => {
+    const handlePlay = async (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+
         const albumWithTracks = await ensureAlbumTracks();
 
         if (albumWithTracks.tracks.length > 0) {
             await clearQueue(false);
             await addAlbumToQueue(albumWithTracks);
             await playQueueIndex(0);
+        }
+    };
+
+    const handleCardClick = async () => {
+        // If tracks > 1, open details. If 1 (single), just play?
+        // User request: "for albums with more than 1 track when you click on it, it should open a new view"
+        // Implies single track albums might be treated differently or just ignored.
+        // But consistent behavior is usually better.
+        // However, looking at the code, single track items are often just tracks.
+        // Let's check if it's an album type or just 1 track.
+        // The CollectionView passes a constructed album object for tracks.
+        // For actual albums with > 1 track:
+        // If tracks > 1, open details. If 0 (unknown/DOM parse), also open details to fetch.
+        // Only if explicitly 1 (Single) do we play directly.
+        if (album.trackCount !== 1) {
+            selectAlbum(album);
+        } else {
+            handlePlay();
         }
     };
 
@@ -70,6 +90,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
     return (
         <div
             className={styles.card}
+            onClick={handleCardClick}
             onMouseLeave={() => setShowMenu(false)}
             onContextMenu={(e) => {
                 e.preventDefault();
@@ -96,7 +117,10 @@ export function AlbumCard({ album }: AlbumCardProps) {
                     </button>
                     <button
                         className={styles.menuButton}
-                        onClick={() => setShowMenu(!showMenu)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMenu(!showMenu);
+                        }}
                         title="More options"
                     >
                         <MoreHorizontal size={20} />
@@ -112,22 +136,22 @@ export function AlbumCard({ album }: AlbumCardProps) {
 
             {/* Context menu */}
             {showMenu && (
-                <div className={styles.menu}>
-                    <button onClick={handlePlay}><Play size={16} /> Play Now</button>
-                    <button onClick={handleAddToQueue}><List size={16} /> Add to Queue</button>
+                <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
+                    <button onClick={(e) => { e.stopPropagation(); handlePlay(); }}><Play size={16} /> Play Now</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleAddToQueue(); }}><List size={16} /> Add to Queue</button>
                     <div className={styles.menuDivider} />
                     {playlists.length > 0 && (
                         <>
                             <span className={styles.menuLabel}>Add to Playlist</span>
                             {playlists.map((playlist) => (
-                                <button key={playlist.id} onClick={() => handleAddToPlaylist(playlist.id)}>
+                                <button key={playlist.id} onClick={(e) => { e.stopPropagation(); handleAddToPlaylist(playlist.id); }}>
                                     <Music size={14} /> {playlist.name}
                                 </button>
                             ))}
                             <div className={styles.menuDivider} />
                         </>
                     )}
-                    <button onClick={handleDownload}><Download size={16} /> Download for Offline</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDownload(); }}><Download size={16} /> Download for Offline</button>
                 </div>
             )}
         </div>

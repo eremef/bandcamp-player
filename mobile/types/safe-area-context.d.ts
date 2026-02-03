@@ -1,6 +1,6 @@
 declare module 'react-native-safe-area-context' {
     import * as React from 'react';
-    import { ViewProps, NativeSyntheticEvent } from 'react-native';
+    import { ViewProps } from 'react-native';
 
     export interface EdgeInsets {
         top: number;

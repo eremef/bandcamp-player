@@ -1,9 +1,9 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, CollectionItem } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer, { State as TrackPlayerState } from 'react-native-track-player';
+import TrackPlayer from 'react-native-track-player';
 import { addTrack } from '../services/player';
 
 interface AppState extends PlayerState {
@@ -228,7 +228,7 @@ webSocketService.on('time-update', async (payload) => {
                 // console.log(`Syncing time: remote=${payload.currentTime}, local=${currentPosition}, diff=${timeDiff}`);
                 await TrackPlayer.seekTo(payload.currentTime);
             }
-        } catch (e) {
+        } catch {
             // Ignore errors (e.g. if player not ready)
         }
     }

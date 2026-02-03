@@ -36,7 +36,7 @@ jest.mock('../store', () => ({
 }));
 
 describe('TrackPlayerService', () => {
-    let eventHandlers: Record<string, Function>;
+    let eventHandlers: Record<string, (payload?: any) => void>;
     let mockStoreActions: any;
 
     beforeEach(() => {
@@ -51,7 +51,7 @@ describe('TrackPlayerService', () => {
 
         (useStore.getState as jest.Mock).mockReturnValue(mockStoreActions);
 
-        (TrackPlayer.addEventListener as any).mockImplementation((event: string, handler: Function) => {
+        (TrackPlayer.addEventListener as any).mockImplementation((event: string, handler: (payload?: any) => void) => {
             eventHandlers[event] = handler;
             return { remove: jest.fn() };
         });

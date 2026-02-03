@@ -4,7 +4,7 @@ import { Check, X, Plus, ListMusic, Music, Play, Trash2 } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -93,7 +93,14 @@ export function PlaylistsView() {
                                     <div className={styles.placeholderArtwork}><Music size={48} /></div>
                                 )}
                                 <div className={styles.cardOverlay}>
-                                    <button className={styles.playBtn} title="Play">
+                                    <button
+                                        className={styles.playBtn}
+                                        title="Play"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            playPlaylist(playlist.id);
+                                        }}
+                                    >
                                         <Play size={32} fill="currentColor" />
                                     </button>
                                 </div>

@@ -2,6 +2,7 @@ import TrackPlayer, {
     Capability,
     AppKilledPlaybackBehavior
 } from 'react-native-track-player';
+import { Track } from '@shared/types';
 
 export async function setupPlayer() {
     let isSetup = false;
@@ -10,7 +11,9 @@ export async function setupPlayer() {
         if (activeTrack !== undefined) {
             isSetup = true;
         }
-    } catch { }
+    } catch { 
+        // Ignore error
+    }
 
     if (!isSetup) {
         await TrackPlayer.setupPlayer();
@@ -34,7 +37,7 @@ export async function setupPlayer() {
     return isSetup;
 }
 
-export async function addTrack(track: any, hostIp?: string) {
+export async function addTrack(track: Track, hostIp?: string) {
     // We add a "dummy" track that represents the remote state
     // We don't actually play audio on the phone (to avoid double audio), 
     // but TrackPlayer needs some URL to show metadata.
