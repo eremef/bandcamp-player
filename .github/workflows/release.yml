@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 jobs:
-  build-desktop:
+  build-desktop-windows:
     name: Build Desktop (Windows)
     runs-on: windows-latest
     permissions:
@@ -36,6 +36,72 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: release/*.exe
+          generate_release_notes: true
+
+  build-desktop-linux:
+    name: Build Desktop (Linux)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package
+        run: npm run package -- -p never
+
+      - name: Release Desktop
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*.AppImage
+            release/*.deb
+          generate_release_notes: true
+
+  build-desktop-macos:
+    name: Build Desktop (MacOS)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Package
+        run: npm run package -- -p never
+
+      - name: Release Desktop
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release/*.dmg
           generate_release_notes: true
 
   build-android:

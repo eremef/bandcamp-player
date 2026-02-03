@@ -53,6 +53,7 @@
     "@typescript-eslint/eslint-plugin": "^8.21.0",
     "@typescript-eslint/parser": "^8.21.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "babel-jest": "^30.2.0",
     "concurrently": "^8.2.2",
     "electron": "^40.0.0",
@@ -85,6 +86,17 @@
     "win": {
       "target": "nsis",
       "icon": "src/assets/icons/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "src/assets/icons"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "src/assets/icons/icon.png"
     },
     "nsis": {
       "oneClick": false,

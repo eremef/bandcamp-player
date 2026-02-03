@@ -8,7 +8,7 @@ jest.mock('react-native-track-player', () => ({
     __esModule: true,
     default: {
         addEventListener: jest.fn(),
-        getPosition: jest.fn().mockResolvedValue(30),
+        getProgress: jest.fn().mockResolvedValue({ position: 30 }),
         reset: jest.fn(),
     },
     Event: {

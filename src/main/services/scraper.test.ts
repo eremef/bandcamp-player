@@ -120,4 +120,59 @@ describe('ScraperService', () => {
             expect(collection.items[0].album?.artist).toBe('Mock Band');
         });
     });
+
+    describe('getAlbumDetails', () => {
+        it('should parse album details from TralbumData', async () => {
+            const mockHtml = `
+                <html>
+                <script>
+                    var TralbumData = {
+                        id: 202,
+                        album_title: "Full Album",
+                        artist: "Great Artist",
+                        band_id: 303,
+                        art_id: 404,
+                        trackinfo: [
+                            { track_id: 1, title: "Song 1", duration: 120, file: { "mp3-128": "http://stream.url/1" } }
+                        ]
+                    };
+                </script>
+                </html>
+            `;
+            mockAxios.get.mockResolvedValue({ data: mockHtml });
+
+            const album = await scraper.getAlbumDetails('https://artist.bandcamp.com/album/test');
+
+            expect(album).not.toBeNull();
+            expect(album?.title).toBe('Full Album');
+            expect(album?.tracks).toHaveLength(1);
+            expect(album?.tracks[0].streamUrl).toBe('http://stream.url/1');
+        });
+    });
+
+    describe('getRadioStations', () => {
+        it('should fetch and parse radio stations', async () => {
+            const mockRadioData = {
+                results: [
+                    { id: 1, title: 'Weekly 1', subtitle: 'Best music', image_id: 123 }
+                ]
+            };
+            mockAxios.get.mockResolvedValue({ data: mockRadioData });
+
+            const stations = await scraper.getRadioStations();
+
+            expect(stations).toHaveLength(1);
+            expect(stations[0].name).toBe('Weekly 1');
+            expect(stations[0].imageUrl).toContain('123');
+        });
+
+        it('should fallback to default station on error', async () => {
+            mockAxios.get.mockRejectedValue(new Error('Network error'));
+
+            const stations = await scraper.getRadioStations();
+
+            expect(stations).toHaveLength(1);
+            expect(stations[0].id).toBe('weekly');
+        });
+    });
 });
