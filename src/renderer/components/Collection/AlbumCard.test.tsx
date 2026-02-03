@@ -32,7 +32,8 @@ describe('AlbumCard', () => {
             addTracksToPlaylist: vi.fn(),
             downloadTrack: vi.fn(),
             clearQueue: vi.fn(),
-            playQueueIndex: vi.fn()
+            playQueueIndex: vi.fn(),
+            selectAlbum: vi.fn()
         });
     });
 
@@ -64,5 +65,34 @@ describe('AlbumCard', () => {
         fireEvent(card!, event);
 
         expect(preventDefaultSpy).toHaveBeenCalled();
+    });
+
+    it('opens album details when clicked if it has multiple tracks', () => {
+        const multiTrackAlbum = { ...mockAlbum, trackCount: 5, tracks: [{}, {}, {}, {}, {}] } as any;
+        const { selectAlbum } = mockUseStore();
+        
+        render(<AlbumCard album={multiTrackAlbum} />);
+        
+        const card = screen.getByText('Test Album').closest('div')?.parentElement;
+        fireEvent.click(card!);
+        
+        expect(selectAlbum).toHaveBeenCalledWith(multiTrackAlbum);
+    });
+
+    it('plays immediately when clicked if it has only one track', async () => {
+        const singleTrackAlbum = { ...mockAlbum, trackCount: 1, tracks: [{ streamUrl: 'url' }] } as any;
+        const { clearQueue, addAlbumToQueue, playQueueIndex } = mockUseStore();
+        
+        render(<AlbumCard album={singleTrackAlbum} />);
+        
+        const card = screen.getByText('Test Album').closest('div')?.parentElement;
+        fireEvent.click(card!);
+        
+        // Wait for async play logic
+        await vi.waitFor(() => {
+            expect(clearQueue).toHaveBeenCalled();
+            expect(addAlbumToQueue).toHaveBeenCalled();
+            expect(playQueueIndex).toHaveBeenCalledWith(0);
+        });
     });
 });

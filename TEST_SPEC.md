@@ -1,6 +1,6 @@
 # Test Specification
 
-## Owerview
+## Overview
 
 This document outlines the testing strategy, architecture, and workflows for the Bandcamp Player project. The goal is to ensure code reliability across both the Electron desktop application and the React Native mobile application.
 
@@ -34,7 +34,7 @@ The project uses a split testing architecture to accommodate the distinct runtim
 ## Commands
 
 | Command | Description | Scope |
-|dev|---|---|
+| --- | --- | --- |
 | `npm test` | Runs all desktop unit tests. | Desktop |
 | `npm run test:watch` | Runs desktop tests in watch mode. | Desktop |
 | `npm run test:coverage` | Generates coverage report for desktop. | Desktop |
@@ -78,39 +78,57 @@ Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
 - `src/test/setup.ts`: Mocks `window.electron` methods (`invoke`, `on`, `removeListener`).
 - `mobile/jest.setup.js`: Mocks `react-native-track-player`, `AsyncStorage`, and Expo modules.
 
+## Current Test Coverage
+
+The project has comprehensive coverage across core logic, stores, and critical UI paths.
+
+### Desktop (`npm test` - Vitest)
+
+**Overall Coverage:** ~71%
+
+| Test File | Description | Tests | Coverage Highlight |
+| ----------- | ------------- | ------- | ------------------ |
+| `src/main/database/database.test.ts` | Database CRUD operations | 20 | ~70% |
+| `src/main/services/auth.test.ts` | Authentication & Cookies | 7 | ~64% |
+| `src/main/services/playlist.test.ts` | Playlist Management | 9 | 100% |
+| `src/main/services/scrobbler.test.ts` | Last.fm Scrobbling | 8 | ~63% |
+| `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 12 | ~80% |
+| `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
+| `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
+| `src/renderer/store/store.test.ts` | Zustand State & IPC | 25 | ~95% |
+| `src/renderer/components/Collection/CollectionView.test.tsx` | Grid, Search, Loading | 8 | ~91% |
+| `src/renderer/components/Playlist/PlaylistsView.test.tsx` | List, Create, Delete | 6 | ~90% |
+| `src/renderer/components/Player/QueuePanel.test.tsx` | Queue Management UI | 7 | ~86% |
+| `src/renderer/components/Layout/PlayerBar.test.tsx` | Playback Controls UI | 9 | ~59% |
+| `src/renderer/components/Radio/RadioView.test.tsx` | Radio Station UI | 3 | ~62% |
+
+### Mobile (`npm run test:mobile` - Jest)
+
+**Overall Coverage:** ~20% (Store Logic: ~95%)
+
+| Test File | Description | Tests | Coverage Highlight |
+| ----------- | ------------- | ------- | ------------------ |
+| `mobile/store/index.test.ts` | State, WebSocket, Playback | 28 | ~95% |
+| `mobile/services/WebSocketService.test.ts` | Connection & Events | 12 | ~18% |
+| `mobile/services/discovery.service.test.ts` | mDNS Discovery | 4 | ~11% |
+| `mobile/services/player.test.ts` | TrackPlayer Integration | 6 | 100% |
+| `mobile/services/TrackPlayerService.test.ts` | Remote Event Handlers | 9 | 100% |
+| `mobile/app/(tabs)/player.test.tsx` | Player Screen UI | 14 | ~70% |
+| `mobile/app/(tabs)/collection.test.tsx` | Collection Screen UI | 6 | ~70% |
+| `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
+
+**Total:** ~230+ tests across both platforms.
+
 ## Best Practices
 
 1. **Co-location**: Keep test files next to the implementation.
 2. **Isolation**: Mock all external dependencies (API calls, Database, native modules).
 3. **Naming**: Use `describe` blocks to group tests by function/component and `it` blocks for specific behaviors.
 4. **Async**: Use `async/await` for async operations and `act()` for strict React state updates.
-5. **Strictness**: Ensure tests are deterministic and do not rely on global state leaking between tests.
+5. **Selector Mocking**: When testing Zustand stores in components, use `mockImplementation` to respect selector functions:
 
-## Current Test Coverage
-
-### Desktop (`npm test` - Vitest)
-
-| Test File | Description | Tests |
-| ----------- | ------------- | ------- |
-| `src/main/database/database.test.ts` | Database CRUD operations (mocked) | 20 |
-| `src/main/services/auth.test.ts` | Authentication flow, cookies, login window | 5 |
-| `src/main/services/playlist.test.ts` | Playlist CRUD operations | 9 |
-| `src/main/services/scrobbler.test.ts` | Last.fm scrobbling, offline queue | 8 |
-| `src/main/services/scraper.test.ts` | HTML parsing, collection fetching | 4 |
-| `src/main/services/player.test.ts` | Playback controls, queue management | 19 |
-| `src/main/services/cache.test.ts` | Audio caching, cleanup | 7 |
-| `src/renderer/store/store.test.ts` | Frontend Zustand store | 3 |
-
-**Total:** 75 tests passed, 1 skipped
-
-### Mobile (`npm run test:mobile` - Jest)
-
-| Test File | Description | Tests |
-| ----------- | ------------- | ------- |
-| `mobile/store/index.test.ts` | Zustand store, WebSocket actions | 30 |
-| `mobile/services/WebSocketService.test.ts` | Connection, reconnection, messages | 12 |
-| `mobile/services/discovery.service.test.ts` | mDNS discovery | 4 |
-| `mobile/services/player.test.ts` | TrackPlayer setup, addTrack | 6 |
-| `mobile/services/TrackPlayerService.test.ts` | Remote event handlers | 9 |
-
-**Total:** 61 tests passed
+   ```typescript
+   (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+       return selector ? selector(mockState) : mockState;
+   });
+   ```

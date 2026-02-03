@@ -41,7 +41,7 @@ describe('PlayerService', () => {
             scrobble: vi.fn(),
         };
         mockScraperService = {
-            getStationStreamUrl: vi.fn(),
+            getStationStreamUrl: vi.fn().mockResolvedValue({ streamUrl: 'http://default.stream', duration: 0 }),
         };
         mockDatabase = {
             getSettings: vi.fn().mockReturnValue({ defaultVolume: 0.5 }),
@@ -186,6 +186,7 @@ describe('PlayerService', () => {
         };
 
         it('should convert station to track correctly', async () => {
+            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://stream.url', duration: 0 });
             const track = await playerService.stationToTrack(mockStation);
             expect(track.id).toBe('radio-1');
             expect(track.title).toBe('Test Radio');
@@ -195,7 +196,7 @@ describe('PlayerService', () => {
 
         it('should fetch stream URL if missing', async () => {
             const stationWithoutStream = { ...mockStation, streamUrl: undefined };
-            mockScraperService.getStationStreamUrl.mockResolvedValue('http://fetched.stream');
+            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://fetched.stream', duration: 120 });
 
             const track = await playerService.stationToTrack(stationWithoutStream);
 
@@ -229,7 +230,7 @@ describe('PlayerService', () => {
                 streamUrl: 'http://old.url'
             };
 
-            mockScraperService.getStationStreamUrl.mockResolvedValue('http://new.url');
+            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://new.url', duration: 0 });
 
             await playerService.play(radioTrack);
 
@@ -241,6 +242,22 @@ describe('PlayerService', () => {
             const regularTrack = { ...mockTrack, id: '123' };
             await playerService.play(regularTrack);
             expect(mockScraperService.getStationStreamUrl).not.toHaveBeenCalled();
+        });
+        it('should fetch and cache duration if missing even if streamUrl is present', async () => {
+            const stationInit: any = {
+                id: '999',
+                name: 'Cached URL No Duration',
+                streamUrl: 'http://cached.url',
+                // no duration
+            };
+
+            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://cached.url', duration: 300 });
+
+            const track = await playerService.stationToTrack(stationInit);
+
+            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith('999');
+            expect(track.duration).toBe(300);
+            expect(stationInit.duration).toBe(300); // Check caching
         });
     });
 

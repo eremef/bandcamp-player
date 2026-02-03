@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, Modal } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
 import { router } from 'expo-router';
-import { MoreVertical, X } from 'lucide-react-native';
+import { MoreVertical } from 'lucide-react-native';
+import { ActionSheet, Action } from '../../components/ActionSheet';
+import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 
 export default function RadioScreen() {
     const radioStations = useStore((state) => state.radioStations);
@@ -17,27 +19,40 @@ export default function RadioScreen() {
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
 
+    // ActionSheet state
+    const [actionSheetVisible, setActionSheetVisible] = useState(false);
+    const [actionSheetTitle, setActionSheetTitle] = useState('');
+    const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
     const handlePlayStation = (station: RadioStation) => {
         playStation(station);
     };
 
     const handleLongPress = (station: RadioStation) => {
-        Alert.alert(
-            station.name,
-            "Choose an action",
-            [
-                { text: "Play Next", onPress: () => addStationToQueue(station, true) },
-                { text: "Add to Queue", onPress: () => addStationToQueue(station, false) },
-                {
-                    text: "Add to Playlist",
-                    onPress: () => {
-                        setSelectedStation(station);
-                        setPlaylistModalVisible(true);
-                    }
-                },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        setActionSheetTitle(station.name);
+        setActionSheetActions([
+            {
+                text: "Play Next",
+                onPress: () => addStationToQueue(station, true)
+            },
+            {
+                text: "Add to Queue",
+                onPress: () => addStationToQueue(station, false)
+            },
+            {
+                text: "Add to Playlist",
+                onPress: () => {
+                    setSelectedStation(station);
+                    setPlaylistModalVisible(true);
+                }
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => { }
+            }
+        ]);
+        setActionSheetVisible(true);
     };
 
     const handleAddToPlaylist = (playlistId: string) => {
@@ -50,21 +65,23 @@ export default function RadioScreen() {
     };
 
     const handleDisconnect = () => {
-        Alert.alert(
-            "Disconnect",
-            "Are you sure you want to disconnect?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Disconnect",
-                    style: "destructive",
-                    onPress: () => {
-                        disconnect();
-                        router.replace('/');
-                    }
+        setActionSheetTitle("Disconnect");
+        setActionSheetActions([
+            {
+                text: "Disconnect",
+                style: "destructive",
+                onPress: () => {
+                    disconnect();
+                    router.replace('/');
                 }
-            ]
-        );
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => { }
+            }
+        ]);
+        setActionSheetVisible(true);
     };
 
     const renderItem = ({ item }: { item: RadioStation }) => {
@@ -85,7 +102,9 @@ export default function RadioScreen() {
                 <View style={styles.itemInfo}>
                     <Text style={styles.itemTitle} numberOfLines={1}>{item.name}</Text>
                     {item.date && (
-                        <Text style={styles.itemDate}>{item.date}</Text>
+                        <Text style={styles.itemDate}>
+                            {item.date}{item.duration ? ` • ${Math.floor(item.duration / 3600)}h ${Math.floor((item.duration % 3600) / 60)}m` : ''}
+                        </Text>
                     )}
                     <Text style={styles.itemSubtitle} numberOfLines={2}>{item.description}</Text>
                 </View>
@@ -115,42 +134,19 @@ export default function RadioScreen() {
                 />
             )}
 
-            {/* Playlist Selection Modal */}
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={playlistModalVisible}
-                onRequestClose={() => setPlaylistModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Add to Playlist</Text>
-                            <TouchableOpacity onPress={() => setPlaylistModalVisible(false)}>
-                                <X size={24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+            <ActionSheet
+                visible={actionSheetVisible}
+                onClose={() => setActionSheetVisible(false)}
+                title={actionSheetTitle}
+                actions={actionSheetActions}
+            />
 
-                        {playlists.length > 0 ? (
-                            <FlatList
-                                data={playlists}
-                                keyExtractor={(item) => item.id}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={styles.playlistItem}
-                                        onPress={() => handleAddToPlaylist(item.id)}
-                                    >
-                                        <Text style={styles.playlistName}>{item.name}</Text>
-                                        <Text style={styles.playlistCount}>{item.tracks.length} tracks</Text>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        ) : (
-                            <Text style={styles.emptyText}>No playlists available</Text>
-                        )}
-                    </View>
-                </View>
-            </Modal>
+            <PlaylistSelectionModal
+                visible={playlistModalVisible}
+                onClose={() => setPlaylistModalVisible(false)}
+                onSelect={handleAddToPlaylist}
+                playlists={playlists}
+            />
         </SafeAreaView>
     );
 }
@@ -229,48 +225,5 @@ const styles = StyleSheet.create({
     itemSubtitle: {
         color: '#888',
         fontSize: 14,
-    },
-
-    // Modal Styles
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        justifyContent: 'flex-end',
-    },
-    modalContent: {
-        backgroundColor: '#1e1e1e',
-        borderTopLeftRadius: 16,
-        borderTopRightRadius: 16,
-        padding: 16,
-        maxHeight: '60%',
-    },
-    modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#333',
-    },
-    modalTitle: {
-        color: '#fff',
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    playlistItem: {
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#2a2a2a',
-    },
-    playlistName: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '500',
-    },
-    playlistCount: {
-        color: '#888',
-        fontSize: 12,
-        marginTop: 4,
     },
 });

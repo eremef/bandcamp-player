@@ -113,6 +113,7 @@ describe('useStore', () => {
             queue: { items: [], currentIndex: -1 },
             playlists: [],
             selectedPlaylist: null,
+            selectedAlbum: null,
             settings: null,
             radioStations: [],
             collection: null,
@@ -182,7 +183,7 @@ describe('useStore', () => {
             user: { id: '1', username: 'test', profileUrl: '' }
         };
         mockElectron.auth.checkSession.mockResolvedValue(mockAuthResult);
-        
+
         await act(async () => {
             await useStore.getState().checkSession();
         });
@@ -229,7 +230,7 @@ describe('useStore', () => {
     it('should call electron.queue methods', async () => {
         const mockTrack = { id: '1', title: 'Test Track' } as any;
         const mockAlbum = { id: 1, title: 'Test Album' } as any;
-        
+
         await act(async () => {
             await useStore.getState().addToQueue(mockTrack, true);
             await useStore.getState().addAlbumToQueue(mockAlbum);
@@ -295,11 +296,20 @@ describe('useStore', () => {
         expect(mockElectron.collection.getAlbum).toHaveBeenCalledWith('url');
     });
 
+    it('should select album and change view', () => {
+        const mockAlbum = { id: 'a1', title: 'Album 1' } as any;
+        act(() => {
+            useStore.getState().selectAlbum(mockAlbum);
+        });
+        expect(useStore.getState().selectedAlbum).toEqual(mockAlbum);
+        expect(useStore.getState().currentView).toBe('album-detail');
+    });
+
     // --- Playlist Slice Tests ---
     it('should manage playlists', async () => {
         const mockPlaylists = [{ id: '1', name: 'My Playlist' }];
         const mockNewPlaylist = { id: '2', name: 'New Playlist' };
-        
+
         mockElectron.playlist.getAll.mockResolvedValue(mockPlaylists);
         mockElectron.playlist.create.mockResolvedValue(mockNewPlaylist);
         mockElectron.playlist.getById.mockResolvedValue(mockPlaylists[0]);
@@ -324,12 +334,12 @@ describe('useStore', () => {
 
     it('should update and delete playlist', async () => {
         useStore.setState({ selectedPlaylist: { id: '1', name: 'Old' } as any, selectedPlaylistId: '1' });
-        
+
         await act(async () => {
             await useStore.getState().updatePlaylist('1', 'New Name');
         });
         expect(mockElectron.playlist.update).toHaveBeenCalledWith({ id: '1', name: 'New Name', description: undefined });
-        
+
         await act(async () => {
             await useStore.getState().deletePlaylist('1');
         });
@@ -362,9 +372,9 @@ describe('useStore', () => {
 
     // --- Settings Slice Tests ---
     it('should fetch and update settings', async () => {
-        const mockSettings = { theme: 'dark', remoteEnabled: false };
+        const mockSettings = { startMinimized: false, remoteEnabled: false };
         mockElectron.settings.get.mockResolvedValue(mockSettings);
-        mockElectron.settings.set.mockResolvedValue({ ...mockSettings, theme: 'light' });
+        mockElectron.settings.set.mockResolvedValue({ ...mockSettings, startMinimized: true });
 
         await act(async () => {
             await useStore.getState().fetchSettings();
@@ -372,10 +382,10 @@ describe('useStore', () => {
         expect(useStore.getState().settings).toEqual(mockSettings);
 
         await act(async () => {
-            await useStore.getState().updateSettings({ theme: 'light' });
+            await useStore.getState().updateSettings({ startMinimized: true });
         });
-        expect(mockElectron.settings.set).toHaveBeenCalledWith({ theme: 'light' });
-        expect(useStore.getState().settings?.theme).toBe('light');
+        expect(mockElectron.settings.set).toHaveBeenCalledWith({ startMinimized: true });
+        expect(useStore.getState().settings?.startMinimized).toBe(true);
     });
 
     it('should toggle remote based on settings', async () => {
@@ -439,7 +449,7 @@ describe('useStore', () => {
             await useStore.getState().clearCache();
             await useStore.getState().fetchCacheStats();
         });
-        
+
         expect(mockElectron.cache.deleteTrack).toHaveBeenCalledWith('t1');
         expect(mockElectron.cache.clear).toHaveBeenCalled();
         expect(useStore.getState().cacheStats).toEqual(mockStats);
@@ -511,8 +521,8 @@ describe('useStore', () => {
 
     // --- Subscriptions Tests ---
     it('should initialize subscriptions and handle events', async () => {
-        const listeners: Record<string, Function> = {};
-        
+        const listeners: Record<string, (...args: any[]) => void> = {};
+
         // Mock sub methods to capture listeners
         mockElectron.player.onStateChanged.mockImplementation(cb => listeners['playerState'] = cb);
         mockElectron.player.onTrackChanged.mockImplementation(cb => listeners['track'] = cb);

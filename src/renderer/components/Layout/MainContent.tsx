@@ -1,5 +1,6 @@
 import { useStore } from '../../store/store';
 import { CollectionView } from '../Collection/CollectionView';
+import { AlbumDetailView } from '../Collection/AlbumDetailView';
 import { PlaylistsView } from '../Playlist/PlaylistsView';
 import { PlaylistDetailView } from '../Playlist/PlaylistDetailView';
 import { RadioView } from '../Radio/RadioView';
@@ -12,6 +13,8 @@ export function MainContent() {
         switch (currentView) {
             case 'collection':
                 return <CollectionView />;
+            case 'album-detail':
+                return <AlbumDetailView />;
             case 'playlists':
                 return <PlaylistsView />;
             case 'playlist-detail':

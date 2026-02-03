@@ -230,7 +230,9 @@ export class RemoteControlService extends EventEmitter {
                                 title: item.album.title,
                                 artist: item.album.artist,
                                 artworkUrl: item.album.artworkUrl,
-                                item_url: item.album.bandcampUrl
+                                item_url: item.album.bandcampUrl,
+                                trackCount: item.album.trackCount,
+                                hasTracks: item.album.tracks && item.album.tracks.length > 1
                             };
                         } else if (item.type === 'track' && item.track) {
                             return {
@@ -284,6 +286,15 @@ export class RemoteControlService extends EventEmitter {
                     this.playerService.addTracksToQueue(album.tracks);
                     await this.playerService.playIndex(0);
                 }
+                break;
+            }
+            case 'get-album': {
+                if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
+                    this.sendToClient(ws, 'error', { message: 'Invalid album URL' });
+                    return;
+                }
+                const album = await this.scraperService.getAlbumDetails(payload);
+                this.sendToClient(ws, 'album-details', album);
                 break;
             }
             case 'play-track': {
@@ -964,6 +975,20 @@ export class RemoteControlService extends EventEmitter {
                  <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
             </div>
         </div>
+
+        <div id="album-tab" class="tab-content" style="padding: 0;">
+             <div class="album-header" style="padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border-subtle);">
+                <img id="album-view-artwork" src="" style="width: 150px; height: 150px; border-radius: var(--radius-md); background: var(--bg-tertiary); box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 1rem; object-fit: cover;">
+                <div id="album-view-title" style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-primary);"></div>
+                <div id="album-view-artist" style="color: var(--text-secondary);"></div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <button id="album-view-play" style="background: var(--text-primary); color: var(--bg-primary); padding: 8px 24px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer;">Play</button>
+                    <button id="album-view-queue" style="background: var(--bg-active); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer;">Queue</button>
+                    <button onclick="switchTab('collection')" style="background: transparent; color: var(--text-secondary); padding: 8px; border: none; cursor: pointer;">Back</button>
+                </div>
+             </div>
+             <div id="album-view-tracks" style="padding-bottom: 200px;"></div>
+        </div>
     </div>
 
     <div id="mini-player">
@@ -1094,6 +1119,8 @@ export class RemoteControlService extends EventEmitter {
                 renderPlaylists(payload);
             } else if (type === 'time-update') {
                 updateProgress(payload);
+            } else if (type === 'album-details') {
+                renderAlbumDetails(payload);
             }
         }
 
@@ -1336,8 +1363,11 @@ export class RemoteControlService extends EventEmitter {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
-            document.querySelector('.tab-btn[onclick*="'+tabId+'"]').classList.add('active');
-            document.getElementById(tabId + '-tab').classList.add('active');
+            const btn = document.querySelector('.tab-btn[onclick*="'+tabId+'"]');
+            if (btn) btn.classList.add('active');
+            
+            const tabContent = document.getElementById(tabId + '-tab');
+            if (tabContent) tabContent.classList.add('active');
 
             if (tabId === 'collection') {
                 sendCommand('get-collection');
@@ -1374,7 +1404,21 @@ export class RemoteControlService extends EventEmitter {
             items.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'list-item';
-                div.onclick = () => sendCommand('play-album', item.albumUrl || item.item_url);
+                div.onclick = () => {
+                    if (item.type === 'album') {
+                        // Check for multi-track album (or unknown count = 0)
+                        // If trackCount is NOT 1, we assume it's an album that needs opening
+                        if (item.trackCount !== 1 || item.hasTracks) {
+                            showAlbum(item.albumUrl || item.item_url);
+                        } else {
+                            // Play single album directly (it acts as a single)
+                            sendCommand('play-album', item.albumUrl || item.item_url);
+                        }
+                    } else {
+                         // Play single track directly
+                         sendCommand('play-track', item);
+                    }
+                };
                 div.innerHTML = \`
                     <img src="\${item.artworkUrl}" alt="">
                     <div class="list-item-info">
@@ -1386,7 +1430,7 @@ export class RemoteControlService extends EventEmitter {
                 // Options button
                 const btn = document.createElement('button');
                 btn.className = 'item-options-btn';
-                btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>';
+                btn.innerHTML = ICONS.MoreVertical;
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     showCollectionOptions(item);
@@ -1396,6 +1440,57 @@ export class RemoteControlService extends EventEmitter {
                 list.appendChild(div);
             });
         }
+
+        function showAlbum(url) {
+            // Manually switch to album tab (not in nav bar)
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.getElementById('album-tab').classList.add('active');
+            
+            document.getElementById('album-view-title').innerText = 'Loading...';
+            document.getElementById('album-view-artist').innerText = '';
+            document.getElementById('album-view-tracks').innerHTML = '<div style="padding:2rem;text-align:center">Loading tracks...</div>';
+            
+            sendCommand('get-album', url);
+        }
+
+        function renderAlbumDetails(album) {
+            document.getElementById('album-view-title').innerText = album.title;
+            document.getElementById('album-view-artist').innerText = album.artist;
+            document.getElementById('album-view-artwork').src = album.artworkUrl;
+            
+            document.getElementById('album-view-play').onclick = () => sendCommand('play-album', album.bandcampUrl);
+            document.getElementById('album-view-queue').onclick = () => sendCommand('add-album-to-queue', { albumUrl: album.bandcampUrl, playNext: false });
+
+            const list = document.getElementById('album-view-tracks');
+            list.innerHTML = '';
+            
+            album.tracks.forEach((track, index) => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+                div.onclick = () => sendCommand('play-track', track); 
+                
+                div.innerHTML = \`
+                    <div style="width: 24px; text-align: center; color: var(--text-tertiary); font-size: 0.8rem;">\${index + 1}</div>
+                    <div class="list-item-info">
+                        <div class="list-item-title">\${track.title}</div>
+                        <div class="list-item-subtitle">\${formatDuration(track.duration)}</div>
+                    </div>
+                \`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'item-options-btn';
+                btn.innerHTML = ICONS.MoreVertical;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    showCollectionOptions({ ...track, type: 'track' });
+                };
+                div.appendChild(btn);
+
+                list.appendChild(div);
+            });
+        }
+
 
         let currentCollectionItem = null;
 

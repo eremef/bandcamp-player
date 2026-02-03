@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
 import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { ActionSheet, Action } from '../../components/ActionSheet';
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 
@@ -23,36 +24,43 @@ export default function CollectionScreen() {
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
 
+    // ActionSheet state
+    const [actionSheetVisible, setActionSheetVisible] = useState(false);
+    const [actionSheetTitle, setActionSheetTitle] = useState('');
+    const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
     const handleLongPress = (item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
-        Alert.alert(
-            title || 'Item',
-            "Choose an action",
-            [
-                {
-                    text: "Play Next",
-                    onPress: () => {
-                        if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, true);
-                        else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
-                    }
-                },
-                {
-                    text: "Add to Queue",
-                    onPress: () => {
-                        if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, false);
-                        else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
-                    }
-                },
-                {
-                    text: "Add to Playlist",
-                    onPress: () => {
-                        setSelectedItem(item);
-                        setPlaylistModalVisible(true);
-                    }
-                },
-                { text: "Cancel", style: "cancel" }
-            ]
-        );
+        setActionSheetTitle(title || 'Item');
+        setActionSheetActions([
+            {
+                text: "Play Next",
+                onPress: () => {
+                    if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, true);
+                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
+                }
+            },
+            {
+                text: "Add to Queue",
+                onPress: () => {
+                    if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, false);
+                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
+                }
+            },
+            {
+                text: "Add to Playlist",
+                onPress: () => {
+                    setSelectedItem(item);
+                    setPlaylistModalVisible(true);
+                }
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => { }
+            }
+        ]);
+        setActionSheetVisible(true);
     };
 
     const handleSelectPlaylist = (playlistId: string) => {
@@ -97,8 +105,12 @@ export default function CollectionScreen() {
     };
 
     const handlePlayItem = (item: CollectionItem) => {
-        if (item.type === 'album' && item.album?.bandcampUrl) {
-            playAlbum(item.album.bandcampUrl);
+        if (item.type === 'album' && item.album) {
+            // Always navigate to album detail view
+            if (item.album.bandcampUrl) {
+                router.push({ pathname: '/album_detail', params: { url: item.album.bandcampUrl } });
+                return;
+            }
         } else if (item.type === 'track' && item.track) {
             // Use playAlbum even for tracks if they have a URL, this ensures queue is updated/replaced
             // on the desktop side, matching web remote behavior
@@ -111,21 +123,23 @@ export default function CollectionScreen() {
     };
 
     const handleDisconnect = () => {
-        Alert.alert(
-            "Disconnect",
-            "Are you sure you want to disconnect?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Disconnect",
-                    style: "destructive",
-                    onPress: () => {
-                        disconnect();
-                        router.replace('/');
-                    }
+        setActionSheetTitle("Disconnect");
+        setActionSheetActions([
+            {
+                text: "Disconnect",
+                style: "destructive",
+                onPress: () => {
+                    disconnect();
+                    router.replace('/');
                 }
-            ]
-        );
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => { }
+            }
+        ]);
+        setActionSheetVisible(true);
     };
 
     const renderItem = ({ item }: { item: CollectionItem }) => {
@@ -149,6 +163,7 @@ export default function CollectionScreen() {
                 onPress={() => handlePlayItem(item)}
                 onLongPress={() => handleLongPress(item)}
                 delayLongPress={500}
+                testID={`item-${item.id}`}
             >
                 {artworkUrl ? (
                     <Image source={{ uri: artworkUrl }} style={styles.artwork} />
@@ -181,7 +196,7 @@ export default function CollectionScreen() {
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Collection</Text>
                 <View style={styles.headerButtons}>
-                    <TouchableOpacity onPress={handleRefresh} style={styles.iconButton}>
+                    <TouchableOpacity onPress={handleRefresh} style={styles.iconButton} testID="refresh-button">
                         <RefreshCw size={24} color="#fff" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={handleDisconnect} style={styles.iconButton}>
@@ -216,6 +231,12 @@ export default function CollectionScreen() {
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleSelectPlaylist}
                 playlists={playlists}
+            />
+            <ActionSheet
+                visible={actionSheetVisible}
+                onClose={() => setActionSheetVisible(false)}
+                title={actionSheetTitle}
+                actions={actionSheetActions}
             />
         </SafeAreaView>
     );

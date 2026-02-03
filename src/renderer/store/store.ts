@@ -54,9 +54,11 @@ interface QueueSlice {
 
 interface CollectionSlice {
     collection: Collection | null;
+    selectedAlbum: Album | null;
     isLoadingCollection: boolean;
     collectionError: string | null;
     fetchCollection: (forceRefresh?: boolean) => Promise<void>;
+    selectAlbum: (album: Album) => void;
     searchCollection: (query: string) => Promise<Collection>;
     getAlbumDetails: (url: string) => Promise<Album | null>;
 }
@@ -72,6 +74,7 @@ interface PlaylistSlice {
     addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
     addTracksToPlaylist: (playlistId: string, tracks: Track[]) => Promise<void>;
     removeTrackFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
+    playPlaylist: (id: string) => Promise<void>;
 }
 
 interface RadioSlice {
@@ -246,6 +249,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // ---- Collection Slice ----
     collection: null,
+    selectedAlbum: null,
     isLoadingCollection: false,
     collectionError: null,
     fetchCollection: async (forceRefresh = false) => {
@@ -262,6 +266,7 @@ export const useStore = create<StoreState>((set, get) => ({
             });
         }
     },
+    selectAlbum: (album) => set({ selectedAlbum: album, currentView: 'album-detail' }),
     searchCollection: async (query) => {
         return window.electron.collection.search(query);
     },
@@ -322,6 +327,14 @@ export const useStore = create<StoreState>((set, get) => ({
         get().fetchPlaylists(); // Refresh to update counts
         if (get().selectedPlaylist?.id === playlistId) {
             get().selectPlaylist(playlistId);
+        }
+    },
+    playPlaylist: async (id: string) => {
+        const playlist = await window.electron.playlist.getById(id);
+        if (playlist && playlist.tracks.length > 0) {
+            await get().clearQueue(false);
+            await get().addTracksToQueue(playlist.tracks);
+            await get().playQueueIndex(0);
         }
     },
 

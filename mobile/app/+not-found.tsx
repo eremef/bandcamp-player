@@ -1,18 +1,14 @@
-import { Link, Stack, useRouter } from 'expo-router';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 
 export default function NotFoundScreen() {
     const router = useRouter();
 
     useEffect(() => {
-        // Automatically redirect to home after a brief delay
-        // This handles the case where a notification opens a weird route
-        const timer = setTimeout(() => {
-            router.replace('/');
-        }, 100);
-        return () => clearTimeout(timer);
-    }, []);
+        // Redirect to home if page not found
+        router.replace('/');
+    }, [router]);
 
     return (
         <>

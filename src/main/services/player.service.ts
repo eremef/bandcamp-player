@@ -64,10 +64,13 @@ export class PlayerService extends EventEmitter {
 
                 try {
                     // Always refresh radio stream URL as they expire
-                    const newUrl = await this.scraperService.getStationStreamUrl(stationId);
-                    if (newUrl) {
+                    const { streamUrl, duration } = await this.scraperService.getStationStreamUrl(stationId);
+                    if (streamUrl) {
                         console.log('[PlayerService] Refreshed radio stream URL');
-                        track.streamUrl = newUrl;
+                        track.streamUrl = streamUrl;
+                        if (duration > 0 && !track.duration) {
+                            track.duration = duration;
+                        }
                     } else {
                         console.warn('[PlayerService] Failed to refresh radio stream URL');
                     }
@@ -150,13 +153,26 @@ export class PlayerService extends EventEmitter {
      * Convert a RadioStation to a Track object for queue/playlist use
      */
     async stationToTrack(station: RadioStation): Promise<Track> {
+        const fs = require('fs');
+        const log = (msg: string) => fs.appendFileSync('debug-radio-fix.log', `[Player] ${msg}\n`);
+
         // Resolve stream URL if missing
         let streamUrl = station.streamUrl;
-        if (!streamUrl) {
-            console.log(`Resolving stream URL for station: ${station.name}`);
-            streamUrl = await this.scraperService.getStationStreamUrl(station.id);
-            if (streamUrl) {
+        let duration = station.duration || 0;
+
+        log(`stationToTrack called for '${station.name}' (ID: ${station.id}). URL present: ${!!streamUrl}, Duration: ${duration}`);
+
+        if (!streamUrl || !duration) {
+            console.log(`Resolving stream URL/duration for station: ${station.name}`);
+            const result = await this.scraperService.getStationStreamUrl(station.id);
+            log(`Resolution result - URL present: ${!!result.streamUrl}, Duration: ${result.duration}`);
+
+            if (result.streamUrl) {
+                streamUrl = result.streamUrl;
+                duration = result.duration;
+                // Cache on the station object
                 station.streamUrl = streamUrl;
+                station.duration = duration;
             }
         }
 
@@ -165,7 +181,7 @@ export class PlayerService extends EventEmitter {
             title: station.name,
             artist: 'Bandcamp Radio',
             album: station.description || '',
-            duration: 0,
+            duration: duration,
             artworkUrl: station.imageUrl || '',
             streamUrl: streamUrl,
             bandcampUrl: 'https://bandcamp.com',

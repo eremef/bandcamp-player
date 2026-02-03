@@ -584,11 +584,10 @@ export class ScraperService {
             lastUpdated: this.cachedCollection.lastUpdated,
         };
     }
-
     /**
      * Get stream URL for a specific radio station/episode
      */
-    async getStationStreamUrl(showId: string): Promise<string> {
+    async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
         try {
             console.log(`Fetching stream URL for radio show ${showId}...`);
             // 1. Fetch the show page
@@ -599,7 +598,7 @@ export class ScraperService {
             const dataBlob = $('#ArchiveApp').attr('data-blob');
             if (!dataBlob) {
                 console.error('No data-blob found in ArchiveApp div');
-                return '';
+                return { streamUrl: '', duration: 0 };
             }
 
             try {
@@ -609,7 +608,7 @@ export class ScraperService {
 
                 if (!show || !show.audioTrackId) {
                     console.error('Show or audioTrackId not found in data blob');
-                    return '';
+                    return { streamUrl: '', duration: 0 };
                 }
 
                 const audioTrackId = show.audioTrackId;
@@ -620,22 +619,24 @@ export class ScraperService {
                 const trackResponse = await this.http.get(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`);
 
                 if (trackResponse.data && trackResponse.data.tracks && trackResponse.data.tracks.length > 0) {
-                    const streamUrl = trackResponse.data.tracks[0].streaming_url?.['mp3-128'];
+                    const track = trackResponse.data.tracks[0];
+                    const streamUrl = track.streaming_url?.['mp3-128'];
+                    const duration = track.duration || 0;
                     if (streamUrl) {
-                        console.log('Successfully retrieved radio stream URL');
-                        return streamUrl;
+                        return { streamUrl, duration };
                     }
+                } else {
+                    // No tracks found
                 }
-
                 console.error('Stream URL not found in API response');
-                return '';
+                return { streamUrl: '', duration: 0 };
             } catch (e) {
                 console.error('Error parsing radio page data:', e);
-                return '';
+                return { streamUrl: '', duration: 0 };
             }
         } catch (error) {
             console.error(`Error fetching station stream URL for ${showId}:`, error);
-            return '';
+            return { streamUrl: '', duration: 0 };
         }
     }
 }

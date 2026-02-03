@@ -72,6 +72,9 @@ describe('player.ts', () => {
             artworkUrl: 'https://example.com/art.jpg',
             streamUrl: 'https://example.com/stream.mp3',
             duration: 180,
+            album: 'Test Album',
+            bandcampUrl: 'https://test.bandcamp.com/track',
+            isCached: false,
         };
 
         it('should reset and add track', async () => {

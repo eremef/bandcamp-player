@@ -137,7 +137,10 @@ export function RadioView() {
                         <div className={styles.cardInfo}>
                             <h3 className={styles.cardTitle}>{station.name}</h3>
                             {station.date && (
-                                <p className={styles.cardDate}>{station.date}</p>
+                                <p className={styles.cardDate}>
+                                    {station.date}
+                                    {station.duration ? ` • ${Math.floor(station.duration / 3600)}h ${Math.floor((station.duration % 3600) / 60)}m` : ''}
+                                </p>
                             )}
                             {station.description && (
                                 <p className={styles.cardDescription}>{station.description}</p>
