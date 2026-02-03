@@ -74,7 +74,7 @@ npm start
 npm run build
 ```
 
-> **Note**: The applications have been tested so far only on Windows 11 and Android 14.
+> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb) and MacOS (dmg) builds are available but experimental.
 
 ## Settings & Configuration
 
