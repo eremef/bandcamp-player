@@ -2,6 +2,7 @@
 description: Prepare release with version {newVersion}
 ---
 
+- do not prepare implementation plan - just proceed instantly
 - update docs
 - Change version of application everywhere (desktop, mobile, package, app.json)
 - Run npm install both for desktop and mobile, e.g. `npm install; cd mobile npm install`
