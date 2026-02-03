@@ -150,7 +150,8 @@ describe('CacheService', () => {
             duration: 100,
             album: 'Test Album',
             artworkUrl: 'http://example.com/art.jpg',
-            bandcampUrl: 'http://test.bandcamp.com/track/test'
+            bandcampUrl: 'http://test.bandcamp.com/track/test',
+            isCached: false
         };
 
         it('should not download if caching is disabled', async () => {
@@ -161,7 +162,7 @@ describe('CacheService', () => {
         it('should not download if already cached', async () => {
             mockDatabase.getCacheEntry.mockReturnValue({ trackId: '123', filePath: 'some/path' });
             (fs.existsSync as any).mockReturnValue(true);
-            
+
             await cacheService.downloadTrack(mockTrack);
             expect(axios).not.toHaveBeenCalled();
         });
@@ -171,14 +172,14 @@ describe('CacheService', () => {
             (mockStream as any).pipe = vi.fn();
             const mockWriter = new EventEmitter();
             (mockWriter as any).path = '/mock/cache/dir/123.mp3.tmp';
-            
+
             (axios as any).mockResolvedValue({
                 data: mockStream,
                 headers: { 'content-length': '100' }
             });
             (fs.createWriteStream as any).mockReturnValue(mockWriter);
             (fs.statSync as any).mockReturnValue({ size: 100 });
-            (fs.renameSync as any).mockImplementation(() => {});
+            (fs.renameSync as any).mockImplementation(() => { });
 
             const downloadPromise = cacheService.downloadTrack(mockTrack);
 
@@ -202,14 +203,14 @@ describe('CacheService', () => {
             const mockStream = new EventEmitter();
             (mockStream as any).pipe = vi.fn();
             const mockWriter = new EventEmitter();
-            
+
             (axios as any).mockResolvedValue({
                 data: mockStream,
                 headers: { 'content-length': '100' }
             });
             (fs.createWriteStream as any).mockReturnValue(mockWriter);
             (fs.existsSync as any).mockReturnValue(true);
-            (fs.unlinkSync as any).mockImplementation(() => {});
+            (fs.unlinkSync as any).mockImplementation(() => { });
 
             const downloadPromise = cacheService.downloadTrack(mockTrack);
 
@@ -229,10 +230,10 @@ describe('CacheService', () => {
             mockDatabase.getOldestCacheEntries.mockReturnValueOnce([
                 { trackId: 'old1', filePath: '/old/file1.mp3' }
             ]);
-            
+
             (fs.existsSync as any).mockReturnValue(true);
-            (fs.unlinkSync as any).mockImplementation(() => {});
-            
+            (fs.unlinkSync as any).mockImplementation(() => { });
+
             // Mock successful download setup
             const mockStream = new EventEmitter();
             (mockStream as any).pipe = vi.fn();
@@ -245,7 +246,7 @@ describe('CacheService', () => {
             (fs.statSync as any).mockReturnValue({ size: 100 });
 
             const downloadPromise = cacheService.downloadTrack(mockTrack);
-            
+
             setTimeout(() => {
                 mockWriter.emit('finish');
             }, 10);
@@ -261,9 +262,9 @@ describe('CacheService', () => {
             (mockStream as any).pipe = vi.fn();
             const mockWriter = new EventEmitter();
             const progressSpy = vi.fn();
-            
+
             cacheService.on('download-progress', progressSpy);
-            
+
             (axios as any).mockResolvedValue({
                 data: mockStream,
                 headers: { 'content-length': '100' }
@@ -276,7 +277,7 @@ describe('CacheService', () => {
             setTimeout(() => {
                 mockStream.emit('data', Buffer.alloc(50));
             }, 10);
-            
+
             setTimeout(() => {
                 mockWriter.emit('finish');
             }, 20);
@@ -287,32 +288,32 @@ describe('CacheService', () => {
         });
 
         it('should allow cancelling download', async () => {
-             const mockStream = new EventEmitter();
-             (mockStream as any).pipe = vi.fn();
-             const mockWriter = new EventEmitter();
-             const abortSpy = vi.fn();
-             
-             // Mock AbortController
-             global.AbortController = vi.fn(function() {
-                 return {
+            const mockStream = new EventEmitter();
+            (mockStream as any).pipe = vi.fn();
+            const mockWriter = new EventEmitter();
+            const abortSpy = vi.fn();
+
+            // Mock AbortController
+            global.AbortController = vi.fn(function () {
+                return {
                     signal: {},
                     abort: abortSpy
-                 };
-             }) as any;
+                };
+            }) as any;
 
-             (axios as any).mockResolvedValue({
-                 data: mockStream,
-                 headers: { 'content-length': '100' }
-             });
-             (fs.createWriteStream as any).mockReturnValue(mockWriter);
-             
-             // Start download but don't finish it
-             cacheService.downloadTrack(mockTrack);
-             
-             // Cancel it
-             cacheService.cancelDownload(mockTrack.id);
-             
-             expect(abortSpy).toHaveBeenCalled();
+            (axios as any).mockResolvedValue({
+                data: mockStream,
+                headers: { 'content-length': '100' }
+            });
+            (fs.createWriteStream as any).mockReturnValue(mockWriter);
+
+            // Start download but don't finish it
+            cacheService.downloadTrack(mockTrack);
+
+            // Cancel it
+            cacheService.cancelDownload(mockTrack.id);
+
+            expect(abortSpy).toHaveBeenCalled();
         });
     });
 });
