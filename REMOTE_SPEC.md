@@ -112,6 +112,8 @@ Clients send these messages to control the player.
 ### Data Requests
 
 - `get-collection`: Requests the user's collection. Result comes via `collection-data`.
+    > [!NOTE]
+    > If the user is not authenticated, this will return an empty collection state rather than an error.
 - `get-radio-stations`: Requests available radio stations. Result comes via `radio-data`.
 - `get-playlists`: Requests user playlists. Result comes via `playlists-data`.
 
@@ -124,6 +126,7 @@ Clients send these messages to control the player.
     > Note: If the Track object lacks a `streamUrl` (e.g. from the Collection view), the Desktop app will automatically attempt to resolve it using the `bandcampUrl` or `item_url`.
 - `play-station`: Starts a radio station.
   - **Payload**: [`RadioStation`](#radiostation)
+    > Note: Playing a station clears the current queue and adds the station as the only item.
 - `play-playlist`: Plays a playlist.
   - **Payload**: `string` (Playlist ID)
 

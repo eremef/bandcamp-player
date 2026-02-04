@@ -7,6 +7,7 @@ import { EventEmitter } from 'events';
 import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
+import { AuthService } from './auth.service';
 import { Track } from '../../shared/types';
 import { Database } from '../database/database';
 import {
@@ -24,13 +25,15 @@ export class RemoteControlService extends EventEmitter {
     private playerService: PlayerService;
     private scraperService: ScraperService;
     private playlistService: PlaylistService;
+    private authService: AuthService;
     private database: Database;
 
-    constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, database: Database) {
+    constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, authService: AuthService, database: Database) {
         super();
         this.playerService = playerService;
         this.scraperService = scraperService;
         this.playlistService = playlistService;
+        this.authService = authService;
         this.database = database;
     }
 
@@ -232,12 +235,19 @@ export class RemoteControlService extends EventEmitter {
                 break;
             case 'get-collection': {
                 try {
+                    const auth = this.authService.getUser();
+                    if (!auth.isAuthenticated) {
+                        console.warn('[RemoteService] Client requested collection but user is not authenticated');
+                        this.sendToClient(ws, 'collection-data', { items: [], totalCount: 0, lastUpdated: new Date().toISOString() });
+                        return;
+                    }
+
                     const collection = await this.scraperService.fetchCollection();
 
                     // Map to flat structure expected by remote client
                     const simplifiedCollection = {
                         ...collection,
-                        items: collection.items.map(item => {
+                        items: collection.items.map((item: any) => {
                             if (item.type === 'album' && item.album) {
                                 return {
                                     ...item,

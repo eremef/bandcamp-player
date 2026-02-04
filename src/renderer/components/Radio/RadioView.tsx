@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Square, Play, Pause, MoreHorizontal } from 'lucide-react';
+import { Radio, Play, Pause, MoreHorizontal } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -10,7 +10,6 @@ export function RadioView() {
         fetchRadioStations,
         playRadioStation,
         radioState,
-        stopRadio,
         addRadioToQueue,
         addRadioToPlaylist,
         playlists,
@@ -79,32 +78,6 @@ export function RadioView() {
                     <p>Discover new music curated by Bandcamp</p>
                 </div>
             </header>
-
-            {/* Currently playing */}
-            {radioState.isActive && radioState.currentStation && (
-                <div className={styles.nowPlaying}>
-                    <div className={styles.nowPlayingContent}>
-                        <div className={styles.waveform}>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        <div className={styles.nowPlayingInfo}>
-                            <span className={styles.nowPlayingLabel}>Now Playing</span>
-                            <h3>{radioState.currentStation.name}</h3>
-                            {radioState.currentTrack && (
-                                <p>{radioState.currentTrack.title} - {radioState.currentTrack.artist}</p>
-                            )}
-                        </div>
-                    </div>
-                    <button className={styles.stopBtn} onClick={stopRadio}>
-                        <Square size={16} fill="currentColor" />
-                        <span>Stop</span>
-                    </button>
-                </div>
-            )}
 
             {/* Stations grid */}
             <div className={styles.grid}>

@@ -3,6 +3,7 @@ import { RemoteControlService } from './remote.service';
 import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
+import { AuthService } from './auth.service';
 import { Database } from '../database/database';
 import { EventEmitter } from 'events';
 import * as http from 'http';
@@ -12,6 +13,7 @@ import { WebSocketServer } from 'ws';
 vi.mock('./player.service');
 vi.mock('./scraper.service');
 vi.mock('./playlist.service');
+vi.mock('./auth.service');
 vi.mock('../database/database');
 
 vi.mock('http', () => {
@@ -19,8 +21,8 @@ vi.mock('http', () => {
     return {
         default: { createServer },
         createServer,
-        IncomingMessage: class {},
-        ServerResponse: class {},
+        IncomingMessage: class { },
+        ServerResponse: class { },
     };
 });
 
@@ -38,6 +40,7 @@ describe('RemoteControlService', () => {
     let mockPlayerService: any;
     let mockScraperService: any;
     let mockPlaylistService: any;
+    let mockAuthService: any;
     let mockDatabase: any;
     let mockHttpServer: any;
     let mockWss: any;
@@ -82,6 +85,10 @@ describe('RemoteControlService', () => {
             addTracks: vi.fn(),
         } as unknown as PlaylistService;
 
+        mockAuthService = {
+            getUser: vi.fn(),
+        } as unknown as AuthService;
+
         mockDatabase = {} as unknown as Database;
 
         // Mock HTTP server
@@ -96,12 +103,13 @@ describe('RemoteControlService', () => {
         mockWss = new EventEmitter();
         mockWss.clients = new Set();
         mockWss.close = vi.fn();
-        (WebSocketServer as any).mockImplementation(function() { return mockWss; });
+        (WebSocketServer as any).mockImplementation(function () { return mockWss; });
 
         remoteService = new RemoteControlService(
             mockPlayerService,
             mockScraperService,
             mockPlaylistService,
+            mockAuthService,
             mockDatabase
         );
     });
@@ -166,11 +174,11 @@ describe('RemoteControlService', () => {
             const track = { id: '1', title: 'Test', streamUrl: 'http://url' };
             // Since handleMessage is async, we need to wait a bit or make playIndex return a promise we can await if possible.
             // But here handleMessage is void. We can just wait for next tick.
-            
+
             // Trigger the message
-            mockWs.emit('message', JSON.stringify({ 
-                type: 'add-track-to-queue', 
-                payload: { track, playNext: true } 
+            mockWs.emit('message', JSON.stringify({
+                type: 'add-track-to-queue',
+                payload: { track, playNext: true }
             }));
 
             // Wait for async operations
@@ -181,15 +189,15 @@ describe('RemoteControlService', () => {
 
         it('should handle add-album-to-queue with provided tracks', async () => {
             const tracks = [{ id: '1' }, { id: '2' }];
-            const payload = { 
-                albumUrl: 'http://album', 
-                tracks, 
-                playNext: false 
+            const payload = {
+                albumUrl: 'http://album',
+                tracks,
+                playNext: false
             };
 
-            mockWs.emit('message', JSON.stringify({ 
-                type: 'add-album-to-queue', 
-                payload 
+            mockWs.emit('message', JSON.stringify({
+                type: 'add-album-to-queue',
+                payload
             }));
 
             await new Promise(process.nextTick);
@@ -200,21 +208,45 @@ describe('RemoteControlService', () => {
         it('should handle add-album-to-queue with scraping', async () => {
             const tracks = [{ id: '1' }, { id: '2' }];
             mockScraperService.getAlbumDetails.mockResolvedValue({ tracks });
-            
-            const payload = { 
-                albumUrl: 'http://album', 
-                playNext: true 
+
+            const payload = {
+                albumUrl: 'http://album',
+                playNext: true
             };
 
-            mockWs.emit('message', JSON.stringify({ 
-                type: 'add-album-to-queue', 
-                payload 
+            mockWs.emit('message', JSON.stringify({
+                type: 'add-album-to-queue',
+                payload
             }));
 
             await new Promise(process.nextTick);
 
             expect(mockScraperService.getAlbumDetails).toHaveBeenCalledWith('http://album');
             expect(mockPlayerService.addTracksToQueue).toHaveBeenCalledWith(tracks, 'collection', true);
+        });
+
+        it('should handle get-collection when authenticated', async () => {
+            mockAuthService.getUser.mockReturnValue({ isAuthenticated: true });
+            mockScraperService.fetchCollection.mockResolvedValue({ items: [], totalCount: 0 });
+
+            sendMessage('get-collection');
+
+            await new Promise(process.nextTick);
+
+            expect(mockScraperService.fetchCollection).toHaveBeenCalled();
+            expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('collection-data'));
+        });
+
+        it('should handle get-collection when not authenticated', async () => {
+            mockAuthService.getUser.mockReturnValue({ isAuthenticated: false });
+
+            sendMessage('get-collection');
+
+            await new Promise(process.nextTick);
+
+            expect(mockScraperService.fetchCollection).not.toHaveBeenCalled();
+            expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('collection-data'));
+            expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('"items":[]'));
         });
     });
 });
