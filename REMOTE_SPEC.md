@@ -127,6 +127,19 @@ Clients send these messages to control the player.
 - `play-playlist`: Plays a playlist.
   - **Payload**: `string` (Playlist ID)
 
+### Queue Management
+
+- `play-queue-index`: Plays a specific track in the queue by index.
+  - **Payload**: `number` (0-based queue index)
+- `remove-from-queue`: Removes a track from the queue.
+  - **Payload**: `string` (QueueItem ID)
+- `add-track-to-queue`: Adds a single track to the queue.
+  - **Payload**: `{ track: Track, playNext?: boolean }`
+- `add-album-to-queue`: Adds all tracks from an album to the queue.
+  - **Payload**: `{ albumUrl: string, tracks?: Track[], playNext?: boolean }`
+- `add-station-to-queue`: Adds a radio station to the queue.
+  - **Payload**: `{ station: RadioStation, playNext?: boolean }`
+
 ---
 
 ## Data Models

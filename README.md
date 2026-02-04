@@ -119,6 +119,7 @@ src/
 │   │   ├── playlist.service.ts
 │   │   ├── scraper.service.ts
 │   │   ├── scrobbler.service.ts
+│   │   ├── remote.service.ts
 │   │   └── tray.service.ts
 │   └── database/           # SQLite database
 ├── renderer/               # React frontend
@@ -134,7 +135,9 @@ src/
 │   ├── store/             # Zustand store
 │   └── styles/            # CSS styles
 ├── shared/                # Shared types
-└── assets/                # Static assets (icons)
+└── assets/                # Static assets
+    ├── icons/             # Application icons
+    └── remote/            # Web Remote Interface (index.html, client.js, styles.css)
 ```
 
 ## Usage
@@ -159,6 +162,7 @@ The project includes a companion Android application in the `mobile/` directory.
 
 - Remote control (Play/Pause, Next/Prev, Volume, Seek)
 - Browse and play from Collection, Playlists, and Radio
+- **Queue Tab** - View and manage the playback queue with drag-to-reorder support
 - Context menus for Queue and Playlist management (ActionSheet)
 - Offline-ready UI (relies on Desktop for audio)
 - Automatic local network discovery

@@ -43,6 +43,7 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
   - **Collection**: Browse user's collection (Grid view) with real-time search.
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
+  - **Queue**: View and manage the playback queue with remove and reorder support.
 
 ## 3. Data Models
 
