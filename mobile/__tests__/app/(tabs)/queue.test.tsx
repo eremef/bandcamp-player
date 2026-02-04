@@ -1,17 +1,14 @@
 import React from 'react';
+import { Text } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import QueueScreen from '../../../app/(tabs)/queue';
 import { useStore } from '../../../store';
 
 // Mock Lucide icons
-jest.mock('lucide-react-native', () => {
-    const React = require('react');
-    const { Text } = require('react-native');
-    return {
-        Play: () => React.createElement(Text, null, 'PlayIcon'),
-        Trash2: () => React.createElement(Text, null, 'TrashIcon'),
-    };
-});
+jest.mock('lucide-react-native', () => ({
+    Play: () => React.createElement(Text, null, 'PlayIcon'),
+    Trash2: () => React.createElement(Text, null, 'TrashIcon'),
+}));
 
 // Mock SafeAreaContext
 jest.mock('react-native-safe-area-context', () => ({
