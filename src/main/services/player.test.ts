@@ -141,6 +141,24 @@ describe('PlayerService', () => {
             expect(playerService.getState().currentTrack?.id).toBe('1');
         });
 
+        it('should reorder queue', () => {
+            const track1 = { ...mockTrack, id: '1' };
+            const track2 = { ...mockTrack, id: '2' };
+            const track3 = { ...mockTrack, id: '3' };
+
+            playerService.addToQueue(track1);
+            playerService.addToQueue(track2);
+            playerService.addToQueue(track3);
+
+            // Move track 3 to position 0
+            playerService.reorderQueue(2, 0);
+
+            const queue = playerService.getQueue();
+            expect(queue.items[0].track.id).toBe('3');
+            expect(queue.items[1].track.id).toBe('1');
+            expect(queue.items[2].track.id).toBe('2');
+        });
+
         it('should handle shuffle properly', async () => {
             const track1 = { ...mockTrack, id: '1' };
             const track2 = { ...mockTrack, id: '2' };
