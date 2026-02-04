@@ -172,7 +172,7 @@ async function initializeServices() {
     playlistService = new PlaylistService(database);
     scrobblerService = new ScrobblerService(database);
     playerService = new PlayerService(cacheService, scrobblerService, scraperService, database);
-    remoteService = new RemoteControlService(playerService, scraperService, playlistService, database);
+    remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database);
 
     // Start remote service if enabled
     const settings = database.getSettings();

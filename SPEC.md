@@ -135,6 +135,9 @@ interface RadioStation {
 }
 ```
 
+> [!NOTE]
+> Playing a radio station clears the current queue and adds the station as its only item, matching track playback behavior.
+
 ### State Models
 
 #### PlayerState

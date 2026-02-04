@@ -158,18 +158,30 @@ export class PlayerService extends EventEmitter {
     }
 
     async playStation(station: RadioStation): Promise<void> {
+        // Clear queue and reset state
         this.stop();
-        this.currentStation = station;
+
         this.isRadioActive = true;
+        this.currentStation = station;
 
         const radioTrack = await this.stationToTrack(station);
+
+        // Add to queue as the only item
+        this.queue = [{
+            id: `radio-${Date.now()}`,
+            track: radioTrack,
+            source: 'radio',
+        }];
+        this.currentIndex = 0;
 
         this.currentTrack = radioTrack;
         console.log('Playing radio station track:', JSON.stringify(radioTrack, null, 2));
         this.isPlaying = true;
+
         this.emitStateChange();
         this.emitTrackChange();
         this.emitRadioStateChange();
+        this.emitQueueUpdate();
     }
 
     /**

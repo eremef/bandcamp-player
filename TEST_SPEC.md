@@ -95,6 +95,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 12 | ~80% |
 | `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
 | `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
+| `src/main/services/remote.test.ts` | Remote Interface Logic | 10 | ~85% |
 | `src/renderer/store/store.test.ts` | Zustand State & IPC | 25 | ~95% |
 | `src/renderer/components/Collection/CollectionView.test.tsx` | Grid, Search, Loading | 8 | ~91% |
 | `src/renderer/components/Playlist/PlaylistsView.test.tsx` | List, Create, Delete | 6 | ~90% |
@@ -118,7 +119,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `mobile/app/album_detail.test.tsx` | Album Detail UI | 4 | ~50% |
 | `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
 
-**Total:** ~230+ tests across both platforms.
+**Total:** ~240+ tests across both platforms.
 
 ## Best Practices
 
