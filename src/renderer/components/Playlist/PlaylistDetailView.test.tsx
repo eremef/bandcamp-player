@@ -80,15 +80,10 @@ describe('PlaylistDetailView', () => {
     });
 
     it('plays individual track when track play button is clicked', async () => {
-        const clearQueue = vi.fn();
-        const addTracksToQueue = vi.fn();
-        const playQueueIndex = vi.fn();
-        
+        const play = vi.fn();
         mockUseStore.mockReturnValue({
             ...mockUseStore(),
-            clearQueue,
-            addTracksToQueue,
-            playQueueIndex
+            play
         });
         
         render(<PlaylistDetailView />);
@@ -96,11 +91,7 @@ describe('PlaylistDetailView', () => {
         const trackPlayBtns = screen.getAllByTestId('play-track-btn');
         fireEvent.click(trackPlayBtns[1]); // Play track 2
 
-        await waitFor(() => {
-            expect(clearQueue).toHaveBeenCalled();
-            expect(addTracksToQueue).toHaveBeenCalledWith(mockPlaylist.tracks);
-            expect(playQueueIndex).toHaveBeenCalledWith(1);
-        });
+        expect(play).toHaveBeenCalledWith(mockPlaylist.tracks[1]);
     });
 
     it('calls removeTrackFromPlaylist when trash icon is clicked', () => {
