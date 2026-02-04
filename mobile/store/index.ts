@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -47,9 +47,14 @@ interface AppState extends PlayerState {
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
     addStationToPlaylist: (playlistId: string, station: RadioStation) => void;
     addTrackToQueue: (track: Track, playNext?: boolean) => void;
-    addAlbumToQueue: (albumUrl: string, playNext?: boolean) => void;
+    addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[]) => void;
     addTrackToPlaylist: (playlistId: string, track: Track) => void;
     addAlbumToPlaylist: (playlistId: string, albumUrl: string) => void;
+
+    // Queue Actions
+    playQueueIndex: (index: number) => void;
+    removeFromQueue: (id: string) => void;
+    clearQueue: () => void;
 }
 
 const initialState: Omit<PlayerState, 'queue'> = {
@@ -150,16 +155,169 @@ export const useStore = create<AppState>((set, get) => ({
     toggleShuffle: () => webSocketService.send('toggle-shuffle'),
     setRepeat: (mode) => webSocketService.send('set-repeat', mode),
 
-    playTrack: (track) => webSocketService.send('play-track', track),
+    playTrack: (track) => {
+        // Optimistic update
+        set({
+            currentTrack: track,
+            isPlaying: true
+        });
+        webSocketService.send('play-track', track);
+    },
     playAlbum: (url) => webSocketService.send('play-album', url),
     playPlaylist: (id) => webSocketService.send('play-playlist', id),
     playStation: (station) => webSocketService.send('play-station', station),
-    addStationToQueue: (station, playNext) => webSocketService.send('add-station-to-queue', { station, playNext }),
+    addStationToQueue: (station, playNext) => {
+        // Optimistic update
+        const { queue } = get();
+        // Create a temporary track object for the station
+        const stationTrack: Track = {
+            id: `station-${station.id || Date.now()}`,
+            title: station.name,
+            artist: 'Radio Station',
+            artworkUrl: station.imageUrl || '',
+            streamUrl: station.streamUrl,
+            duration: 0,
+            bandcampUrl: '',
+            album: 'Radio',
+            isCached: false
+        };
+
+        const newItem: QueueItem = {
+            id: `queue-${Date.now()}`,
+            track: stationTrack,
+            source: 'radio'
+        };
+
+        const newItems = [...queue.items];
+        if (playNext) {
+            newItems.splice(queue.currentIndex + 1, 0, newItem);
+        } else {
+            newItems.push(newItem);
+        }
+
+        set({
+            queue: {
+                ...queue,
+                items: newItems
+            }
+        });
+
+        webSocketService.send('add-station-to-queue', { station, playNext });
+    },
     addStationToPlaylist: (playlistId, station) => webSocketService.send('add-station-to-playlist', { playlistId, station }),
-    addTrackToQueue: (track, playNext) => webSocketService.send('add-track-to-queue', { track, playNext }),
-    addAlbumToQueue: (albumUrl, playNext) => webSocketService.send('add-album-to-queue', { albumUrl, playNext }),
+    addTrackToQueue: (track, playNext) => {
+        // Optimistic update
+        const { queue } = get();
+        const newItem: QueueItem = {
+            id: `queue-${Date.now()}`,
+            track: track,
+            source: 'collection'
+        };
+
+        const newItems = [...queue.items];
+
+        if (playNext) {
+            newItems.splice(queue.currentIndex + 1, 0, newItem);
+        } else {
+            newItems.push(newItem);
+        }
+
+        set({
+            queue: {
+                ...queue,
+                items: newItems
+            }
+        });
+
+        webSocketService.send('add-track-to-queue', { track, playNext });
+    },
+    addAlbumToQueue: (albumUrl, playNext, tracks) => {
+        // Optimistic update if tracks are provided
+        if (tracks && tracks.length > 0) {
+            const { queue } = get();
+            const newQueueItems: QueueItem[] = tracks.map((track, index) => ({
+                id: `queue-${Date.now()}-${index}`,
+                track: track,
+                source: 'collection'
+            }));
+
+            const newItems = [...queue.items];
+
+            if (playNext) {
+                // When playing next, we insert after current index
+                newItems.splice(queue.currentIndex + 1, 0, ...newQueueItems);
+            } else {
+                newItems.push(...newQueueItems);
+            }
+
+            set({
+                queue: {
+                    ...queue,
+                    items: newItems
+                }
+            });
+        }
+
+        webSocketService.send('add-album-to-queue', { albumUrl, playNext, tracks });
+    },
     addTrackToPlaylist: (playlistId, track) => webSocketService.send('add-track-to-playlist', { playlistId, track }),
     addAlbumToPlaylist: (playlistId, albumUrl) => webSocketService.send('add-album-to-playlist', { playlistId, albumUrl }),
+
+    playQueueIndex: (index) => webSocketService.send('play-queue-index', index),
+    removeFromQueue: (id) => {
+        const { queue } = get();
+        const index = queue.items.findIndex(item => item.id === id);
+        if (index === -1) return;
+
+        const newItems = [...queue.items];
+        newItems.splice(index, 1);
+
+        let newIndex = queue.currentIndex;
+        if (index < queue.currentIndex) {
+            newIndex--;
+        } else if (index === queue.currentIndex) {
+            if (newItems.length === 0) {
+                newIndex = -1;
+            } else {
+                newIndex = Math.min(newIndex, newItems.length - 1);
+            }
+        }
+
+        set({
+            queue: {
+                ...queue,
+                items: newItems,
+                currentIndex: newIndex
+            }
+        });
+
+        webSocketService.send('remove-from-queue', id);
+    },
+    clearQueue: () => {
+        const { queue } = get();
+        // Optimistic clear (keeping current if exists/playing logic is usually handled by server, 
+        // but for simple clear we can just keep current if index valid)
+        // Checks player service logic: usually keeps current. 
+        // Let's assume we keep the playing track if there is one.
+
+        let newItems: any[] = [];
+        let newIndex = -1;
+
+        if (queue.currentIndex >= 0 && queue.currentIndex < queue.items.length) {
+            newItems = [queue.items[queue.currentIndex]];
+            newIndex = 0;
+        }
+
+        set({
+            queue: {
+                ...queue,
+                items: newItems,
+                currentIndex: newIndex
+            }
+        });
+
+        webSocketService.send('clear-queue');
+    },
 
     // Initialize
     // This is called automatically when store is created? No, we need to call it.
@@ -180,6 +338,15 @@ webSocketService.on('connection-status', (status) => {
 webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
     const currentState = useStore.getState();
     const prevTrackId = currentState.currentTrack?.id;
+
+    // Debug logging for queue updates
+    if (payload.queue) {
+        console.log('[MobileStore] Received queue update from server:', {
+            itemCount: payload.queue.items.length,
+            currentIndex: payload.queue.currentIndex,
+            firstItem: payload.queue.items[0]?.track?.title,
+        });
+    }
 
     useStore.setState(payload);
 

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import * as fs from 'fs';
 import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState } from '../../shared/types';
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
@@ -153,7 +154,6 @@ export class PlayerService extends EventEmitter {
      * Convert a RadioStation to a Track object for queue/playlist use
      */
     async stationToTrack(station: RadioStation): Promise<Track> {
-        const fs = require('fs');
         const log = (msg: string) => fs.appendFileSync('debug-radio-fix.log', `[Player] ${msg}\n`);
 
         // Resolve stream URL if missing
@@ -334,9 +334,20 @@ export class PlayerService extends EventEmitter {
         }
     }
 
-    addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection'): void {
-        for (const track of tracks) {
-            this.addToQueue(track, source, false, false);
+    addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection', playNext = false): void {
+        const tracksToAdd = playNext ? [...tracks].reverse() : tracks;
+
+        for (let i = 0; i < tracksToAdd.length; i++) {
+            // For playNext, we want to maintain the order of the added batch, 
+            // so we add them in reverse order, each one "playing next" after the current track.
+            // But Wait! If we use addToQueue with playNext=true repeatedly:
+            // Q: [C]
+            // Add 3 (next): [C, 3]
+            // Add 2 (next): [C, 2, 3]
+            // Add 1 (next): [C, 1, 2, 3] -> Result is 1, 2, 3. Correct.
+
+            // We pass emitUpdate=false to all calls to prevent flooding
+            this.addToQueue(tracksToAdd[i], source, playNext, false);
         }
         this.emitQueueUpdate();
     }
@@ -474,7 +485,7 @@ export class PlayerService extends EventEmitter {
             repeatMode: this.repeatMode,
             isShuffled: this.isShuffled,
             queue: {
-                items: this.queue,
+                items: [...this.queue],
                 currentIndex: this.currentIndex,
                 shuffleOrder: this.isShuffled ? this.shuffleOrder : undefined,
             },

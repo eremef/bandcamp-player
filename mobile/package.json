@@ -9,6 +9,7 @@
     "web": "expo start --web",
     "build:apk": "npx eas-cli build --platform android",
     "test": "jest",
+    "lint": "cd .. && eslint mobile",
     "android:build": "expo run:android"
   },
   "dependencies": {

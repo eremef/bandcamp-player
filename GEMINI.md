@@ -7,6 +7,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Shell**: Use `;` for sequential commands (PowerShell on Windows)
 - **Android**: Requires OpenJDK 17 (not 24+), CMake 3.22.1. Ensure `mobile/android/local.properties` points to SDK.
 - **IPC**: Channels in `src/shared/ipc-channels.ts`, handlers in `src/main/ipc-handlers.ts`
+- **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
 
 ## User Rules
 

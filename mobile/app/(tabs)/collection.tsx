@@ -36,14 +36,19 @@ export default function CollectionScreen() {
             {
                 text: "Play Next",
                 onPress: () => {
-                    if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, true);
+                    if (item.type === 'album' && item.album?.bandcampUrl) {
+                        // Pass tracks if available (optimistic), otherwise just URL (server fetch)
+                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
+                    }
                     else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
                 }
             },
             {
                 text: "Add to Queue",
                 onPress: () => {
-                    if (item.type === 'album' && item.album?.bandcampUrl) addAlbumToQueue(item.album.bandcampUrl, false);
+                    if (item.type === 'album' && item.album?.bandcampUrl) {
+                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
+                    }
                     else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
                 }
             },

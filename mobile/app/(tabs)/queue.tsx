@@ -1,0 +1,186 @@
+import React from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import { useStore } from '../../store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Play, Trash2 } from 'lucide-react-native';
+import { QueueItem } from '@shared/types';
+
+export default function QueueScreen() {
+    const queue = useStore((state) => state.queue);
+    const playQueueIndex = useStore((state) => state.playQueueIndex);
+    const removeFromQueue = useStore((state) => state.removeFromQueue);
+    const isPlaying = useStore((state) => state.isPlaying);
+    // const clearQueue = useStore((state) => state.clearQueue); 
+
+    // Note: clearQueue is added to store but not used in UI yet per design choice or can be added seamlessly.
+    // For now, focusing on fixing the crash.
+
+    const insets = useSafeAreaInsets();
+
+    const handlePlay = (index: number) => {
+        playQueueIndex(index);
+    };
+
+    const handleRemove = (id: string) => {
+        removeFromQueue(id);
+    };
+
+    const renderItem = ({ item, index }: { item: QueueItem, index: number }) => {
+        const isCurrent = index === queue.currentIndex;
+        const isPlayed = index < queue.currentIndex;
+
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.item,
+                    isCurrent && styles.currentItem,
+                    isPlayed && styles.playedItem
+                ]}
+                onPress={() => handlePlay(index)}
+            >
+                <Image
+                    source={{ uri: item.track.artworkUrl }}
+                    style={styles.artwork}
+                />
+
+                <View style={styles.info}>
+                    <Text
+                        style={[styles.title, isCurrent && styles.currentText]}
+                        numberOfLines={1}
+                    >
+                        {item.track.title}
+                    </Text>
+                    <Text style={styles.artist} numberOfLines={1}>
+                        {item.track.artist}
+                    </Text>
+                </View>
+
+                {isCurrent && isPlaying && (
+                    <View style={styles.playingIndicator}>
+                        <Play size={16} color="#1da1f2" fill="#1da1f2" />
+                    </View>
+                )}
+
+                <TouchableOpacity
+                    style={styles.removeBtn}
+                    onPress={() => handleRemove(item.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                    <Trash2 size={18} color="#666" />
+                </TouchableOpacity>
+            </TouchableOpacity>
+        );
+    };
+
+    if (!queue.items.length) {
+        return (
+            <View style={[styles.container, { paddingTop: insets.top }]}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Queue</Text>
+                </View>
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>Queue is empty</Text>
+                    <Text style={styles.emptySubtext}>Add songs from your collection</Text>
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <View style={[styles.container, { paddingTop: insets.top }]}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Queue ({queue.items.length})</Text>
+            </View>
+
+            <FlatList
+                data={queue.items}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                extraData={[queue.items.length, queue.currentIndex]}
+            />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#0a0a0a',
+    },
+    header: {
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#222',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    listContent: {
+        paddingBottom: 20,
+    },
+    item: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1a1a1a',
+    },
+    currentItem: {
+        backgroundColor: '#1a1a1a',
+    },
+    playedItem: {
+        opacity: 0.6,
+    },
+    artwork: {
+        width: 50,
+        height: 50,
+        borderRadius: 4,
+        backgroundColor: '#333',
+    },
+    info: {
+        flex: 1,
+        marginLeft: 15,
+        justifyContent: 'center',
+    },
+    title: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#fff',
+        marginBottom: 4,
+    },
+    currentText: {
+        color: '#1da1f2',
+    },
+    artist: {
+        fontSize: 14,
+        color: '#888',
+    },
+    playingIndicator: {
+        marginRight: 15,
+    },
+    removeBtn: {
+        padding: 8,
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 18,
+        color: '#fff',
+        marginBottom: 8,
+    },
+    emptySubtext: {
+        fontSize: 14,
+        color: '#666',
+    },
+});
