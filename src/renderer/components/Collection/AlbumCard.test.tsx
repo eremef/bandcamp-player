@@ -4,9 +4,15 @@ import { AlbumCard } from './AlbumCard';
 import '@testing-library/jest-dom'; // Fix toBeInTheDocument
 
 // Mock store
-const mockUseStore = vi.fn();
+const { mockUseStore, mockPlay } = vi.hoisted(() => {
+    const mockPlay = vi.fn();
+    const mockUseStore = vi.fn();
+    (mockUseStore as any).getState = vi.fn().mockReturnValue({ play: mockPlay });
+    return { mockUseStore, mockPlay };
+});
+
 vi.mock('../../store/store', () => ({
-    useStore: () => mockUseStore()
+    useStore: mockUseStore
 }));
 
 describe('AlbumCard', () => {
@@ -25,6 +31,7 @@ describe('AlbumCard', () => {
     ];
 
     beforeEach(() => {
+        vi.clearAllMocks();
         mockUseStore.mockReturnValue({
             getAlbumDetails: vi.fn(),
             addAlbumToQueue: vi.fn(),
@@ -35,6 +42,7 @@ describe('AlbumCard', () => {
             playQueueIndex: vi.fn(),
             selectAlbum: vi.fn()
         });
+        (mockUseStore as any).getState.mockReturnValue({ play: mockPlay });
     });
 
     it('shows menu on right click', () => {
@@ -80,8 +88,7 @@ describe('AlbumCard', () => {
     });
 
     it('plays immediately when clicked if it has only one track', async () => {
-        const singleTrackAlbum = { ...mockAlbum, trackCount: 1, tracks: [{ streamUrl: 'url' }] } as any;
-        const { clearQueue, addAlbumToQueue, playQueueIndex } = mockUseStore();
+        const singleTrackAlbum = { ...mockAlbum, trackCount: 1, tracks: [{ streamUrl: 'url', id: 't1' }] } as any;
         
         render(<AlbumCard album={singleTrackAlbum} />);
         
@@ -90,9 +97,7 @@ describe('AlbumCard', () => {
         
         // Wait for async play logic
         await vi.waitFor(() => {
-            expect(clearQueue).toHaveBeenCalled();
-            expect(addAlbumToQueue).toHaveBeenCalled();
-            expect(playQueueIndex).toHaveBeenCalledWith(0);
+            expect(mockPlay).toHaveBeenCalledWith(singleTrackAlbum.tracks[0]);
         });
     });
 });

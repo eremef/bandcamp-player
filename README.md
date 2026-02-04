@@ -21,7 +21,7 @@ However, it should be quite safe, as you can listen to and cache only the tracks
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
-- 📱 **Mobile Companion App** - Remote control via Android application
+- 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
@@ -74,7 +74,7 @@ npm start
 npm run build
 ```
 
-> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb) and MacOS (dmg) builds are available but experimental.
+> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
 
 ## Settings & Configuration
 
@@ -156,7 +156,7 @@ src/
   <img width="300" alt="image" src="https://github.com/user-attachments/assets/e4d12114-c758-46c5-88c0-722595abb7c0" />
 </p>
 
-The project includes a companion Android application in the `mobile/` directory.
+The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
 
 ### Features of the Mobile App
 
@@ -182,7 +182,7 @@ The project includes a companion Android application in the `mobile/` directory.
    sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk
    ```
 
-2. **Build**:
+2. **Build Android**:
 
    ```bash
    cd mobile
@@ -190,6 +190,17 @@ The project includes a companion Android application in the `mobile/` directory.
    
    # Build and run on connected Android device/emulator
    npm run android:build
+   ```
+
+3. **Build iOS** (macOS only):
+
+   ```bash
+   cd mobile
+   npm install
+   npx expo prebuild --platform ios
+   
+   # Open in Xcode and build
+   open ios/BandcampRemote.xcworkspace
    ```
 
 ## License

@@ -55,18 +55,28 @@ export class PlayerService extends EventEmitter {
 
     // ---- Playback Control ----
 
-    async play(track?: Track): Promise<void> {
+    async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
 
         if (track) {
-            // Ensure track is in the queue so it shows up in the UI
-            const index = this.queue.findIndex(item => item.track.id === track.id);
-            if (index !== -1) {
-                this.currentIndex = index;
+            if (clearQueueBefore) {
+                // Clear queue and add this track as the only item
+                this.queue = [{
+                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    track,
+                    source: 'collection',
+                }];
+                this.currentIndex = 0;
+                this.emitQueueUpdate();
             } else {
-                // Not in queue, add it after current track or at end
-                const targetIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : this.queue.length;
-                this.addToQueue(track, 'collection', true, false);
-                this.currentIndex = targetIndex;
+                // Ensure track is in the queue without clearing
+                const index = this.queue.findIndex(item => item.track.id === track.id);
+                if (index !== -1) {
+                    this.currentIndex = index;
+                } else {
+                    const targetIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : this.queue.length;
+                    this.addToQueue(track, 'collection', true, false);
+                    this.currentIndex = targetIndex;
+                }
             }
             this.emitQueueUpdate();
 
@@ -436,7 +446,7 @@ export class PlayerService extends EventEmitter {
 
         this.currentIndex = index;
         const queueItem = this.queue[index];
-        this.play(queueItem.track);
+        this.play(queueItem.track, false);
         this.emitQueueUpdate();
     }
 

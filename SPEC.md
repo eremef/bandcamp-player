@@ -6,7 +6,7 @@ The Bandcamp Player is a desktop application built with **Electron**, leveraging
 
 - **Main Process**: Handles system integration, file operations, database management (SQLite), web scraping (Cheerio), and audio playback control via system media keys.
 - **Renderer Process**: Provides the user interface using React. Depending on the route, it renders either the main `Layout` or the dedicated compact `MiniPlayer`.
-- **Remote Clients**: A React Native companion app (Mobile) and a built-in Web Interface, both connecting via WebSocket to the Main process for remote control and library browsing.
+- **Remote Clients**: A React Native companion app (Android/iOS) and a built-in Web Interface, both connecting via WebSocket to the Main process for remote control and library browsing.
 - **IPC Communication**: The two processes communicate securely via a preload script exposing specific APIs (`window.electron`) for actions like player control, database queries, and setting updates.
 
 ## 2. Technology Stack

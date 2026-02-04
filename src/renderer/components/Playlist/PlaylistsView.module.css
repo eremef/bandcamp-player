@@ -161,6 +161,48 @@
     padding: var(--spacing-lg);
 }
 
+.cardEditInfo {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.cardEditInput {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-md);
+    width: 100%;
+}
+
+.cardEditActions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.cardEditActions button {
+    flex: 1;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    border: none;
+    transition: all var(--transition-fast);
+}
+
+.saveBtnSmall {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.cancelBtnSmall {
+    background: var(--bg-active);
+    color: var(--text-secondary);
+}
+
 .cardTitle {
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-medium);
@@ -178,10 +220,22 @@
     text-overflow: ellipsis;
 }
 
-.deleteBtn {
+.cardActions {
     position: absolute;
     top: var(--spacing-sm);
     right: var(--spacing-sm);
+    display: flex;
+    gap: var(--spacing-xs);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.card:hover .cardActions {
+    opacity: 1;
+}
+
+.actionBtn,
+.deleteBtn {
     width: 32px;
     height: 32px;
     display: flex;
@@ -189,13 +243,13 @@
     justify-content: center;
     background: rgba(0, 0, 0, 0.5);
     border-radius: var(--radius-full);
-    opacity: 0;
     transition: all var(--transition-fast);
     backdrop-filter: blur(4px);
+    color: #fff;
 }
 
-.card:hover .deleteBtn {
-    opacity: 1;
+.actionBtn:hover {
+    background: var(--bg-active);
 }
 
 .deleteBtn:hover {

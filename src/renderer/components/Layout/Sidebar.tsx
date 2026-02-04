@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { useStore } from '../../store/store';
 import type { ViewType } from '../../../shared/types';
-import { Library, ListMusic, Radio, Music, User, Settings, Plus } from 'lucide-react';
+import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
 export function Sidebar() {
@@ -11,7 +12,29 @@ export function Sidebar() {
         selectPlaylist,
         auth,
         toggleSettings,
+        createPlaylist
     } = useStore();
+
+    const [isCreating, setIsCreating] = useState(false);
+    const [newPlaylistName, setNewPlaylistName] = useState('');
+
+    const handleCreateClick = () => {
+        setIsCreating(true);
+    };
+
+    const handleCreateSubmit = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (newPlaylistName.trim()) {
+            await createPlaylist(newPlaylistName.trim());
+            setNewPlaylistName('');
+            setIsCreating(false);
+        }
+    };
+
+    const handleCreateCancel = () => {
+        setIsCreating(false);
+        setNewPlaylistName('');
+    };
 
     const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
         { view: 'collection', label: 'Collection', icon: <Library size={20} /> },
@@ -41,19 +64,36 @@ export function Sidebar() {
             {/* Playlists */}
             <div className={styles.playlists}>
                 <div className={styles.playlistsHeader}>
-                    <h3>Your Playlists</h3>
-                    <button
-                        className={styles.addButton}
-                        onClick={() => {
-                            const name = prompt('Playlist name:');
-                            if (name) {
-                                useStore.getState().createPlaylist(name);
-                            }
-                        }}
-                        title="Create Playlist"
-                    >
-                        <Plus size={18} />
-                    </button>
+                    {isCreating ? (
+                        <form className={styles.createFormInline} onSubmit={handleCreateSubmit}>
+                            <input
+                                className={styles.createInputInline}
+                                type="text"
+                                placeholder="Playlist name..."
+                                value={newPlaylistName}
+                                onChange={(e) => setNewPlaylistName(e.target.value)}
+                                autoFocus
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') handleCreateCancel();
+                                }}
+                            />
+                            <div className={styles.createActionsInline}>
+                                <button type="submit" title="Save"><Check size={16} /></button>
+                                <button type="button" onClick={handleCreateCancel} title="Cancel"><X size={16} /></button>
+                            </div>
+                        </form>
+                    ) : (
+                        <>
+                            <h3>Your Playlists</h3>
+                            <button
+                                className={styles.addButton}
+                                onClick={handleCreateClick}
+                                title="Create Playlist"
+                            >
+                                <Plus size={18} />
+                            </button>
+                        </>
+                    )}
                 </div>
                 <ul className={styles.playlistList}>
                     {playlists.map((playlist) => (

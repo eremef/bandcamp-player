@@ -138,6 +138,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         broadcast(QUEUE_CHANNELS.ON_UPDATED, queue);
     });
 
+    // Playlist events
+    playlistService.on('playlists-changed', () => {
+        broadcast(PLAYLIST_CHANNELS.ON_UPDATED, playlistService.getAll());
+    });
+
     // ---- Playlists ----
     ipcMain.handle(PLAYLIST_CHANNELS.GET_ALL, () => playlistService.getAll());
     ipcMain.handle(PLAYLIST_CHANNELS.GET_BY_ID, (_, id: string) => playlistService.getById(id));

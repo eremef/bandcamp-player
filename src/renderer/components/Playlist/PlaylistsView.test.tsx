@@ -17,6 +17,7 @@ vi.mock('lucide-react', () => ({
     Music: () => <span data-testid="icon-music" />,
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
+    Pencil: () => <span data-testid="icon-pencil" />,
 }));
 
 describe('PlaylistsView', () => {
@@ -28,6 +29,8 @@ describe('PlaylistsView', () => {
         selectPlaylist: vi.fn(),
         createPlaylist: vi.fn(),
         deletePlaylist: vi.fn(),
+        updatePlaylist: vi.fn(),
+        playPlaylist: vi.fn(),
     };
 
     beforeEach(() => {
@@ -81,6 +84,20 @@ describe('PlaylistsView', () => {
         render(<PlaylistsView />);
         fireEvent.click(screen.getByText('Chill'));
         expect(mockStore.selectPlaylist).toHaveBeenCalledWith('1');
+    });
+
+    it('calls updatePlaylist when inline rename is submitted', () => {
+        render(<PlaylistsView />);
+        const renameBtn = screen.getAllByTitle('Rename playlist')[0];
+        fireEvent.click(renameBtn);
+
+        const input = screen.getByDisplayValue('Chill');
+        fireEvent.change(input, { target: { value: 'Super Chill' } });
+        
+        const saveBtn = screen.getByText('Save');
+        fireEvent.click(saveBtn);
+
+        expect(mockStore.updatePlaylist).toHaveBeenCalledWith('1', 'Super Chill');
     });
 
     it('deletes playlist after confirmation', () => {

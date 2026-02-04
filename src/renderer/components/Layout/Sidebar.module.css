@@ -73,11 +73,61 @@
 }
 
 .playlistsHeader h3 {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.createFormInline {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    width: 100%;
+}
+
+.createInputInline {
+    flex: 1;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    padding: 2px 6px;
+    font-size: var(--font-size-sm);
+    min-width: 0;
+}
+
+.createInputInline:focus {
+    outline: none;
+}
+
+.createActionsInline {
+    display: flex;
+    gap: 2px;
+}
+
+.createActionsInline button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.createActionsInline button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.createActionsInline button[type="submit"] {
+    color: var(--color-success);
 }
 
 .addButton {

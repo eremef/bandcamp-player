@@ -123,6 +123,29 @@ describe('AlbumDetailView', () => {
         expect(play).toHaveBeenCalledWith(mockAlbum.tracks[0]);
     });
 
+    it('calls addToQueue with playNext=true when Play Next is clicked', async () => {
+        const addToQueue = vi.fn();
+        mockUseStore.mockReturnValue({
+            ...mockUseStore(),
+            addToQueue
+        });
+        
+        render(<AlbumDetailView />);
+
+        await waitFor(() => expect(screen.queryByText('Track 1')).toBeInTheDocument());
+        
+        // Open context menu
+        const menuBtns = screen.getAllByRole('button').filter(btn => 
+            btn.className.includes('menuBtn')
+        );
+        fireEvent.click(menuBtns[0]);
+
+        const playNextBtn = await screen.findByText('Play Next');
+        fireEvent.click(playNextBtn);
+
+        expect(addToQueue).toHaveBeenCalledWith(mockAlbum.tracks[0], true);
+    });
+
     it('shows empty state when no album is selected', () => {
         mockUseStore.mockReturnValue({
             selectedAlbum: null,

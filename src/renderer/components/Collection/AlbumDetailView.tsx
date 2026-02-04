@@ -206,6 +206,12 @@ export function AlbumDetailView() {
 
                                             {activeTrackMenu === track.id && (
                                                 <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
+                                                    <button onClick={() => {
+                                                        setActiveTrackMenu(null);
+                                                        addToQueue(track, true);
+                                                    }}>
+                                                        <Play size={14} /> Play Next
+                                                    </button>
                                                     <button onClick={() => handleTrackAddToQueue(track)}>
                                                         <List size={14} /> Add to Queue
                                                     </button>

@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useStore } from '../../store/store';
-import { ArrowLeft, Music, Play, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List } from 'lucide-react';
 import styles from './PlaylistDetailView.module.css';
 
 export function PlaylistDetailView() {
@@ -14,6 +15,10 @@ export function PlaylistDetailView() {
         addTracksToQueue,
         playQueueIndex,
     } = useStore();
+
+    const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState('');
 
     if (!selectedPlaylist) {
         return (
@@ -42,11 +47,29 @@ export function PlaylistDetailView() {
         }
     };
 
-    const handleRename = () => {
-        const newName = prompt('Enter new name:', selectedPlaylist.name);
-        if (newName?.trim() && newName !== selectedPlaylist.name) {
-            updatePlaylist(selectedPlaylist.id, newName.trim());
+    const handleRenameClick = () => {
+        setEditName(selectedPlaylist.name);
+        setIsEditing(true);
+    };
+
+    const handleSaveRename = async () => {
+        const trimmedName = editName.trim();
+        if (!trimmedName) {
+            return;
         }
+        
+        if (trimmedName !== selectedPlaylist.name) {
+            try {
+                await updatePlaylist(selectedPlaylist.id, trimmedName);
+            } catch (error) {
+                console.error('PlaylistDetailView: Rename failed', error);
+            }
+        }
+        setIsEditing(false);
+    };
+
+    const handleCancelRename = () => {
+        setIsEditing(false);
     };
 
     return (
@@ -67,7 +90,26 @@ export function PlaylistDetailView() {
                     </div>
                     <div className={styles.info}>
                         <span className={styles.label}>Playlist</span>
-                        <h1 className={styles.title}>{selectedPlaylist.name}</h1>
+                        {isEditing ? (
+                            <div className={styles.editTitleContainer}>
+                                <input
+                                    className={styles.titleInput}
+                                    value={editName}
+                                    onChange={(e) => setEditName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') handleSaveRename();
+                                        if (e.key === 'Escape') handleCancelRename();
+                                    }}
+                                    autoFocus
+                                />
+                                <div className={styles.editActions}>
+                                    <button className={styles.saveBtn} onClick={handleSaveRename}>Save</button>
+                                    <button className={styles.cancelBtn} onClick={handleCancelRename}>Cancel</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <h1 className={styles.title}>{selectedPlaylist.name}</h1>
+                        )}
                         {selectedPlaylist.description && (
                             <p className={styles.description}>{selectedPlaylist.description}</p>
                         )}
@@ -79,10 +121,12 @@ export function PlaylistDetailView() {
                                 <Play size={18} fill="currentColor" />
                                 <span>Play All</span>
                             </button>
-                            <button className={styles.actionBtn} onClick={handleRename}>
-                                <Pencil size={18} />
-                                <span>Rename</span>
-                            </button>
+                            {!isEditing && (
+                                <button className={styles.actionBtn} onClick={handleRenameClick}>
+                                    <Pencil size={18} />
+                                    <span>Rename</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -108,7 +152,15 @@ export function PlaylistDetailView() {
                         </thead>
                         <tbody>
                             {selectedPlaylist.tracks.map((track, index) => (
-                                <tr key={`${track.id}-${index}`} className={styles.trackRow}>
+                                <tr 
+                                    key={`${track.id}-${index}`} 
+                                    className={styles.trackRow}
+                                    onMouseLeave={() => setActiveTrackMenu(null)}
+                                    onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        setActiveTrackMenu(track.id);
+                                    }}
+                                >
                                     <td className={styles.colNum}>
                                         <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => play(track)}>
                                             <span className={styles.trackNumber}>{index + 1}</span>
@@ -126,13 +178,45 @@ export function PlaylistDetailView() {
                                         {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
                                     </td>
                                     <td className={styles.colActions}>
-                                        <button
-                                            className={styles.removeBtn}
-                                            onClick={() => removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id)}
-                                            title="Remove from playlist"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        <div className={styles.menuContainer}>
+                                            <button
+                                                className={styles.menuBtn}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
+                                                }}
+                                            >
+                                                <MoreHorizontal size={16} />
+                                            </button>
+
+                                            {activeTrackMenu === track.id && (
+                                                <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
+                                                    <button onClick={() => {
+                                                        setActiveTrackMenu(null);
+                                                        addToQueue(track, true);
+                                                    }}>
+                                                        <Play size={14} /> Play Next
+                                                    </button>
+                                                    <button onClick={() => {
+                                                        setActiveTrackMenu(null);
+                                                        addToQueue(track);
+                                                    }}>
+                                                        <List size={14} /> Add to Queue
+                                                    </button>
+                                                    <div className={styles.menuDivider} />
+                                                    <button
+                                                        className={styles.removeBtn}
+                                                        onClick={() => {
+                                                            setActiveTrackMenu(null);
+                                                            removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
+                                                        }}
+                                                        title="Remove from playlist"
+                                                    >
+                                                        <Trash2 size={14} /> Remove from Playlist
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

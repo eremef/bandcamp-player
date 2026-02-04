@@ -1,17 +1,39 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
-import { Check, X, Plus, ListMusic, Music, Play, Trash2 } from 'lucide-react';
+import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
+    const [isEditingId, setIsEditingId] = useState<string | null>(null);
+    const [editName, setEditName] = useState('');
 
     const handleCreate = () => {
         setIsCreating(true);
         // Focus will be handled by autoFocus on input
+    };
+
+    const handleRenameClick = (e: React.MouseEvent, playlist: any) => {
+        e.stopPropagation();
+        setEditName(playlist.name);
+        setIsEditingId(playlist.id);
+    };
+
+    const handleSaveRename = async (e: React.MouseEvent | React.FormEvent, id: string) => {
+        if (e) e.stopPropagation();
+        const trimmedName = editName.trim();
+        if (trimmedName) {
+            await updatePlaylist(id, trimmedName);
+        }
+        setIsEditingId(null);
+    };
+
+    const handleCancelRename = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsEditingId(null);
     };
 
     const handleSubmit = (e?: React.FormEvent) => {
@@ -106,24 +128,54 @@ export function PlaylistsView() {
                                 </div>
                             </div>
                             <div className={styles.cardInfo}>
-                                <h3 className={styles.cardTitle}>{playlist.name}</h3>
-                                <p className={styles.cardMeta}>
-                                    {playlist.trackCount} tracks • {formatDuration(playlist.totalDuration)}
-                                    {playlist.description && ` • ${playlist.description}`}
-                                </p>
+                                {isEditingId === playlist.id ? (
+                                    <div className={styles.cardEditInfo} onClick={e => e.stopPropagation()}>
+                                        <input
+                                            className={styles.cardEditInput}
+                                            value={editName}
+                                            onChange={e => setEditName(e.target.value)}
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') handleSaveRename(e, playlist.id);
+                                                if (e.key === 'Escape') handleCancelRename(e as any);
+                                            }}
+                                            autoFocus
+                                        />
+                                        <div className={styles.cardEditActions}>
+                                            <button className={styles.saveBtnSmall} onClick={e => handleSaveRename(e, playlist.id)}>Save</button>
+                                            <button className={styles.cancelBtnSmall} onClick={handleCancelRename}>Cancel</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h3 className={styles.cardTitle}>{playlist.name}</h3>
+                                        <p className={styles.cardMeta}>
+                                            {playlist.trackCount} tracks • {formatDuration(playlist.totalDuration)}
+                                            {playlist.description && ` • ${playlist.description}`}
+                                        </p>
+                                    </>
+                                )}
                             </div>
-                            <button
-                                className={styles.deleteBtn}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (confirm(`Delete "${playlist.name}"?`)) {
-                                        deletePlaylist(playlist.id);
-                                    }
-                                }}
-                                title="Delete playlist"
-                            >
-                                <Trash2 size={18} />
-                            </button>
+                            <div className={styles.cardActions}>
+                                <button
+                                    className={styles.actionBtn}
+                                    onClick={(e) => handleRenameClick(e, playlist)}
+                                    title="Rename playlist"
+                                >
+                                    <Pencil size={18} />
+                                </button>
+                                <button
+                                    className={styles.deleteBtn}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Delete "${playlist.name}"?`)) {
+                                            deletePlaylist(playlist.id);
+                                        }
+                                    }}
+                                    title="Delete playlist"
+                                >
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
