@@ -276,6 +276,21 @@ export class RemoteControlService extends EventEmitter {
                 this.sendToClient(ws, 'playlists-data', playlists);
                 break;
             }
+            case 'create-playlist': {
+                const { name, description } = payload;
+                this.playlistService.create({ name, description });
+                break;
+            }
+            case 'update-playlist': {
+                const { id, name, description } = payload;
+                this.playlistService.update({ id, name, description });
+                break;
+            }
+            case 'delete-playlist': {
+                const id = payload;
+                this.playlistService.delete(id);
+                break;
+            }
             case 'play-playlist': {
                 const playlist = this.playlistService.getById(payload);
                 if (playlist && playlist.tracks.length > 0) {

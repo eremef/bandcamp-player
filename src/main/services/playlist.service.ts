@@ -43,6 +43,7 @@ export class PlaylistService extends EventEmitter {
      * Update playlist
      */
     update(input: PlaylistUpdateInput): Playlist | null {
+        // console.log(`[PlaylistService] Updating playlist: ${JSON.stringify(input)}`);
         this.database.updatePlaylist(input.id, input.name, input.description);
         this.emit('playlists-changed');
         return this.database.getPlaylistById(input.id);

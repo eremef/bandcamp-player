@@ -229,11 +229,26 @@ export class Database {
 
     updatePlaylist(id: string, name?: string, description?: string): void {
         const now = new Date().toISOString();
+        const sets: string[] = ['updated_at = ?'];
+        const params: any[] = [now];
+
         if (name !== undefined) {
-            this.db.prepare('UPDATE playlists SET name = ?, updated_at = ? WHERE id = ?').run(name, now, id);
+            sets.push('name = ?');
+            params.push(name);
         }
         if (description !== undefined) {
-            this.db.prepare('UPDATE playlists SET description = ?, updated_at = ? WHERE id = ?').run(description, now, id);
+            sets.push('description = ?');
+            params.push(description);
+        }
+
+        params.push(id);
+        const sql = `UPDATE playlists SET ${sets.join(', ')} WHERE id = ?`;
+        
+        // console.log(`[Database] Updating playlist ${id}: name=${name}, description=${description}`);
+        const result = this.db.prepare(sql).run(...params);
+        
+        if (result.changes === 0) {
+            console.warn(`[Database] No playlist found with ID ${id} to update`);
         }
     }
 

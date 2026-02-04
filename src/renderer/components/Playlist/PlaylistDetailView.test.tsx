@@ -94,7 +94,7 @@ describe('PlaylistDetailView', () => {
         expect(play).toHaveBeenCalledWith(mockPlaylist.tracks[1]);
     });
 
-    it('calls removeTrackFromPlaylist when trash icon is clicked', () => {
+    it('calls removeTrackFromPlaylist when Remove from Playlist is clicked', async () => {
         const removeTrackFromPlaylist = vi.fn();
         mockUseStore.mockReturnValue({
             ...mockUseStore(),
@@ -103,27 +103,37 @@ describe('PlaylistDetailView', () => {
         
         render(<PlaylistDetailView />);
 
-        const removeBtns = screen.getAllByTitle('Remove from playlist');
-        fireEvent.click(removeBtns[0]);
+        // Open context menu first
+        const menuBtns = screen.getAllByRole('button').filter(btn => 
+            btn.className.includes('menuBtn')
+        );
+        fireEvent.click(menuBtns[0]);
+
+        const removeBtn = await screen.findByText('Remove from Playlist');
+        fireEvent.click(removeBtn);
 
         expect(removeTrackFromPlaylist).toHaveBeenCalledWith('p1', 't1');
     });
 
-    it('calls updatePlaylist when Rename button is clicked', () => {
+    it('calls updatePlaylist when inline rename is submitted', async () => {
         const updatePlaylist = vi.fn();
         mockUseStore.mockReturnValue({
             ...mockUseStore(),
             updatePlaylist
         });
         
-        const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('New Name');
-        
         render(<PlaylistDetailView />);
 
         const renameBtn = screen.getByText('Rename');
         fireEvent.click(renameBtn.closest('button')!);
 
-        expect(promptSpy).toHaveBeenCalled();
+        // Title should be replaced by an input
+        const input = screen.getByDisplayValue('Test Playlist');
+        fireEvent.change(input, { target: { value: 'New Name' } });
+        
+        const saveBtn = screen.getByText('Save');
+        fireEvent.click(saveBtn);
+
         expect(updatePlaylist).toHaveBeenCalledWith('p1', 'New Name');
     });
 

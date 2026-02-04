@@ -55,6 +55,11 @@ interface AppState extends PlayerState {
     playQueueIndex: (index: number) => void;
     removeFromQueue: (id: string) => void;
     clearQueue: () => void;
+
+    // Playlist Actions
+    createPlaylist: (name: string, description?: string) => void;
+    renamePlaylist: (id: string, name: string, description?: string) => void;
+    deletePlaylist: (id: string) => void;
 }
 
 const initialState: Omit<PlayerState, 'queue'> = {
@@ -318,6 +323,10 @@ export const useStore = create<AppState>((set, get) => ({
 
         webSocketService.send('clear-queue');
     },
+
+    createPlaylist: (name, description) => webSocketService.send('create-playlist', { name, description }),
+    renamePlaylist: (id, name, description) => webSocketService.send('update-playlist', { id, name, description }),
+    deletePlaylist: (id) => webSocketService.send('delete-playlist', id),
 
     // Initialize
     // This is called automatically when store is created? No, we need to call it.

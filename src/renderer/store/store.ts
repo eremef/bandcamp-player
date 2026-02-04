@@ -193,6 +193,9 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     setPlayerState: (state) => set((s) => ({ player: { ...s.player, ...state } })),
     play: async (track) => {
+        if (track) {
+            await get().clearQueue(false);
+        }
         await window.electron.player.play(track);
     },
     pause: async () => {
@@ -291,10 +294,16 @@ export const useStore = create<StoreState>((set, get) => ({
         return playlist;
     },
     updatePlaylist: async (id, name, description) => {
-        await window.electron.playlist.update({ id, name, description });
-        get().fetchPlaylists();
-        if (get().selectedPlaylist?.id === id) {
-            get().selectPlaylist(id);
+        try {
+            await window.electron.playlist.update({ id, name, description });
+            await get().fetchPlaylists();
+            if (get().selectedPlaylist?.id === id) {
+                const updated = await window.electron.playlist.getById(id);
+                set({ selectedPlaylist: updated });
+            }
+        } catch (error) {
+            console.error('Store: updatePlaylist failed', error);
+            get().showToast('Failed to update playlist', 'error');
         }
     },
     deletePlaylist: async (id) => {
@@ -496,6 +505,17 @@ export async function initializeStoreSubscriptions() {
         // Also sync with player state
         const currentPlayerState = useStore.getState().player;
         setPlayerState({ ...currentPlayerState, queue });
+    });
+
+    // Playlist updates
+    window.electron.playlist.onUpdated(async (playlists) => {
+        useStore.setState({ playlists });
+        // If current selected playlist is updated, refresh it too (data only, no navigation)
+        const { selectedPlaylistId } = useStore.getState();
+        if (selectedPlaylistId) {
+            const updated = await window.electron.playlist.getById(selectedPlaylistId);
+            useStore.setState({ selectedPlaylist: updated });
+        }
     });
 
     // Auth updates

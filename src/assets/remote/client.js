@@ -479,8 +479,8 @@ let currentCollectionItem = null;
 function showCollectionOptions(item) {
     currentCollectionItem = item;
     const modal = document.getElementById('options-modal');
-    const title = document.getElementById('options-title');
-    const list = document.getElementById('options-list');
+    const title = document.getElementById('modal-title');
+    const list = document.getElementById('modal-options');
 
     title.innerText = item.title;
     list.innerHTML = '';
@@ -523,8 +523,8 @@ function showCollectionOptions(item) {
 
 function showCollectionPlaylistSelection(item) {
     const modal = document.getElementById('options-modal');
-    const title = document.getElementById('options-title');
-    const list = document.getElementById('options-list');
+    const title = document.getElementById('modal-title');
+    const list = document.getElementById('modal-options');
 
     // We need to fetch playlists if not available?
     // Use global playlists variable if available?
@@ -644,9 +644,56 @@ function renderPlaylists(playlists) {
             </div>
         `;
 
+        const btn = document.createElement('button');
+        btn.className = 'item-options-btn';
+        btn.innerHTML = (typeof ICONS !== 'undefined' && ICONS.MoreVertical) ? ICONS.MoreVertical : '...';
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            showPlaylistOptions(playlist);
+        };
+        div.appendChild(btn);
 
         list.appendChild(div);
     });
+}
+
+function createPlaylist() {
+    const name = prompt("Enter playlist name:");
+    if (name) {
+        sendCommand('create-playlist', { name: name });
+    }
+}
+
+function showPlaylistOptions(playlist) {
+    document.getElementById('modal-title').innerText = playlist.name;
+    const options = document.getElementById('modal-options');
+    options.innerHTML = `
+        <div class="modal-option" onclick="closeModal(); sendCommand('play-playlist', '${playlist.id}')">
+            ${(typeof ICONS !== 'undefined' && ICONS.Play) ? ICONS.Play : '▶'} <span style="margin-left:8px">Play Now</span>
+        </div>
+        <div class="modal-option" onclick="closeModal(); renamePlaylist('${playlist.id}', '${playlist.name}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            <span style="margin-left:8px">Rename</span>
+        </div>
+        <div class="modal-option" onclick="closeModal(); deletePlaylist('${playlist.id}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <span style="margin-left:8px">Delete</span>
+        </div>
+    `;
+    document.getElementById('options-modal').classList.add('active');
+}
+
+function renamePlaylist(id, oldName) {
+    const name = prompt("Rename playlist:", oldName);
+    if (name && name !== oldName) {
+        sendCommand('update-playlist', { id: id, name: name });
+    }
+}
+
+function deletePlaylist(id) {
+    if (confirm("Are you sure you want to delete this playlist?")) {
+        sendCommand('delete-playlist', id);
+    }
 }
 
 function renderQueue(queue) {

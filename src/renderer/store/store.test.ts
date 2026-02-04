@@ -51,6 +51,7 @@ const mockElectron = {
         addTrack: vi.fn(),
         addTracks: vi.fn(),
         removeTrack: vi.fn(),
+        onUpdated: vi.fn(),
     },
     settings: {
         get: vi.fn(),
@@ -532,6 +533,7 @@ describe('useStore', () => {
         mockElectron.scrobbler.onStateChanged.mockImplementation(cb => listeners['scrobbler'] = cb);
         mockElectron.settings.onChanged.mockImplementation(cb => listeners['settings'] = cb);
         mockElectron.radio.onStateChanged.mockImplementation(cb => listeners['radio'] = cb);
+        mockElectron.playlist.onUpdated.mockImplementation(cb => listeners['playlist'] = cb);
         mockElectron.remote.onConnectionsChanged.mockImplementation(cb => listeners['remoteConn'] = cb);
 
         mockElectron.player.getState.mockResolvedValue({ isPlaying: false });

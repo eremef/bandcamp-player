@@ -77,6 +77,62 @@
     margin-bottom: var(--spacing-sm);
 }
 
+.editTitleContainer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.titleInput {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    width: 100%;
+}
+
+.titleInput:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.editActions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.editActions button {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.saveBtn {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.saveBtn:hover {
+    background: var(--accent-hover);
+}
+
+.cancelBtn {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.cancelBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
 .description {
     font-size: var(--font-size-md);
     color: var(--text-secondary);
@@ -238,7 +294,8 @@
     font-size: var(--font-size-sm);
 }
 
-.removeBtn {
+/* Context menu */
+.menuBtn {
     width: 28px;
     height: 28px;
     display: flex;
@@ -249,13 +306,89 @@
     border-radius: var(--radius-md);
     opacity: 0;
     transition: all var(--transition-fast);
+    background: transparent;
+    border: none;
+    cursor: pointer;
 }
 
-.trackRow:hover .removeBtn {
+.trackRow:hover .menuBtn {
     opacity: 1;
 }
 
-.removeBtn:hover {
+.menuBtn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.menuContainer {
+    position: relative;
+}
+
+.menu {
+    position: absolute;
+    right: 100%;
+    /* Position to the left of the button */
+    top: 0;
+    width: 200px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+    animation: scaleIn var(--transition-fast) ease-out;
+    margin-right: var(--spacing-xs);
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.menu button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    border: none;
+    cursor: pointer;
+}
+
+.menu button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.menu button.removeBtn:hover {
     background: var(--color-error);
     color: var(--text-on-accent);
+}
+
+.menuDivider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-sm) 0;
+}
+
+.menuLabel {
+    display: block;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
