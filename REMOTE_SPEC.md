@@ -1,6 +1,6 @@
-# Bandcamp Player Remote Protocol Specification
+# Bandcamp Desktop Player Remote Protocol Specification
 
-This document specifies the WebSocket protocol used to remote control the Bandcamp Player desktop application.
+This document specifies the WebSocket protocol used to remote control the Bandcamp Desktop Player desktop application.
 
 **Official Implementation**: The `mobile/` directory contains a helper React Native application that implements this protocol for Android.
 

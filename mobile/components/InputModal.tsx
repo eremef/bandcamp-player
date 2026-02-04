@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 
 interface InputModalProps {
@@ -11,29 +11,54 @@ interface InputModalProps {
     submitLabel?: string;
 }
 
-export function InputModal({ 
-    visible, 
-    title, 
-    initialValue = '', 
-    placeholder = '', 
-    onClose, 
+function InputModalContent({
+    title,
+    initialValue = '',
+    placeholder = '',
+    onClose,
     onSubmit,
     submitLabel = 'Submit'
-}: InputModalProps) {
+}: Omit<InputModalProps, 'visible'>) {
     const [value, setValue] = useState(initialValue);
-
-    useEffect(() => {
-        if (visible) {
-            setValue(initialValue);
-        }
-    }, [visible, initialValue]);
 
     const handleSubmit = () => {
         if (value.trim()) {
             onSubmit(value.trim());
-            setValue('');
+            // No need to clear value here as the modal will close/unmount
         }
     };
+
+    return (
+        <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.overlay}
+        >
+            <View style={styles.content}>
+                <Text style={styles.title}>{title}</Text>
+                <TextInput
+                    style={styles.input}
+                    value={value}
+                    onChangeText={setValue}
+                    placeholder={placeholder}
+                    placeholderTextColor="#666"
+                    autoFocus={true}
+                    onSubmitEditing={handleSubmit}
+                />
+                <View style={styles.actions}>
+                    <TouchableOpacity style={styles.button} onPress={onClose}>
+                        <Text style={styles.cancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.button, styles.submitButton]} onPress={handleSubmit}>
+                        <Text style={styles.submitText}>{submitLabel}</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
+    );
+}
+
+export function InputModal(props: InputModalProps) {
+    const { visible, onClose, ...contentProps } = props;
 
     return (
         <Modal
@@ -42,31 +67,12 @@ export function InputModal({
             visible={visible}
             onRequestClose={onClose}
         >
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.overlay}
-            >
-                <View style={styles.content}>
-                    <Text style={styles.title}>{title}</Text>
-                    <TextInput
-                        style={styles.input}
-                        value={value}
-                        onChangeText={setValue}
-                        placeholder={placeholder}
-                        placeholderTextColor="#666"
-                        autoFocus={visible}
-                        onSubmitEditing={handleSubmit}
-                    />
-                    <View style={styles.actions}>
-                        <TouchableOpacity style={styles.button} onPress={onClose}>
-                            <Text style={styles.cancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.button, styles.submitButton]} onPress={handleSubmit}>
-                            <Text style={styles.submitText}>{submitLabel}</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </KeyboardAvoidingView>
+            {visible && (
+                <InputModalContent
+                    {...contentProps}
+                    onClose={onClose}
+                />
+            )}
         </Modal>
     );
 }

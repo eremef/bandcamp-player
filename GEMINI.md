@@ -1,4 +1,4 @@
-# Bandcamp Player
+# Bandcamp Desktop Player
 
 Electron + React + TypeScript desktop app for Bandcamp music with offline caching, Last.fm scrobbling, and mobile/web remote control. Uses Cheerio scraping (no official Bandcamp API).
 

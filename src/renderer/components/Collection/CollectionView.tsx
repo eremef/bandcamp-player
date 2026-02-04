@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import { AlbumCard } from './AlbumCard';
@@ -7,8 +7,29 @@ import styles from './CollectionView.module.css';
 
 export function CollectionView() {
     const { collection, isLoadingCollection, collectionError, fetchCollection, searchQuery, setSearchQuery } = useStore();
-    const [filteredItems, setFilteredItems] = useState(collection?.items || []);
     const [visibleCount, setVisibleCount] = useState(20);
+
+    const filteredItems = useMemo(() => {
+        if (!collection?.items) return [];
+        if (!searchQuery.trim()) return collection.items;
+
+        const query = searchQuery.toLowerCase();
+        return collection.items.filter((item) => {
+            if (item.type === 'album' && item.album) {
+                return (
+                    item.album.title.toLowerCase().includes(query) ||
+                    item.album.artist.toLowerCase().includes(query)
+                );
+            }
+            if (item.type === 'track' && item.track) {
+                return (
+                    item.track.title.toLowerCase().includes(query) ||
+                    item.track.artist.toLowerCase().includes(query)
+                );
+            }
+            return false;
+        });
+    }, [collection, searchQuery]);
 
     const handleLoadMore = useCallback(() => {
         setVisibleCount(prev => prev + 20);
@@ -24,33 +45,6 @@ export function CollectionView() {
             fetchCollection();
         }
     }, [collection, fetchCollection]);
-
-    useEffect(() => {
-        if (!collection) return;
-
-        if (searchQuery.trim()) {
-            const query = searchQuery.toLowerCase();
-            setFilteredItems(
-                collection.items.filter((item) => {
-                    if (item.type === 'album' && item.album) {
-                        return (
-                            item.album.title.toLowerCase().includes(query) ||
-                            item.album.artist.toLowerCase().includes(query)
-                        );
-                    }
-                    if (item.type === 'track' && item.track) {
-                        return (
-                            item.track.title.toLowerCase().includes(query) ||
-                            item.track.artist.toLowerCase().includes(query)
-                        );
-                    }
-                    return false;
-                })
-            );
-        } else {
-            setFilteredItems(collection.items);
-        }
-    }, [collection, searchQuery]);
 
     if (isLoadingCollection) {
         return (
