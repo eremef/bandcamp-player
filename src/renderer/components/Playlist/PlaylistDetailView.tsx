@@ -42,6 +42,14 @@ export function PlaylistDetailView() {
         }
     };
 
+    const handlePlayTrack = async (index: number) => {
+        if (selectedPlaylist.tracks.length > 0) {
+            await clearQueue(false);
+            await addTracksToQueue(selectedPlaylist.tracks);
+            await playQueueIndex(index);
+        }
+    };
+
     const handleRename = () => {
         const newName = prompt('Enter new name:', selectedPlaylist.name);
         if (newName?.trim() && newName !== selectedPlaylist.name) {
@@ -110,7 +118,7 @@ export function PlaylistDetailView() {
                             {selectedPlaylist.tracks.map((track, index) => (
                                 <tr key={`${track.id}-${index}`} className={styles.trackRow}>
                                     <td className={styles.colNum}>
-                                        <button className={styles.playTrackBtn} onClick={() => play(track)}>
+                                        <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => handlePlayTrack(index)}>
                                             <span className={styles.trackNumber}>{index + 1}</span>
                                             <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
                                         </button>

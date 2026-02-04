@@ -107,10 +107,15 @@ describe('AlbumDetailView', () => {
     });
 
     it('plays individual track when track play button is clicked', async () => {
-        const play = vi.fn();
+        const clearQueue = vi.fn();
+        const addTracksToQueue = vi.fn();
+        const playQueueIndex = vi.fn();
+        
         mockUseStore.mockReturnValue({
             ...mockUseStore(),
-            play
+            clearQueue,
+            addTracksToQueue,
+            playQueueIndex
         });
         
         render(<AlbumDetailView />);
@@ -120,7 +125,11 @@ describe('AlbumDetailView', () => {
         const trackPlayBtns = screen.getAllByTestId('play-track-btn');
         fireEvent.click(trackPlayBtns[0]);
 
-        expect(play).toHaveBeenCalledWith(mockAlbum.tracks[0]);
+        await waitFor(() => {
+            expect(clearQueue).toHaveBeenCalled();
+            expect(addTracksToQueue).toHaveBeenCalledWith(mockAlbum.tracks);
+            expect(playQueueIndex).toHaveBeenCalledWith(0);
+        });
     });
 
     it('shows empty state when no album is selected', () => {

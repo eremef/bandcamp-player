@@ -58,6 +58,18 @@ export class PlayerService extends EventEmitter {
     async play(track?: Track): Promise<void> {
 
         if (track) {
+            // Ensure track is in the queue so it shows up in the UI
+            const index = this.queue.findIndex(item => item.track.id === track.id);
+            if (index !== -1) {
+                this.currentIndex = index;
+            } else {
+                // Not in queue, add it after current track or at end
+                const targetIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : this.queue.length;
+                this.addToQueue(track, 'collection', true, false);
+                this.currentIndex = targetIndex;
+            }
+            this.emitQueueUpdate();
+
             // Check if it's a radio track and stream URL needs valid check
             if (track.id.startsWith('radio-')) {
                 const stationId = track.id.replace('radio-', '');
