@@ -470,10 +470,16 @@ export async function initializeStoreSubscriptions() {
     // Fetch initial player state
     const initialState = await window.electron.player.getState();
     setPlayerState(initialState);
+    if (initialState.queue) {
+        useStore.setState({ queue: initialState.queue });
+    }
 
     // Player state updates
     window.electron.player.onStateChanged((state) => {
         setPlayerState(state);
+        if (state.queue) {
+            useStore.setState({ queue: state.queue });
+        }
     });
 
     window.electron.player.onTrackChanged((track) => {
@@ -487,6 +493,9 @@ export async function initializeStoreSubscriptions() {
     // Queue updates
     window.electron.queue.onUpdated((queue) => {
         useStore.setState({ queue });
+        // Also sync with player state
+        const currentPlayerState = useStore.getState().player;
+        setPlayerState({ ...currentPlayerState, queue });
     });
 
     // Auth updates

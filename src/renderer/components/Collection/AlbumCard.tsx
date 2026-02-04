@@ -43,9 +43,14 @@ export function AlbumCard({ album }: AlbumCardProps) {
         const albumWithTracks = await ensureAlbumTracks();
 
         if (albumWithTracks.tracks.length > 0) {
-            await clearQueue(false);
-            await addAlbumToQueue(albumWithTracks);
-            await playQueueIndex(0);
+            if (albumWithTracks.trackCount === 1) {
+                // For singles, just play the track directly which adds it to the queue
+                useStore.getState().play(albumWithTracks.tracks[0]);
+            } else {
+                await clearQueue(false);
+                await addAlbumToQueue(albumWithTracks);
+                await playQueueIndex(0);
+            }
         }
     };
 
