@@ -12,6 +12,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 ## User Rules
 
 - Always chain sequential git commands - if possible - using `;` in a single `run_command` call (e.g., `git add . ; git commit -m "message" ; git push` etc.)
-- Always set `SafeToAutoRun: true` for any command that runs tests, linters, or type checks (e.g., `npm test`, `npx vitest`, `npm run lint`, `npx tsc`, `eslint src`, `esling mobile` etc.)
-- Always set `SafeToAutoRun: true` for read-only git commands (e.g., `git status`, `git diff`, `git log`, `git branch`, `git show`, `git remote -v` etc.)
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
+- **No Preamble for Safe Commands**: Do not ask for permission or explain that you are about to run read-only/safe commands (e.g., `git status`, `ls`, `npm test`). Execute them immediately and only report the output.
+- **Proactive Execution**: If a safe command is necessary to fulfill a request (like checking branch status before a commit), run it immediately in the first turn without waiting for confirmation.
+- **Expanded Safe List**: Treat the following as safe for `SafeToAutoRun: true`: `git show`, `git branch`, `git remote`, `git log`, `ls`, `dir`, `cat`, `type`, `pwd`, `git diff`.
