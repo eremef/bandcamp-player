@@ -6,11 +6,10 @@ import { useStore } from '../../../store';
 
 // Mock Lucide icons
 jest.mock('lucide-react-native', () => {
-    const React = require('react');
-    const { Text } = require('react-native');
+    const { Text } = jest.requireActual('react-native');
     return {
-        Play: () => React.createElement(Text, null, 'PlayIcon'),
-        Trash2: () => React.createElement(Text, null, 'TrashIcon'),
+        Play: () => <Text>PlayIcon</Text>,
+        Trash2: () => <Text>TrashIcon</Text>,
     };
 });
 

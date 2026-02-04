@@ -581,6 +581,7 @@ function renderRadio(stations) {
             content.style.display = 'flex';
             content.style.alignItems = 'center';
             content.style.flex = '1';
+            content.style.gap = '1rem';
             content.style.overflow = 'hidden';
 
             const imageUrl = station.imageUrl || '';
