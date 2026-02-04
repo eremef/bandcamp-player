@@ -61,11 +61,13 @@ describe('PlayerService', () => {
     });
 
     describe('Playback Control', () => {
-        it('should play a track directly', async () => {
+        it('should play a track directly and add it to the queue', async () => {
             await playerService.play(mockTrack);
             const state = playerService.getState();
             expect(state.isPlaying).toBe(true);
             expect(state.currentTrack).toEqual(mockTrack);
+            expect(state.queue.items).toHaveLength(1);
+            expect(state.queue.currentIndex).toBe(0);
             expect(mockScrobblerService.updateNowPlaying).toHaveBeenCalledWith(mockTrack);
         });
 

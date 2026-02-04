@@ -84,6 +84,14 @@ export function AlbumDetailView() {
         }
     };
 
+    const handlePlayTrack = async (index: number) => {
+        if (albumDetails && albumDetails.tracks.length > 0) {
+            await clearQueue(false);
+            await addTracksToQueue(albumDetails.tracks);
+            await playQueueIndex(index);
+        }
+    };
+
     const handleTrackAddToQueue = async (track: any) => {
         setActiveTrackMenu(null);
         await addToQueue(track);
@@ -179,7 +187,7 @@ export function AlbumDetailView() {
                                     }}
                                 >
                                     <td className={styles.colNum}>
-                                        <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => play(track)}>
+                                        <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => handlePlayTrack(index)}>
                                             <span className={styles.trackNumber}>{index + 1}</span>
                                             <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
                                         </button>
