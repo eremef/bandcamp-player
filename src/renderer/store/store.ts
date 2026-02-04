@@ -12,6 +12,7 @@ import type {
     ViewType,
     RadioStation,
     RadioState,
+    Queue,
 } from '../../shared/types';
 
 // ============================================================================
@@ -42,7 +43,7 @@ interface PlayerSlice {
 }
 
 interface QueueSlice {
-    queue: { items: Array<{ id: string; track: Track }>; currentIndex: number };
+    queue: Queue;
     addToQueue: (track: Track, playNext?: boolean) => Promise<void>;
     addAlbumToQueue: (album: Album) => Promise<void>;
     removeFromQueue: (id: string) => Promise<void>;

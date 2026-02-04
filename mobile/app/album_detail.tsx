@@ -14,6 +14,14 @@ export default function AlbumDetailScreen() {
     const router = useRouter();
     const [album, setAlbum] = useState<Album | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [lastUrl, setLastUrl] = useState(url);
+
+    // Reset state when URL changes (runs during render to avoid cascading updates)
+    if (url !== lastUrl) {
+        setLastUrl(url);
+        setIsLoading(true);
+        setAlbum(null);
+    }
 
     // Store actions
     const playTrack = useStore(state => state.playTrack);
@@ -35,8 +43,6 @@ export default function AlbumDetailScreen() {
 
     useEffect(() => {
         if (!url) return;
-
-        setIsLoading(true);
 
         const handleAlbumDetails = (details: Album) => {
             // Check if this details match the requested URL (or close enough)

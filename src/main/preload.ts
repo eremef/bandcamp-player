@@ -28,6 +28,7 @@ import type {
     LastfmState,
     RadioStation,
     RadioState,
+    Queue,
 } from '../shared/types';
 
 // ============================================================================
@@ -107,9 +108,9 @@ const electronAPI = {
             ipcRenderer.invoke(QUEUE_CHANNELS.REORDER, fromIndex, toIndex),
         playIndex: (index: number): Promise<void> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.PLAY_INDEX, index),
-        get: (): Promise<{ items: Array<{ id: string; track: Track }>; currentIndex: number }> =>
+        get: (): Promise<Queue> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.GET_QUEUE),
-        onUpdated: createEventSubscriber<{ items: Array<{ id: string; track: Track }>; currentIndex: number }>(
+        onUpdated: createEventSubscriber<Queue>(
             QUEUE_CHANNELS.ON_UPDATED
         ),
     },
