@@ -568,6 +568,19 @@ describe('useStore', () => {
         useStore.setState({ remoteStatus: { connections: 0 } as any });
         act(() => listeners['remoteConn'](5));
         expect(useStore.getState().remoteStatus?.connections).toBe(5);
+
+        // --- Synchronization Tests ---
+        // Test sync from player state
+        const syncMockQueue1 = { items: [{ id: 'sq1' }], currentIndex: 0 };
+        act(() => listeners['playerState']({ isPlaying: true, queue: syncMockQueue1 }));
+        expect(useStore.getState().queue).toEqual(syncMockQueue1);
+        expect(useStore.getState().player.queue).toEqual(syncMockQueue1);
+
+        // Test sync from queue update
+        const syncMockQueue2 = { items: [{ id: 'sq2' }], currentIndex: 0 };
+        act(() => listeners['queue'](syncMockQueue2));
+        expect(useStore.getState().queue).toEqual(syncMockQueue2);
+        expect(useStore.getState().player.queue).toEqual(syncMockQueue2);
     });
 });
 
