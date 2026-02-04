@@ -219,6 +219,42 @@ describe('Mobile useStore', () => {
             act(() => useStore.getState().addStationToPlaylist('p1', mockStation));
             expect(webSocketService.send).toHaveBeenCalledWith('add-station-to-playlist', { playlistId: 'p1', station: mockStation });
         });
+
+        it('should play queue index', () => {
+            act(() => useStore.getState().playQueueIndex(5));
+            expect(webSocketService.send).toHaveBeenCalledWith('play-queue-index', 5);
+        });
+
+        it('should remove from queue', () => {
+            // Setup initial queue
+            useStore.setState({
+                queue: {
+                    items: [{ id: 'q1', track: mockTrack, source: 'collection' }],
+                    currentIndex: 0
+                }
+            });
+
+            act(() => useStore.getState().removeFromQueue('q1'));
+            
+            expect(webSocketService.send).toHaveBeenCalledWith('remove-from-queue', 'q1');
+            expect(useStore.getState().queue.items).toHaveLength(0);
+        });
+
+        it('should clear queue', () => {
+             // Setup initial queue
+             useStore.setState({
+                queue: {
+                    items: [{ id: 'q1', track: mockTrack, source: 'collection' }],
+                    currentIndex: 0
+                }
+            });
+
+            act(() => useStore.getState().clearQueue());
+            
+            // clearQueue keeps current item if playing
+            expect(useStore.getState().queue.items).toHaveLength(1);
+            expect(webSocketService.send).toHaveBeenCalledWith('clear-queue');
+        });
     });
 
     describe('WebSocket Events', () => {
