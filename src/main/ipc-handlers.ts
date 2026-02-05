@@ -228,6 +228,10 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(REMOTE_CHANNELS.START, () => remoteService.start());
     ipcMain.handle(REMOTE_CHANNELS.STOP, () => remoteService.stop());
     ipcMain.handle(REMOTE_CHANNELS.GET_STATUS, () => remoteService.getStatus());
+    ipcMain.handle(REMOTE_CHANNELS.GET_DEVICES, () => remoteService.getConnectedDevices());
+    ipcMain.handle(REMOTE_CHANNELS.DISCONNECT_DEVICE, (_, clientId: string) =>
+        remoteService.disconnectDevice(clientId)
+    );
 
     remoteService.on('status-changed', (isRunning) => {
         broadcast(REMOTE_CHANNELS.ON_STATUS_CHANGED, isRunning);

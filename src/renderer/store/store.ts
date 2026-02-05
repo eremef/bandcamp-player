@@ -13,6 +13,7 @@ import type {
     RadioStation,
     RadioState,
     Queue,
+    RemoteClient,
 } from '../../shared/types';
 
 // ============================================================================
@@ -111,9 +112,12 @@ interface SettingsSlice {
 
 interface RemoteSlice {
     remoteStatus: { isRunning: boolean; port: number; ip: string; url: string; connections: number } | null;
+    connectedDevices: RemoteClient[];
     fetchRemoteStatus: () => Promise<void>;
     startRemote: () => Promise<void>;
     stopRemote: () => Promise<void>;
+    fetchConnectedDevices: () => Promise<void>;
+    disconnectDevice: (clientId: string) => Promise<void>;
 }
 
 interface UISlice {
@@ -436,6 +440,7 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // ---- Remote Slice ----
     remoteStatus: null,
+    connectedDevices: [],
     fetchRemoteStatus: async () => {
         const status = await window.electron.remote.getStatus();
         set({ remoteStatus: status });
@@ -447,6 +452,17 @@ export const useStore = create<StoreState>((set, get) => ({
     stopRemote: async () => {
         await window.electron.remote.stop();
         get().fetchRemoteStatus();
+        set({ connectedDevices: [] });
+    },
+    fetchConnectedDevices: async () => {
+        const devices = await window.electron.remote.getConnectedDevices();
+        set({ connectedDevices: devices });
+    },
+    disconnectDevice: async (clientId) => {
+        const success = await window.electron.remote.disconnectDevice(clientId);
+        if (success) {
+            get().fetchConnectedDevices();
+        }
     },
 
     // ---- UI Slice ----
@@ -555,5 +571,7 @@ export async function initializeStoreSubscriptions() {
         } else {
             useStore.getState().fetchRemoteStatus();
         }
+        // Also refresh the devices list if it's available
+        useStore.getState().fetchConnectedDevices();
     });
 }

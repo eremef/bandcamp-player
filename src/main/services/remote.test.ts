@@ -144,8 +144,14 @@ describe('RemoteControlService', () => {
             // Simulate connection
             mockWs = new EventEmitter();
             mockWs.send = vi.fn();
+            mockWs.terminate = vi.fn(); // Add terminate mock
+            mockWs.close = vi.fn(); // Add close mock
             mockWs.readyState = 1; // OPEN
-            mockWss.emit('connection', mockWs);
+            const mockReq = {
+                socket: { remoteAddress: '127.0.0.1' },
+                headers: { 'user-agent': 'TestAgent' }
+            };
+            mockWss.emit('connection', mockWs, mockReq);
         });
 
         const sendMessage = (type: string, payload?: any) => {
@@ -247,6 +253,50 @@ describe('RemoteControlService', () => {
             expect(mockScraperService.fetchCollection).not.toHaveBeenCalled();
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('collection-data'));
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('"items":[]'));
+        });
+    });
+
+    describe('Device Management', () => {
+        let mockWs: any;
+        let mockReq: any;
+
+        beforeEach(() => {
+            remoteService.start();
+            mockWs = new EventEmitter();
+            mockWs.send = vi.fn();
+            mockWs.terminate = vi.fn();
+            mockWs.close = vi.fn();
+            mockWs.readyState = 1;
+
+            mockReq = {
+                socket: { remoteAddress: '127.0.0.1' },
+                headers: { 'user-agent': 'TestAgent' }
+            };
+            mockWss.emit('connection', mockWs, mockReq);
+        });
+
+        it('should list connected devices', () => {
+            const devices = remoteService.getConnectedDevices();
+            expect(devices).toHaveLength(1);
+            expect(devices[0]).toMatchObject({
+                ip: '127.0.0.1',
+                userAgent: 'TestAgent'
+            });
+        });
+
+        it('should disconnect a device', () => {
+            const devices = remoteService.getConnectedDevices();
+            const clientId = devices[0].id;
+
+            const result = remoteService.disconnectDevice(clientId);
+            expect(result).toBe(true);
+            expect(mockWs.close).toHaveBeenCalled();
+            expect(remoteService.getConnectedDevices()).toHaveLength(0);
+        });
+
+        it('should handle disconnecting non-existent device', () => {
+            const result = remoteService.disconnectDevice('non-existent');
+            expect(result).toBe(false);
         });
     });
 });

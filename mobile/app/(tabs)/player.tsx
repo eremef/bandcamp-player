@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 
 export default function PlayerScreen() {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
+    const [isMenuVisible, setIsMenuVisible] = useState(false);
     const {
         currentTrack,
         isPlaying,
@@ -24,25 +25,30 @@ export default function PlayerScreen() {
         isShuffled,
         disconnect,
         volume,
-        setVolume
+        setVolume,
+        hostIp
     } = useStore();
 
     const handleDisconnect = () => {
-        Alert.alert(
-            "Disconnect",
-            "Are you sure you want to disconnect?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Disconnect",
-                    style: "destructive",
-                    onPress: () => {
-                        disconnect();
-                        router.replace('/');
+        setIsMenuVisible(false); // Close menu first
+
+        setTimeout(() => {
+            Alert.alert(
+                "Disconnect",
+                "Are you sure you want to disconnect?",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Disconnect",
+                        style: "destructive",
+                        onPress: () => {
+                            disconnect();
+                            router.replace('/');
+                        }
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }, 300); // Small delay to allow menu animation to finish
     };
 
     const formatTime = (seconds: number) => {
@@ -56,7 +62,7 @@ export default function PlayerScreen() {
             <View style={styles.header}>
                 <View style={{ width: 24 }} />
                 <Text style={styles.headerTitle}>Now Playing</Text>
-                <TouchableOpacity onPress={handleDisconnect}>
+                <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
                     <MoreVertical size={24} color="#fff" />
                 </TouchableOpacity>
             </View>
@@ -156,9 +162,46 @@ export default function PlayerScreen() {
                         onPress={() => setIsVolumeVisible(true)}
                     >
                         <Volume2 size={24} color="#fff" />
-                        <Text style={styles.volumeButtonTextRow}>{Math.round((volume || 0) * 100)}%</Text>
+                        <Text style={styles.volumeButtonTextRow}>{Math.round((volume ?? 0) * 100)}%</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* Menu Modal */}
+                <Modal
+                    animationType="fade"
+                    transparent={true}
+                    visible={isMenuVisible}
+                    onRequestClose={() => setIsMenuVisible(false)}
+                >
+                    <Pressable
+                        style={styles.menuModalOverlay}
+                        onPress={() => setIsMenuVisible(false)}
+                    >
+                        <View style={styles.menuContainer}>
+                            <Text style={styles.menuTitle}>Connected to</Text>
+                            <Text style={styles.menuIp}>{hostIp}</Text>
+
+                            <View style={styles.menuDivider} />
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setIsMenuVisible(false);
+                                    router.push('/about');
+                                }}
+                            >
+                                <Text style={styles.menuItemText}>About</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.menuItem, styles.menuItemDestructive]}
+                                onPress={handleDisconnect}
+                            >
+                                <Text style={[styles.menuItemText, styles.destructiveText]}>Disconnect</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Modal>
 
                 {/* Vertical Volume Modal */}
                 <Modal
@@ -168,7 +211,7 @@ export default function PlayerScreen() {
                     onRequestClose={() => setIsVolumeVisible(false)}
                 >
                     <Pressable
-                        style={styles.modalOverlay}
+                        style={styles.volumeModalOverlay}
                         onPress={() => setIsVolumeVisible(false)}
                     >
                         <View style={styles.verticalVolumeContainer}>
@@ -177,14 +220,14 @@ export default function PlayerScreen() {
                                     style={styles.verticalSlider}
                                     minimumValue={0}
                                     maximumValue={1}
-                                    value={volume || 0.8}
+                                    value={volume ?? 0.8}
                                     onSlidingComplete={setVolume}
                                     minimumTrackTintColor="#1da1f2"
                                     maximumTrackTintColor="#333"
                                     thumbTintColor="#fff"
                                 />
                             </View>
-                            <Text style={styles.modalVolumeText}>{Math.round((volume || 0) * 100)}%</Text>
+                            <Text style={styles.modalVolumeText}>{Math.round((volume ?? 0) * 100)}%</Text>
 
                         </View>
                     </Pressable>
@@ -204,7 +247,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         paddingHorizontal: 16,
-        paddingTop: 8,
+        paddingTop: 20,
     },
     headerTitle: {
         fontSize: 18,
@@ -334,13 +377,21 @@ const styles = StyleSheet.create({
         width: '100%',
         textAlign: 'center',
     },
-    modalOverlay: {
+    menuModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-start',
+        paddingRight: 25,
+        paddingTop: 80,
+        alignItems: 'flex-end',
+    },
+    volumeModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
-        paddingRight: 25,
-        paddingTop: 125,
         alignItems: 'flex-end',
+        paddingRight: 25,
+        paddingTop: 25,
     },
     verticalVolumeContainer: {
         backgroundColor: '#1e1e1e',
@@ -367,5 +418,44 @@ const styles = StyleSheet.create({
         fontSize: 16,
         bottom: 15,
         fontWeight: 'bold'
+    },
+    menuContainer: {
+        backgroundColor: '#1e1e1e',
+        width: 200,
+        borderRadius: 16,
+        padding: 16,
+        alignItems: 'center',
+    },
+    menuTitle: {
+        color: '#888',
+        fontSize: 12,
+        marginBottom: 4,
+    },
+    menuIp: {
+        color: '#fff',
+        fontSize: 16,
+        marginBottom: 16,
+        fontWeight: 'bold',
+    },
+    menuDivider: {
+        width: '100%',
+        height: 1,
+        backgroundColor: '#333',
+        marginBottom: 8,
+    },
+    menuItem: {
+        width: '100%',
+        paddingVertical: 12,
+        alignItems: 'flex-start',
+    },
+    menuItemText: {
+        color: '#fff',
+        fontSize: 18,
+    },
+    menuItemDestructive: {
+        marginTop: 4,
+    },
+    destructiveText: {
+        color: '#ff4444',
     }
 });

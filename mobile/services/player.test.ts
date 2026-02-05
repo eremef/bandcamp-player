@@ -41,12 +41,12 @@ describe('player.ts', () => {
             expect(result).toBe(true);
         });
 
-        it('should skip setup if already set up', async () => {
-            (TrackPlayer.getActiveTrackIndex as any).mockResolvedValue(0);
+        it('should handle player already setup error', async () => {
+            (TrackPlayer.setupPlayer as any).mockRejectedValue(new Error('The player has already been initialized via setupPlayer.'));
 
             const result = await setupPlayer();
 
-            expect(TrackPlayer.setupPlayer).not.toHaveBeenCalled();
+            expect(TrackPlayer.setupPlayer).toHaveBeenCalled();
             expect(result).toBe(true);
         });
 

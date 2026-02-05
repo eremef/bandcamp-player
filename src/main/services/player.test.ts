@@ -181,10 +181,19 @@ describe('PlayerService', () => {
     });
 
     describe('Volume Control', () => {
-        it('should set volume and save to db', () => {
-            playerService.setVolume(0.8);
+        it('should set volume and save to db', async () => {
+            vi.useFakeTimers();
+            await playerService.setVolume(0.8);
             expect(playerService.getState().volume).toBe(0.8);
+
+            // Should not be called yet due to debounce
+            expect(mockDatabase.setSettings).not.toHaveBeenCalled();
+
+            // Advance time
+            vi.advanceTimersByTime(2000);
+
             expect(mockDatabase.setSettings).toHaveBeenCalledWith({ defaultVolume: 0.8 });
+            vi.useRealTimers();
         });
 
         it('should toggle mute', () => {

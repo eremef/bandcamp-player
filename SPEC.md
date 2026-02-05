@@ -44,6 +44,8 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
   - **Queue**: View and manage the playback queue with remove and reorder support.
+  - **Connection**: Manage connection to Host, view IP, and Disconnect.
+  - **General**: Swipe-to-refresh on all lists, About screen, License viewer.
 
 ## 3. Data Models
 
@@ -161,7 +163,8 @@ Application configuration.
 - `cacheEnabled`: boolean
 - `cacheMaxSizeGB`: number
 - `cacheLocation`: string
-- `defaultVolume`: number
+- `defaultVolume`: number (Persisted "last used" volume)
+- `crossfadeDuration`: number
 - `crossfadeDuration`: number
 - `startMinimized`: boolean
 - `minimizeToTray`: boolean

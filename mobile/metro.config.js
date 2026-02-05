@@ -20,4 +20,9 @@ config.resolver.extraNodeModules = {
     'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
 };
 
+// 4. Handle txt files
+if (!config.resolver.assetExts.includes('txt')) {
+    config.resolver.assetExts.push('txt');
+}
+
 module.exports = config;

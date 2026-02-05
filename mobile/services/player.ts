@@ -7,16 +7,17 @@ import { Track } from '@shared/types';
 export async function setupPlayer() {
     let isSetup = false;
     try {
-        const activeTrack = await TrackPlayer.getActiveTrackIndex();
-        if (activeTrack !== undefined) {
+        await TrackPlayer.setupPlayer();
+        isSetup = true;
+    } catch (e: any) {
+        if (e?.message?.includes('already been initialized')) {
             isSetup = true;
+        } else {
+            console.error('Error setting up player:', e);
         }
-    } catch { 
-        // Ignore error
     }
 
-    if (!isSetup) {
-        await TrackPlayer.setupPlayer();
+    if (isSetup) {
         await TrackPlayer.updateOptions({
             android: {
                 appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
@@ -32,7 +33,6 @@ export async function setupPlayer() {
             // compactCapabilities is removed in v4+, Android uses capabilities
             progressUpdateEventInterval: 2,
         });
-        isSetup = true;
     }
     return isSetup;
 }

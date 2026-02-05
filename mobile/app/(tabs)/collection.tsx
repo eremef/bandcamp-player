@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
@@ -185,6 +185,20 @@ export default function CollectionScreen() {
         );
     };
 
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        // Trigger server refresh
+        if (webSocketService) {
+            webSocketService.send('get-collection');
+        }
+        // Simulate network request duration for UI feedback
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 1500);
+    }, []);
+
     if (!collection) {
         return (
             <SafeAreaView style={styles.container}>
@@ -200,14 +214,6 @@ export default function CollectionScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Collection</Text>
-                <View style={styles.headerButtons}>
-                    <TouchableOpacity onPress={handleRefresh} style={styles.iconButton} testID="refresh-button">
-                        <RefreshCw size={24} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleDisconnect} style={styles.iconButton}>
-                        <MoreVertical size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
             </View>
 
             <View style={styles.searchContainer}>
@@ -224,12 +230,16 @@ export default function CollectionScreen() {
             </View>
 
             <FlatList
+                testID="collection-list"
                 data={filteredCollection}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={2}
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                }
             />
             <PlaylistSelectionModal
                 visible={playlistModalVisible}

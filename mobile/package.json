@@ -10,15 +10,18 @@
     "build:apk": "npx eas-cli build --platform android",
     "test": "jest",
     "lint": "cd .. && eslint mobile",
+    "typecheck": "tsc --noEmit",
     "android:build": "expo run:android"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/slider": "5.1.2",
     "expo": "~54.0.32",
+    "expo-asset": "^12.0.12",
     "expo-build-properties": "^1.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "^6.0.20",
+    "expo-file-system": "^19.0.21",
     "expo-linking": "~8.0.11",
     "expo-network": "^8.0.8",
     "expo-router": "~6.0.22",

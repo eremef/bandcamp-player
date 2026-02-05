@@ -29,6 +29,7 @@ import type {
     RadioStation,
     RadioState,
     Queue,
+    RemoteClient,
 } from '../shared/types';
 
 // ============================================================================
@@ -201,6 +202,9 @@ const electronAPI = {
         stop: (): Promise<void> => ipcRenderer.invoke(REMOTE_CHANNELS.STOP),
         getStatus: (): Promise<{ isRunning: boolean; port: number; ip: string; url: string; connections: number }> =>
             ipcRenderer.invoke(REMOTE_CHANNELS.GET_STATUS),
+        getConnectedDevices: (): Promise<RemoteClient[]> => ipcRenderer.invoke(REMOTE_CHANNELS.GET_DEVICES),
+        disconnectDevice: (clientId: string): Promise<boolean> =>
+            ipcRenderer.invoke(REMOTE_CHANNELS.DISCONNECT_DEVICE, clientId),
         onStatusChanged: createEventSubscriber<boolean>(REMOTE_CHANNELS.ON_STATUS_CHANGED),
         onConnectionsChanged: createEventSubscriber<number>(REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED),
     },

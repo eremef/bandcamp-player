@@ -210,6 +210,8 @@ export interface AppSettings {
 
     // Last.fm credentials (encrypted)
     lastfmSessionKey?: string;
+    lastfmApiKey?: string;
+    lastfmApiSecret?: string;
 }
 
 // ============================================================================
@@ -254,4 +256,16 @@ export interface AppError {
     code: string;
     message: string;
     details?: unknown;
+}
+
+// ============================================================================
+// Remote Control Types
+// ============================================================================
+
+export interface RemoteClient {
+    id: string;
+    ip: string;
+    userAgent: string;
+    connectedAt: string;
+    lastActiveAt: string;
 }

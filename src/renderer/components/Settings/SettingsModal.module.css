@@ -314,6 +314,53 @@
     transform: translateY(-2px);
 }
 
+.apiConfig {
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
+}
+
+.inputGroup:last-child {
+    margin-bottom: 0;
+}
+
+.inputLabel {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.textInput {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+}
+
+.textInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(29, 161, 242, 0.2);
+}
+
+.textInput::placeholder {
+    color: var(--text-muted);
+}
+
 /* Remote Control Styles */
 .remoteInfo {
     margin-top: var(--spacing-md);
@@ -339,11 +386,37 @@
     flex: 1;
 }
 
+.remoteUrlContainer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
 .remoteUrl {
-    font-family: monospace;
     font-size: var(--font-size-lg);
     color: var(--accent-primary);
-    margin: 0 0 var(--spacing-xs) 0;
+    margin: 0;
+    cursor: pointer;
+    word-break: break-all;
+}
+
+.copyBtn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.copyBtn:hover {
+    color: var(--text-primary);
+    background-color: var(--hover-overlay);
 }
 
 .remoteHint {
@@ -451,4 +524,16 @@
     font-size: var(--font-size-xs);
     color: var(--text-tertiary);
     margin-top: var(--spacing-xs);
+    cursor: pointer;
+}
+
+.manageLink {
+    font-size: 0.85rem;
+    color: var(--accent-primary);
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+.manageLink:hover {
+    text-decoration: underline;
 }
