@@ -1,0 +1,42 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mD:/eremef/Documents/AI/antigravity/Bandcamp-player[39m
+
+[90mstdout[2m | src/main/services/scrobbler.test.ts[2m > [22m[2mScrobblerService[2m > [22m[2mAuthentication[2m > [22m[2mshould open auth window on connect
+[22m[39m[ScrobblerService] Opening auth URL: https://www.last.fm/api/auth?api_key=mock-api-key&cb=http%3A%2F%2Flocalhost%3A41234%2Flastfm-callback
+
+ [32mÔťô[39m src/main/services/scrobbler.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Unhandled Errors ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ» Unhandled Rejection ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+TypeError: Cannot read properties of undefined (reading 'catch')
+ ÔŁ» src/main/services/scrobbler.service.ts:161:39
+    159| 
+    160|             console.log(`[ScrobblerService] Opening auth URL: ${authUrÔÇŽ
+    161|             authWindow.loadURL(authUrl).catch(err => {
+       |                                       ^
+    162|                 if (!authWindow.isDestroyed()) {
+    163|                     console.error(`[ScrobblerService] Failed to load UÔÇŽ
+ ÔŁ» ScrobblerService.connect src/main/services/scrobbler.service.ts:59:16
+ ÔŁ» src/main/services/scrobbler.test.ts:109:30
+ ÔŁ» node_modules/@vitest/runner/dist/index.js:145:11
+ ÔŁ» node_modules/@vitest/runner/dist/index.js:915:26
+ ÔŁ» node_modules/@vitest/runner/dist/index.js:1243:20
+ ÔŁ» runWithTimeout node_modules/@vitest/runner/dist/index.js:1209:10
+ ÔŁ» node_modules/@vitest/runner/dist/index.js:1653:37
+
+This error originated in "src/main/services/scrobbler.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should open auth window on connect". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m     Errors [22m [1m[31m1 error[39m[22m
+[2m   Start at [22m 14:53:49
+[2m   Duration [22m 1.62s[2m (transform 76ms, setup 253ms, import 223ms, tests 13ms, environment 825ms)[22m
+

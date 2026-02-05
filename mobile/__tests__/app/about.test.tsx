@@ -54,18 +54,18 @@ describe('AboutScreen', () => {
     });
 
     it('navigates to license screen', () => {
-        const { router } = require('expo-router');
         const { getByText } = render(<AboutScreen />);
 
         fireEvent.press(getByText('Licensed under the MIT License.'));
+        const { router } = jest.requireMock('expo-router');
         expect(router.push).toHaveBeenCalledWith('/license');
     });
 
     it('navigates back on arrow press', () => {
-        const { router } = require('expo-router');
         const { getByTestId } = render(<AboutScreen />);
 
         fireEvent.press(getByTestId('back-button'));
+        const { router } = jest.requireMock('expo-router');
         expect(router.back).toHaveBeenCalled();
     });
 });

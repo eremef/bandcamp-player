@@ -91,7 +91,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `src/main/database/database.test.ts` | Database CRUD operations | 20 | ~70% |
 | `src/main/services/auth.test.ts` | Authentication & Cookies | 7 | ~64% |
 | `src/main/services/playlist.test.ts` | Playlist Management | 9 | 100% |
-| `src/main/services/scrobbler.test.ts` | Last.fm Scrobbling | 8 | ~63% |
+| `src/main/services/scrobbler.test.ts` | Last.fm Scrobbling | 8 | ~68% |
 | `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 12 | ~80% |
 | `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
 | `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
@@ -122,7 +122,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `mobile/app/about.test.tsx` | About Screen UI | 5 | 100% |
 | `mobile/app/license.test.tsx` | License Screen UI | 3 | 100% |
 
-**Total:** ~250+ tests across both platforms.
+**Total:** 282 tests across both platforms.
 
 ## Best Practices
 
