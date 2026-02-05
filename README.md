@@ -153,7 +153,7 @@ src/
 ## Mobile Companion App
 
 <p align="center">
-  <img width="300" alt="Mobile app screenshot" src="https://github.com/user-attachments/assets/e982995b-c632-4ab5-af82-c21dfd5fa320" />
+  <img width="300" alt="Mobile app screenshot" src="https://github.com/user-attachments/assets/81280716-5e57-4af0-a2bb-afc0535c06ae" />
 </p>
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
