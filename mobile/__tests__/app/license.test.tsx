@@ -3,7 +3,7 @@ import React from 'react';
 import { render, waitFor, fireEvent } from '@testing-library/react-native';
 import LicenseScreen from '../../app/license';
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 // Mock Expo dependencies
 jest.mock('expo-asset', () => ({
@@ -12,8 +12,11 @@ jest.mock('expo-asset', () => ({
     },
 }));
 
+const mockText = jest.fn();
 jest.mock('expo-file-system', () => ({
-    readAsStringAsync: jest.fn(),
+    File: jest.fn().mockImplementation(() => ({
+        text: mockText,
+    })),
 }));
 
 jest.mock('expo-router', () => ({
@@ -39,7 +42,7 @@ describe('LicenseScreen', () => {
         };
 
         (Asset.fromModule as jest.Mock).mockReturnValue(mockAsset);
-        (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue(mockLicenseText);
+        mockText.mockResolvedValue(mockLicenseText);
 
         const { getByText } = render(<LicenseScreen />);
 
@@ -49,7 +52,8 @@ describe('LicenseScreen', () => {
 
         expect(Asset.fromModule).toHaveBeenCalled();
         expect(mockAsset.downloadAsync).toHaveBeenCalled();
-        expect(FileSystem.readAsStringAsync).toHaveBeenCalledWith('file://license.txt');
+        expect(File).toHaveBeenCalledWith('file://license.txt');
+        expect(mockText).toHaveBeenCalled();
     });
 
     it('handles loading error gracefully', async () => {
