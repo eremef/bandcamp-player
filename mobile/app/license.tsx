@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 
 export default function LicenseScreen() {
     const [content, setContent] = useState<string>('');
@@ -17,7 +17,8 @@ export default function LicenseScreen() {
                 await asset.downloadAsync();
 
                 if (asset.localUri) {
-                    const text = await FileSystem.readAsStringAsync(asset.localUri);
+                    const file = new File(asset.localUri);
+                    const text = await file.text();
                     setContent(text);
                 }
             } catch (error) {
