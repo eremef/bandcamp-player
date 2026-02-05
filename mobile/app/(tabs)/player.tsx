@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
 import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2 } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 export default function PlayerScreen() {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
+    const insets = useSafeAreaInsets();
     const {
         currentTrack,
         isPlaying,
@@ -58,7 +59,7 @@ export default function PlayerScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={[styles.container, { paddingTop: insets.top }]}>
             <View style={styles.header}>
                 <View style={{ width: 24 }} />
                 <Text style={styles.headerTitle}>Now Playing</Text>
@@ -97,8 +98,6 @@ export default function PlayerScreen() {
                     </Text>
                 </View>
 
-
-                {/* Spacer to push controls to bottom */}
                 <View style={{ flex: 1 }} />
 
                 {/* Progress */}
@@ -233,7 +232,7 @@ export default function PlayerScreen() {
                     </Pressable>
                 </Modal>
             </View>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -242,6 +241,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#121212',
     },
+
+    controls: {
+        width: '100%',
+        justifyContent: 'flex-end',
+    },
+
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -258,7 +263,7 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
         alignItems: 'center',
-        paddingBottom: 80,
+        paddingBottom: 12,
         paddingTop: 12,
     },
     artworkContainer: {
@@ -314,7 +319,7 @@ const styles = StyleSheet.create({
     },
     progressContainer: {
         width: '100%',
-        marginTop: 32,
+        marginTop: 15,
     },
     slider: {
         width: '100%',
@@ -323,7 +328,7 @@ const styles = StyleSheet.create({
     timeContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingHorizontal: 15,
+        paddingHorizontal: 11,
     },
     timeText: {
         color: '#888',
@@ -334,7 +339,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between', // Try 'space-around' if it crowds
         width: '100%',
-        paddingHorizontal: 10, // Reduce padding to fit more items
+        paddingHorizontal: 11, // Reduce padding to fit more items
+        paddingBottom: 15,
     },
     playButton: {
         width: 72,

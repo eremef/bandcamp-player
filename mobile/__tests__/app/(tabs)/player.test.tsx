@@ -11,21 +11,22 @@ jest.mock('expo-router', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
     SafeAreaView: ({ children }: any) => <>{children}</>,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
 jest.mock('@react-native-community/slider', () => 'Slider');
 
 jest.mock('lucide-react-native', () => {
-    const { Text: RNText } = jest.requireActual('react-native');
+    const { Text } = jest.requireActual('react-native');
     return {
-        Play: () => <RNText>Play</RNText>,
-        Pause: () => <RNText>Pause</RNText>,
-        SkipBack: () => <RNText>SkipBack</RNText>,
-        SkipForward: () => <RNText>SkipForward</RNText>,
-        Shuffle: () => <RNText>Shuffle</RNText>,
-        Repeat: () => <RNText>Repeat</RNText>,
-        MoreVertical: () => <RNText>MoreVertical</RNText>,
-        Volume2: () => <RNText>Volume2</RNText>,
+        Play: () => <Text>Play</Text>,
+        Pause: () => <Text>Pause</Text>,
+        SkipBack: () => <Text>SkipBack</Text>,
+        SkipForward: () => <Text>SkipForward</Text>,
+        Shuffle: () => <Text>Shuffle</Text>,
+        Repeat: () => <Text>Repeat</Text>,
+        MoreVertical: () => <Text>MoreVertical</Text>,
+        Volume2: () => <Text>Volume2</Text>,
     };
 });
 
