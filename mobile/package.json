@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.bandcamp.remote",
-  "version": "1.5.2-beta",
+  "version": "1.5.3-beta",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -47,7 +47,7 @@
     "babel-preset-expo": "^54.0.10",
     "jest": "~29.7.0",
     "jest-expo": "^54.0.16",
-    "react-test-renderer": "^19.2.4",
+    "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },
   "private": true,

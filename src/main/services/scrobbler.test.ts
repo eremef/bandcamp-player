@@ -10,13 +10,18 @@ import * as crypto from 'crypto';
 vi.mock('axios');
 vi.mock('../database/database');
 // Mock instance that we can spy on
-const mockLoadURL = vi.fn();
+const mockLoadURL = vi.fn().mockResolvedValue(undefined);
 const mockBrowserWindowInstance = {
     loadURL: mockLoadURL,
     close: vi.fn(),
     isDestroyed: vi.fn().mockReturnValue(false),
     webContents: {
         on: vi.fn(),
+        session: {
+            webRequest: {
+                onBeforeRequest: vi.fn(),
+            },
+        },
     },
     on: vi.fn(),
 };
@@ -70,6 +75,9 @@ describe('ScrobblerService', () => {
         vi.clearAllMocks();
     });
 
+    // Mock console.error to avoid noise in tests
+    vi.spyOn(console, 'error').mockImplementation(() => { });
+
     describe('Initialization', () => {
         it('should load session from settings', () => {
             expect(scrobblerService.getState().isConnected).toBe(false); // User is null until verified
@@ -97,7 +105,7 @@ describe('ScrobblerService', () => {
             expect(scrobblerService.getState().user?.name).toBe('testuser');
         });
 
-        it.skip('should open auth window on connect', async () => {
+        it('should open auth window on connect', async () => {
             scrobblerService.connect();
             expect(BrowserWindow).toHaveBeenCalled();
             // Await next tick to ensure constructor logic ran
@@ -123,7 +131,7 @@ describe('ScrobblerService', () => {
             expect(params.sk).toBe('mock-session-key');
         });
 
-        it.skip('should queue scrobble when offline or error occurs', async () => {
+        it('should queue scrobble when offline or error occurs', async () => {
             await (scrobblerService as any).verifySession();
 
             // Simulate API error
