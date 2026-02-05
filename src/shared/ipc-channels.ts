@@ -162,6 +162,8 @@ export const REMOTE_CHANNELS = {
     GET_STATUS: 'remote:get-status',
     ON_STATUS_CHANGED: 'remote:on-status-changed',
     ON_CONNECTIONS_CHANGED: 'remote:on-connections-changed',
+    GET_DEVICES: 'remote:get-devices',
+    DISCONNECT_DEVICE: 'remote:disconnect-device',
 } as const;
 
 // ============================================================================

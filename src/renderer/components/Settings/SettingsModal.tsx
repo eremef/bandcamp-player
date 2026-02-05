@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Trash2, Music, User, LogOut } from 'lucide-react';
+import { X, Trash2, Music, User, LogOut, Copy, Check } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
+import ConnectedDevicesModal from './ConnectedDevicesModal';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -25,6 +26,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     } = useStore();
 
     const [appVersion, setAppVersion] = useState<string>('1.0.0');
+    const [copied, setCopied] = useState(false);
+    const [showDevicesModal, setShowDevicesModal] = useState(false);
 
     useEffect(() => {
         window.electron.system.getAppVersion().then(setAppVersion);
@@ -48,6 +51,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     };
 
+    const handleOpenLink = (url: string) => {
+        window.electron.system.openExternal(url);
+    };
+
+    const handleCopy = (text: string) => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
     return (
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -59,25 +72,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 </header>
 
                 <div className={styles.content}>
-                    {/* Playback */}
-                    <section className={styles.section}>
-                        <h3>Playback</h3>
-                        <div className={styles.setting}>
-                            <div className={styles.settingInfo}>
-                                <span className={styles.settingLabel}>Default Volume</span>
-                                <span className={styles.settingValue}>{Math.round((settings?.defaultVolume || 0.8) * 100)}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={settings?.defaultVolume || 0.8}
-                                onChange={(e) => updateSettings({ defaultVolume: parseFloat(e.target.value) })}
-                            />
-                        </div>
-                    </section>
-
                     {/* Cache */}
                     <section className={styles.section}>
                         <h3>Offline Cache</h3>
@@ -169,6 +163,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 </label>
                             </div>
                         )}
+                        <div className={styles.apiConfig}>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.inputLabel}>Last.fm API Key</label>
+                                <input
+                                    type="text"
+                                    className={styles.textInput}
+                                    placeholder="Enter your API Key"
+                                    value={settings?.lastfmApiKey || ''}
+                                    onChange={(e) => updateSettings({ lastfmApiKey: e.target.value })}
+                                />
+                            </div>
+                            <div className={styles.inputGroup}>
+                                <label className={styles.inputLabel}>Last.fm API Secret</label>
+                                <input
+                                    type="password"
+                                    className={styles.textInput}
+                                    placeholder="Enter your API Secret"
+                                    value={settings?.lastfmApiSecret || ''}
+                                    onChange={(e) => updateSettings({ lastfmApiSecret: e.target.value })}
+                                />
+                            </div>
+                            <p className={styles.settingHint}>
+                                You can get your own API credentials at <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)' }}>last.fm/api</a>
+                            </p>
+                        </div>
                     </section>
 
                     {/* Window */}
@@ -250,18 +269,36 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         />
                                     </div>
                                     <div className={styles.remoteText}>
-                                        <p className={styles.remoteUrl}>{remoteStatus.url}</p>
+                                        <div className={styles.remoteUrlContainer}>
+                                            <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
+                                                {remoteStatus.url}
+                                            </p>
+                                            <button
+                                                className={styles.copyBtn}
+                                                onClick={() => handleCopy(remoteStatus.url)}
+                                                title="Copy to clipboard"
+                                            >
+                                                {copied ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
+                                            </button>
+                                        </div>
                                         <p className={styles.remoteHint}>Scan this QR code or open the URL in your mobile browser</p>
-                                        <div className={styles.remoteConnections}>
+                                        <div className={styles.remoteConnections} onClick={() => remoteStatus.connections > 0 && setShowDevicesModal(true)} style={remoteStatus.connections > 0 ? { cursor: 'pointer' } : {}}>
                                             <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
                                                 ● {remoteStatus.connections} connected {remoteStatus.connections === 1 ? 'device' : 'devices'}
                                             </span>
+                                            {remoteStatus.connections > 0 && (
+                                                <span className={styles.manageLink}> (Manage)</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </section>
+
+                    {showDevicesModal && (
+                        <ConnectedDevicesModal onClose={() => setShowDevicesModal(false)} />
+                    )}
 
                     {/* Account */}
                     <section className={styles.section}>
@@ -297,9 +334,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <section className={styles.section}>
                         <h3>About</h3>
                         <div className={styles.about}>
-                            <p><strong>Bandcamp Player</strong></p>
+                            <p><strong>Bandcamp Desktop Player</strong></p>
                             <p className={styles.version}>Version {appVersion}</p>
-                            <p className={styles.copyright}>© {new Date().getFullYear()} Bandcamp Desktop Player</p>
+                            <p className={styles.copyright} onClick={() => handleOpenLink('https://eremef.xyz')}>© {new Date().getFullYear()} eremef.xyz</p>
+                            <p className={styles.copyright} onClick={() => handleOpenLink('https://github.com/eremef/bandcamp-player/blob/main/LICENSE.txt')}>
+                                Licensed under the MIT License.
+                            </p>
                         </div>
                     </section>
                 </div>

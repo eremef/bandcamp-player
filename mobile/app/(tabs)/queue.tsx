@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Play, Trash2 } from 'lucide-react-native';
@@ -72,19 +72,24 @@ export default function QueueScreen() {
         );
     };
 
-    if (!queue.items.length) {
-        return (
-            <View style={[styles.container, { paddingTop: insets.top }]}>
-                <View style={styles.header}>
-                    <Text style={styles.headerTitle}>Queue</Text>
-                </View>
-                <View style={styles.emptyContainer}>
-                    <Text style={styles.emptyText}>Queue is empty</Text>
-                    <Text style={styles.emptySubtext}>Add songs from your collection</Text>
-                </View>
-            </View>
-        );
-    }
+    const refreshQueue = useStore((state) => state.refreshQueue);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        refreshQueue();
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 1500);
+    }, [refreshQueue]);
+
+    const renderEmptyComponent = () => (
+        <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Queue is empty</Text>
+            <Text style={styles.emptySubtext}>Add songs from your collection</Text>
+        </View>
+    );
 
     return (
         <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -96,8 +101,12 @@ export default function QueueScreen() {
                 data={queue.items}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[styles.listContent, queue.items.length === 0 && { flex: 1 }]}
                 extraData={[queue.items.length, queue.currentIndex]}
+                ListEmptyComponent={renderEmptyComponent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                }
             />
         </View>
     );

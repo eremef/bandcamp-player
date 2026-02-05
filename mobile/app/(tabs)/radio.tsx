@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
 import { router } from 'expo-router';
-import { MoreVertical } from 'lucide-react-native';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 
@@ -15,14 +14,24 @@ export default function RadioScreen() {
     const disconnect = useStore((state) => state.disconnect);
     const addStationToQueue = useStore((state) => state.addStationToQueue);
     const addStationToPlaylist = useStore((state) => state.addStationToPlaylist);
+    const refreshRadio = useStore((state) => state.refreshRadio);
 
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     // ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        refreshRadio();
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 1500);
+    }, [refreshRadio]);
 
     const handlePlayStation = (station: RadioStation) => {
         playStation(station);
@@ -112,27 +121,28 @@ export default function RadioScreen() {
         );
     };
 
+    const renderEmptyComponent = () => (
+        <View style={styles.center}>
+            <Text style={styles.emptyText}>No radio stations found</Text>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Radio</Text>
-                <TouchableOpacity onPress={handleDisconnect}>
-                    <MoreVertical size={24} color="#fff" />
-                </TouchableOpacity>
             </View>
 
-            {radioStations.length === 0 ? (
-                <View style={styles.center}>
-                    <Text style={styles.emptyText}>No radio stations found</Text>
-                </View>
-            ) : (
-                <FlatList
-                    data={radioStations}
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                />
-            )}
+            <FlatList
+                data={radioStations}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={[styles.listContent, radioStations.length === 0 && { flex: 1 }]}
+                ListEmptyComponent={renderEmptyComponent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                }
+            />
 
             <ActionSheet
                 visible={actionSheetVisible}

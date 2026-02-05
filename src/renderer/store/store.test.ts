@@ -82,6 +82,8 @@ const mockElectron = {
         getStatus: vi.fn(),
         start: vi.fn(),
         stop: vi.fn(),
+        getConnectedDevices: vi.fn(),
+        disconnectDevice: vi.fn(),
         onStatusChanged: vi.fn(),
         onConnectionsChanged: vi.fn(),
     },
@@ -486,6 +488,23 @@ describe('useStore', () => {
         expect(mockElectron.remote.start).toHaveBeenCalled();
         expect(mockElectron.remote.stop).toHaveBeenCalled();
         expect(useStore.getState().remoteStatus).toEqual(mockStatus);
+    });
+
+    it('should manage connected devices', async () => {
+        const mockDevices = [{ id: 'd1', ip: '127.0.0.1' }];
+        mockElectron.remote.getConnectedDevices.mockResolvedValue(mockDevices);
+        mockElectron.remote.disconnectDevice.mockResolvedValue(true);
+
+        await act(async () => {
+            await useStore.getState().fetchConnectedDevices();
+        });
+        expect(useStore.getState().connectedDevices).toEqual(mockDevices);
+
+        await act(async () => {
+            await useStore.getState().disconnectDevice('d1');
+        });
+        expect(mockElectron.remote.disconnectDevice).toHaveBeenCalledWith('d1');
+        expect(mockElectron.remote.getConnectedDevices).toHaveBeenCalledTimes(2); // Initial fetch + refresh after disconnect
     });
 
     // --- UI Slice Tests ---

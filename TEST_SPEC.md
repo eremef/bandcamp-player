@@ -102,6 +102,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `src/renderer/components/Player/QueuePanel.test.tsx` | Queue Management UI | 7 | ~86% |
 | `src/renderer/components/Layout/PlayerBar.test.tsx` | Playback Controls UI | 9 | ~59% |
 | `src/renderer/components/Radio/RadioView.test.tsx` | Radio Station UI | 3 | ~62% |
+| `src/renderer/components/Settings/ConnectedDevicesModal.test.tsx` | Connected Devices UI | 5 | ~90% |
 
 ### Mobile (`npm run test:mobile` - Jest)
 
@@ -118,8 +119,10 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `mobile/app/(tabs)/collection.test.tsx` | Collection Screen UI | 6 | ~70% |
 | `mobile/app/album_detail.test.tsx` | Album Detail UI | 4 | ~50% |
 | `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
+| `mobile/app/about.test.tsx` | About Screen UI | 5 | 100% |
+| `mobile/app/license.test.tsx` | License Screen UI | 3 | 100% |
 
-**Total:** ~240+ tests across both platforms.
+**Total:** ~250+ tests across both platforms.
 
 ## Best Practices
 

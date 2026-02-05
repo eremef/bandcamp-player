@@ -164,8 +164,12 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - Browse and play from Collection, Playlists, and Radio
 - **Queue Tab** - View and manage the playback queue with drag-to-reorder support
 - Context menus for Queue and Playlist management (ActionSheet)
+- **Swipe to Refresh** - Pull-to-refresh support for all main tabs (Collection, Playlists, Queue, Radio)
+- **Connection Management** - View host IP, disconnect, and manage sessions
+- **About & License** - View app version and open source licenses
 - Offline-ready UI (relies on Desktop for audio)
 - Automatic local network discovery
+- **Volume Note**: Physical volume buttons change volume by the device's system step (typically ~7%), ensuring synchronization with the phone's hardware state.
 
 ### Building Mobile App
 

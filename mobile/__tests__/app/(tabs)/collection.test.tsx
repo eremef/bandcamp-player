@@ -151,9 +151,15 @@ describe('CollectionScreen', () => {
         });
     });
 
-    it('refreshes collection on button press', () => {
+    it('refreshes collection on pull to refresh', async () => {
         const { getByTestId } = render(<CollectionScreen />);
-        fireEvent.press(getByTestId('refresh-button'));
+        const list = getByTestId('collection-list');
+        const { refreshControl } = list.props;
+
+        await waitFor(() => {
+            refreshControl.props.onRefresh();
+        });
+
         expect(webSocketService.send).toHaveBeenCalledWith('get-collection');
     });
 });

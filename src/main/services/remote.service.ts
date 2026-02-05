@@ -8,7 +8,7 @@ import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
 import { AuthService } from './auth.service';
-import { Track } from '../../shared/types';
+import { Track, RemoteClient } from '../../shared/types';
 import { Database } from '../database/database';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
@@ -27,6 +27,7 @@ export class RemoteControlService extends EventEmitter {
     private playlistService: PlaylistService;
     private authService: AuthService;
     private database: Database;
+    private clients: Map<string, { ws: WebSocket } & RemoteClient> = new Map();
 
     constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, authService: AuthService, database: Database) {
         super();
@@ -104,14 +105,34 @@ export class RemoteControlService extends EventEmitter {
 
         this.wss = new WebSocketServer({ server: this.server });
 
-        this.wss.on('connection', (ws: WebSocket) => {
+        this.wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
             console.log('[RemoteService] New connection');
+
+            // Generate ID and track client
+            const clientId = Math.random().toString(36).substring(2, 9);
+            const ip = req.socket.remoteAddress || 'unknown';
+            const userAgent = req.headers['user-agent'] || 'unknown';
+
+            this.clients.set(clientId, {
+                ws,
+                id: clientId,
+                ip: ip.replace('::ffff:', ''), // normalize ipv4-mapped-ipv6
+                userAgent,
+                connectedAt: new Date().toISOString(),
+                lastActiveAt: new Date().toISOString()
+            });
 
             // Send initial state
             this.sendToClient(ws, 'state-changed', this.playerService.getState());
 
             ws.on('message', async (data: string) => {
                 try {
+                    // Update activity
+                    const client = this.clients.get(clientId);
+                    if (client) {
+                        client.lastActiveAt = new Date().toISOString();
+                    }
+
                     const message = JSON.parse(data);
                     await this.handleMessage(ws, message);
                 } catch (err) {
@@ -121,10 +142,11 @@ export class RemoteControlService extends EventEmitter {
 
             ws.on('close', () => {
                 console.log('[RemoteService] Connection closed');
-                this.emit('connections-changed', this.wss?.clients.size || 0);
+                this.clients.delete(clientId);
+                this.emit('connections-changed', this.clients.size);
             });
 
-            this.emit('connections-changed', this.wss?.clients.size || 0);
+            this.emit('connections-changed', this.clients.size);
         });
 
         this.server.listen(this.port, '0.0.0.0', () => {
@@ -158,6 +180,7 @@ export class RemoteControlService extends EventEmitter {
         this.isRunning = false;
         this.wss = null;
         this.server = null;
+        this.clients.clear();
         this.emit('status-changed', false);
         this.emit('connections-changed', 0);
     }
@@ -169,8 +192,23 @@ export class RemoteControlService extends EventEmitter {
             port: this.port,
             ip: ip as any,
             url: `http://${ip}:${this.port}`,
-            connections: this.wss?.clients.size || 0
+            connections: this.clients.size
         };
+    }
+
+    getConnectedDevices(): RemoteClient[] {
+        return Array.from(this.clients.values()).map(({ ws, ...client }) => client);
+    }
+
+    disconnectDevice(clientId: string): boolean {
+        const client = this.clients.get(clientId);
+        if (client) {
+            client.ws.close();
+            this.clients.delete(clientId);
+            this.emit('connections-changed', this.clients.size);
+            return true;
+        }
+        return false;
     }
 
     private getLocalIp(): string {
@@ -424,6 +462,9 @@ export class RemoteControlService extends EventEmitter {
                 if (typeof payload === 'string') {
                     this.playerService.removeFromQueue(payload);
                 }
+                break;
+            case 'get-state':
+                this.sendToClient(ws, 'state-changed', this.playerService.getState());
                 break;
             default:
                 console.warn('[RemoteService] Unknown message type:', type);

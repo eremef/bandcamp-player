@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { Playlist } from '@shared/types';
@@ -93,8 +93,8 @@ export default function PlaylistsScreen() {
 
     const renderItem = ({ item }: { item: Playlist }) => {
         return (
-            <TouchableOpacity 
-                style={styles.item} 
+            <TouchableOpacity
+                style={styles.item}
                 onPress={() => handlePlayPlaylist(item)}
                 onLongPress={() => handleLongPress(item)}
             >
@@ -115,6 +115,30 @@ export default function PlaylistsScreen() {
         );
     };
 
+    const refreshPlaylists = useStore((state) => state.refreshPlaylists);
+
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        refreshPlaylists();
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 1500);
+    }, [refreshPlaylists]);
+
+    const renderEmptyComponent = () => (
+        <View style={styles.center}>
+            <Text style={styles.emptyText}>No playlists found</Text>
+            <TouchableOpacity
+                style={styles.createButton}
+                onPress={() => setCreateModalVisible(true)}
+            >
+                <Text style={styles.createButtonText}>Create Playlist</Text>
+            </TouchableOpacity>
+        </View>
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
@@ -123,30 +147,19 @@ export default function PlaylistsScreen() {
                     <TouchableOpacity onPress={() => setCreateModalVisible(true)}>
                         <Plus size={24} color="#fff" />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={handleDisconnect}>
-                        <MoreVertical size={24} color="#fff" />
-                    </TouchableOpacity>
                 </View>
             </View>
 
-            {playlists.length === 0 ? (
-                <View style={styles.center}>
-                    <Text style={styles.emptyText}>No playlists found</Text>
-                    <TouchableOpacity 
-                        style={styles.createButton}
-                        onPress={() => setCreateModalVisible(true)}
-                    >
-                        <Text style={styles.createButtonText}>Create Playlist</Text>
-                    </TouchableOpacity>
-                </View>
-            ) : (
-                <FlatList
-                    data={playlists}
-                    renderItem={renderItem}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                />
-            )}
+            <FlatList
+                data={playlists}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
+                ListEmptyComponent={renderEmptyComponent}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                }
+            />
 
             <InputModal
                 visible={createModalVisible}

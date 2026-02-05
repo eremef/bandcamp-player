@@ -1,0 +1,94 @@
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ArrowLeft } from 'lucide-react-native';
+import { router } from 'expo-router';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
+
+export default function LicenseScreen() {
+    const [content, setContent] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function loadLicense() {
+            try {
+                const asset = Asset.fromModule(require('../assets/license.txt'));
+                await asset.downloadAsync();
+
+                if (asset.localUri) {
+                    const text = await FileSystem.readAsStringAsync(asset.localUri);
+                    setContent(text);
+                }
+            } catch (error) {
+                console.error('Failed to load license:', error);
+                setContent('Failed to load license text.');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadLicense();
+    }, []);
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
+                    <ArrowLeft size={24} color="#fff" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>License</Text>
+                <View style={{ width: 24 }} />
+            </View>
+
+            {loading ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#1da1f2" />
+                </View>
+            ) : (
+                <ScrollView contentContainerStyle={styles.content}>
+                    <Text style={styles.licenseText}>{content}</Text>
+                </ScrollView>
+            )}
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#121212',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 10,
+        height: 60,
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    backButton: {
+        padding: 8,
+        marginLeft: -8,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    content: {
+        padding: 24,
+        paddingBottom: 40,
+    },
+    licenseText: {
+        color: '#ccc',
+        fontSize: 14,
+        lineHeight: 20,
+        fontFamily: 'monospace',
+    },
+});

@@ -39,6 +39,9 @@ export class PlayerService extends EventEmitter {
     private isRadioActive = false;
     private currentStation: RadioStation | null = null;
 
+    // Persistence
+    private saveVolumeTimeout: NodeJS.Timeout | null = null;
+
     constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, database: Database) {
         super();
         this.cacheService = cacheService;
@@ -56,7 +59,7 @@ export class PlayerService extends EventEmitter {
     // ---- Playback Control ----
 
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
-
+        console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
         if (track) {
             if (clearQueueBefore) {
                 // Clear queue and add this track as the only item
@@ -113,17 +116,25 @@ export class PlayerService extends EventEmitter {
             this.scrobbleStartTime = Date.now();
             this.hasScrobbled = false;
 
+            console.log(`[PlayerService] Starting playback for: ${track.title} (${track.streamUrl})`);
+
             // Notify Now Playing
-            this.scrobblerService.updateNowPlaying(track);
+            try {
+                this.scrobblerService.updateNowPlaying(track);
+            } catch (scrobbleError) {
+                console.error('[PlayerService] Scrobble updateNowPlaying failed:', scrobbleError);
+            }
 
             this.emitStateChange();
             this.emitTrackChange();
         } else if (this.currentTrack) {
             // Resume current track
+            console.log('[PlayerService] Resuming current track');
             this.isPlaying = true;
             this.emitStateChange();
         } else if (this.queue.length > 0) {
             // Play first item in queue
+            console.log('[PlayerService] Playing first item in queue');
             this.playIndex(0);
         } else {
             console.warn('[PlayerService] play called but nothing to play');
@@ -316,14 +327,20 @@ export class PlayerService extends EventEmitter {
         this.emit('seek-command', this.currentTime);
     }
 
-    setVolume(volume: number): void {
+    async setVolume(volume: number): Promise<void> {
         this.volume = Math.max(0, Math.min(1, volume));
         this.isMuted = false;
-
-        // Save to settings
-        this.database.setSettings({ defaultVolume: this.volume });
-
         this.emitStateChange();
+
+        // Debounce saving volume to database
+        if (this.saveVolumeTimeout) {
+            clearTimeout(this.saveVolumeTimeout);
+        }
+
+        this.saveVolumeTimeout = setTimeout(() => {
+            this.database.setSettings({ defaultVolume: this.volume });
+            this.saveVolumeTimeout = null;
+        }, 2000) as unknown as NodeJS.Timeout;
     }
 
     toggleMute(): void {

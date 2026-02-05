@@ -41,6 +41,8 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="album_detail" />
+            <Stack.Screen name="about" options={{ presentation: 'modal' }} />
+            <Stack.Screen name="license" />
         </Stack>
     );
 }

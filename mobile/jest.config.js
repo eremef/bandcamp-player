@@ -13,6 +13,7 @@ module.exports = {
         '!**/jest.setup.js'
     ],
     moduleNameMapper: {
-        '^@shared/types$': '<rootDir>/__mocks__/shared-types.ts'
+        '^@shared/types$': '<rootDir>/__mocks__/shared-types.ts',
+        '\\.(png|jpg|jpeg|gif|webp|svg|txt)$': '<rootDir>/__mocks__/fileMock.js'
     }
 };
