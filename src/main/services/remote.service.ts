@@ -503,6 +503,15 @@ export class RemoteControlService extends EventEmitter {
         // In dev mode (tsc -w), assets aren't copied to dist
         const devPath = path.join(__dirname, '../../../src/assets/remote');
 
+        // Prioritize dev path in development mode
+        const isPackaged = process.mainModule && process.mainModule.filename.includes('app.asar');
+        // Or better check electron app property if available, but dynamic import to avoid circular dep issues in some archetypes
+        const isDev = process.env.NODE_ENV === 'development';
+
+        if (isDev && fs.existsSync(path.join(devPath, 'index.html'))) {
+            return devPath;
+        }
+
         if (fs.existsSync(path.join(prodPath, 'index.html'))) {
             return prodPath;
         } else if (fs.existsSync(path.join(devPath, 'index.html'))) {
