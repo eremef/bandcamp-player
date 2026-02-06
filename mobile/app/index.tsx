@@ -32,10 +32,10 @@ export default function ConnectScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.content}>
-                    <ActivityIndicator size="large" color="#1da1f2" />
+                    <ActivityIndicator size="large" color="#0896afff" />
                     <Text style={[styles.subtitle, { marginTop: 20 }]}>Auto-connecting...</Text>
                     <TouchableOpacity onPress={() => setIsAutoConnecting(false)}>
-                        <Text style={{ color: '#1da1f2', marginTop: 20 }}>Cancel</Text>
+                        <Text style={{ color: '#0896afff', marginTop: 20 }}>Cancel</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -46,7 +46,7 @@ export default function ConnectScreen() {
         <SafeAreaView style={styles.container}>
             <View style={styles.content}>
                 <View style={styles.iconContainer}>
-                    <Wifi size={64} color="#1da1f2" />
+                    <Wifi size={64} color="#0896afff" />
                 </View>
 
                 <Text style={styles.title}>Bandcamp Remote</Text>
@@ -82,7 +82,7 @@ export default function ConnectScreen() {
                     disabled={connectionStatus === 'connecting' || isScanning}
                 >
                     {isScanning ? (
-                        <ActivityIndicator color="#1da1f2" />
+                        <ActivityIndicator color="#0896afff" />
                     ) : (
                         <Text style={styles.scanButtonText}>Auto Scan Network</Text>
                     )}
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
     button: {
         width: '100%',
         height: 56,
-        backgroundColor: '#1da1f2',
+        backgroundColor: '#0896afff',
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
         borderColor: '#333',
     },
     scanButtonText: {
-        color: '#1da1f2',
+        color: '#0896afff',
         fontSize: 16,
         fontWeight: '600',
     },

@@ -203,7 +203,7 @@ export default function CollectionScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#1da1f2" />
+                    <ActivityIndicator size="large" color="#0896afff" />
                     <Text style={styles.text}>Loading Collection...</Text>
                 </View>
             </SafeAreaView>
@@ -238,7 +238,7 @@ export default function CollectionScreen() {
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
                 }
             />
             <PlaylistSelectionModal

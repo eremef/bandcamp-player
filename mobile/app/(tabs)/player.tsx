@@ -108,9 +108,9 @@ export default function PlayerScreen() {
                         maximumValue={duration || 1}
                         value={currentTime || 0}
                         onSlidingComplete={seek}
-                        minimumTrackTintColor="#1da1f2"
+                        minimumTrackTintColor="#0896afff"
                         maximumTrackTintColor="#333"
-                        thumbTintColor="#1da1f2"
+                        thumbTintColor="#0896afff"
                     />
                     <View style={styles.timeContainer}>
                         <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
@@ -121,7 +121,7 @@ export default function PlayerScreen() {
                 {/* Controls */}
                 <View style={styles.controlsContainer}>
                     <TouchableOpacity onPress={toggleShuffle}>
-                        <Shuffle size={24} color={isShuffled ? '#1da1f2' : '#666'} />
+                        <Shuffle size={24} color={isShuffled ? '#0896afff' : '#666'} />
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={previous}>
@@ -147,7 +147,7 @@ export default function PlayerScreen() {
                         const nextMode = repeatMode === 'off' ? 'one' : repeatMode === 'one' ? 'all' : 'off';
                         setRepeat(nextMode);
                     }}>
-                        <Repeat size={24} color={repeatMode !== 'off' ? '#1da1f2' : '#666'} />
+                        <Repeat size={24} color={repeatMode !== 'off' ? '#0896afff' : '#666'} />
                         {repeatMode === 'one' && (
                             <View style={styles.badgeOne}>
                                 <Text style={styles.badgeText}>1</Text>
@@ -221,7 +221,7 @@ export default function PlayerScreen() {
                                     maximumValue={1}
                                     value={volume ?? 0.8}
                                     onSlidingComplete={setVolume}
-                                    minimumTrackTintColor="#1da1f2"
+                                    minimumTrackTintColor="#0896afff"
                                     maximumTrackTintColor="#333"
                                     thumbTintColor="#fff"
                                 />
@@ -267,8 +267,8 @@ const styles = StyleSheet.create({
         paddingTop: 12,
     },
     artworkContainer: {
-        width: 260,
-        height: 260,
+        width: '81%',
+        aspectRatio: 1,
         borderRadius: 12,
         overflow: 'hidden',
         marginTop: 24,
@@ -307,13 +307,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     artist: {
-        fontSize: 18,
+        fontSize: 20,
         color: '#ccc',
         marginBottom: 4,
         textAlign: 'center',
     },
     album: {
-        fontSize: 14,
+        fontSize: 16,
         color: '#888',
         textAlign: 'center',
     },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
         width: 72,
         height: 72,
         borderRadius: 36,
-        backgroundColor: '#1da1f2',
+        backgroundColor: '#0896afff',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: -4,
         right: -4,
-        backgroundColor: '#1da1f2',
+        backgroundColor: '#0896afff',
         width: 12,
         height: 12,
         borderRadius: 6,

@@ -57,7 +57,7 @@ export default function QueueScreen() {
 
                 {isCurrent && isPlaying && (
                     <View style={styles.playingIndicator}>
-                        <Play size={16} color="#1da1f2" fill="#1da1f2" />
+                        <Play size={16} color="#0896afff" fill="#0896afff" />
                     </View>
                 )}
 
@@ -105,7 +105,7 @@ export default function QueueScreen() {
                 extraData={[queue.items.length, queue.currentIndex]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
                 }
             />
         </View>
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     currentText: {
-        color: '#1da1f2',
+        color: '#0896afff',
     },
     artist: {
         fontSize: 14,

@@ -160,7 +160,7 @@ export default function AlbumDetailScreen() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#1da1f2" />
+                    <ActivityIndicator size="large" color="#0896afff" />
                     <Text style={styles.text}>Loading Album...</Text>
                 </View>
             </SafeAreaView>
