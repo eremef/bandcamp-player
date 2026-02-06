@@ -2,19 +2,20 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { AuthService } from './auth.service';
 import type { Track, Album, Collection, CollectionItem, RadioStation } from '../../shared/types';
-
+import { EventEmitter } from 'events';
 // ============================================================================
 // Bandcamp Scraper Service
 // ============================================================================
 
 const ONE_YEAR_SECONDS = 31536000; // 1 year
 
-export class ScraperService {
+export class ScraperService extends EventEmitter {
     private authService: AuthService;
     private http: AxiosInstance;
     private cachedCollection: Collection | null = null;
 
     constructor(authService: AuthService) {
+        super();
         this.authService = authService;
         this.http = axios.create({
             timeout: 30000,
@@ -209,6 +210,7 @@ export class ScraperService {
                 lastUpdated: new Date().toISOString(),
             };
 
+            this.emit('collection-updated', this.cachedCollection);
             return this.cachedCollection;
         } catch (error: any) {
             console.error('Error fetching collection:', error.message);
@@ -538,6 +540,7 @@ export class ScraperService {
                 }
             }
 
+            this.emit('radio-stations-updated', stations);
             return stations;
         } catch (error) {
             console.error('Error fetching radio stations:', error);

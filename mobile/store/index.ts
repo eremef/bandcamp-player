@@ -334,7 +334,7 @@ export const useStore = create<AppState>((set, get) => ({
     renamePlaylist: (id, name, description) => webSocketService.send('update-playlist', { id, name, description }),
     deletePlaylist: (id) => webSocketService.send('delete-playlist', id),
 
-    refreshCollection: () => webSocketService.send('get-collection'),
+    refreshCollection: () => webSocketService.send('get-collection', { forceRefresh: true }),
     refreshPlaylists: () => webSocketService.send('get-playlists'),
     refreshRadio: () => webSocketService.send('get-radio-stations'),
     refreshQueue: () => webSocketService.send('get-state'),

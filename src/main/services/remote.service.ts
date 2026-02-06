@@ -280,7 +280,8 @@ export class RemoteControlService extends EventEmitter {
                         return;
                     }
 
-                    const collection = await this.scraperService.fetchCollection();
+                    const forceRefresh = payload ? payload.forceRefresh === true : false;
+                    const collection = await this.scraperService.fetchCollection(forceRefresh);
 
                     // Map to flat structure expected by remote client
                     const simplifiedCollection = {

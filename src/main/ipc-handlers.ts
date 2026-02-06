@@ -109,6 +109,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         broadcast(PLAYER_CHANNELS.ON_SEEK, time);
     });
 
+    // Collection events
+    scraperService.on('collection-updated', (collection) => {
+        broadcast(COLLECTION_CHANNELS.ON_UPDATED, collection);
+    });
+
+    scraperService.on('radio-stations-updated', (stations) => {
+        broadcast(RADIO_CHANNELS.ON_STATIONS_UPDATED, stations);
+    });
+
     // ---- Queue ----
     ipcMain.handle(QUEUE_CHANNELS.ADD_TRACK, (_, track: Track, playNext?: boolean) =>
         playerService.addToQueue(track, 'collection', playNext)

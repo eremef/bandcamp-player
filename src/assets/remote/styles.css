@@ -604,8 +604,4 @@ input[id="mini-progress-slider"]:active::-webkit-slider-thumb {
         margin-bottom: 1rem;
         justify-content: space-around;
     }
-
-    #mini-volume-container {
-        display: none;
-    }
 }
