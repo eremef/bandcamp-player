@@ -16,7 +16,7 @@
     "start": "electron .",
     "lint": "eslint src",
     "lint:mobile": "eslint mobile",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --build",
     "test": "vitest run",
     "test:mobile": "cd mobile && npm test",
     "test:watch": "vitest",

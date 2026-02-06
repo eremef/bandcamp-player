@@ -98,6 +98,7 @@ export const RADIO_CHANNELS = {
     ON_STATE_CHANGED: 'radio:on-state-changed',
     ADD_TO_QUEUE: 'radio:add-to-queue',
     ADD_TO_PLAYLIST: 'radio:add-to-playlist',
+    ON_STATIONS_UPDATED: 'radio:on-stations-updated',
 } as const;
 
 // ============================================================================

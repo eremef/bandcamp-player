@@ -185,19 +185,16 @@ export default function CollectionScreen() {
         );
     };
 
+    const refreshCollection = useStore((state) => state.refreshCollection);
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        // Trigger server refresh
-        if (webSocketService) {
-            webSocketService.send('get-collection');
-        }
-        // Simulate network request duration for UI feedback
+        refreshCollection();
         setTimeout(() => {
             setRefreshing(false);
         }, 1500);
-    }, []);
+    }, [refreshCollection]);
 
     if (!collection) {
         return (

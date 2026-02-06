@@ -116,7 +116,6 @@ export default function PlaylistsScreen() {
     };
 
     const refreshPlaylists = useStore((state) => state.refreshPlaylists);
-
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = React.useCallback(() => {

@@ -516,6 +516,11 @@ export async function initializeStoreSubscriptions() {
         setPlayerState({ currentTime, duration });
     });
 
+    // Collection updates
+    window.electron.collection.onUpdated((collection) => {
+        useStore.setState({ collection });
+    });
+
     // Queue updates
     window.electron.queue.onUpdated((queue) => {
         useStore.setState({ queue });
@@ -558,6 +563,9 @@ export async function initializeStoreSubscriptions() {
     // Radio updates
     window.electron.radio.onStateChanged((state) => {
         useStore.setState({ radioState: state });
+    });
+    window.electron.radio.onStationsUpdated((stations) => {
+        useStore.setState({ radioStations: stations });
     });
 
     // Remote updates
