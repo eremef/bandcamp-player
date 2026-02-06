@@ -41,6 +41,8 @@ const mockElectron = {
         refresh: vi.fn(),
         search: vi.fn(),
         getAlbum: vi.fn(),
+        onUpdated: vi.fn(),
+        onRefreshStarted: vi.fn(),
     },
     playlist: {
         getAll: vi.fn(),
@@ -77,6 +79,7 @@ const mockElectron = {
         addToQueue: vi.fn(),
         addToPlaylist: vi.fn(),
         onStateChanged: vi.fn(),
+        onStationsUpdated: vi.fn(),
     },
     remote: {
         getStatus: vi.fn(),
@@ -93,13 +96,22 @@ const mockElectron = {
 };
 
 // Assign to window
+// Assign to window
 Object.defineProperty(window, 'electron', {
     value: mockElectron,
-    writable: true
+    writable: true,
+    configurable: true // Allow re-mocking
 });
 
 describe('useStore', () => {
     beforeEach(() => {
+        // Reset mocks
+        vi.clearAllMocks();
+
+        // Ensure mock functions are fresh
+        mockElectron.collection.onUpdated.mockReset();
+        mockElectron.collection.onRefreshStarted.mockReset();
+
         useStore.setState({
             auth: { isAuthenticated: false, user: null },
             player: {
@@ -552,7 +564,10 @@ describe('useStore', () => {
         mockElectron.scrobbler.onStateChanged.mockImplementation(cb => listeners['scrobbler'] = cb);
         mockElectron.settings.onChanged.mockImplementation(cb => listeners['settings'] = cb);
         mockElectron.radio.onStateChanged.mockImplementation(cb => listeners['radio'] = cb);
+        mockElectron.radio.onStationsUpdated.mockImplementation(cb => listeners['radioStations'] = cb);
         mockElectron.playlist.onUpdated.mockImplementation(cb => listeners['playlist'] = cb);
+        mockElectron.collection.onUpdated.mockImplementation(cb => listeners['collection'] = cb);
+        mockElectron.collection.onRefreshStarted.mockImplementation(cb => listeners['collectionRefreshStarted'] = cb);
         mockElectron.remote.onConnectionsChanged.mockImplementation(cb => listeners['remoteConn'] = cb);
 
         mockElectron.player.getState.mockResolvedValue({ isPlaying: false });
