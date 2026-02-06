@@ -157,7 +157,7 @@ export default function PlaylistsScreen() {
                 contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1da1f2" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
                 }
             />
 

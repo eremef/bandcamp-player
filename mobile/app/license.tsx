@@ -44,7 +44,7 @@ export default function LicenseScreen() {
 
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#1da1f2" />
+                    <ActivityIndicator size="large" color="#0896afff" />
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content}>

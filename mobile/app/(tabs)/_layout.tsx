@@ -24,7 +24,7 @@ export default function TabLayout() {
                     paddingBottom: 8 + (Platform.OS === 'android' ? insets.bottom : 0),
                     paddingTop: 8,
                 },
-                tabBarActiveTintColor: '#1da1f2',
+                tabBarActiveTintColor: '#0896afff',
                 tabBarInactiveTintColor: '#888',
             }}
         >
