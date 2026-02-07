@@ -102,7 +102,7 @@ To enable scrobbling, you need to register with Last.fm API application:
 
 1. Go to <https://www.last.fm/api/account/create>
 2. Create a new application
-3. Update `src/main/services/scrobbler.service.ts` with your API key and secret
+3. Update `src/main/services/scrobbler.service.ts` with your API key and secret (before building) or provide it in the Settings of the desktop app (when downloading from releases)
 
 ## Project Structure
 
