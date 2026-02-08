@@ -180,7 +180,8 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 > - **Android NDK** (Side-by-side versions).
 
 1. **Build Android**:
-**Configure SDK**:
+
+**Configure SDK**
    Create a `local.properties` file in `mobile/android/` pointing to your SDK:
 
    ```properties
