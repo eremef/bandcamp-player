@@ -105,6 +105,7 @@ Clients send these messages to control the player.
   - **Payload**: `number` (seconds)
 - `set-volume`: Adjusts playback volume.
   - **Payload**: `number` (0 to 1)
+    > Note: The desktop application maps this linear 0-1 value to a cubic volume curve for natural audio control.
 - `toggle-shuffle`: Toggles shuffle mode on/off. No payload.
 - `set-repeat`: Sets repeat mode.
   - **Payload**: `'off' | 'one' | 'all'`
