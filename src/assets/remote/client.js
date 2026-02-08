@@ -24,6 +24,15 @@ function formatDuration(seconds) {
     return minutes + ' min';
 }
 
+function sanitizeUrl(url) {
+    if (!url) return '';
+    // Allow http, https
+    if (/^https?:\/\//i.test(url)) return url;
+    // Potentially allow relative paths if needed, but for now strict external content
+    // if (/^\//.test(url)) return url; 
+    return '';
+}
+
 function connect() {
     const host = window.location.host;
     ws = new WebSocket('ws://' + host);
@@ -111,7 +120,7 @@ function updateUI(state) {
 
             const artworkImg = document.getElementById('mini-player-artwork');
             if (artworkImg) {
-                artworkImg.src = trackArtwork;
+                artworkImg.src = sanitizeUrl(trackArtwork);
                 artworkImg.alt = trackTitle;
                 artworkImg.style.display = 'block';
             }
@@ -384,7 +393,7 @@ function renderCollectionItems(items) {
             const artist = item.artist || 'Unknown';
 
             const img = document.createElement('img');
-            img.src = artworkUrl;
+            img.src = sanitizeUrl(artworkUrl);
             img.alt = title;
             div.appendChild(img);
 
@@ -439,7 +448,7 @@ function renderAlbumDetails(album) {
 
     document.getElementById('album-view-title').innerText = title;
     document.getElementById('album-view-artist').innerText = artist;
-    document.getElementById('album-view-artwork').src = artworkUrl;
+    document.getElementById('album-view-artwork').src = sanitizeUrl(artworkUrl);
 
     document.getElementById('album-view-play').onclick = () => sendCommand('play-album', album.bandcampUrl);
     document.getElementById('album-view-queue').onclick = () => sendCommand('add-album-to-queue', { albumUrl: album.bandcampUrl, playNext: false });
@@ -617,7 +626,7 @@ function renderRadio(stations) {
             const date = station.date || '';
 
             const img = document.createElement('img');
-            img.src = imageUrl;
+            img.src = sanitizeUrl(imageUrl);
             img.alt = '';
             content.appendChild(img);
 
@@ -687,7 +696,7 @@ function renderPlaylists(playlists) {
         // Use first track artwork or default
         const artwork = playlist.artworkUrl || 'https://bandcamp.com/img/0.gif';
         const img = document.createElement('img');
-        img.src = artwork;
+        img.src = sanitizeUrl(artwork);
         img.alt = '';
         img.style.background = 'var(--bg-tertiary)';
         div.appendChild(img);
@@ -813,7 +822,7 @@ function renderQueue(queue) {
             const playIcon = (typeof ICONS !== 'undefined' && ICONS.Play) ? ICONS.Play : '▶';
 
             const img = document.createElement('img');
-            img.src = artworkUrl;
+            img.src = sanitizeUrl(artworkUrl);
             img.alt = '';
             div.appendChild(img);
 
