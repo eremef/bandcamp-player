@@ -137,20 +137,24 @@ jobs:
           cd mobile
           npx expo prebuild --platform android
 
-      - name: Build APK
+      - name: Build APK & AAB
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease bundleRelease
 
-      - name: Rename APK
-        run: mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
+      - name: Rename Artifacts
+        run: |
+          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
+          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/BandcampPlayer-${{ github.ref_name }}.aab
 
-      - name: Release APK
+      - name: Release Android
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
+          files: |
+            mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
+            mobile/android/app/build/outputs/bundle/release/BandcampPlayer-${{ github.ref_name }}.aab
           generate_release_notes: true
 
   build-ios:
