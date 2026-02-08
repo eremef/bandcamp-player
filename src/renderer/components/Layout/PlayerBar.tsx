@@ -67,7 +67,11 @@ export function PlayerBar() {
     useEffect(() => {
         const audio = audioRef.current;
         if (audio) {
-            audio.volume = isMuted ? 0 : volume;
+            // Use cubic volume curve for more natural volume control
+            // Human hearing is logarithmic, so a linear volume slider feels unresponsive
+            // at the high end and too sensitive at the low end.
+            // pow(volume, 3) approximates a logarithmic curve nicely.
+            audio.volume = isMuted ? 0 : Math.pow(volume, 3);
         }
     }, [volume, isMuted]);
 

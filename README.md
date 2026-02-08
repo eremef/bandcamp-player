@@ -18,6 +18,7 @@ However, it is designed for personal use, allowing you to listen to and cache on
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
 - 🔍 **Smart Search** - Filter your collection instantly on all platforms (Desktop, Mobile, Web)
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
+- 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
@@ -36,13 +37,6 @@ However, it is designed for personal use, allowing you to listen to and cache on
 - **Vite** - Build tool for renderer
 - **Cheerio** - Web scraping
 - **Axios** - HTTP client
-
-### Mobile App
-
-- **React Native** - Cross-platform mobile framework
-- **Expo** - Build and development platform
-- **Zustand** - State management
-- **React Native Track Player** - Native audio playback & media controls
 
 ## Getting Started
 
@@ -158,18 +152,27 @@ src/
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
 
-### Features of the Mobile App
+### Mobile Features
 
-- Remote control (Play/Pause, Next/Prev, Volume, Seek)
-- Browse and play from Collection, Playlists, and Radio
-- **Queue Tab** - View and manage the playback queue with drag-to-reorder support
-- Context menus for Queue and Playlist management (ActionSheet)
-- **Swipe to Refresh** - Pull-to-refresh support for all main tabs (Collection, Playlists, Queue, Radio)
-- **Connection Management** - View host IP, disconnect, and manage sessions
-- **About & License** - View app version and open source licenses
-- Offline-ready UI (relies on Desktop for audio)
-- Automatic local network discovery
-- **Volume Control**: Uses the device's native volume steps (typically ~7%) for hardware synchronization.
+- 📱 **Remote Control** - Play, Pause, Next, Previous, Volume, and Seek from your phone
+- 🎵 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
+- 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
+- 🖱️ **Context Menus** - Long-press for Queue and Playlist management
+- 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
+- 📡 **Connection Management** - View host IP, disconnect, and manage sessions
+- ℹ️ **About & License** - View app version and open source licenses
+- 🔌 **Offline-ready UI** - Navigates smoothly even when disconnected (relies on Desktop for audio)
+- 🔍 **Auto Discovery** - Automatic local network discovery
+- 🔊 **Volume Sync** - Uses the device's native volume steps for hardware synchronization
+
+### Mobile Tech Stack
+
+- **React Native** - Cross-platform mobile framework
+- **Expo** - Build and development platform
+- **Expo Router** - File-based routing
+- **Zustand** - State management
+- **React Native Track Player** - Native audio playback & media controls
+- **React Native Volume Manager** - System volume synchronization
 
 ### Building Mobile App
 
@@ -207,10 +210,26 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    open ios/BandcampRemote.xcworkspace
    ```
 
+### MobileProject Structure
+
+```text
+mobile/
+├── app/                       # Expo Router app directory
+│   ├── (tabs)/                # Main tab navigation
+│   ├── modal/                 # Modal screens
+│   └── _layout.tsx            # Root layout
+├── components/                # React Native components
+├── services/                  # Mobile services (Player, API, WebSocket)
+├── store/                     # Zustand store for mobile
+├── assets/                    # Mobile assets (images, fonts)
+├── android/                   # Android native project
+└── ios/                       # iOS native project
+```
+
 ## License
 
 MIT
 
-## Disclaimer
+### Disclaimer
 
 This application is an unofficial project intended for personal use only. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Bandcamp Ventures LLC. Users are responsible for complying with Bandcamp's Terms of Service and all applicable local and international laws regarding digital content and copyright.
