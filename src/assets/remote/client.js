@@ -383,13 +383,25 @@ function renderCollectionItems(items) {
             const title = item.title || 'Unknown';
             const artist = item.artist || 'Unknown';
 
-            div.innerHTML = `
-                <img src="${artworkUrl}" alt="">
-                <div class="list-item-info">
-                    <div class="list-item-title">${title}</div>
-                    <div class="list-item-subtitle">${artist}</div>
-                </div>
-            `;
+            const img = document.createElement('img');
+            img.src = artworkUrl;
+            img.alt = title;
+            div.appendChild(img);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'list-item-info';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'list-item-title';
+            titleDiv.innerText = title;
+            infoDiv.appendChild(titleDiv);
+
+            const artistDiv = document.createElement('div');
+            artistDiv.className = 'list-item-subtitle';
+            artistDiv.innerText = artist;
+            infoDiv.appendChild(artistDiv);
+
+            div.appendChild(infoDiv);
 
             const btn = document.createElement('button');
             btn.className = 'item-options-btn';
@@ -449,13 +461,28 @@ function renderAlbumDetails(album) {
             const trackTitle = track.title || 'Unknown';
             const trackDuration = track.duration || 0;
 
-            div.innerHTML = `
-                <div style="width: 24px; text-align: center; color: var(--text-tertiary); font-size: 0.8rem;">${index + 1}</div>
-                <div class="list-item-info">
-                    <div class="list-item-title">${trackTitle}</div>
-                    <div class="list-item-subtitle">${formatDuration(trackDuration)}</div>
-                </div>
-            `;
+            const indexDiv = document.createElement('div');
+            indexDiv.style.width = '24px';
+            indexDiv.style.textAlign = 'center';
+            indexDiv.style.color = 'var(--text-tertiary)';
+            indexDiv.style.fontSize = '0.8rem';
+            indexDiv.innerText = (index + 1).toString();
+            div.appendChild(indexDiv);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'list-item-info';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'list-item-title';
+            titleDiv.innerText = trackTitle;
+            infoDiv.appendChild(titleDiv);
+
+            const durationDiv = document.createElement('div');
+            durationDiv.className = 'list-item-subtitle';
+            durationDiv.innerText = formatDuration(trackDuration);
+            infoDiv.appendChild(durationDiv);
+
+            div.appendChild(infoDiv);
 
             const btn = document.createElement('button');
             btn.className = 'item-options-btn';
@@ -589,14 +616,36 @@ function renderRadio(stations) {
             const description = station.description || '';
             const date = station.date || '';
 
-            content.innerHTML = `
-                <img src="${imageUrl}" alt="">
-                <div class="list-item-info">
-                    <div class="list-item-title">${name}</div>
-                    ${date ? `<div class="list-item-subtitle" style="color:var(--text-primary); margin-bottom:0.2rem; font-size:0.75rem; text-transform:uppercase;">${date}</div>` : ''}
-                    <div class="list-item-subtitle">${description}</div>
-                </div>
-            `;
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = '';
+            content.appendChild(img);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'list-item-info';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'list-item-title';
+            titleDiv.innerText = name;
+            infoDiv.appendChild(titleDiv);
+
+            if (date) {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'list-item-subtitle';
+                dateDiv.style.color = 'var(--text-primary)';
+                dateDiv.style.marginBottom = '0.2rem';
+                dateDiv.style.fontSize = '0.75rem';
+                dateDiv.style.textTransform = 'uppercase';
+                dateDiv.innerText = date;
+                infoDiv.appendChild(dateDiv);
+            }
+
+            const descDiv = document.createElement('div');
+            descDiv.className = 'list-item-subtitle';
+            descDiv.innerText = description;
+            infoDiv.appendChild(descDiv);
+
+            content.appendChild(infoDiv);
             div.appendChild(content);
 
             const btn = document.createElement('button');
@@ -637,13 +686,27 @@ function renderPlaylists(playlists) {
         div.onclick = () => sendCommand('play-playlist', playlist.id);
         // Use first track artwork or default
         const artwork = playlist.artworkUrl || 'https://bandcamp.com/img/0.gif';
-        div.innerHTML = `
-            <img src="${artwork}" alt="" style="background:var(--bg-tertiary)">
-            <div class="list-item-info">
-                <div class="list-item-title">${playlist.name}</div>
-                <div class="list-item-subtitle">${playlist.trackCount} tracks • ${formatDuration(playlist.totalDuration)}</div>
-            </div>
-        `;
+        const img = document.createElement('img');
+        img.src = artwork;
+        img.alt = '';
+        img.style.background = 'var(--bg-tertiary)';
+        div.appendChild(img);
+
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'list-item-info';
+
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'list-item-title';
+        titleDiv.innerText = playlist.name;
+        infoDiv.appendChild(titleDiv);
+
+        const subtitleDiv = document.createElement('div');
+        subtitleDiv.className = 'list-item-subtitle';
+        // Safe to use template literal for numbers/ trusted data, but cleaner to use innerText
+        subtitleDiv.innerText = `${playlist.trackCount} tracks • ${formatDuration(playlist.totalDuration)}`;
+        infoDiv.appendChild(subtitleDiv);
+
+        div.appendChild(infoDiv);
 
         const btn = document.createElement('button');
         btn.className = 'item-options-btn';
@@ -668,19 +731,41 @@ function createPlaylist() {
 function showPlaylistOptions(playlist) {
     document.getElementById('modal-title').innerText = playlist.name;
     const options = document.getElementById('modal-options');
-    options.innerHTML = `
-        <div class="modal-option" onclick="closeModal(); sendCommand('play-playlist', '${playlist.id}')">
-            ${(typeof ICONS !== 'undefined' && ICONS.Play) ? ICONS.Play : '▶'} <span style="margin-left:8px">Play Now</span>
-        </div>
-        <div class="modal-option" onclick="closeModal(); renamePlaylist('${playlist.id}', '${playlist.name}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-            <span style="margin-left:8px">Rename</span>
-        </div>
-        <div class="modal-option" onclick="closeModal(); deletePlaylist('${playlist.id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            <span style="margin-left:8px">Delete</span>
-        </div>
+    options.innerHTML = '';
+
+    const playBtn = document.createElement('div');
+    playBtn.className = 'modal-option';
+    playBtn.onclick = () => {
+        closeModal();
+        sendCommand('play-playlist', playlist.id);
+    };
+    playBtn.innerHTML = `${(typeof ICONS !== 'undefined' && ICONS.Play) ? ICONS.Play : '▶'} <span style="margin-left:8px">Play Now</span>`;
+    options.appendChild(playBtn);
+
+    const renameBtn = document.createElement('div');
+    renameBtn.className = 'modal-option';
+    renameBtn.onclick = () => {
+        closeModal();
+        renamePlaylist(playlist.id, playlist.name);
+    };
+    renameBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        <span style="margin-left:8px">Rename</span>
     `;
+    options.appendChild(renameBtn);
+
+    const deleteBtn = document.createElement('div');
+    deleteBtn.className = 'modal-option';
+    deleteBtn.onclick = () => {
+        closeModal();
+        deletePlaylist(playlist.id);
+    };
+    deleteBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        <span style="margin-left:8px">Delete</span>
+    `;
+    options.appendChild(deleteBtn);
+
     document.getElementById('options-modal').classList.add('active');
 }
 
@@ -727,14 +812,36 @@ function renderQueue(queue) {
             const artist = track.artist || 'Unknown';
             const playIcon = (typeof ICONS !== 'undefined' && ICONS.Play) ? ICONS.Play : '▶';
 
-            div.innerHTML = `
-                <img src="${artworkUrl}" alt="">
-                <div class="list-item-info">
-                    <div class="list-item-title" ${index === queue.currentIndex ? 'style="color:var(--accent-primary)"' : ''}>${title}</div>
-                    <div class="list-item-subtitle">${artist}</div>
-                </div>
-                ${isPlaying ? '<div style="color:var(--accent-primary); margin-right:8px;">' + playIcon + '</div>' : ''}
-            `;
+            const img = document.createElement('img');
+            img.src = artworkUrl;
+            img.alt = '';
+            div.appendChild(img);
+
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'list-item-info';
+
+            const titleDiv = document.createElement('div');
+            titleDiv.className = 'list-item-title';
+            if (index === queue.currentIndex) {
+                titleDiv.style.color = 'var(--accent-primary)';
+            }
+            titleDiv.innerText = title;
+            infoDiv.appendChild(titleDiv);
+
+            const artistDiv = document.createElement('div');
+            artistDiv.className = 'list-item-subtitle';
+            artistDiv.innerText = artist;
+            infoDiv.appendChild(artistDiv);
+
+            div.appendChild(infoDiv);
+
+            if (isPlaying) {
+                const playIconDiv = document.createElement('div');
+                playIconDiv.style.color = 'var(--accent-primary)';
+                playIconDiv.style.marginRight = '8px';
+                playIconDiv.innerHTML = playIcon; // ICONS are trusted
+                div.appendChild(playIconDiv);
+            }
 
             const btn = document.createElement('button');
             btn.className = 'item-options-btn';
@@ -814,35 +921,70 @@ function showRadioOptions(station) {
     selectedContext = { type: 'station', data: station };
     document.getElementById('modal-title').innerText = station.name;
     const options = document.getElementById('modal-options');
-    options.innerHTML = `
-        <div class="modal-option" onclick="closeModal(); sendCommand('play-station', selectedContext.data)">
-            ${ICONS.Play} <span style="margin-left:8px">Play Now</span>
-        </div>
-        <div class="modal-option" onclick="closeModal(); sendCommand('add-station-to-queue', {station: selectedContext.data, playNext: true})">
-            <div style="width:24px"></div> Play Next
-        </div>
-        <div class="modal-option" onclick="closeModal(); sendCommand('add-station-to-queue', {station: selectedContext.data, playNext: false})">
-           <div style="width:24px"></div> Add to Queue
-        </div>
-        <div class="modal-option" onclick="showPlaylistSelection()">
-           <div style="width:24px"></div> Add to Playlist
-        </div>
-    `;
+    options.innerHTML = '';
+    const playBtn = document.createElement('div');
+    playBtn.className = 'modal-option';
+    playBtn.onclick = () => {
+        closeModal();
+        sendCommand('play-station', selectedContext.data);
+    };
+    playBtn.innerHTML = `${ICONS.Play} <span style="margin-left:8px">Play Now</span>`;
+    options.appendChild(playBtn);
+
+    const playNextBtn = document.createElement('div');
+    playNextBtn.className = 'modal-option';
+    playNextBtn.onclick = () => {
+        closeModal();
+        sendCommand('add-station-to-queue', { station: selectedContext.data, playNext: true });
+    };
+    playNextBtn.innerHTML = '<div style="width:24px"></div> Play Next';
+    options.appendChild(playNextBtn);
+
+    const queueBtn = document.createElement('div');
+    queueBtn.className = 'modal-option';
+    queueBtn.onclick = () => {
+        closeModal();
+        sendCommand('add-station-to-queue', { station: selectedContext.data, playNext: false });
+    };
+    queueBtn.innerHTML = '<div style="width:24px"></div> Add to Queue';
+    options.appendChild(queueBtn);
+
+    const playlistBtn = document.createElement('div');
+    playlistBtn.className = 'modal-option';
+    playlistBtn.onclick = () => {
+        showPlaylistSelection();
+    };
+    playlistBtn.innerHTML = '<div style="width:24px"></div> Add to Playlist';
+    options.appendChild(playlistBtn);
     document.getElementById('options-modal').classList.add('active');
 }
 
 function showQueueOptions(item, index) {
     document.getElementById('modal-title').innerText = item.track.title;
     const options = document.getElementById('modal-options');
-    options.innerHTML = `
-        <div class="modal-option" onclick="closeModal(); sendCommand('play-queue-index', ${index})">
-            ${ICONS.Play} <span style="margin-left:8px">Play Now</span>
-        </div>
-        <div class="modal-option" onclick="closeModal(); sendCommand('remove-from-queue', '${item.id}')">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 
+    options.innerHTML = '';
+
+    const playBtn = document.createElement('div');
+    playBtn.className = 'modal-option';
+    playBtn.onclick = () => {
+        closeModal();
+        sendCommand('play-queue-index', index);
+    };
+    playBtn.innerHTML = `${ICONS.Play} <span style="margin-left:8px">Play Now</span>`;
+    options.appendChild(playBtn);
+
+    const removeBtn = document.createElement('div');
+    removeBtn.className = 'modal-option';
+    removeBtn.onclick = () => {
+        closeModal();
+        sendCommand('remove-from-queue', item.id);
+    };
+    removeBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             <span style="margin-left:8px">Remove</span>
-        </div>
     `;
+    options.appendChild(removeBtn);
+
     document.getElementById('options-modal').classList.add('active');
 }
 
