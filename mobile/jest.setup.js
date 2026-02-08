@@ -63,3 +63,15 @@ jest.mock('expo-router', () => ({
 jest.mock('expo-network', () => ({
     getIpAddressAsync: jest.fn(),
 }));
+
+// Mock WebSocket
+global.WebSocket = class WebSocket {
+    constructor() {
+        this.onopen = () => { };
+        this.onmessage = () => { };
+        this.onclose = () => { };
+        this.onerror = () => { };
+    }
+    send() { }
+    close() { }
+};

@@ -7,6 +7,7 @@ import type { AuthState, BandcampUser } from '../../shared/types';
 
 const BANDCAMP_LOGIN_URL = 'https://bandcamp.com/login';
 const BANDCAMP_DOMAIN = 'bandcamp.com';
+const ALLOWED_BANDCAMP_COOKIE_DOMAINS = ['bandcamp.com', '.bandcamp.com'];
 
 export class AuthService {
     private session: Session;
@@ -25,7 +26,7 @@ export class AuthService {
             const cookies = await this.session.cookies.get({});
             const hasSession = cookies.some(c =>
                 (c.name === 'identity' || c.name === 'session') &&
-                c.domain?.includes('bandcamp.com')
+                ALLOWED_BANDCAMP_COOKIE_DOMAINS.includes(c.domain ?? '')
             );
 
             if (hasSession && !this.currentUser) {
@@ -70,8 +71,21 @@ export class AuthService {
             // Watch for navigation to detect successful login
             this.loginWindow.webContents.on('did-navigate', async (_, url) => {
                 console.log(`Login window navigated to: ${url}`);
+
+                let isBandcamp = false;
+                let isLogin = false;
+                try {
+                    const parsedUrl = new URL(url);
+                    // Check if hostname is bandcamp.com or a subdomain
+                    const hostname = parsedUrl.hostname;
+                    isBandcamp = hostname === 'bandcamp.com' || hostname.endsWith('.bandcamp.com');
+                    isLogin = parsedUrl.pathname === '/login';
+                } catch (e) {
+                    console.error('Error parsing navigation URL:', e);
+                }
+
                 // Check if we're redirected to the main page or fan page (successful login)
-                if (url.includes('bandcamp.com') && !url.includes('/login')) {
+                if (isBandcamp && !isLogin) {
                     // Give cookies a moment to settle
                     for (let i = 0; i < 3; i++) {
                         console.log(`Checking session (attempt ${i + 1})...`);
@@ -129,7 +143,7 @@ export class AuthService {
     private async fetchUserFromSession(): Promise<BandcampUser | null> {
         try {
             const cookies = await this.session.cookies.get({});
-            const identityCookie = cookies.find(c => c.name === 'identity' && c.domain?.includes('bandcamp.com'));
+            const identityCookie = cookies.find(c => c.name === 'identity' && ALLOWED_BANDCAMP_COOKIE_DOMAINS.includes(c.domain ?? ''));
 
             if (!identityCookie) {
                 console.log('No identity cookie found in fetchUserFromSession');
@@ -278,7 +292,7 @@ export class AuthService {
     async getSessionCookies(): Promise<string> {
         const cookies = await this.session.cookies.get({});
         return cookies
-            .filter(c => c.domain?.includes('bandcamp.com'))
+            .filter(c => ALLOWED_BANDCAMP_COOKIE_DOMAINS.includes(c.domain ?? ''))
             .map(c => `${c.name}=${c.value}`)
             .join('; ');
     }

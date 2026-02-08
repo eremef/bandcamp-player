@@ -1,14 +1,14 @@
 # Unofficial Bandcamp Desktop Player - Beta version
 
 <p align="center">
-  <img <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
+  <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
 </p>
 
 AI-generated, feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
 ⚠️ May violate Bandcamp terms and policies. Use at your own risk. ⚠️
 
-However, it should be quite safe, as you can listen to and cache only the tracks you have collected and radio shows.
+However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
 ## Features
 
@@ -29,7 +29,7 @@ However, it should be quite safe, as you can listen to and cache only the tracks
 ## Tech Stack
 
 - **Electron** - Desktop application framework
-- **React 18** - UI library
+- **React 19** - UI library
 - **TypeScript** - Type-safe development
 - **Zustand** - State management
 - **SQLite** (better-sqlite3) - Local database
@@ -147,7 +147,7 @@ src/
 3. **Play Music** - Click on an album to start playing
 4. **Create Playlists** - Use the + button in the sidebar to create playlists
 5. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
-6. **Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
+6. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 7. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile Companion App
@@ -169,7 +169,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - **About & License** - View app version and open source licenses
 - Offline-ready UI (relies on Desktop for audio)
 - Automatic local network discovery
-- **Volume Note**: Physical volume buttons change volume by the device's system step (typically ~7%), ensuring synchronization with the phone's hardware state.
+- **Volume Control**: Uses the device's native volume steps (typically ~7%) for hardware synchronization.
 
 ### Building Mobile App
 
@@ -211,4 +211,6 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 
 MIT
 
-I can't imagine any legal commercial usage of this app, except for usage by Bandcamp Ventures LLC.
+## Disclaimer
+
+This application is an unofficial project intended for personal use only. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Bandcamp Ventures LLC. Users are responsible for complying with Bandcamp's Terms of Service and all applicable local and international laws regarding digital content and copyright.
