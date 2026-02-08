@@ -25,12 +25,23 @@ function formatDuration(seconds) {
 }
 
 function sanitizeUrl(url) {
-    if (!url) return '';
-    // Allow http, https
-    if (/^https?:\/\//i.test(url)) return url;
-    // Potentially allow relative paths if needed, but for now strict external content
-    // if (/^\//.test(url)) return url; 
-    return '';
+    if (typeof url !== 'string') return '';
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    // Prefer using URL API for robust parsing and protocol checking
+    try {
+        const parsed = new URL(trimmed, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.href;
+        }
+        return '';
+    } catch (e) {
+        // Fallback: strict regex allow-list for http/https absolute URLs
+        if (/^https?:\/\/[^\s"'<>]+$/i.test(trimmed)) {
+            return trimmed;
+        }
+        return '';
+    }
 }
 
 function connect() {
