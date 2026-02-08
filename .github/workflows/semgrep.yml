@@ -1,0 +1,23 @@
+name: Semgrep
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  semgrep:
+    name: Run Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      
+      - name: Run Semgrep scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: 'p/ci'
+          publishResults: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
