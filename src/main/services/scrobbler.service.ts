@@ -414,7 +414,9 @@ export class ScrobblerService extends EventEmitter {
         }
         str += this.getApiSecret();
 
-        // MD5 hash
+        // Last.fm API expressly requires MD5 for signature generation.
+        // This is a legacy requirement that cannot be changed.
+        // See: https://www.last.fm/api/desktopauth#4.-create-the-signature
         return crypto.createHash('md5').update(str, 'utf8').digest('hex');
     }
 

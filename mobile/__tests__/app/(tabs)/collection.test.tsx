@@ -64,6 +64,7 @@ describe('CollectionScreen', () => {
         addAlbumToQueue: jest.fn(),
         addTrackToPlaylist: jest.fn(),
         addAlbumToPlaylist: jest.fn(),
+        refreshCollection: jest.fn(),
     };
 
     beforeEach(() => {
@@ -160,6 +161,6 @@ describe('CollectionScreen', () => {
             refreshControl.props.onRefresh();
         });
 
-        expect(webSocketService.send).toHaveBeenCalledWith('get-collection');
+        expect(mockStore.refreshCollection).toHaveBeenCalled();
     });
 });

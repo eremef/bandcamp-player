@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.bandcamp.remote",
-  "version": "1.5.5-beta",
+  "version": "1.5.6-beta",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -8,6 +8,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:apk": "npx eas-cli build --platform android",
+    "build:locally": "npx eas-cli build --platform android --local --profile production",
     "test": "jest",
     "lint": "cd .. && eslint mobile",
     "typecheck": "tsc --noEmit",
