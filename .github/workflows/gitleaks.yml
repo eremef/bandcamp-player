@@ -8,6 +8,9 @@ on:
   schedule:
     - cron: '0 0 * * 0'  # Weekly scan on Sundays
 
+permissions:
+  contents: read
+
 jobs:
   gitleaks:
     name: Detect secrets with Gitleaks
