@@ -50,17 +50,17 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="queue"
-                options={{
-                    title: 'Queue',
-                    tabBarIcon: ({ color, size }: { color: string; size: number }) => <ListOrdered color={color} size={size} />,
-                }}
-            />
-            <Tabs.Screen
                 name="radio"
                 options={{
                     title: 'Radio',
                     tabBarIcon: ({ color, size }: { color: string; size: number }) => <Radio color={color} size={size} />,
+                }}
+            />
+            <Tabs.Screen
+                name="queue"
+                options={{
+                    title: 'Queue',
+                    tabBarIcon: ({ color, size }: { color: string; size: number }) => <ListOrdered color={color} size={size} />,
                 }}
             />
         </Tabs>
