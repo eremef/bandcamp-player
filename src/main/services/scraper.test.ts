@@ -321,4 +321,87 @@ describe('ScraperService', () => {
             expect(result).toEqual({ streamUrl: '', duration: 0 });
         });
     });
+
+    describe('Title Cleaning Regression ("gift given" issue)', () => {
+        it('should remove "(gift given)" suffix', async () => {
+            mockAuthService.getUser.mockReturnValue({
+                isAuthenticated: true,
+                user: { profileUrl: 'https://bandcamp.com/testuser' }
+            });
+            mockAuthService.getSessionCookies.mockResolvedValue('session=123');
+
+            const mockHtml = `
+                <html>
+                <script>
+                    var collection_data = {
+                        "items": [{
+                            "item_type": "album",
+                            "item_id": 901,
+                            "item_title": "Normal Title (gift given)",
+                            "band_name": "Artist",
+                            "token": "token1"
+                        }]
+                    };
+                </script>
+                </html>
+            `;
+            mockAxios.get.mockResolvedValue({ data: mockHtml });
+            mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+            const collection = await scraper.fetchCollection(true);
+            expect(collection.items[0].album?.title).toBe('Normal Title');
+        });
+
+        it('should deduplicate "Title (gift given) Title"', async () => {
+            mockAuthService.getUser.mockReturnValue({
+                isAuthenticated: true,
+                user: { profileUrl: 'https://bandcamp.com/testuser' }
+            });
+
+            const mockHtml = `
+                <html>
+                <script>
+                    var collection_data = {
+                        "items": [{
+                            "item_type": "album",
+                            "item_id": 902,
+                            "item_title": "Duplicated Title (gift given) Duplicated Title",
+                            "band_name": "Artist",
+                            "token": "token2"
+                        }]
+                    };
+                </script>
+                </html>
+            `;
+            mockAxios.get.mockResolvedValue({ data: mockHtml });
+            mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+            const collection = await scraper.fetchCollection(true);
+            expect(collection.items[0].album?.title).toBe('Duplicated Title');
+        });
+
+        it('should handle aggressive whitespace and newlines', async () => {
+            mockAuthService.getUser.mockReturnValue({
+                isAuthenticated: true,
+                user: { profileUrl: 'https://bandcamp.com/testuser' }
+            });
+
+            const mockHtml = `
+                <html>
+                <div class="collection-item-container" data-tralbumid="903" data-itemtype="album">
+                    <div class="collection-item-title">
+                        Spaced Title (gift given) Spaced Title
+                    </div>
+                    <div class="collection-item-artist">by Artist</div>
+                </div>
+                </html>
+            `;
+            mockAxios.get.mockResolvedValue({ data: mockHtml });
+            mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+            const collection = await scraper.fetchCollection(true);
+            expect(collection.items[0].album?.title).toBe('Spaced Title');
+        });
+    });
 });
+
