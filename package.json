@@ -105,7 +105,8 @@
         }
       ],
       "icon": "src/assets/icons",
-      "maintainer": "Bandcamp Player <eremef.xyz@gmail.com>"
+      "maintainer": "eremef.xyz <eremef.xyz@gmail.com>",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": "dmg",
