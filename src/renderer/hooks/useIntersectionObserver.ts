@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 
 export function useIntersectionObserver({
     onIntersect,
@@ -11,10 +11,10 @@ export function useIntersectionObserver({
     threshold?: number;
     rootMargin?: string;
 }) {
-    const targetRef = useRef<HTMLDivElement>(null);
+    const [target, setTarget] = useState<Element | null>(null);
 
     useEffect(() => {
-        if (!enabled) {
+        if (!enabled || !target) {
             return;
         }
 
@@ -31,18 +31,12 @@ export function useIntersectionObserver({
             }
         );
 
-        const currentTarget = targetRef.current;
-        if (currentTarget) {
-            observer.observe(currentTarget);
-        }
+        observer.observe(target);
 
         return () => {
-            if (currentTarget) {
-                observer.unobserve(currentTarget);
-            }
             observer.disconnect();
         };
-    }, [onIntersect, enabled, threshold, rootMargin]);
+    }, [target, onIntersect, enabled, threshold, rootMargin]);
 
-    return targetRef;
+    return setTarget;
 }

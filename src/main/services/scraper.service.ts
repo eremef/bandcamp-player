@@ -41,6 +41,46 @@ export class ScraperService extends EventEmitter {
     }
 
     /**
+     * Clean album/track title by removing suffixes and "gift given" infix
+     */
+    private cleanTitle(rawTitle: string, artist?: string): string {
+        if (!rawTitle) return 'Untitled';
+
+        let title = rawTitle.trim();
+
+        // 1. Remove " by Artist" suffix if present
+        if (artist && title.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
+            title = title.slice(0, -` by ${artist}`.length);
+        }
+
+        // 2. Remove "(gift given)" infix/suffix
+        // Enhanced regex to capture the part before " (gift given)" for deduplication
+        // Matches: "Title (gift given) Title" -> captures "Title"
+        const dedupeMatch = title.match(/^(.*?)\s*\(gift given\)\s*\1$/i);
+        if (dedupeMatch) {
+            return dedupeMatch[1].trim() || 'Untitled';
+        }
+
+        // Fallback: just remove "(gift given)" from anywhere
+        title = title.replace(/\s*\(gift given\)\s*/gi, ' ').trim();
+
+        // 3. General deduplication check (e.g. "Title Title")
+        if (title.length > 0) {
+            const parts = title.split(/\s+/);
+            if (parts.length % 2 === 0) {
+                const halfCount = parts.length / 2;
+                const firstPart = parts.slice(0, halfCount).join(' ');
+                const secondPart = parts.slice(halfCount).join(' ');
+                if (firstPart === secondPart) {
+                    title = firstPart;
+                }
+            }
+        }
+
+        return title.trim() || 'Untitled';
+    }
+
+    /**
      * Fetch user's collection (purchased music)
      */
     async fetchCollection(forceRefresh = false): Promise<Collection> {
@@ -282,13 +322,8 @@ export class ScraperService extends EventEmitter {
             const id = String(item.item_id || item.tralbum_id);
             const artist = this.cleanArtistName(item.band_name);
 
-            // The item_title sometimes contains "Album by Artist" format - strip the " by Artist" suffix
-            let rawTitle = item.album_title || item.item_title || '';
-            // If title ends with " by ArtistName", strip it since we display artist separately
-            if (artist && rawTitle.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
-                rawTitle = rawTitle.slice(0, -` by ${artist}`.length);
-            }
-            const title = rawTitle.trim() || 'Untitled';
+            // Use shared helper for title cleaning
+            const title = this.cleanTitle(item.album_title || item.item_title || '', artist);
 
             if (isAlbum) {
                 return {
@@ -308,11 +343,8 @@ export class ScraperService extends EventEmitter {
                     purchaseDate: item.purchased || item.added || new Date().toISOString(),
                 };
             } else {
-                // Also clean track title if it has " by Artist" format
-                let trackTitle = item.item_title || item.track_title || '';
-                if (artist && trackTitle.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
-                    trackTitle = trackTitle.slice(0, -` by ${artist}`.length);
-                }
+                // Also clean track title using shared helper
+                const trackTitle = this.cleanTitle(item.item_title || item.track_title || '', artist);
 
                 return {
                     id,
@@ -320,7 +352,7 @@ export class ScraperService extends EventEmitter {
                     token: item.token || item.sale_token, // Capture token
                     track: {
                         id,
-                        title: trackTitle.trim() || 'Untitled',
+                        title: trackTitle,
                         artist,
                         album: item.album_title || '',
                         duration: item.duration || 0,
@@ -343,8 +375,8 @@ export class ScraperService extends EventEmitter {
      */
     private parseCollectionItemFromDOM($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): CollectionItem | null {
         try {
-            const title = $item.find('.collection-item-title').text().trim();
             const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', ''));
+            const title = this.cleanTitle($item.find('.collection-item-title').text(), artist);
             const url = $item.find('a.item-link').attr('href') || '';
             const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
