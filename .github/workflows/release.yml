@@ -139,7 +139,7 @@ jobs:
 
   build-desktop-macos-x64:
     name: Build Desktop (MacOS x64)
-    runs-on: macos-13
+    runs-on: macos-latest
     permissions:
       contents: write
 
