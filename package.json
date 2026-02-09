@@ -84,7 +84,8 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "src/assets/icons/icon.ico"
+      "icon": "src/assets/icons/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -108,7 +109,8 @@
     },
     "mac": {
       "target": "dmg",
-      "icon": "src/assets/icons/icon.png"
+      "icon": "src/assets/icons/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
