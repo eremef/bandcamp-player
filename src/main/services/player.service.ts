@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import * as fs from 'fs';
+
 import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState } from '../../shared/types';
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
@@ -199,18 +199,16 @@ export class PlayerService extends EventEmitter {
      * Convert a RadioStation to a Track object for queue/playlist use
      */
     async stationToTrack(station: RadioStation): Promise<Track> {
-        const log = (msg: string) => fs.appendFileSync('debug-radio-fix.log', `[Player] ${msg}\n`);
 
         // Resolve stream URL if missing
         let streamUrl = station.streamUrl;
         let duration = station.duration || 0;
 
-        log(`stationToTrack called for '${station.name}' (ID: ${station.id}). URL present: ${!!streamUrl}, Duration: ${duration}`);
+
 
         if (!streamUrl || !duration) {
             console.log(`Resolving stream URL/duration for station: ${station.name}`);
             const result = await this.scraperService.getStationStreamUrl(station.id);
-            log(`Resolution result - URL present: ${!!result.streamUrl}, Duration: ${result.duration}`);
 
             if (result.streamUrl) {
                 streamUrl = result.streamUrl;
