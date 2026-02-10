@@ -1,4 +1,4 @@
-# Unofficial Bandcamp Desktop Player - Beta version
+# Unofficial Bandcamp Desktop Player
 
 <p align="center">
   <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
