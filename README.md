@@ -24,6 +24,7 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - 🎧 **Last.fm Scrobbling** - Track your listening history
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
+- 📡 **Connection Management** - View host IP, disconnect, and manage sessions
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 
@@ -159,7 +160,6 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
-- 📡 **Connection Management** - View host IP, disconnect, and manage sessions
 - ℹ️ **About & License** - View app version and open source licenses
 - 🔌 **Offline-ready UI** - Navigates smoothly even when disconnected (relies on Desktop for audio)
 - 🔍 **Auto Discovery** - Automatic local network discovery
