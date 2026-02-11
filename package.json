@@ -1,6 +1,6 @@
 {
   "name": "bandcamp-desktop-player",
-  "version": "1.6.1-beta",
+  "version": "1.6.2-beta",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "eremef.xyz",
@@ -74,7 +74,7 @@
   },
   "build": {
     "appId": "xyz.eremef.bandcamp.player",
-    "productName": "Bandcamp Desktop Player",
+    "productName": "bandcamp-desktop-player",
     "directories": {
       "output": "release"
     },
@@ -83,9 +83,24 @@
       "package.json"
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
       "icon": "src/assets/icons/icon.ico",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "Windows-${productName}-${version}-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -102,16 +117,23 @@
             "x64",
             "arm64"
           ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "icon": "src/assets/icons",
       "maintainer": "eremef.xyz <eremef.xyz@gmail.com>",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "Linux-${productName}-${version}-${arch}.${ext}"
     },
     "mac": {
       "target": "dmg",
       "icon": "src/assets/icons/icon.png",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
+      "artifactName": "MacOS-${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
