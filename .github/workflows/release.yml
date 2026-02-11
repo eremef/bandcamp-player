@@ -36,7 +36,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/*.msi
           generate_release_notes: true
 
   build-desktop-windows-arm64:
@@ -68,7 +70,9 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/*.msi
           generate_release_notes: true
 
   build-desktop-linux:
@@ -103,6 +107,7 @@ jobs:
           files: |
             release/*.AppImage
             release/*.deb
+            release/*.rpm
           generate_release_notes: true
 
   build-desktop-macos-arm64:
@@ -209,16 +214,16 @@ jobs:
 
       - name: Rename Artifacts
         run: |
-          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
-          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/BandcampPlayer-${{ github.ref_name }}.aab
+          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/Android-bandcamp-remote-app-${{ github.ref_name }}.apk
+          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/Android-bandcamp-remote-app-${{ github.ref_name }}.aab
 
       - name: Release Android
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            mobile/android/app/build/outputs/apk/release/BandcampPlayer-${{ github.ref_name }}.apk
-            mobile/android/app/build/outputs/bundle/release/BandcampPlayer-${{ github.ref_name }}.aab
+            mobile/android/app/build/outputs/apk/release/Android-bandcamp-remote-app-${{ github.ref_name }}.apk
+            mobile/android/app/build/outputs/bundle/release/Android-bandcamp-remote-app-${{ github.ref_name }}.aab
           generate_release_notes: true
 
   build-ios:
@@ -264,11 +269,11 @@ jobs:
           cd mobile/ios/build/Build/Products/Release-iphoneos
           mkdir Payload
           cp -r BandcampRemote.app Payload/
-          zip -r BandcampPlayer-${{ github.ref_name }}.ipa Payload
+          zip -r iOS-bandcamp-remote-app-${{ github.ref_name }}.ipa Payload
 
       - name: Release IPA
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: mobile/ios/build/Build/Products/Release-iphoneos/BandcampPlayer-${{ github.ref_name }}.ipa
+          files: mobile/ios/build/Build/Products/Release-iphoneos/iOS-bandcamp-remote-app-${{ github.ref_name }}.ipa
           generate_release_notes: true
