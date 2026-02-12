@@ -14,6 +14,8 @@ import type {
     RadioState,
     Queue,
     RemoteClient,
+    CastDevice,
+    CastStatus,
 } from '../../shared/types';
 
 // ============================================================================
@@ -120,6 +122,15 @@ interface RemoteSlice {
     disconnectDevice: (clientId: string) => Promise<void>;
 }
 
+interface CastSlice {
+    castDevices: CastDevice[];
+    castStatus: CastStatus;
+    startCastDiscovery: () => Promise<void>;
+    stopCastDiscovery: () => Promise<void>;
+    connectCast: (host: string) => Promise<void>;
+    disconnectCast: () => Promise<void>;
+}
+
 interface UISlice {
     currentView: ViewType;
     selectedPlaylistId: string | null;
@@ -148,6 +159,7 @@ type StoreState = AuthSlice &
     ScrobblerSlice &
     SettingsSlice &
     RemoteSlice &
+    CastSlice &
     UISlice;
 
 // ============================================================================
@@ -465,6 +477,22 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 
+    // ---- Cast Slice ----
+    castDevices: [],
+    castStatus: { status: 'disconnected' },
+    startCastDiscovery: async () => {
+        await window.electron.cast.startDiscovery();
+    },
+    stopCastDiscovery: async () => {
+        await window.electron.cast.stopDiscovery();
+    },
+    connectCast: async (host: string) => {
+        await window.electron.cast.connect(host);
+    },
+    disconnectCast: async () => {
+        await window.electron.cast.disconnect();
+    },
+
     // ---- UI Slice ----
     currentView: 'collection',
     selectedPlaylistId: null,
@@ -581,5 +609,22 @@ export async function initializeStoreSubscriptions() {
         }
         // Also refresh the devices list if it's available
         useStore.getState().fetchConnectedDevices();
+    });
+
+    // Cast updates
+    window.electron.cast.onDevicesUpdated((devices) => {
+        useStore.setState({ castDevices: devices });
+    });
+
+    window.electron.cast.onStatusChanged((status) => {
+        useStore.setState({ castStatus: status });
+
+        // Sync with player state if needed (isCasting is already synced via player state)
+        const currentPlayer = useStore.getState().player;
+        if (status.status === 'connected') {
+            setPlayerState({ ...currentPlayer, isCasting: true, castDevice: status.device });
+        } else {
+            setPlayerState({ ...currentPlayer, isCasting: false, castDevice: undefined });
+        }
     });
 }

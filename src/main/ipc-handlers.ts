@@ -12,6 +12,7 @@ import {
     WINDOW_CHANNELS,
     REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
+    CAST_CHANNELS,
 } from '../shared/ipc-channels';
 import type { Track, Album, Playlist, RepeatMode, RadioStation } from '../shared/types';
 import { AuthService } from './services/auth.service';
@@ -21,6 +22,7 @@ import { CacheService } from './services/cache.service';
 import { PlaylistService } from './services/playlist.service';
 import { ScrobblerService } from './services/scrobbler.service';
 import { RemoteControlService } from './services/remote.service';
+import { CastService } from './services/cast.service';
 import { Database } from './database/database';
 
 // ============================================================================
@@ -35,6 +37,7 @@ interface Services {
     playlistService: PlaylistService;
     scrobblerService: ScrobblerService;
     remoteService: RemoteControlService;
+    castService: CastService;
     database: Database;
     getMainWindow: () => BrowserWindow | null;
     getMiniPlayerWindow: () => BrowserWindow | null;
@@ -50,6 +53,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         playlistService,
         scrobblerService,
         remoteService,
+        castService,
         database,
         getMainWindow,
         getMiniPlayerWindow,
@@ -247,6 +251,20 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     });
     remoteService.on('connections-changed', (count) => {
         broadcast(REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED, count);
+    });
+
+    // ---- Chromecast ----
+    ipcMain.handle(CAST_CHANNELS.START_DISCOVERY, () => castService.startDiscovery());
+    ipcMain.handle(CAST_CHANNELS.STOP_DISCOVERY, () => castService.stopDiscovery());
+    ipcMain.handle(CAST_CHANNELS.GET_DEVICES, () => castService.getDevices());
+    ipcMain.handle(CAST_CHANNELS.CONNECT, (_, host: string) => castService.connect(host));
+    ipcMain.handle(CAST_CHANNELS.DISCONNECT, () => castService.disconnect());
+
+    castService.on('devices-updated', (devices) => {
+        broadcast(CAST_CHANNELS.ON_DEVICES_UPDATED, devices);
+    });
+    castService.on('status-changed', (status) => {
+        broadcast(CAST_CHANNELS.ON_STATUS_CHANGED, status);
     });
 
     // ---- Window ----

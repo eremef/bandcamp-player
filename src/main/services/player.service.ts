@@ -4,6 +4,7 @@ import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioStat
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
+import { CastService } from './cast.service';
 import { Database } from '../database/database';
 
 // ============================================================================
@@ -14,6 +15,7 @@ export class PlayerService extends EventEmitter {
     private cacheService: CacheService;
     private scrobblerService: ScrobblerService;
     private scraperService: ScraperService;
+    private castService: CastService;
     private database: Database;
 
     // Player state
@@ -25,6 +27,7 @@ export class PlayerService extends EventEmitter {
     private isMuted = false;
     private repeatMode: RepeatMode = 'off';
     private isShuffled = false;
+    private isCasting = false;
 
     // Queue state
     private queue: QueueItem[] = [];
@@ -42,11 +45,12 @@ export class PlayerService extends EventEmitter {
     // Persistence
     private saveVolumeTimeout: NodeJS.Timeout | null = null;
 
-    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, database: Database) {
+    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, castService: CastService, database: Database) {
         super();
         this.cacheService = cacheService;
         this.scrobblerService = scrobblerService;
         this.scraperService = scraperService;
+        this.castService = castService;
         this.database = database;
 
         // Initialize volume from settings
@@ -54,6 +58,43 @@ export class PlayerService extends EventEmitter {
         if (settings) {
             this.volume = settings.defaultVolume;
         }
+
+        this.setupCastListeners();
+    }
+
+    private setupCastListeners() {
+        this.castService.on('status-changed', (data) => {
+            const wasCasting = this.isCasting;
+            this.isCasting = data.status === 'connected';
+
+            if (this.isCasting !== wasCasting) {
+                console.log(`[PlayerService] Casting status changed: ${this.isCasting}`);
+                if (this.isCasting && this.isPlaying && this.currentTrack) {
+                    // Switch to casting
+                    this.castService.play(this.currentTrack, this.currentTime);
+                    // We might want to pause local playback to save resources/bandwidth
+                    this.emit('seek-command', this.currentTime); // Just to sync local if needed
+                }
+                this.emitStateChange();
+            }
+        });
+
+        this.castService.on('finished', () => {
+            if (this.isCasting) {
+                this.handleTrackEnd();
+            }
+        });
+
+        this.castService.on('device-status', (status) => {
+            if (this.isCasting && status.currentTime !== undefined) {
+                // Synchronize time from cast device
+                this.currentTime = status.currentTime;
+                if (status.duration !== undefined) {
+                    this.duration = status.duration;
+                }
+                this.emitTimeUpdate();
+            }
+        });
     }
 
     // ---- Playback Control ----
@@ -113,6 +154,11 @@ export class PlayerService extends EventEmitter {
             this.currentTrack = track;
             this.currentTime = 0;
             this.isPlaying = true;
+
+            if (this.isCasting) {
+                this.castService.play(track);
+            }
+
             this.scrobbleStartTime = Date.now();
             this.hasScrobbled = false;
 
@@ -131,6 +177,9 @@ export class PlayerService extends EventEmitter {
             // Resume current track
             console.log('[PlayerService] Resuming current track');
             this.isPlaying = true;
+            if (this.isCasting) {
+                this.castService.resume();
+            }
             this.emitStateChange();
         } else if (this.queue.length > 0) {
             // Play first item in queue
@@ -143,6 +192,9 @@ export class PlayerService extends EventEmitter {
 
     pause(): void {
         this.isPlaying = false;
+        if (this.isCasting) {
+            this.castService.pause();
+        }
         this.emitStateChange();
     }
 
@@ -162,6 +214,9 @@ export class PlayerService extends EventEmitter {
         this.currentIndex = -1;
         this.isRadioActive = false;
         this.currentStation = null;
+        if (this.isCasting) {
+            this.castService.stop();
+        }
         this.emitStateChange();
         this.emitTrackChange();
         this.emitRadioStateChange();
@@ -320,6 +375,9 @@ export class PlayerService extends EventEmitter {
     seek(time: number): void {
         const seekTime = Number(time);
         this.currentTime = Math.max(0, Math.min(seekTime, this.duration));
+        if (this.isCasting) {
+            this.castService.seek(this.currentTime);
+        }
         this.emitTimeUpdate();
         // Emit command to renderer to actually seek the audio element
         this.emit('seek-command', this.currentTime);
@@ -328,6 +386,9 @@ export class PlayerService extends EventEmitter {
     async setVolume(volume: number): Promise<void> {
         this.volume = Math.max(0, Math.min(1, volume));
         this.isMuted = false;
+        if (this.isCasting) {
+            this.castService.setVolume(this.volume);
+        }
         this.emitStateChange();
 
         // Debounce saving volume to database
@@ -343,6 +404,9 @@ export class PlayerService extends EventEmitter {
 
     toggleMute(): void {
         this.isMuted = !this.isMuted;
+        if (this.isCasting) {
+            this.castService.setMuted(this.isMuted);
+        }
         this.emitStateChange();
     }
 
@@ -538,6 +602,8 @@ export class PlayerService extends EventEmitter {
                 currentIndex: this.currentIndex,
                 shuffleOrder: this.isShuffled ? this.shuffleOrder : undefined,
             },
+            isCasting: this.isCasting,
+            castDevice: this.castService.getConnectedDevice() || undefined
         };
     }
 

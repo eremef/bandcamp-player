@@ -178,6 +178,20 @@ export const SYSTEM_CHANNELS = {
 } as const;
 
 // ============================================================================
+// Chromecast Channels
+// ============================================================================
+
+export const CAST_CHANNELS = {
+    START_DISCOVERY: 'cast:start-discovery',
+    STOP_DISCOVERY: 'cast:stop-discovery',
+    GET_DEVICES: 'cast:get-devices',
+    CONNECT: 'cast:connect',
+    DISCONNECT: 'cast:disconnect',
+    ON_DEVICES_UPDATED: 'cast:on-devices-updated',
+    ON_STATUS_CHANGED: 'cast:on-status-changed',
+} as const;
+
+// ============================================================================
 // All Channels (for type inference)
 // ============================================================================
 
@@ -194,6 +208,7 @@ export const IPC_CHANNELS = {
     ...WINDOW_CHANNELS,
     ...REMOTE_CHANNELS,
     ...SYSTEM_CHANNELS,
+    ...CAST_CHANNELS,
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

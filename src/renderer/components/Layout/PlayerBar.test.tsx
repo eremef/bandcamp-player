@@ -22,17 +22,27 @@ vi.mock('lucide-react', () => ({
     Volume2: () => <span data-testid="icon-volume-2" />,
     List: () => <span data-testid="icon-list" />,
     Minimize2: () => <span data-testid="icon-minimize-2" />,
+    Cast: () => <span data-testid="icon-cast" />,
 }));
 
 // Mock electron
 const mockUpdatePlayerTime = vi.fn();
-const mockOnSeek = vi.fn(() => () => {});
+const mockOnSeek = vi.fn(() => () => { });
 
 Object.defineProperty(window, 'electron', {
     value: {
         player: {
             updateTime: mockUpdatePlayerTime,
             onSeek: mockOnSeek,
+        },
+        cast: {
+            startDiscovery: vi.fn(),
+            stopDiscovery: vi.fn(),
+            getDevices: vi.fn(),
+            connect: vi.fn(),
+            disconnect: vi.fn(),
+            onDevicesUpdated: vi.fn(() => () => { }),
+            onStatusChanged: vi.fn(() => () => { }),
         },
     },
     writable: true,
@@ -49,6 +59,8 @@ describe('PlayerBar', () => {
             isMuted: false,
             repeatMode: 'off',
             isShuffled: false,
+            isCasting: false,
+            castDevice: undefined,
         },
         togglePlay: vi.fn(),
         next: vi.fn(),
@@ -61,6 +73,12 @@ describe('PlayerBar', () => {
         toggleQueue: vi.fn(),
         toggleMiniPlayer: vi.fn(),
         isQueueVisible: false,
+        castDevices: [],
+        castStatus: { status: 'disconnected' },
+        startCastDiscovery: vi.fn(),
+        stopCastDiscovery: vi.fn(),
+        connectCast: vi.fn(),
+        disconnectCast: vi.fn(),
     };
 
     beforeEach(() => {
@@ -142,7 +160,7 @@ describe('PlayerBar', () => {
         (useStore as any).mockReturnValue(trackStore);
 
         const { container } = render(<PlayerBar />);
-        
+
         // Find the progress bar container (using class selector as it might not have role)
         // Note: In a real app we might want to add data-testid to the progress bar
         const progressBar = container.querySelector('div[class*="progressBar"]');
@@ -151,12 +169,12 @@ describe('PlayerBar', () => {
         if (progressBar) {
             // Mock getBoundingClientRect
             vi.spyOn(progressBar, 'getBoundingClientRect').mockReturnValue({
-                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => {}
+                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
             });
 
             // Click at 50% width
             fireEvent.click(progressBar, { clientX: 50 });
-            
+
             // 50% of 200s = 100s
             // The component calls audio.currentTime = seekTime AND seek(seekTime)
             expect(mockStore.seek).toHaveBeenCalledWith(100);
@@ -170,12 +188,12 @@ describe('PlayerBar', () => {
 
         if (volumeSlider) {
             vi.spyOn(volumeSlider, 'getBoundingClientRect').mockReturnValue({
-                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => {}
+                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
             });
 
             // Click at 25% width
             fireEvent.mouseDown(volumeSlider, { clientX: 25 });
-            
+
             expect(mockStore.setVolume).toHaveBeenCalledWith(0.25);
         }
     });
