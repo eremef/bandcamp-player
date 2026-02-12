@@ -29,6 +29,7 @@
     "axios": "^1.13.5",
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.2.0",
+    "chromecast-api": "^0.4.2",
     "electron-store": "^11.0.2",
     "lucide": "^0.563.0",
     "lucide-react": "^0.563.0",
