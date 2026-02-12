@@ -1,7 +1,7 @@
 # Unofficial Bandcamp Desktop Player
 
 <p align="center">
-  <img width="802" height="632" alt="image" src="https://github.com/user-attachments/assets/e7267e0f-9185-4fed-8aa5-72064e76756c" />
+  <img width="800" alt="image" src="https://github.com/user-attachments/assets/4d3dbdaf-b7b1-4faf-b1d3-2d01ec1885df" />
 </p>
 
 AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, designing, prompting, testing, re-designing, prompting, testing, etc.) feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
