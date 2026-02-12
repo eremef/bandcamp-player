@@ -8,6 +8,7 @@ import { CacheService } from './services/cache.service';
 import { PlaylistService } from './services/playlist.service';
 import { ScrobblerService } from './services/scrobbler.service';
 import { RemoteControlService } from './services/remote.service';
+import { CastService } from './services/cast.service';
 import { Database } from './database/database';
 import { registerIpcHandlers } from './ipc-handlers';
 
@@ -42,6 +43,7 @@ let cacheService: CacheService;
 let playlistService: PlaylistService;
 let scrobblerService: ScrobblerService;
 let remoteService: RemoteControlService;
+let castService: CastService;
 
 // ============================================================================
 // Window Creation
@@ -171,7 +173,8 @@ async function initializeServices() {
     cacheService = new CacheService(database, path.join(userDataPath, 'cache'));
     playlistService = new PlaylistService(database);
     scrobblerService = new ScrobblerService(database);
-    playerService = new PlayerService(cacheService, scrobblerService, scraperService, database);
+    castService = new CastService();
+    playerService = new PlayerService(cacheService, scrobblerService, scraperService, castService, database);
     remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database);
 
     // Start remote service if enabled
@@ -189,6 +192,7 @@ async function initializeServices() {
         playlistService,
         scrobblerService,
         remoteService,
+        castService,
         database,
         getMainWindow: () => mainWindow,
         getMiniPlayerWindow: () => miniPlayerWindow,
