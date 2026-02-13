@@ -93,6 +93,16 @@ const mockElectron = {
     },
     window: {
         toggleMiniPlayer: vi.fn(),
+    },
+    update: {
+        check: vi.fn(),
+        install: vi.fn(),
+        onChecking: vi.fn(),
+        onAvailable: vi.fn(),
+        onNotAvailable: vi.fn(),
+        onError: vi.fn(),
+        onProgress: vi.fn(),
+        onDownloaded: vi.fn(),
     }
 };
 
