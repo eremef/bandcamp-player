@@ -5,6 +5,7 @@ let ws;
 let currentState = {};
 let fullCollectionItems = [];
 let isScrubbing = false;
+let isExplicitlyDisconnected = false;
 
 function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -45,6 +46,7 @@ function sanitizeUrl(url) {
 }
 
 function connect() {
+    isExplicitlyDisconnected = false;
     const host = window.location.host;
     ws = new WebSocket('ws://' + host);
 
@@ -61,6 +63,10 @@ function connect() {
     };
 
     ws.onclose = () => {
+        if (isExplicitlyDisconnected) {
+            console.log('Disconnected by host, not retrying');
+            return;
+        }
         document.getElementById('status-bar').innerText = 'Disconnected. Retrying...';
         document.getElementById('status-bar').style.color = 'var(--color-error)';
         setTimeout(connect, 3000);
@@ -82,6 +88,11 @@ function handleMessage(message) {
         updateProgress(payload);
     } else if (type === 'album-details') {
         renderAlbumDetails(payload);
+    } else if (type === 'disconnect') {
+        isExplicitlyDisconnected = true;
+        if (ws) ws.close();
+        document.getElementById('status-bar').innerText = 'Disconnected by host';
+        document.getElementById('status-bar').style.color = 'var(--text-tertiary)';
     }
 }
 

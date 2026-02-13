@@ -203,7 +203,16 @@ export class RemoteControlService extends EventEmitter {
     disconnectDevice(clientId: string): boolean {
         const client = this.clients.get(clientId);
         if (client) {
-            client.ws.close();
+            // Send disconnect message before closing
+            // Use callback to ensure message is sent (if socket is open)
+            if (client.ws.readyState === WebSocket.OPEN) {
+                client.ws.send(JSON.stringify({ type: 'disconnect' }), () => {
+                    client.ws.close();
+                });
+            } else {
+                client.ws.close();
+            }
+
             this.clients.delete(clientId);
             this.emit('connections-changed', this.clients.size);
             return true;
