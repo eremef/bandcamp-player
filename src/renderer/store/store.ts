@@ -543,6 +543,10 @@ export async function initializeStoreSubscriptions() {
     window.electron.scrobbler.onStateChanged((state) => {
         useStore.setState({ lastfm: state });
     });
+    // Fetch initial scrobbler state
+    window.electron.scrobbler.getState().then((state) => {
+        useStore.setState({ lastfm: state });
+    });
 
     // Settings updates
     window.electron.settings.onChanged((settings) => {

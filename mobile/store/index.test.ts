@@ -20,7 +20,7 @@ jest.mock('react-native-track-player', () => ({
 
 // Mock WebSocketService
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const socketListeners: Record<string, (payload?: any) => void> = {};
+const socketListeners: Record<string, (...args: any[]) => void> = {};
 
 jest.mock('../services/WebSocketService', () => ({
     webSocketService: {
@@ -346,10 +346,23 @@ describe('Mobile useStore', () => {
 
             jest.clearAllMocks();
 
-            // Test disconnected
+            // Test disconnected (implicit/network error)
             act(() => callback('disconnected'));
             expect(useStore.getState().connectionStatus).toBe('disconnected');
             expect(webSocketService.send).not.toHaveBeenCalled();
+            // Checking if removeItem was NOT called with 'last_ip'
+            // We need to spy on ensure AsyncStorage.removeItem is mocked or spied.
+            // It is imported from @react-native-async-storage/async-storage which is likely mocked globally or in setups.
+            // But here it imports default AsyncStorage.
+            // The file imports: import AsyncStorage from '@react-native-async-storage/async-storage';
+            // And useStore calls AsyncStorage.removeItem.
+            // We should expect it NOT to be called for implicit.
+            expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('last_ip');
+
+            // Test disconnected (explicit)
+            act(() => callback('disconnected', true));
+            expect(useStore.getState().connectionStatus).toBe('disconnected');
+            expect(AsyncStorage.removeItem).toHaveBeenCalledWith('last_ip');
         });
 
         it('should handle errors in state-changed sync', async () => {
