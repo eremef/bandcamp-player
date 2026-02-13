@@ -54,9 +54,9 @@ run('npm test', mobileDir);
 // 4. Git Operations
 log('Step 4: Git operations (commit, tag, push)...');
 run('git add .');
-run(`git commit -m "chore: release ${newVersion}"`);
+run(`git commit -m "chore: release v${newVersion}"`);
 run('git push');
-run(`git tag ${newVersion}`);
-run(`git push origin ${newVersion}`);
+run(`git tag v${newVersion}`);
+run(`git push origin v${newVersion}`);
 
-log(`\x1b[32mSuccessfully released ${newVersion}!\x1b[0m`);
+log(`\x1b[32mSuccessfully released v${newVersion}!\x1b[0m`);
