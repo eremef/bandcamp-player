@@ -12,6 +12,7 @@ import {
     WINDOW_CHANNELS,
     REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
+    UPDATE_CHANNELS,
 } from '../shared/ipc-channels';
 import type { Track, Album, Playlist, RepeatMode, RadioStation } from '../shared/types';
 import { AuthService } from './services/auth.service';
@@ -21,6 +22,7 @@ import { CacheService } from './services/cache.service';
 import { PlaylistService } from './services/playlist.service';
 import { ScrobblerService } from './services/scrobbler.service';
 import { RemoteControlService } from './services/remote.service';
+import { UpdaterService } from './services/updater.service';
 import { Database } from './database/database';
 
 // ============================================================================
@@ -35,6 +37,7 @@ interface Services {
     playlistService: PlaylistService;
     scrobblerService: ScrobblerService;
     remoteService: RemoteControlService;
+    updaterService: UpdaterService;
     database: Database;
     getMainWindow: () => BrowserWindow | null;
     getMiniPlayerWindow: () => BrowserWindow | null;
@@ -50,6 +53,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         playlistService,
         scrobblerService,
         remoteService,
+        updaterService,
         database,
         getMainWindow,
         getMiniPlayerWindow,
@@ -278,4 +282,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(SYSTEM_CHANNELS.SHOW_ITEM_IN_FOLDER, (_, path: string) =>
         shell.showItemInFolder(path)
     );
+
+    // ---- Updates ----
+    ipcMain.handle(UPDATE_CHANNELS.CHECK, () => updaterService.checkForUpdates());
+    ipcMain.handle(UPDATE_CHANNELS.INSTALL, () => updaterService.quitAndInstall());
+
+    updaterService.on(UPDATE_CHANNELS.ON_CHECKING, () => broadcast(UPDATE_CHANNELS.ON_CHECKING, null));
+    updaterService.on(UPDATE_CHANNELS.ON_AVAILABLE, (info) => broadcast(UPDATE_CHANNELS.ON_AVAILABLE, info));
+    updaterService.on(UPDATE_CHANNELS.ON_NOT_AVAILABLE, (info) => broadcast(UPDATE_CHANNELS.ON_NOT_AVAILABLE, info));
+    updaterService.on(UPDATE_CHANNELS.ON_ERROR, (error) => broadcast(UPDATE_CHANNELS.ON_ERROR, error));
+    updaterService.on(UPDATE_CHANNELS.ON_PROGRESS, (progress) => broadcast(UPDATE_CHANNELS.ON_PROGRESS, progress));
+    updaterService.on(UPDATE_CHANNELS.ON_DOWNLOADED, (info) => broadcast(UPDATE_CHANNELS.ON_DOWNLOADED, info));
 }

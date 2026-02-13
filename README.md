@@ -28,6 +28,7 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - 📡 **Connection Management** - View host IP, disconnect, and manage sessions
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
+- 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
 
 ## Tech Stack
 
@@ -39,6 +40,7 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - **Vite** - Build tool for renderer
 - **Cheerio** - Web scraping
 - **Axios** - HTTP client
+- **Electron Updater** - Auto-update support
 
 ## Getting Started
 
@@ -122,6 +124,7 @@ src/
 │   │   ├── scraper.service.ts
 │   │   ├── scrobbler.service.ts
 │   │   ├── remote.service.ts
+│   │   ├── updater.service.ts
 │   │   └── tray.service.ts
 │   └── database/           # SQLite database
 ├── renderer/               # React frontend

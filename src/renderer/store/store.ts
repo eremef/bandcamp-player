@@ -120,6 +120,17 @@ interface RemoteSlice {
     disconnectDevice: (clientId: string) => Promise<void>;
 }
 
+interface UpdateSlice {
+    updateStatus: {
+        status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+        info?: any;
+        progress?: any;
+        error?: string;
+    };
+    checkForUpdates: () => Promise<void>;
+    installUpdate: () => Promise<void>;
+}
+
 interface UISlice {
     currentView: ViewType;
     selectedPlaylistId: string | null;
@@ -148,6 +159,7 @@ type StoreState = AuthSlice &
     ScrobblerSlice &
     SettingsSlice &
     RemoteSlice &
+    UpdateSlice &
     UISlice;
 
 // ============================================================================
@@ -454,6 +466,16 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 
+    // ---- Update Slice ----
+    updateStatus: { status: 'idle' },
+    checkForUpdates: async () => {
+        set({ updateStatus: { status: 'checking' } });
+        await window.electron.update.check();
+    },
+    installUpdate: async () => {
+        await window.electron.update.install();
+    },
+
     // ---- UI Slice ----
     currentView: 'collection',
     selectedPlaylistId: null,
@@ -574,5 +596,25 @@ export async function initializeStoreSubscriptions() {
         }
         // Also refresh the devices list if it's available
         useStore.getState().fetchConnectedDevices();
+    });
+
+    // Update events
+    window.electron.update.onChecking(() => {
+        useStore.setState({ updateStatus: { status: 'checking' } });
+    });
+    window.electron.update.onAvailable((info) => {
+        useStore.setState({ updateStatus: { status: 'available', info } });
+    });
+    window.electron.update.onNotAvailable((info) => {
+        useStore.setState({ updateStatus: { status: 'not-available', info } });
+    });
+    window.electron.update.onError((error) => {
+        useStore.setState({ updateStatus: { status: 'error', error } });
+    });
+    window.electron.update.onProgress((progress) => {
+        useStore.setState({ updateStatus: { status: 'downloading', progress } });
+    });
+    window.electron.update.onDownloaded((info) => {
+        useStore.setState({ updateStatus: { status: 'downloaded', info } });
     });
 }

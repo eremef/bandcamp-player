@@ -537,3 +537,85 @@
 .manageLink:hover {
     text-decoration: underline;
 }
+
+/* Update Styles */
+.updateContainer {
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    display: flex;
+    justify-content: center;
+}
+
+.updateStatus {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.checkBtn,
+.updateBtn,
+.installBtn {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+}
+
+.checkBtn:hover,
+.installBtn:hover {
+    background: var(--bg-hover);
+}
+
+.installBtn {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.installBtn:hover {
+    background: var(--accent-hover);
+}
+
+.errorText {
+    color: #ff4444;
+}
+
+.spin {
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.progressBar {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-active);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+    margin-top: var(--spacing-xs);
+}
+
+.progressFill {
+    height: 100%;
+    background: var(--accent-primary);
+    transition: width 0.3s ease;
+}

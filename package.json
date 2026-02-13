@@ -32,6 +32,7 @@
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.2.0",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.7.3",
     "lucide": "^0.563.0",
     "lucide-react": "^0.563.0",
     "qrcode.react": "^4.2.0",
@@ -80,6 +81,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "eremef",
+        "repo": "bandcamp-player"
+      }
+    ],
     "files": [
       "dist/**/*",
       "package.json"
