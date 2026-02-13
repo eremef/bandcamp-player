@@ -59,6 +59,8 @@ export interface Collection {
     items: CollectionItem[];
     totalCount: number;
     lastUpdated: string;
+    offset?: number;
+    limit?: number;
 }
 
 // ============================================================================

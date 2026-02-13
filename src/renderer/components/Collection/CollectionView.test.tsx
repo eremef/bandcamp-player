@@ -63,18 +63,27 @@ describe('CollectionView', () => {
         expect(screen.getByText('Track 1')).toBeInTheDocument();
     });
 
-    it('shows loading state', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, isLoadingCollection: true });
+    it('shows loading state when collection is empty', () => {
+        (useStore as any).mockReturnValue({ ...mockStore, collection: null, isLoadingCollection: true });
         render(<CollectionView />);
         expect(screen.getByText('Loading your collection...')).toBeInTheDocument();
     });
 
-    it('shows error state and allows retry', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, collectionError: 'Network Error' });
+    it('shows non-blocking loading state when refreshing', () => {
+        (useStore as any).mockReturnValue({ ...mockStore, isLoadingCollection: true });
+        render(<CollectionView />);
+        expect(screen.queryByText('Loading your collection...')).not.toBeInTheDocument();
+        const refreshBtn = screen.getByTitle('Refresh');
+        expect(refreshBtn).toBeDisabled();
+        expect(refreshBtn.className).toContain('spinning');
+    });
+
+    it('shows error state when collection is empty', () => {
+        (useStore as any).mockReturnValue({ ...mockStore, collection: null, collectionError: 'Network Error' });
         render(<CollectionView />);
         expect(screen.getByText('Failed to load collection')).toBeInTheDocument();
         expect(screen.getByText('Network Error')).toBeInTheDocument();
-        
+
         const retryBtn = screen.getByText('Retry');
         fireEvent.click(retryBtn);
         expect(mockStore.fetchCollection).toHaveBeenCalledWith(true);

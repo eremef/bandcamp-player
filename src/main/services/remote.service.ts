@@ -281,12 +281,41 @@ export class RemoteControlService extends EventEmitter {
                     }
 
                     const forceRefresh = payload ? payload.forceRefresh === true : false;
+                    const offset = payload?.offset || 0;
+                    const limit = payload?.limit || 250; // Default limit
+                    const query = payload?.query ? String(payload.query).toLowerCase().trim() : '';
+
+                    console.log(`[RemoteService] Get Collection: offset=${offset}, limit=${limit}, query="${query}", forceRefresh=${forceRefresh}`);
+
                     const collection = await this.scraperService.fetchCollection(forceRefresh);
+
+                    // 1. Filter first (if query exists)
+                    let allItems = collection.items;
+                    if (query) {
+                        allItems = allItems.filter((item: any) => {
+                            // Check item generic title/artist
+                            // Or check specific album/track fields
+                            const title = (item.title || item.album?.title || item.track?.title || '').toLowerCase();
+                            const artist = (item.artist || item.album?.artist || item.track?.artist || '').toLowerCase();
+                            return title.includes(query) || artist.includes(query);
+                        });
+                    }
+
+                    // 2. Slice for pagination
+                    // If no payload is provided (legacy clients), returns full collection (offset 0, limit undefined -> slice(0))
+                    let itemsToSend = allItems;
+                    if (payload && (payload.offset !== undefined || payload.limit !== undefined)) {
+                        itemsToSend = allItems.slice(offset, offset + limit);
+                    }
 
                     // Map to flat structure expected by remote client
                     const simplifiedCollection = {
-                        ...collection,
-                        items: collection.items.map((item: any) => {
+                        ...collection, // This has totalCount of the FULL collection. 
+                        // Should we return filtered count?
+                        // The client uses totalCount to determine hasMore.
+                        // If we return filtered subset, totalCount should probably be the length of 'allItems' (the filtered set).
+                        totalCount: allItems.length,
+                        items: itemsToSend.map((item: any) => {
                             if (item.type === 'album' && item.album) {
                                 return {
                                     ...item,
@@ -302,7 +331,9 @@ export class RemoteControlService extends EventEmitter {
                                 };
                             }
                             return item;
-                        })
+                        }),
+                        offset,
+                        limit: payload?.limit ? limit : collection.items.length
                     };
                     this.sendToClient(ws, 'collection-data', simplifiedCollection);
                 } catch (e) {

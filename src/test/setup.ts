@@ -16,9 +16,11 @@ vi.mock('electron', () => ({
 }));
 
 // Mock window.api (context bridge)
-(window as any).api = {
-    send: vi.fn(),
-    receive: vi.fn(),
-    invoke: vi.fn(),
-    removeListener: vi.fn(),
-};
+if (typeof window !== 'undefined') {
+    (window as any).api = {
+        send: vi.fn(),
+        receive: vi.fn(),
+        invoke: vi.fn(),
+        removeListener: vi.fn(),
+    };
+}

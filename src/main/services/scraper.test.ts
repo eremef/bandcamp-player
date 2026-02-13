@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ScraperService } from './scraper.service';
 import { AuthService } from './auth.service';

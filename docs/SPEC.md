@@ -275,8 +275,15 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
 6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
 
-### Collection Search
+### Collection Search & Loading
 
-1. **Client-Side Filtering**: For performance and offline capability, the full collection is loaded into memory on the client (Desktop Renderer, Mobile App, Web Remote).
-2. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array.
-3. **Optimized Rendering**: UI only renders the filtered subset, ensuring responsiveness even with large collections.
+1. **Desktop & Web**: For performance and offline capability, the full collection is loaded into memory on the Desktop Renderer and Web Remote.
+2. **Mobile App**:
+    - **Lazy Loading**: Uses infinite scroll and pagination (offset/limit) to handle thousands of items with minimal memory overhead.
+    - **Server-Side Search**: Search queries are sent to the Desktop Main process. The Main process filters its cached collection and returns paginated results to the mobile client.
+    - **Optimization**: Search requests use `forceRefresh: false` by default, filtering the existing cache instantly. Only a manual "Pull-to-Refresh" triggers a full re-scrape from Bandcamp.
+3. **Smart Buffering**:
+    - **Initial Load**: Deduplicates concurrent fetch requests in `ScraperService` using a shared promise, preventing "empty" state flashes on startup.
+    - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
+4. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
+5. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.

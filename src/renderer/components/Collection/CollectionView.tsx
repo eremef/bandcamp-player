@@ -46,24 +46,26 @@ export function CollectionView() {
         }
     }, [collection, fetchCollection]);
 
-    if (isLoadingCollection) {
-        return (
-            <div className={styles.container}>
-                <div className={styles.loading}>
-                    <div className="spinner" />
-                    <p>Loading your collection...</p>
-                </div>
-            </div>
-        );
-    }
-
-    if (collectionError) {
+    // If we have an error and no data, show error state
+    if (collectionError && !collection) {
         return (
             <div className={styles.container}>
                 <div className={styles.error}>
                     <p>Failed to load collection</p>
                     <p className={styles.errorDetails}>{collectionError}</p>
                     <button onClick={() => fetchCollection(true)}>Retry</button>
+                </div>
+            </div>
+        );
+    }
+
+    // If we have no collection data yet, show loading (initial start or fetching)
+    if (!collection) {
+        return (
+            <div className={styles.container}>
+                <div className={styles.loading}>
+                    <div className={styles.spinner} />
+                    <p>Loading your collection...</p>
                 </div>
             </div>
         );
@@ -92,48 +94,62 @@ export function CollectionView() {
                             </button>
                         )}
                     </div>
-                    <button className={styles.refreshBtn} onClick={() => fetchCollection(true)} title="Refresh">
+                    <button
+                        className={`${styles.refreshBtn} ${isLoadingCollection ? styles.spinning : ''}`}
+                        onClick={() => !isLoadingCollection && fetchCollection(true)}
+                        title="Refresh"
+                        disabled={isLoadingCollection}
+                    >
                         <RefreshCw size={18} />
                     </button>
                 </div>
             </header>
 
             {/* Collection grid */}
-            {filteredItems.length > 0 ? (
-                <div className={styles.grid}>
-                    {filteredItems.slice(0, visibleCount).map((item) =>
-                        item.type === 'album' && item.album ? (
-                            <AlbumCard key={item.id} album={item.album} />
-                        ) : item.type === 'track' && item.track ? (
-                            <AlbumCard
-                                key={item.id}
-                                album={{
-                                    id: item.track.id,
-                                    title: item.track.title,
-                                    artist: item.track.artist,
-                                    artworkUrl: item.track.artworkUrl,
-                                    bandcampUrl: item.track.bandcampUrl,
-                                    tracks: [item.track],
-                                    trackCount: 1,
-                                }}
-                            />
-                        ) : null
-                    )}
-                </div>
-            ) : (
-                <div className={styles.empty}>
-                    {searchQuery ? (
-                        <p>No results for &quot;{searchQuery}&quot;</p>
-                    ) : (
-                        <>
-                            <p>Your collection is empty</p>
-                            <p className={styles.emptyHint}>
-                                Purchase music on Bandcamp to see it here
-                            </p>
-                        </>
-                    )}
-                </div>
-            )}
+            <div className={styles.gridContainer}>
+                {isLoadingCollection && collection && (
+                    <div className={styles.bufferingOverlay}>
+                        <div className={styles.spinner} />
+                        <p>Updating collection...</p>
+                    </div>
+                )}
+
+                {filteredItems.length > 0 ? (
+                    <div className={styles.grid}>
+                        {filteredItems.slice(0, visibleCount).map((item) =>
+                            item.type === 'album' && item.album ? (
+                                <AlbumCard key={item.id} album={item.album} />
+                            ) : item.type === 'track' && item.track ? (
+                                <AlbumCard
+                                    key={item.id}
+                                    album={{
+                                        id: item.track.id,
+                                        title: item.track.title,
+                                        artist: item.track.artist,
+                                        artworkUrl: item.track.artworkUrl,
+                                        bandcampUrl: item.track.bandcampUrl,
+                                        tracks: [item.track],
+                                        trackCount: 1,
+                                    }}
+                                />
+                            ) : null
+                        )}
+                    </div>
+                ) : (
+                    <div className={styles.empty}>
+                        {searchQuery ? (
+                            <p>No results for &quot;{searchQuery}&quot;</p>
+                        ) : (
+                            <>
+                                <p>Your collection is empty</p>
+                                <p className={styles.emptyHint}>
+                                    Purchase music on Bandcamp to see it here
+                                </p>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
 
             {filteredItems.length > visibleCount && (
                 <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
