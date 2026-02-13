@@ -71,6 +71,9 @@ npm start
 ```bash
 # Build for production
 npm run build
+
+# Create a new release (bumps version, runs tests, commits, and tags)
+npm run release <newVersion>
 ```
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
