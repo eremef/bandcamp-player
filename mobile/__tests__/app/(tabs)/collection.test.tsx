@@ -91,15 +91,7 @@ describe('CollectionScreen', () => {
         expect(getByText('Artist B')).toBeTruthy();
     });
 
-    it('filters collection based on search', () => {
-        const { getByPlaceholderText, getByText, queryByText } = render(<CollectionScreen />);
-        const searchInput = getByPlaceholderText('Search collection...');
 
-        fireEvent.changeText(searchInput, 'Album');
-
-        expect(getByText('Album One')).toBeTruthy();
-        expect(queryByText('Track Two')).toBeNull();
-    });
 
     it('navigates to album detail on press if album has multiple tracks', () => {
         const multiTrackCollection = {
@@ -161,6 +153,21 @@ describe('CollectionScreen', () => {
             refreshControl.props.onRefresh();
         });
 
-        expect(mockStore.refreshCollection).toHaveBeenCalled();
+        // Expects (reset: true, query: '', forceServerRefresh: true)
+        expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);
+    });
+
+    it('triggers search with debounce', async () => {
+        const { getByPlaceholderText } = render(<CollectionScreen />);
+        const searchInput = getByPlaceholderText('Search collection...');
+
+        fireEvent.changeText(searchInput, 'New Search');
+
+        // Should not be called immediately due to debounce
+        expect(mockStore.refreshCollection).not.toHaveBeenCalledWith(true, 'New Search', false);
+
+        await new Promise((r) => setTimeout(r, 600)); // Wait for debounce
+
+        expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, 'New Search', false);
     });
 });

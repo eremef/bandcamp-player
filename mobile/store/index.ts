@@ -62,10 +62,17 @@ interface AppState extends PlayerState {
     deletePlaylist: (id: string) => void;
 
     // Refresh Actions
-    refreshCollection: () => void;
+    refreshCollection: (reset?: boolean, query?: string, forceServerRefresh?: boolean) => void;
+    loadMoreCollection: () => void;
     refreshPlaylists: () => void;
     refreshRadio: () => void;
     refreshQueue: () => void;
+
+    // Pagination State
+    collectionOffset: number;
+    hasMoreCollection: boolean;
+    isCollectionLoading: boolean;
+    searchQuery: string;
 }
 
 const initialState: Omit<PlayerState, 'queue'> = {
@@ -89,6 +96,10 @@ export const useStore = create<AppState>((set, get) => ({
     playlists: [],
     radioStations: [],
     isScanning: false,
+    collectionOffset: 0,
+    hasMoreCollection: true,
+    isCollectionLoading: false,
+    searchQuery: '',
 
     setHostIp: async (ip: string) => {
         set({ hostIp: ip });
@@ -334,7 +345,47 @@ export const useStore = create<AppState>((set, get) => ({
     renamePlaylist: (id, name, description) => webSocketService.send('update-playlist', { id, name, description }),
     deletePlaylist: (id) => webSocketService.send('delete-playlist', id),
 
-    refreshCollection: () => webSocketService.send('get-collection', { forceRefresh: true }),
+    refreshCollection: (reset = false, query = '', forceServerRefresh = false) => {
+        if (reset) {
+            useStore.setState({
+                collectionOffset: 0,
+                hasMoreCollection: true,
+                searchQuery: query, // Update query state on reset/search
+                isCollectionLoading: true
+            });
+            webSocketService.send('get-collection', {
+                forceRefresh: forceServerRefresh,
+                offset: 0,
+                limit: 50,
+                query
+            });
+        } else {
+            // Legacy full refresh - should we support this? 
+            // Maybe just default to current query?
+            const { searchQuery } = get();
+            useStore.setState({ isCollectionLoading: true });
+            webSocketService.send('get-collection', {
+                forceRefresh: forceServerRefresh,
+                query: searchQuery
+            });
+        }
+    },
+
+    loadMoreCollection: () => {
+        const { collectionOffset, hasMoreCollection, isCollectionLoading, searchQuery } = get();
+        if (!hasMoreCollection || isCollectionLoading) return;
+
+        set({ isCollectionLoading: true });
+
+        // Fetch next batch with current query
+        webSocketService.send('get-collection', {
+            forceRefresh: false,
+            offset: collectionOffset,
+            limit: 50,
+            query: searchQuery
+        });
+    },
+
     refreshPlaylists: () => webSocketService.send('get-playlists'),
     refreshRadio: () => webSocketService.send('get-radio-stations'),
     refreshQueue: () => webSocketService.send('get-state'),
@@ -348,8 +399,8 @@ export const useStore = create<AppState>((set, get) => ({
 webSocketService.on('connection-status', (status) => {
     useStore.setState({ connectionStatus: status });
     if (status === 'connected') {
-        // Request initial data
-        webSocketService.send('get-collection');
+        // Request initial data - reset to 0 but use cache if available
+        useStore.getState().refreshCollection(false);
         webSocketService.send('get-playlists');
         webSocketService.send('get-radio-stations');
     }
@@ -388,9 +439,37 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
     }
 });
 
-webSocketService.on('collection-data', (collection) => {
-    useStore.setState({ collection });
+webSocketService.on('collection-data', (collectionData) => {
+    const currentStore = useStore.getState();
+    const isReset = collectionData.offset === 0;
+
+    let newItems = [];
+    if (isReset || !currentStore.collection) {
+        newItems = collectionData.items;
+    } else {
+        // Append
+        newItems = [...currentStore.collection.items, ...collectionData.items];
+    }
+
+    // De-dupe by ID just in case
+    const uniqueItems = Array.from(new Map(newItems.map((item: { id: any; }) => [item.id, item])).values());
+
+    useStore.setState({
+        collection: {
+            ...collectionData,
+            items: uniqueItems,
+            // If totalCount is available, use it to check hasMore. 
+            // If not, rely on whether we got fewer items than limit?
+            // Desktop sends totalCount which is TOTAL in DB.
+            // But we can check if new items length < limit.
+            // Or checks offset + length >= totalCount
+        },
+        collectionOffset: (collectionData.offset || 0) + collectionData.items.length,
+        hasMoreCollection: (collectionData.offset || 0) + collectionData.items.length < collectionData.totalCount,
+        isCollectionLoading: false
+    });
 });
+
 
 webSocketService.on('playlists-data', (playlists) => {
     useStore.setState({ playlists });

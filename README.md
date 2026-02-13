@@ -22,6 +22,7 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
+- ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - View host IP, disconnect, and manage sessions
@@ -57,6 +58,9 @@ npm install
 
 # Run in development mode
 npm run dev
+
+# Run in simulation mode (mocks 5000 items + errors)
+npm run dev:start
 
 # In another terminal, start Electron
 npm start
@@ -162,6 +166,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - ℹ️ **About & License** - View app version and open source licenses
 - 🔌 **Offline-ready UI** - Navigates smoothly even when disconnected (relies on Desktop for audio)
+- 📜 **Infinite Scroll** - efficiently browses large collections with lazy loading
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses the device's native volume steps for hardware synchronization
 
@@ -199,7 +204,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    npm run android:build
    ```
 
-2. **Build iOS** (macOS only):
+1. **Build iOS** (macOS only):
 
    ```bash
    cd mobile

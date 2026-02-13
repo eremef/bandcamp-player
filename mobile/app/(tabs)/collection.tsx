@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
@@ -19,6 +19,8 @@ export default function CollectionScreen() {
     const addAlbumToQueue = useStore((state) => state.addAlbumToQueue);
     const addTrackToPlaylist = useStore((state) => state.addTrackToPlaylist);
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
+    const loadMoreCollection = useStore((state) => state.loadMoreCollection);
+    const isCollectionLoading = useStore((state) => state.isCollectionLoading);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
@@ -82,26 +84,10 @@ export default function CollectionScreen() {
         Alert.alert("Success", "Added to playlist");
     };
 
-    const filteredCollection = useMemo(() => {
-        if (!collection?.items) return [];
-        if (!searchQuery.trim()) return collection.items;
-
-        const query = searchQuery.toLowerCase();
-        return collection.items.filter((item) => {
-            if (item.type === 'album' && item.album) {
-                return (
-                    item.album.title.toLowerCase().includes(query) ||
-                    item.album.artist.toLowerCase().includes(query)
-                );
-            } else if (item.type === 'track' && item.track) {
-                return (
-                    item.track.title.toLowerCase().includes(query) ||
-                    item.track.artist.toLowerCase().includes(query)
-                );
-            }
-            return false;
-        });
-    }, [collection, searchQuery]);
+    // Server-side filtered collection is now in store
+    const collectionData = useStore((state) => state.collection);
+    // If we want to be safe, defaulting to empty array
+    const collectionItems = collectionData?.items || [];
 
     const handleRefresh = () => {
         if (webSocketService) {
@@ -190,11 +176,21 @@ export default function CollectionScreen() {
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        refreshCollection();
+        refreshCollection(true, searchQuery, true); // Reset + Force Server Fetch (Pull-to-refresh)
         setTimeout(() => {
             setRefreshing(false);
         }, 1500);
-    }, [refreshCollection]);
+    }, [refreshCollection, searchQuery]);
+
+    // Debounced search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            // Trigger server-side search (Reset + Use Cache)
+            refreshCollection(true, searchQuery, false);
+        }, 500);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery, refreshCollection]);
 
     if (!collection) {
         return (
@@ -228,7 +224,7 @@ export default function CollectionScreen() {
 
             <FlatList
                 testID="collection-list"
-                data={filteredCollection}
+                data={collectionItems}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={2}
@@ -237,6 +233,18 @@ export default function CollectionScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
                 }
+                onEndReached={() => {
+                    // Load more works for search too now!
+                    loadMoreCollection();
+                }}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={() => (
+                    isCollectionLoading && !refreshing ? (
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <ActivityIndicator size="small" color="#0896afff" />
+                        </View>
+                    ) : null
+                )}
             />
             <PlaylistSelectionModal
                 visible={playlistModalVisible}

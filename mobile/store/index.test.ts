@@ -58,6 +58,10 @@ describe('Mobile useStore', () => {
             collection: null,
             playlists: [],
             radioStations: [],
+            searchQuery: '',
+            collectionOffset: 0,
+            hasMoreCollection: true,
+            isCollectionLoading: false,
         });
         jest.clearAllMocks();
         AsyncStorage.clear();
@@ -104,7 +108,7 @@ describe('Mobile useStore', () => {
 
     it('should remove recent IP', async () => {
         useStore.setState({ recentIps: ['1.1.1.1', '2.2.2.2'] });
-        
+
         await act(async () => {
             await useStore.getState().removeRecentIp('1.1.1.1');
         });
@@ -199,8 +203,8 @@ describe('Mobile useStore', () => {
             act(() => useStore.getState().addTrackToQueue(mockTrack, false));
             expect(webSocketService.send).toHaveBeenCalledWith('add-track-to-queue', { track: mockTrack, playNext: false });
         });
-        
-         it('should add album to queue', () => {
+
+        it('should add album to queue', () => {
             act(() => useStore.getState().addAlbumToQueue('url', true));
             expect(webSocketService.send).toHaveBeenCalledWith('add-album-to-queue', { albumUrl: 'url', playNext: true });
         });
@@ -235,14 +239,14 @@ describe('Mobile useStore', () => {
             });
 
             act(() => useStore.getState().removeFromQueue('q1'));
-            
+
             expect(webSocketService.send).toHaveBeenCalledWith('remove-from-queue', 'q1');
             expect(useStore.getState().queue.items).toHaveLength(0);
         });
 
         it('should clear queue', () => {
-             // Setup initial queue
-             useStore.setState({
+            // Setup initial queue
+            useStore.setState({
                 queue: {
                     items: [{ id: 'q1', track: mockTrack, source: 'collection' }],
                     currentIndex: 0
@@ -250,7 +254,7 @@ describe('Mobile useStore', () => {
             });
 
             act(() => useStore.getState().clearQueue());
-            
+
             // clearQueue keeps current item if playing
             expect(useStore.getState().queue.items).toHaveLength(1);
             expect(webSocketService.send).toHaveBeenCalledWith('clear-queue');
@@ -259,109 +263,141 @@ describe('Mobile useStore', () => {
 
     describe('WebSocket Events', () => {
         it('should handle state-changed event and sync TrackPlayer', async () => {
-             const stateChangedCallback = socketListeners['state-changed'];
-             expect(stateChangedCallback).toBeDefined();
-             
-             const newState = { isPlaying: true, currentTrack: { id: 't1', title: 'Test' } as any };
-             
-             await act(async () => {
-                 await stateChangedCallback(newState);
-             });
-             
-             expect(useStore.getState().isPlaying).toBe(true);
-             expect(useStore.getState().currentTrack?.id).toBe('t1');
-             expect(TrackPlayer.play).toHaveBeenCalled();
-             expect(addTrack).toHaveBeenCalled();
+            const stateChangedCallback = socketListeners['state-changed'];
+            expect(stateChangedCallback).toBeDefined();
+
+            const newState = { isPlaying: true, currentTrack: { id: 't1', title: 'Test' } as any };
+
+            await act(async () => {
+                await stateChangedCallback(newState);
+            });
+
+            expect(useStore.getState().isPlaying).toBe(true);
+            expect(useStore.getState().currentTrack?.id).toBe('t1');
+            expect(TrackPlayer.play).toHaveBeenCalled();
+            expect(addTrack).toHaveBeenCalled();
         });
 
         it('should handle collection-data event', () => {
-             const callback = socketListeners['collection-data'];
-             expect(callback).toBeDefined();
+            const callback = socketListeners['collection-data'];
+            expect(callback).toBeDefined();
 
-             const mockCollection = { albums: [] };
-             
-             act(() => callback(mockCollection));
-             expect(useStore.getState().collection).toBe(mockCollection);
+            const mockCollection = { items: [], totalCount: 0, lastUpdated: new Date().toISOString() };
+
+            act(() => callback(mockCollection));
+            expect(useStore.getState().collection).toEqual(mockCollection);
         });
 
         it('should handle playlists-data event', () => {
-             const callback = socketListeners['playlists-data'];
-             expect(callback).toBeDefined();
+            const callback = socketListeners['playlists-data'];
+            expect(callback).toBeDefined();
 
-             const mockPlaylists = [{ id: 'p1' }];
-             
-             act(() => callback(mockPlaylists));
-             expect(useStore.getState().playlists).toBe(mockPlaylists);
+            const mockPlaylists = [{ id: 'p1' }];
+
+            act(() => callback(mockPlaylists));
+            expect(useStore.getState().playlists).toBe(mockPlaylists);
         });
 
         it('should handle radio-data event', () => {
-             const callback = socketListeners['radio-data'];
-             expect(callback).toBeDefined();
+            const callback = socketListeners['radio-data'];
+            expect(callback).toBeDefined();
 
-             const mockStations = [{ name: 'Radio' }];
-             
-             act(() => callback(mockStations));
-             expect(useStore.getState().radioStations).toBe(mockStations);
+            const mockStations = [{ name: 'Radio' }];
+
+            act(() => callback(mockStations));
+            expect(useStore.getState().radioStations).toBe(mockStations);
         });
-        
+
 
         it('should handle time-update and sync TrackPlayer', async () => {
-             const callback = socketListeners['time-update'];
-             expect(callback).toBeDefined();
-             
-             (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
-             
-             // Diff > 2s (15 - 10 = 5)
-             await act(async () => {
-                 await callback({ currentTime: 15 });
-             });
-             
-             expect(useStore.getState().currentTime).toBe(15);
-             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(15);
-             
-             jest.clearAllMocks();
-             
-             // Diff < 2s (11 - 10 = 1)
-             (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
-             await act(async () => {
-                 await callback({ currentTime: 11 });
-             });
-             expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+            const callback = socketListeners['time-update'];
+            expect(callback).toBeDefined();
+
+            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
+
+            // Diff > 2s (15 - 10 = 5)
+            await act(async () => {
+                await callback({ currentTime: 15 });
+            });
+
+            expect(useStore.getState().currentTime).toBe(15);
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(15);
+
+            jest.clearAllMocks();
+
+            // Diff < 2s (11 - 10 = 1)
+            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
+            await act(async () => {
+                await callback({ currentTime: 11 });
+            });
+            expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
         });
 
         it('should handle connection-status event', () => {
-             const callback = socketListeners['connection-status'];
-             expect(callback).toBeDefined();
+            const callback = socketListeners['connection-status'];
+            expect(callback).toBeDefined();
 
-             // Test connected
-             act(() => callback('connected'));
-             expect(useStore.getState().connectionStatus).toBe('connected');
-             expect(webSocketService.send).toHaveBeenCalledWith('get-collection');
-             expect(webSocketService.send).toHaveBeenCalledWith('get-playlists');
-             expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
+            // Test connected
+            act(() => callback('connected'));
+            expect(useStore.getState().connectionStatus).toBe('connected');
+            expect(webSocketService.send).toHaveBeenCalledWith('get-collection', expect.anything());
+            expect(webSocketService.send).toHaveBeenCalledWith('get-playlists');
+            expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
 
-             jest.clearAllMocks();
+            jest.clearAllMocks();
 
-             // Test disconnected
-             act(() => callback('disconnected'));
-             expect(useStore.getState().connectionStatus).toBe('disconnected');
-             expect(webSocketService.send).not.toHaveBeenCalled();
+            // Test disconnected
+            act(() => callback('disconnected'));
+            expect(useStore.getState().connectionStatus).toBe('disconnected');
+            expect(webSocketService.send).not.toHaveBeenCalled();
         });
 
         it('should handle errors in state-changed sync', async () => {
-             const callback = socketListeners['state-changed'];
-             expect(callback).toBeDefined();
+            const callback = socketListeners['state-changed'];
+            expect(callback).toBeDefined();
 
-             // Make TrackPlayer.play throw
-             (TrackPlayer.play as jest.Mock).mockRejectedValue(new Error('Player error'));
-             const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+            // Make TrackPlayer.play throw
+            (TrackPlayer.play as jest.Mock).mockRejectedValue(new Error('Player error'));
+            const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
-             await act(async () => {
-                 await callback({ isPlaying: true });
-             });
+            await act(async () => {
+                await callback({ isPlaying: true });
+            });
 
-             expect(consoleSpy).toHaveBeenCalledWith('Failed to sync TrackPlayer state', expect.any(Error));
-             consoleSpy.mockRestore();
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to sync TrackPlayer state', expect.any(Error));
+            consoleSpy.mockRestore();
+        });
+
+        it('should refresh collection with force server refresh', () => {
+            // Default refresh
+            act(() => useStore.getState().refreshCollection());
+            expect(useStore.getState().isCollectionLoading).toBe(true);
+            expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
+                forceRefresh: false,
+                query: ''
+            });
+
+            jest.clearAllMocks();
+
+            // Force refresh (pull-to-refresh)
+            act(() => useStore.getState().refreshCollection(true, '', true));
+            expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
+                forceRefresh: true,
+                offset: 0,
+                limit: 50,
+                query: ''
+            });
+
+            jest.clearAllMocks();
+
+            // Search refresh (use cache)
+            act(() => useStore.getState().refreshCollection(true, 'test', false));
+            expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
+                forceRefresh: false,
+                offset: 0,
+                limit: 50,
+                query: 'test'
+            });
         });
     });
 });

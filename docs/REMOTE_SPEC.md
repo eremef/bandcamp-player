@@ -113,7 +113,9 @@ Clients send these messages to control the player.
 ### Data Requests
 
 - `get-collection`: Requests the user's collection. Result comes via `collection-data`.
+  - **Payload**: `{ forceRefresh?: boolean, offset?: number, limit?: number, query?: string }` (Optional)
     > [!NOTE]
+    > `forceRefresh` defaults to `false`. If `true`, it triggers a fresh scrape from Bandcamp. If `false`, it returns cached data (much faster), filtering by `query` if provided.
     > If the user is not authenticated, this will return an empty collection state rather than an error.
 - `get-radio-stations`: Requests available radio stations. Result comes via `radio-data`.
 - `get-playlists`: Requests user playlists. Result comes via `playlists-data`.
@@ -186,6 +188,8 @@ Clients send these messages to control the player.
   items: CollectionItem[];
   totalCount: number;
   lastUpdated: string; // ISO Date String
+  offset?: number;
+  limit?: number;
 }
 ```
 

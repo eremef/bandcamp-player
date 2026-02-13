@@ -294,18 +294,12 @@ export const useStore = create<StoreState>((set, get) => ({
         set({ selectedPlaylist: playlist, currentView: 'playlist-detail', selectedPlaylistId: id });
     },
     createPlaylist: async (name, description) => {
-        const playlist = await window.electron.playlist.create({ name, description });
-        set((s) => ({ playlists: [...s.playlists, playlist] }));
-        return playlist;
+        return window.electron.playlist.create({ name, description });
     },
     updatePlaylist: async (id, name, description) => {
         try {
             await window.electron.playlist.update({ id, name, description });
-            await get().fetchPlaylists();
-            if (get().selectedPlaylist?.id === id) {
-                const updated = await window.electron.playlist.getById(id);
-                set({ selectedPlaylist: updated });
-            }
+            // State will be updated via onUpdated broadcast
         } catch (error) {
             console.error('Store: updatePlaylist failed', error);
             get().showToast('Failed to update playlist', 'error');
@@ -313,15 +307,15 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     deletePlaylist: async (id) => {
         await window.electron.playlist.delete(id);
+        // Navigation logic stays here as it's UI state, not just data synchronization
         set((s) => ({
-            playlists: s.playlists.filter((p) => p.id !== id),
             selectedPlaylist: s.selectedPlaylist?.id === id ? null : s.selectedPlaylist,
             currentView: s.selectedPlaylistId === id ? 'playlists' : s.currentView,
+            selectedPlaylistId: s.selectedPlaylistId === id ? null : s.selectedPlaylistId,
         }));
     },
     addTrackToPlaylist: async (playlistId, track) => {
         await window.electron.playlist.addTrack(playlistId, track);
-        get().fetchPlaylists(); // Refresh to update counts
         const playlist = get().playlists.find(p => p.id === playlistId);
         if (playlist) {
             get().showToast(`Item ${track.title} added to the ${playlist.name}`, 'success');
@@ -330,7 +324,6 @@ export const useStore = create<StoreState>((set, get) => ({
     addTracksToPlaylist: async (playlistId, tracks) => {
         if (tracks.length === 0) return;
         await window.electron.playlist.addTracks(playlistId, tracks);
-        get().fetchPlaylists(); // Refresh to update counts
         const playlist = get().playlists.find(p => p.id === playlistId);
         if (playlist) {
             get().showToast(`${tracks.length} tracks added to ${playlist.name}`, 'success');
@@ -338,10 +331,6 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     removeTrackFromPlaylist: async (playlistId, trackId) => {
         await window.electron.playlist.removeTrack(playlistId, trackId);
-        get().fetchPlaylists(); // Refresh to update counts
-        if (get().selectedPlaylist?.id === playlistId) {
-            get().selectPlaylist(playlistId);
-        }
     },
     playPlaylist: async (id: string) => {
         const playlist = await window.electron.playlist.getById(id);
