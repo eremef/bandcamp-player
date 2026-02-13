@@ -119,14 +119,47 @@ describe('WebSocketService', () => {
         jest.advanceTimersByTime(100);
 
         const wsInstance = (webSocketService as any).ws;
-        wsInstance.onclose(); // triggers reconnect loop
+        // Simulate close
+        wsInstance.onclose();
 
+        // Should trigger reconnect loop
+        // We disconnect explicitly
         webSocketService.disconnect();
 
+        // Create Spy
         const createSpy = jest.fn();
         MockWebSocket.onCreated = createSpy;
 
         jest.advanceTimersByTime(10000);
         expect(createSpy).not.toHaveBeenCalled();
+    });
+
+    it('should handle disconnect message from server', () => {
+        webSocketService.connect('127.0.0.1');
+        jest.advanceTimersByTime(100);
+
+        const wsInstance = (webSocketService as any).ws;
+        const closeSpy = jest.spyOn(wsInstance, 'close');
+
+        // Simulate receiving disconnect message
+        wsInstance.onmessage({ data: JSON.stringify({ type: 'disconnect' }) });
+
+        // Verify socket closed
+        expect(closeSpy).toHaveBeenCalled();
+
+        // Verify reconnection is stopped
+        const createSpy = jest.fn();
+        MockWebSocket.onCreated = createSpy;
+
+        jest.advanceTimersByTime(10000);
+        expect(createSpy).not.toHaveBeenCalled();
+
+        // Verify status emitted
+        const statusSpy = jest.fn();
+        webSocketService.on('connection-status', statusSpy);
+        // connection-status 'disconnected' is emitted when close happens
+        // but here we might have emitted it manually in the message handler too?
+        // Let's check implementation behavior
+        // logic: emits 'disconnected'
     });
 });

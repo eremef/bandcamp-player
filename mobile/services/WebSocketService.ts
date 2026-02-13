@@ -32,6 +32,16 @@ class WebSocketService {
         this.ws.onmessage = (event) => {
             try {
                 const message = JSON.parse(event.data);
+                if (message.type === 'disconnect') {
+                    console.log('Received disconnect from host');
+                    this.isExplicitlyClosed = true;
+                    this.stopReconnect();
+                    if (this.ws) {
+                        this.ws.close();
+                    }
+                    this.emit('connection-status', 'disconnected');
+                    return;
+                }
                 this.emit(message.type, message.payload);
             } catch (e) {
                 console.error('Failed to parse message', e);
