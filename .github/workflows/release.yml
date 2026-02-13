@@ -47,6 +47,8 @@ jobs:
           files: |
             release/*.exe
             release/*.msi
+            release/*.yml
+            release/*.blockmap
           generate_release_notes: true
 
   build-desktop-windows-arm64:
@@ -89,6 +91,8 @@ jobs:
           files: |
             release/*.exe
             release/*.msi
+            release/*.yml
+            release/*.blockmap
           generate_release_notes: true
 
   build-desktop-linux:
@@ -132,6 +136,8 @@ jobs:
             release/*.AppImage
             release/*.deb
             release/*.rpm
+            release/*.yml
+            release/*.blockmap
           generate_release_notes: true
 
   build-desktop-macos-arm64:
@@ -171,7 +177,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/*.dmg
+          files: |
+            release/*.dmg
+            release/*.yml
+            release/*.blockmap
           generate_release_notes: true
 
   build-desktop-macos-x64:
@@ -211,7 +220,10 @@ jobs:
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: release/*.dmg
+          files: |
+            release/*.dmg
+            release/*.yml
+            release/*.blockmap
           generate_release_notes: true
 
   build-android:
@@ -317,3 +329,4 @@ jobs:
         with:
           files: mobile/ios/build/Build/Products/Release-iphoneos/bandcamp-remote-${{ github.ref_name }}-ios.ipa
           generate_release_notes: true
+

@@ -178,6 +178,21 @@ export const SYSTEM_CHANNELS = {
 } as const;
 
 // ============================================================================
+// Update Channels
+// ============================================================================
+
+export const UPDATE_CHANNELS = {
+    CHECK: 'update:check',
+    INSTALL: 'update:install',
+    ON_CHECKING: 'update:on-checking',
+    ON_AVAILABLE: 'update:on-available',
+    ON_NOT_AVAILABLE: 'update:on-not-available',
+    ON_ERROR: 'update:on-error',
+    ON_PROGRESS: 'update:on-progress',
+    ON_DOWNLOADED: 'update:on-downloaded',
+} as const;
+
+// ============================================================================
 // All Channels (for type inference)
 // ============================================================================
 
@@ -194,6 +209,7 @@ export const IPC_CHANNELS = {
     ...WINDOW_CHANNELS,
     ...REMOTE_CHANNELS,
     ...SYSTEM_CHANNELS,
+    ...UPDATE_CHANNELS,
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

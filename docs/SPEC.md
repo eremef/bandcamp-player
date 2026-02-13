@@ -22,6 +22,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
 
 - **better-sqlite3**: Synchronous, high-performance SQLite driver for local data persistence.
 - **electron-store**: Simple data persistence.
+- **electron-updater**: Automatic update management via GitHub Releases.
 
 ### State Management
 
@@ -287,3 +288,10 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
     - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
 4. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
 5. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.
+
+### Desktop Auto-Updates
+
+1. **Checking**: The `UpdaterService` (Main process) uses `electron-updater` to check the GitHub repository for new releases.
+2. **Download**: If `autoDownload` is enabled, the update is downloaded in the background. Progress is broadcast via IPC to the Renderer.
+3. **Notification**: The Renderer displays update status and progress in the Settings modal.
+4. **Installation**: Once downloaded, the user can trigger `quitAndInstall`, which restarts the app and applies the update.

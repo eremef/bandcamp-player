@@ -140,3 +140,12 @@ The project has comprehensive coverage across core logic, stores, and critical U
        return selector ? selector(mockState) : mockState;
    });
    ```
+
+### Manual Verification
+
+For features that cannot be easily tested in local unit environments (like auto-updates), manual verification is performed:
+
+- **Auto-Updates**:
+  - Verification of IPC event flow (Main -> Preload -> Store -> UI).
+  - Verification of GitHub Actions release configuration to include `latest.yml`.
+  - Manual check of "Check for Updates" UI states (checking, error, not available).
