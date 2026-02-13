@@ -32,6 +32,14 @@ jobs:
       - name: Package
         run: npm run package -- --win --x64 -p never
 
+      - name: Rename Artifacts
+        shell: bash
+        run: |
+          cd release
+          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
+          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
+          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
+
       - name: Release Desktop
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -66,6 +74,14 @@ jobs:
       - name: Package
         run: npm run package -- --win --arm64 -p never
 
+      - name: Rename Artifacts
+        shell: bash
+        run: |
+          cd release
+          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
+          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
+          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
+
       - name: Release Desktop
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -99,6 +115,14 @@ jobs:
 
       - name: Package
         run: npm run package -- -p never
+
+      - name: Rename Artifacts
+        shell: bash
+        run: |
+          cd release
+          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
+          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
+          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
       - name: Release Desktop
         uses: softprops/action-gh-release@v1
@@ -135,6 +159,14 @@ jobs:
       - name: Package
         run: npm run package -- --mac --arm64 -p never
 
+      - name: Rename Artifacts
+        shell: bash
+        run: |
+          cd release
+          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
+          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
+          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
+
       - name: Release Desktop
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -166,6 +198,14 @@ jobs:
 
       - name: Package
         run: npm run package -- --mac --x64 -p never
+
+      - name: Rename Artifacts
+        shell: bash
+        run: |
+          cd release
+          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
+          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
+          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
       - name: Release Desktop
         uses: softprops/action-gh-release@v1
@@ -214,16 +254,16 @@ jobs:
 
       - name: Rename Artifacts
         run: |
-          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/Android-bandcamp-remote-app-${{ github.ref_name }}.apk
-          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/Android-bandcamp-remote-app-${{ github.ref_name }}.aab
+          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/bandcamp-remote-${{ github.ref_name }}-android.apk
+          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/bandcamp-remote-${{ github.ref_name }}-android.aab
 
       - name: Release Android
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            mobile/android/app/build/outputs/apk/release/Android-bandcamp-remote-app-${{ github.ref_name }}.apk
-            mobile/android/app/build/outputs/bundle/release/Android-bandcamp-remote-app-${{ github.ref_name }}.aab
+            mobile/android/app/build/outputs/apk/release/bandcamp-remote-${{ github.ref_name }}-android.apk
+            mobile/android/app/build/outputs/bundle/release/bandcamp-remote-${{ github.ref_name }}-android.aab
           generate_release_notes: true
 
   build-ios:
@@ -269,11 +309,11 @@ jobs:
           cd mobile/ios/build/Build/Products/Release-iphoneos
           mkdir Payload
           cp -r BandcampRemote.app Payload/
-          zip -r iOS-bandcamp-remote-app-${{ github.ref_name }}.ipa Payload
+          zip -r bandcamp-remote-${{ github.ref_name }}-ios.ipa Payload
 
       - name: Release IPA
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: mobile/ios/build/Build/Products/Release-iphoneos/iOS-bandcamp-remote-app-${{ github.ref_name }}.ipa
+          files: mobile/ios/build/Build/Products/Release-iphoneos/bandcamp-remote-${{ github.ref_name }}-ios.ipa
           generate_release_notes: true

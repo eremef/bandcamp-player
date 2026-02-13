@@ -173,12 +173,14 @@ export class ScraperService extends EventEmitter {
                 if (dataBlob) {
                     try {
                         // It's usually HTML encoded (e.g. &quot;)
-                        // Simple search-replace for common entities since we don't have a decoder library imported
-                        const decoded = dataBlob
-                            .replace(/&quot;/g, '"')
-                            .replace(/&amp;/g, '&')
-                            .replace(/&lt;/g, '<')
-                            .replace(/&gt;/g, '>');
+                        // Use a single regex with a replacement map to avoid double-unescaping (CodeQL fix)
+                        const entities: Record<string, string> = {
+                            '&quot;': '"',
+                            '&amp;': '&',
+                            '&lt;': '<',
+                            '&gt;': '>'
+                        };
+                        const decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
 
                         const pd = JSON.parse(decoded);
                         if (pd.fan_stats && pd.fan_stats.fan_id) {
