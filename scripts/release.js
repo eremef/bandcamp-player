@@ -33,28 +33,26 @@ function updateJson(filePath, updateFn) {
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
 }
 
-// 1. Install Dependencies
-log('Step 1: Installing dependencies...');
-run('npm install');
-run('npm install', mobileDir);
 
-// 2. Update Versions
-log('Step 2: Updating version numbers...');
+
+// 1. Update Versions
+log('Step 1: Updating version numbers...');
 updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVersion; });
 updateJson(path.join(mobileDir, 'package.json'), (json) => { json.version = newVersion; });
 updateJson(path.join(mobileDir, 'app.json'), (json) => { json.expo.version = newVersion; });
 
-// 3. Update Docs
-log('Step 3: Documentation update (placeholder - manual check recommended)...');
-// Note: Automatic doc update is complex, but we can remind the user or run a simple sync if needed.
+// 2. Install Dependencies
+log('Step 2: Installing dependencies...');
+run('npm install');
+run('npm install', mobileDir);
 
-// 4. Run Tests
-log('Step 4: Running tests...');
+// 3. Run Tests
+log('Step 3: Running tests...');
 run('npm test');
 run('npm test', mobileDir);
 
-// 5. Git Operations
-log('Step 5: Git operations (commit, tag, push)...');
+// 4. Git Operations
+log('Step 4: Git operations (commit, tag, push)...');
 run('git add .');
 run(`git commit -m "chore: release ${newVersion}"`);
 run('git push');
