@@ -143,7 +143,9 @@ describe('RemoteControlService', () => {
             remoteService.start();
             // Simulate connection
             mockWs = new EventEmitter();
-            mockWs.send = vi.fn();
+            mockWs.send = vi.fn((data, cb) => {
+                if (cb) cb();
+            });
             mockWs.terminate = vi.fn(); // Add terminate mock
             mockWs.close = vi.fn(); // Add close mock
             mockWs.readyState = 1; // OPEN
@@ -263,7 +265,9 @@ describe('RemoteControlService', () => {
         beforeEach(() => {
             remoteService.start();
             mockWs = new EventEmitter();
-            mockWs.send = vi.fn();
+            mockWs.send = vi.fn((data, cb) => {
+                if (cb) cb();
+            });
             mockWs.terminate = vi.fn();
             mockWs.close = vi.fn();
             mockWs.readyState = 1;

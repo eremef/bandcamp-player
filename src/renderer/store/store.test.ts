@@ -70,6 +70,7 @@ const mockElectron = {
     scrobbler: {
         connect: vi.fn(),
         disconnect: vi.fn(),
+        getState: vi.fn(),
         onStateChanged: vi.fn(),
     },
     radio: {
@@ -143,6 +144,7 @@ describe('useStore', () => {
             isSettingsOpen: false,
             toast: null,
         });
+        mockElectron.scrobbler.getState.mockResolvedValue({ isConnected: false, user: null });
         mockElectron.player.getState.mockResolvedValue({
             isPlaying: false,
             currentTrack: null,
