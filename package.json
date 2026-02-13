@@ -102,7 +102,7 @@
         }
       ],
       "icon": "src/assets/icons/icon.ico",
-      "artifactName": "Windows-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -130,12 +130,12 @@
       ],
       "icon": "src/assets/icons",
       "maintainer": "eremef.xyz <eremef.xyz@gmail.com>",
-      "artifactName": "Linux-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "mac": {
       "target": "dmg",
       "icon": "src/assets/icons/icon.png",
-      "artifactName": "MacOS-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
