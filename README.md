@@ -6,11 +6,11 @@
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
-\*- not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job.
-
 >⚠️ May violate Bandcamp terms and policies. Use at your own risk.
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
+
+\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional, craft programming, and not that eco-friendly.
 
 ## Features
 
