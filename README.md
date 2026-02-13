@@ -4,7 +4,7 @@
  <img width="800" alt="Image" src="https://github.com/user-attachments/assets/b3a91281-dbb9-49ee-9fb5-539d4d66f7b3" />
 </p>
 
-AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, designing, prompting, testing, re-designing, prompting, testing, etc.) feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+AI-generated (not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing, re-designing, prompting, testing, etc., a full-time job) feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
 >⚠️ May violate Bandcamp terms and policies. Use at your own risk.
 >
