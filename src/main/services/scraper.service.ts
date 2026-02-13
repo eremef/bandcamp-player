@@ -82,6 +82,125 @@ export class ScraperService extends EventEmitter {
     }
 
     /**
+     * Helper to robustly extract a JSON object from a string starting with a variable assignment
+     * e.g. "var foo = { ... };"
+     * Handles nested braces correctly unlike simple regex checks.
+     */
+    private extractJsonObject(content: string, keys: string[]): any | null {
+        // Find one of the keys followed by assignment
+        for (const key of keys) {
+            // Look for "key =" or "key:" or "var key ="
+            // We use a simplified search to find the start index
+            // Escape key for regex
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(?:var|let|const)?\\s*${escapedKey}\\s*[:=]\\s*`);
+
+            const match = content.match(regex);
+            if (match && match.index !== undefined) {
+                const startSearchIndex = match.index + match[0].length;
+                // Find the first '{'
+                const openBraceIndex = content.indexOf('{', startSearchIndex);
+                if (openBraceIndex === -1) continue;
+
+                // Balance braces
+                let braceCount = 0;
+                let inString = false;
+                let inEscape = false;
+                let closeBraceIndex = -1;
+
+                for (let i = openBraceIndex; i < content.length; i++) {
+                    const char = content[i];
+
+                    if (inEscape) {
+                        inEscape = false;
+                        continue;
+                    }
+
+                    if (char === '\\') {
+                        inEscape = true;
+                        continue;
+                    }
+
+                    if (char === '"' || char === "'") {
+                        // Simple string toggle - this assumes standard JSON/JS string behavior
+                        // (Technically quote styles matter, but for this purpose assume matching quotes isn't critical 
+                        // if we just toggle inString. However, mixing ' and " might be an issue. 
+                        // For now, simple toggle is better than regex.)
+                        // Actually, sticking to checking if it matches the *starting* quote is better.
+                        // But for simplicity, let's assume valid JS/JSON doesn't nest unescaped quotes improperly.
+                        // Let's implement a slightly smarter string check.
+                        // We can skip this complexity for now and assume the content is reasonably well-formed.
+                        // Or better: just count braces unless we are strictly sure we are in a string.
+                        // Given the complexity of full JS parsing, let's try a standard brace counter that ignores braces in quotes.
+                        // Standard simple implementation:
+                    }
+                }
+
+                // Simpler approach: Use a stack or counter, treating " and ' as string delimiters
+                // Reset indices
+
+                let stack = 0;
+                let quoteChar: string | null = null;
+
+                for (let i = openBraceIndex; i < content.length; i++) {
+                    const char = content[i];
+
+                    // Handle escaping
+                    if (i > 0 && content[i - 1] === '\\' && content[i - 2] !== '\\') {
+                        // Escaped character, ignore
+                        continue;
+                    }
+
+                    if (quoteChar) {
+                        if (char === quoteChar) {
+                            quoteChar = null; // End string
+                        }
+                    } else {
+                        if (char === '"' || char === "'") {
+                            quoteChar = char;
+                        } else if (char === '{') {
+                            stack++;
+                        } else if (char === '}') {
+                            stack--;
+                            if (stack === 0) {
+                                closeBraceIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (closeBraceIndex !== -1) {
+                    const jsonString = content.substring(openBraceIndex, closeBraceIndex + 1);
+                    try {
+                        // Try standard parse
+                        return JSON.parse(jsonString);
+                    } catch {
+                        // Try relax parse (e.g. key: value instead of "key": "value")
+                        try {
+                            // Simple sanitization for keys
+                            const sanitized = jsonString
+                                .replace(/(\w+)\s*:/g, '"$1":')
+                                .replace(/'/g, '"');
+                            return JSON.parse(sanitized);
+                        } catch (e2) {
+                            // Last resort: eval (if safe context? Using Function is safer than eval, but still risky if remote content)
+                            // For a desktop app scraping specific trusted site sections, it's a trade-off.
+                            // We used eval-like approach in extractTralbumData before.
+                            try {
+                                return new Function(`return ${jsonString}`)();
+                            } catch (e3) {
+                                console.error(`[Scraper] Failed to parse extracted object for ${key}:`, e3);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
      * Fetch user's collection (purchased music)
      */
     private fetchPromise: Promise<Collection> | null = null;
@@ -132,11 +251,11 @@ export class ScraperService extends EventEmitter {
 
                 if (collectionScript) {
                     // Parse collection data from script
-                    const collectionMatch = collectionScript.match(/collection_data\s*[:=]\s*(\{[\s\S]*?\})\s*[,;]/);
-                    if (collectionMatch) {
-                        try {
-                            collectionData = JSON.parse(collectionMatch[1]);
+                    // Try robust extraction first
+                    collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
 
+                    if (collectionData) {
+                        try {
                             // Process collection data
                             if (collectionData.items) {
                                 for (const item of collectionData.items) {
@@ -147,7 +266,7 @@ export class ScraperService extends EventEmitter {
                                 }
                             }
                         } catch (__e) {
-                            console.error('Error parsing collection data:', __e);
+                            console.error('Error processing collection data:', __e);
                         }
                     }
                 }
@@ -195,15 +314,9 @@ export class ScraperService extends EventEmitter {
 
                 // Strategy 2: Legacy Script Variable (Backup)
                 if (!pageFanId) {
-                    const pagedataMatch = response.data.match(/(?:var|const|let)?\s*pagedata\s*=\s*(\{[\s\S]*?\});/);
-                    if (pagedataMatch) {
-                        try {
-                            const jsonStr = pagedataMatch[1].replace(/(\w+):/g, '"$1":');
-                            const pd = JSON.parse(jsonStr);
-                            if (pd.fan_id) {
-                                pageFanId = Number(pd.fan_id);
-                            }
-                        } catch { /* ignore */ }
+                    const pd = this.extractJsonObject(response.data, ['pagedata']);
+                    if (pd && pd.fan_id) {
+                        pageFanId = Number(pd.fan_id);
                     }
                 }
 
@@ -577,28 +690,9 @@ export class ScraperService extends EventEmitter {
 
         // Try to find in inline scripts
         let tralbumData = null;
-        $('script').each((_, script) => {
-            const content = $(script).html() || '';
-            const match = content.match(/var\s+TralbumData\s*=\s*(\{[\s\S]*?\});/);
-            if (match) {
-                try {
-                    // Clean the JSON (handle JS syntax)
-                    const jsonStr = match[1]
-                        .replace(/'/g, '"')
-                        .replace(/(\w+):/g, '"$1":')
-                        .replace(/,\s*}/g, '}')
-                        .replace(/,\s*]/g, ']');
-                    tralbumData = JSON.parse(jsonStr);
-                } catch {
-                    // Try eval-based approach (safer alternative)
-                    try {
-                        tralbumData = new Function(`return ${match[1]}`)();
-                    } catch (e2) {
-                        console.error('Error parsing TralbumData:', e2);
-                    }
-                }
-            }
-        });
+        const scriptContent = $('script').map((_, el) => $(el).html()).get().join('\n');
+
+        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData']);
 
         return tralbumData;
     }
