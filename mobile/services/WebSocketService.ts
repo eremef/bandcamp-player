@@ -1,7 +1,8 @@
 
-type MessageHandler = (payload: any) => void;
+type MessageHandler = (...args: any[]) => void;
 
 class WebSocketService {
+
     private ws: WebSocket | null = null;
     private url: string | null = null;
     private listeners: Record<string, MessageHandler[]> = {};
@@ -39,7 +40,7 @@ class WebSocketService {
                     if (this.ws) {
                         this.ws.close();
                     }
-                    this.emit('connection-status', 'disconnected');
+                    this.emit('connection-status', 'disconnected', true);
                     return;
                 }
                 this.emit(message.type, message.payload);
@@ -50,13 +51,14 @@ class WebSocketService {
 
         this.ws.onclose = () => {
             console.log('Disconnected');
-            this.emit('connection-status', 'disconnected');
+            this.emit('connection-status', 'disconnected', this.isExplicitlyClosed);
             if (!this.isExplicitlyClosed) {
                 this.startReconnect();
             }
         };
 
         this.ws.onerror = (e) => {
+            if (this.isExplicitlyClosed) return;
             console.error('WebSocket error', e);
         };
     }
@@ -82,9 +84,9 @@ class WebSocketService {
         this.listeners[type] = this.listeners[type].filter(h => h !== handler);
     }
 
-    private emit(type: string, payload: any) {
+    private emit(type: string, ...args: any[]) {
         if (this.listeners[type]) {
-            this.listeners[type].forEach(h => h(payload));
+            this.listeners[type].forEach(h => h(...args));
         }
     }
 
@@ -111,6 +113,10 @@ class WebSocketService {
             this.ws.close();
             this.ws = null;
         }
+        // Also emit status here if needed, but on-close usually handles it.
+        // If we close manually, onclose fires.
+        // onclose calls emit('disconnected').
+        // We should ensure onclose emits explicit flag if isExplicitlyClosed is true.
     }
 }
 

@@ -157,9 +157,11 @@ describe('WebSocketService', () => {
         // Verify status emitted
         const statusSpy = jest.fn();
         webSocketService.on('connection-status', statusSpy);
-        // connection-status 'disconnected' is emitted when close happens
-        // but here we might have emitted it manually in the message handler too?
-        // Let's check implementation behavior
-        // logic: emits 'disconnected'
+
+        // Simulate disconnect message again to trigger emit
+        wsInstance.onmessage({ data: JSON.stringify({ type: 'disconnect' }) });
+
+        // Check if called with explicit flag
+        expect(statusSpy).toHaveBeenCalledWith('disconnected', true);
     });
 });

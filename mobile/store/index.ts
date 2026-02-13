@@ -396,8 +396,14 @@ export const useStore = create<AppState>((set, get) => ({
 }));
 
 // Initialize Listeners
-webSocketService.on('connection-status', (status) => {
+webSocketService.on('connection-status', (status, isExplicit) => {
     useStore.setState({ connectionStatus: status });
+
+    if (status === 'disconnected' && isExplicit) {
+        // Clear last_ip to prevent auto-reconnect loop on app focus/restart
+        AsyncStorage.removeItem('last_ip');
+    }
+
     if (status === 'connected') {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
