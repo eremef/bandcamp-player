@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Album Page</title>
+</head>
+
+<body>
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "MusicAlbum",
+            "name": "Test Album",
+            "byArtist": {
+                "@type": "MusicGroup",
+                "name": "Test Artist"
+            }
+        }
+    </script>
+
+    <script>
+        var TralbumData = {
+            "id": 5001,
+            "current": {
+                "title": "Test Album",
+                "release_date": "01 Jan 2023 00:00:00 GMT",
+                "publish_date": "01 Jan 2023 00:00:00 GMT",
+                "purchase_url": null,
+                "download_pref": 2,
+                "loading": false,
+                "new_date": "01 Jan 2023 00:00:00 GMT",
+                "private": null,
+                "type": "album",
+                "art_id": 5001,
+                "band_id": 999
+            },
+            "album_title": "Test Album",
+            "artist": "Test Artist",
+            "item_type": "album",
+            "is_preorder": false,
+            "url": "https://testartist.bandcamp.com/album/test-album",
+            "art_id": 5001,
+            "band_id": 999,
+            "trackinfo": [
+                {
+                    "track_id": 101,
+                    "file": { "mp3-128": "https://stream.bandcamp.com/track/101" },
+                    "title": "Track One",
+                    "track_num": 1,
+                    "duration": 180,
+                    "title_link": "/track/track-one"
+                },
+                {
+                    "track_id": 102,
+                    "file": { "mp3-128": "https://stream.bandcamp.com/track/102" },
+                    "title": "Track Two",
+                    "track_num": 2,
+                    "duration": 200,
+                    "title_link": "/track/track-two"
+                },
+                {
+                    "track_id": 103,
+                    "file": null,
+                    "title": "Track Three (No Stream)",
+                    "track_num": 3,
+                    "duration": 220,
+                    "title_link": "/track/track-three"
+                }
+            ]
+        };
+    </script>
+</body>
+
+</html>

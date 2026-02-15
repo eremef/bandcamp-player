@@ -122,6 +122,17 @@ interface RemoteSlice {
     disconnectDevice: (clientId: string) => Promise<void>;
 }
 
+interface UpdateSlice {
+    updateStatus: {
+        status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+        info?: any;
+        progress?: any;
+        error?: string;
+    };
+    checkForUpdates: () => Promise<void>;
+    installUpdate: () => Promise<void>;
+}
+
 interface CastSlice {
     castDevices: CastDevice[];
     castStatus: CastStatus;
@@ -159,6 +170,7 @@ type StoreState = AuthSlice &
     ScrobblerSlice &
     SettingsSlice &
     RemoteSlice &
+    UpdateSlice &
     CastSlice &
     UISlice;
 
@@ -308,18 +320,12 @@ export const useStore = create<StoreState>((set, get) => ({
         set({ selectedPlaylist: playlist, currentView: 'playlist-detail', selectedPlaylistId: id });
     },
     createPlaylist: async (name, description) => {
-        const playlist = await window.electron.playlist.create({ name, description });
-        set((s) => ({ playlists: [...s.playlists, playlist] }));
-        return playlist;
+        return window.electron.playlist.create({ name, description });
     },
     updatePlaylist: async (id, name, description) => {
         try {
             await window.electron.playlist.update({ id, name, description });
-            await get().fetchPlaylists();
-            if (get().selectedPlaylist?.id === id) {
-                const updated = await window.electron.playlist.getById(id);
-                set({ selectedPlaylist: updated });
-            }
+            // State will be updated via onUpdated broadcast
         } catch (error) {
             console.error('Store: updatePlaylist failed', error);
             get().showToast('Failed to update playlist', 'error');
@@ -327,15 +333,15 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     deletePlaylist: async (id) => {
         await window.electron.playlist.delete(id);
+        // Navigation logic stays here as it's UI state, not just data synchronization
         set((s) => ({
-            playlists: s.playlists.filter((p) => p.id !== id),
             selectedPlaylist: s.selectedPlaylist?.id === id ? null : s.selectedPlaylist,
             currentView: s.selectedPlaylistId === id ? 'playlists' : s.currentView,
+            selectedPlaylistId: s.selectedPlaylistId === id ? null : s.selectedPlaylistId,
         }));
     },
     addTrackToPlaylist: async (playlistId, track) => {
         await window.electron.playlist.addTrack(playlistId, track);
-        get().fetchPlaylists(); // Refresh to update counts
         const playlist = get().playlists.find(p => p.id === playlistId);
         if (playlist) {
             get().showToast(`Item ${track.title} added to the ${playlist.name}`, 'success');
@@ -344,7 +350,6 @@ export const useStore = create<StoreState>((set, get) => ({
     addTracksToPlaylist: async (playlistId, tracks) => {
         if (tracks.length === 0) return;
         await window.electron.playlist.addTracks(playlistId, tracks);
-        get().fetchPlaylists(); // Refresh to update counts
         const playlist = get().playlists.find(p => p.id === playlistId);
         if (playlist) {
             get().showToast(`${tracks.length} tracks added to ${playlist.name}`, 'success');
@@ -352,10 +357,6 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     removeTrackFromPlaylist: async (playlistId, trackId) => {
         await window.electron.playlist.removeTrack(playlistId, trackId);
-        get().fetchPlaylists(); // Refresh to update counts
-        if (get().selectedPlaylist?.id === playlistId) {
-            get().selectPlaylist(playlistId);
-        }
     },
     playPlaylist: async (id: string) => {
         const playlist = await window.electron.playlist.getById(id);
@@ -479,6 +480,16 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
 
+    // ---- Update Slice ----
+    updateStatus: { status: 'idle' },
+    checkForUpdates: async () => {
+        set({ updateStatus: { status: 'checking' } });
+        await window.electron.update.check();
+    },
+    installUpdate: async () => {
+        await window.electron.update.install();
+    },
+
     // ---- Cast Slice ----
     castDevices: [],
     castStatus: { status: 'disconnected' },
@@ -590,6 +601,10 @@ export async function initializeStoreSubscriptions() {
     window.electron.scrobbler.onStateChanged((state) => {
         useStore.setState({ lastfm: state });
     });
+    // Fetch initial scrobbler state
+    window.electron.scrobbler.getState().then((state) => {
+        useStore.setState({ lastfm: state });
+    });
 
     // Settings updates
     window.electron.settings.onChanged((settings) => {
@@ -619,6 +634,26 @@ export async function initializeStoreSubscriptions() {
         useStore.getState().fetchConnectedDevices();
     });
 
+    // Update events
+    window.electron.update.onChecking(() => {
+        useStore.setState({ updateStatus: { status: 'checking' } });
+    });
+    window.electron.update.onAvailable((info) => {
+        useStore.setState({ updateStatus: { status: 'available', info } });
+    });
+    window.electron.update.onNotAvailable((info) => {
+        useStore.setState({ updateStatus: { status: 'not-available', info } });
+    });
+    window.electron.update.onError((error) => {
+        useStore.setState({ updateStatus: { status: 'error', error } });
+    });
+    window.electron.update.onProgress((progress) => {
+        useStore.setState({ updateStatus: { status: 'downloading', progress } });
+    });
+    window.electron.update.onDownloaded((info) => {
+        useStore.setState({ updateStatus: { status: 'downloaded', info } });
+    });
+
     // Cast updates
     window.electron.cast.onDevicesUpdated((devices) => {
         useStore.setState({ castDevices: devices });
@@ -635,4 +670,5 @@ export async function initializeStoreSubscriptions() {
             setPlayerState({ ...currentPlayer, isCasting: false, castDevice: undefined });
         }
     });
+
 }

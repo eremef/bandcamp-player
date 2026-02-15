@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User's Collection</title>
+</head>
+<body>
+    <div id="pagedata" data-blob='{"fan_data":{"fan_id":12345,"is_own_page":true},"fan_stats":{"fan_id":12345}}'></div>
+    
+    <script>
+        var collection_data = {
+            "items": [
+                {
+                    "item_type": "album",
+                    "item_id": 1001,
+                    "item_title": "Test Album 1",
+                    "band_name": "Test Artist 1",
+                    "item_url": "https://testartist1.bandcamp.com/album/test-album-1",
+                    "item_art_url": "https://f4.bcbits.com/img/a1001_10.jpg",
+                    "num_tracks": 10,
+                    "token": "token:1001:a::",
+                    "purchased": "2023-01-01T12:00:00Z"
+                },
+                {
+                    "item_type": "track",
+                    "item_id": 2001,
+                    "item_title": "Test Track 1 (gift given)",
+                    "band_name": "Test Artist 2",
+                    "item_url": "https://testartist2.bandcamp.com/track/test-track-1",
+                    "item_art_url": "https://f4.bcbits.com/img/a2001_10.jpg",
+                    "token": "token:2001:t::",
+                    "purchased": "2023-01-02T12:00:00Z"
+                }
+            ],
+            "redownload_urls": {} 
+        };
+    </script>
+
+    <!-- Fallback DOM elements simulation -->
+    <div class="collection-item-container" data-tralbumid="3001" data-itemtype="album" data-token="token:3001:a::">
+        <div class="collection-item-art-container">
+            <img class="collection-item-art" src="https://f4.bcbits.com/img/a3001_9.jpg">
+        </div>
+        <div class="collection-item-details-container">
+            <div class="collection-item-title">DOM Album Title</div>
+            <div class="collection-item-artist">by DOM Artist</div>
+        </div>
+        <a class="item-link" href="https://domartist.bandcamp.com/album/dom-album"></a>
+    </div>
+</body>
+</html>

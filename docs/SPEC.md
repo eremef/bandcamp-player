@@ -22,6 +22,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
 
 - **better-sqlite3**: Synchronous, high-performance SQLite driver for local data persistence.
 - **electron-store**: Simple data persistence.
+- **electron-updater**: Automatic update management via GitHub Releases.
 
 ### State Management
 
@@ -31,6 +32,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
 
 - **Axios**: HTTP requests.
 - **Cheerio**: HTML parsing for scraping Bandcamp fan data and track streams.
+- **chromecast-api**: Discovery and control of Google Cast devices.
 
 ### UI
 
@@ -137,8 +139,22 @@ interface RadioStation {
 }
 ```
 
-> [!NOTE]
 > Playing a radio station clears the current queue and adds the station as its only item, matching track playback behavior.
+
+#### CastDevice
+
+Represents a Google Cast device.
+
+```typescript
+interface CastDevice {
+    id: string;
+    name: string;
+    host: string;
+    friendlyName: string;
+    type: 'chromecast';
+    status: 'connected' | 'disconnected';
+}
+```
 
 ### State Models
 
@@ -155,6 +171,9 @@ Current status of audio playback.
 - `repeatMode`: 'off' | 'one' | 'all'
 - `isShuffled`: boolean
 - `queue`: Queue object
+- `isCasting`: boolean
+- `castDevice`: CastDevice | undefined
+- `error`: string | null
 
 #### AppSettings
 
@@ -275,8 +294,32 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
 6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
 
-### Collection Search
+### Chromecast Integration
 
-1. **Client-Side Filtering**: For performance and offline capability, the full collection is loaded into memory on the client (Desktop Renderer, Mobile App, Web Remote).
-2. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array.
-3. **Optimized Rendering**: UI only renders the filtered subset, ensuring responsiveness even with large collections.
+1. **Discovery**: Casting is initiated by user action. The `CastService` scans for devices on the local network (MDNS) only while the Cast menu is open to save resources.
+2. **Connection**: When a device is selected, the app connects and launches the default media receiver.
+3. **Playback**:
+    - The `PlayerService` refreshes the track's stream URL using `ScraperService.getTrackStreamUrl` to ensure it's valid (Bandcamp URLs expire).
+    - The new URL is sent to the Chromecast device.
+    - Local playback stops or mutes, but the player state (`currentTime`, `isPlaying`) remains synced with the cast device.
+4. **Error Handling**: Connection drops or playback errors are caught by `CastService`, propagated to `PlayerService`, and displayed to the user via Toasts.
+
+### Collection Search & Loading
+
+1. **Desktop & Web**: For performance and offline capability, the full collection is loaded into memory on the Desktop Renderer and Web Remote.
+2. **Mobile App**:
+    - **Lazy Loading**: Uses infinite scroll and pagination (offset/limit) to handle thousands of items with minimal memory overhead.
+    - **Server-Side Search**: Search queries are sent to the Desktop Main process. The Main process filters its cached collection and returns paginated results to the mobile client.
+    - **Optimization**: Search requests use `forceRefresh: false` by default, filtering the existing cache instantly. Only a manual "Pull-to-Refresh" triggers a full re-scrape from Bandcamp.
+3. **Smart Buffering**:
+    - **Initial Load**: Deduplicates concurrent fetch requests in `ScraperService` using a shared promise, preventing "empty" state flashes on startup.
+    - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
+4. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
+5. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.
+
+### Desktop Auto-Updates
+
+1. **Checking**: The `UpdaterService` (Main process) uses `electron-updater` to check the GitHub repository for new releases.
+2. **Download**: If `autoDownload` is enabled, the update is downloaded in the background. Progress is broadcast via IPC to the Renderer.
+3. **Notification**: The Renderer displays update status and progress in the Settings modal.
+4. **Installation**: Once downloaded, the user can trigger `quitAndInstall`, which restarts the app and applies the update.
