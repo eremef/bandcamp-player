@@ -45,6 +45,7 @@ describe('PlayerService', () => {
         };
         mockScraperService = {
             getStationStreamUrl: vi.fn().mockResolvedValue({ streamUrl: 'http://default.stream', duration: 0 }),
+            getTrackStreamUrl: vi.fn().mockResolvedValue('http://default.stream'),
         };
         mockCastService = {
             on: vi.fn(),
@@ -274,11 +275,11 @@ describe('PlayerService', () => {
                 streamUrl: 'http://old.url'
             };
 
-            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://new.url', duration: 0 });
+            mockScraperService.getTrackStreamUrl.mockResolvedValue('http://new.url');
 
             await playerService.play(radioTrack);
 
-            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith('123');
+            expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalledWith(radioTrack);
             expect(playerService.getState().currentTrack?.streamUrl).toBe('http://new.url');
         });
 

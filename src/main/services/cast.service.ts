@@ -10,28 +10,50 @@ export class CastService extends EventEmitter {
 
     constructor() {
         super();
-        try {
-            this.client = new Client();
-            this.client.on('device', (device: any) => {
-                console.log(`[CastService] Discovered device: ${device.friendlyName} at ${device.host}`);
-                this.devices.set(device.host, device);
-                this.emit('devices-updated', this.getDevices());
-            });
-        } catch (err) {
-            console.error('[CastService] Failed to initialize Chromecast client:', err);
-        }
+        // Client initialized on demand
     }
 
     startDiscovery() {
         if (this.isScanning) return;
+
+        if (!this.client) {
+            try {
+                this.client = new Client();
+                this.client.on('device', (device: any) => {
+                    console.log(`[CastService] Discovered device: ${device.friendlyName} at ${device.host}`);
+                    this.devices.set(device.host, device);
+                    this.emit('devices-updated', this.getDevices());
+                });
+
+                // Forward errors from the client if possible (chromecast-api might not emit error on client itself, but on devices)
+            } catch (err) {
+                console.error('[CastService] Failed to initialize Chromecast client:', err);
+                this.emit('error', err);
+                return;
+            }
+        }
+
         this.isScanning = true;
         console.log('[CastService] Starting discovery...');
-        this.client?.update();
+        this.client?.update(); // trigger search
     }
 
     stopDiscovery() {
+        if (!this.isScanning) return;
         this.isScanning = false;
         console.log('[CastService] Stopping discovery...');
+
+        // If we are not connected to any device, we can destroy the client to save resources
+        if (!this.connectedDevice && this.client) {
+            try {
+                this.client.destroy();
+                this.client = null;
+                this.devices.clear();
+                this.emit('devices-updated', []);
+            } catch (error) {
+                console.error('[CastService] Error destroying client:', error);
+            }
+        }
     }
 
     getDevices(): CastDevice[] {
@@ -95,6 +117,12 @@ export class CastService extends EventEmitter {
                 console.error('[CastService] Play error:', err);
                 this.emit('error', err);
             }
+        });
+
+        // Listen for errors on the device itself
+        this.connectedDevice.on('error', (err: any) => {
+            console.error('[CastService] Device error:', err);
+            this.emit('error', err);
         });
 
         // Listen for status updates from the device

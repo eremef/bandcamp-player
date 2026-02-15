@@ -28,9 +28,11 @@ export class PlayerService extends EventEmitter {
     private repeatMode: RepeatMode = 'off';
     private isShuffled = false;
     private isCasting = false;
+    private error: string | null = null;
 
     // Queue state
     private queue: QueueItem[] = [];
+
     private currentIndex = -1;
     private shuffleOrder: number[] = [];
 
@@ -71,7 +73,20 @@ export class PlayerService extends EventEmitter {
                 console.log(`[PlayerService] Casting status changed: ${this.isCasting}`);
                 if (this.isCasting && this.isPlaying && this.currentTrack) {
                     // Switch to casting
-                    this.castService.play(this.currentTrack, this.currentTime);
+                    // Refresh URL to ensure it hasn't expired
+                    this.scraperService.getTrackStreamUrl(this.currentTrack).then(url => {
+                        if (this.currentTrack) {
+                            this.currentTrack.streamUrl = url;
+                            this.castService.play(this.currentTrack!, this.currentTime);
+                        }
+                    }).catch(err => {
+                        console.error('[PlayerService] Failed to refresh URL for casting:', err);
+                        // Try playing anyway
+                        if (this.currentTrack) {
+                            this.castService.play(this.currentTrack, this.currentTime);
+                        }
+                    });
+
                     // We might want to pause local playback to save resources/bandwidth
                     this.emit('seek-command', this.currentTime); // Just to sync local if needed
                 }
@@ -95,11 +110,24 @@ export class PlayerService extends EventEmitter {
                 this.emitTimeUpdate();
             }
         });
+
+        this.castService.on('error', (error) => {
+            console.error('[PlayerService] Cast error:', error);
+            // If we are casting, stop or fallback
+            if (this.isCasting) {
+                // Determine if we should stop or retry. For now, stop and log.
+                this.pause();
+                this.isCasting = false;
+                this.error = `Chromecast error: ${error.message || 'Unknown error'}`;
+                this.emitStateChange();
+            }
+        });
     }
 
     // ---- Playback Control ----
 
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
+        this.error = null;
         console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
         if (track) {
             if (clearQueueBefore) {
@@ -124,25 +152,19 @@ export class PlayerService extends EventEmitter {
             }
             this.emitQueueUpdate();
 
-            // Check if it's a radio track and stream URL needs valid check
-            if (track.id.startsWith('radio-')) {
-                const stationId = track.id.replace('radio-', '');
-                console.log(`[PlayerService] Checking radio stream URL for: ${track.title}`);
-
+            // Refresh stream URL if needed (radio or casting)
+            // We always check radio because those links expire quickly.
+            // For normal tracks, we trust the cache/store unless we are casting, where we need a fresh guaranteed link.
+            if (track.id.startsWith('radio-') || this.isCasting) {
+                console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
-                    // Always refresh radio stream URL as they expire
-                    const { streamUrl, duration } = await this.scraperService.getStationStreamUrl(stationId);
-                    if (streamUrl) {
-                        console.log('[PlayerService] Refreshed radio stream URL');
+                    const streamUrl = await this.scraperService.getTrackStreamUrl(track);
+                    if (streamUrl && streamUrl !== track.streamUrl) {
+                        console.log('[PlayerService] Refreshed stream URL');
                         track.streamUrl = streamUrl;
-                        if (duration > 0 && !track.duration) {
-                            track.duration = duration;
-                        }
-                    } else {
-                        console.warn('[PlayerService] Failed to refresh radio stream URL');
                     }
                 } catch (error) {
-                    console.error('[PlayerService] Error refreshing radio stream URL:', error);
+                    console.error('[PlayerService] Error refreshing stream URL:', error);
                 }
             }
 
@@ -603,7 +625,8 @@ export class PlayerService extends EventEmitter {
                 shuffleOrder: this.isShuffled ? this.shuffleOrder : undefined,
             },
             isCasting: this.isCasting,
-            castDevice: this.castService.getConnectedDevice() || undefined
+            castDevice: this.castService.getConnectedDevice() || undefined,
+            error: this.error,
         };
     }
 
