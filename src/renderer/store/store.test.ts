@@ -103,7 +103,7 @@ const mockElectron = {
         onError: vi.fn(),
         onProgress: vi.fn(),
         onDownloaded: vi.fn(),
-    }
+    },
     cast: {
         startDiscovery: vi.fn(),
         stopDiscovery: vi.fn(),
