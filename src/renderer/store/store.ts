@@ -14,6 +14,8 @@ import type {
     RadioState,
     Queue,
     RemoteClient,
+    CastDevice,
+    CastStatus,
 } from '../../shared/types';
 
 // ============================================================================
@@ -131,6 +133,15 @@ interface UpdateSlice {
     installUpdate: () => Promise<void>;
 }
 
+interface CastSlice {
+    castDevices: CastDevice[];
+    castStatus: CastStatus;
+    startCastDiscovery: () => Promise<void>;
+    stopCastDiscovery: () => Promise<void>;
+    connectCast: (host: string) => Promise<void>;
+    disconnectCast: () => Promise<void>;
+}
+
 interface UISlice {
     currentView: ViewType;
     selectedPlaylistId: string | null;
@@ -160,6 +171,7 @@ type StoreState = AuthSlice &
     SettingsSlice &
     RemoteSlice &
     UpdateSlice &
+    CastSlice &
     UISlice;
 
 // ============================================================================
@@ -207,6 +219,8 @@ export const useStore = create<StoreState>((set, get) => ({
         repeatMode: 'off',
         isShuffled: false,
         queue: { items: [], currentIndex: -1 },
+        isCasting: false,
+        error: null,
     },
     setPlayerState: (state) => set((s) => ({ player: { ...s.player, ...state } })),
     play: async (track) => {
@@ -476,6 +490,22 @@ export const useStore = create<StoreState>((set, get) => ({
         await window.electron.update.install();
     },
 
+    // ---- Cast Slice ----
+    castDevices: [],
+    castStatus: { status: 'disconnected' },
+    startCastDiscovery: async () => {
+        await window.electron.cast.startDiscovery();
+    },
+    stopCastDiscovery: async () => {
+        await window.electron.cast.stopDiscovery();
+    },
+    connectCast: async (host: string) => {
+        await window.electron.cast.connect(host);
+    },
+    disconnectCast: async () => {
+        await window.electron.cast.disconnect();
+    },
+
     // ---- UI Slice ----
     currentView: 'collection',
     selectedPlaylistId: null,
@@ -513,7 +543,13 @@ export async function initializeStoreSubscriptions() {
 
     // Player state updates
     window.electron.player.onStateChanged((state) => {
+        const previousError = useStore.getState().player.error;
         setPlayerState(state);
+
+        if (state.error && state.error !== previousError) {
+            useStore.getState().showToast(state.error, 'error');
+        }
+
         if (state.queue) {
             useStore.setState({ queue: state.queue });
         }
@@ -617,4 +653,22 @@ export async function initializeStoreSubscriptions() {
     window.electron.update.onDownloaded((info) => {
         useStore.setState({ updateStatus: { status: 'downloaded', info } });
     });
+
+    // Cast updates
+    window.electron.cast.onDevicesUpdated((devices) => {
+        useStore.setState({ castDevices: devices });
+    });
+
+    window.electron.cast.onStatusChanged((status) => {
+        useStore.setState({ castStatus: status });
+
+        // Sync with player state if needed (isCasting is already synced via player state)
+        const currentPlayer = useStore.getState().player;
+        if (status.status === 'connected') {
+            setPlayerState({ ...currentPlayer, isCasting: true, castDevice: status.device });
+        } else {
+            setPlayerState({ ...currentPlayer, isCasting: false, castDevice: undefined });
+        }
+    });
+
 }

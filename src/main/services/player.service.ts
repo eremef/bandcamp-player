@@ -4,6 +4,7 @@ import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioStat
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
+import { CastService } from './cast.service';
 import { Database } from '../database/database';
 
 // ============================================================================
@@ -14,6 +15,7 @@ export class PlayerService extends EventEmitter {
     private cacheService: CacheService;
     private scrobblerService: ScrobblerService;
     private scraperService: ScraperService;
+    private castService: CastService;
     private database: Database;
 
     // Player state
@@ -25,9 +27,12 @@ export class PlayerService extends EventEmitter {
     private isMuted = false;
     private repeatMode: RepeatMode = 'off';
     private isShuffled = false;
+    private isCasting = false;
+    private error: string | null = null;
 
     // Queue state
     private queue: QueueItem[] = [];
+
     private currentIndex = -1;
     private shuffleOrder: number[] = [];
 
@@ -42,11 +47,12 @@ export class PlayerService extends EventEmitter {
     // Persistence
     private saveVolumeTimeout: NodeJS.Timeout | null = null;
 
-    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, database: Database) {
+    constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, castService: CastService, database: Database) {
         super();
         this.cacheService = cacheService;
         this.scrobblerService = scrobblerService;
         this.scraperService = scraperService;
+        this.castService = castService;
         this.database = database;
 
         // Initialize volume from settings
@@ -54,11 +60,74 @@ export class PlayerService extends EventEmitter {
         if (settings) {
             this.volume = settings.defaultVolume;
         }
+
+        this.setupCastListeners();
+    }
+
+    private setupCastListeners() {
+        this.castService.on('status-changed', (data) => {
+            const wasCasting = this.isCasting;
+            this.isCasting = data.status === 'connected';
+
+            if (this.isCasting !== wasCasting) {
+                console.log(`[PlayerService] Casting status changed: ${this.isCasting}`);
+                if (this.isCasting && this.isPlaying && this.currentTrack) {
+                    // Switch to casting
+                    // Refresh URL to ensure it hasn't expired
+                    this.scraperService.getTrackStreamUrl(this.currentTrack).then(url => {
+                        if (this.currentTrack) {
+                            this.currentTrack.streamUrl = url;
+                            this.castService.play(this.currentTrack!, this.currentTime);
+                        }
+                    }).catch(err => {
+                        console.error('[PlayerService] Failed to refresh URL for casting:', err);
+                        // Try playing anyway
+                        if (this.currentTrack) {
+                            this.castService.play(this.currentTrack, this.currentTime);
+                        }
+                    });
+
+                    // We might want to pause local playback to save resources/bandwidth
+                    this.emit('seek-command', this.currentTime); // Just to sync local if needed
+                }
+                this.emitStateChange();
+            }
+        });
+
+        this.castService.on('finished', () => {
+            if (this.isCasting) {
+                this.handleTrackEnd();
+            }
+        });
+
+        this.castService.on('device-status', (status) => {
+            if (this.isCasting && status.currentTime !== undefined) {
+                // Synchronize time from cast device
+                this.currentTime = status.currentTime;
+                if (status.duration !== undefined) {
+                    this.duration = status.duration;
+                }
+                this.emitTimeUpdate();
+            }
+        });
+
+        this.castService.on('error', (error) => {
+            console.error('[PlayerService] Cast error:', error);
+            // If we are casting, stop or fallback
+            if (this.isCasting) {
+                // Determine if we should stop or retry. For now, stop and log.
+                this.pause();
+                this.isCasting = false;
+                this.error = `Chromecast error: ${error.message || 'Unknown error'}`;
+                this.emitStateChange();
+            }
+        });
     }
 
     // ---- Playback Control ----
 
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
+        this.error = null;
         console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
         if (track) {
             if (clearQueueBefore) {
@@ -83,25 +152,19 @@ export class PlayerService extends EventEmitter {
             }
             this.emitQueueUpdate();
 
-            // Check if it's a radio track and stream URL needs valid check
-            if (track.id.startsWith('radio-')) {
-                const stationId = track.id.replace('radio-', '');
-                console.log(`[PlayerService] Checking radio stream URL for: ${track.title}`);
-
+            // Refresh stream URL if needed (radio or casting)
+            // We always check radio because those links expire quickly.
+            // For normal tracks, we trust the cache/store unless we are casting, where we need a fresh guaranteed link.
+            if (track.id.startsWith('radio-') || this.isCasting) {
+                console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
-                    // Always refresh radio stream URL as they expire
-                    const { streamUrl, duration } = await this.scraperService.getStationStreamUrl(stationId);
-                    if (streamUrl) {
-                        console.log('[PlayerService] Refreshed radio stream URL');
+                    const streamUrl = await this.scraperService.getTrackStreamUrl(track);
+                    if (streamUrl && streamUrl !== track.streamUrl) {
+                        console.log('[PlayerService] Refreshed stream URL');
                         track.streamUrl = streamUrl;
-                        if (duration > 0 && !track.duration) {
-                            track.duration = duration;
-                        }
-                    } else {
-                        console.warn('[PlayerService] Failed to refresh radio stream URL');
                     }
                 } catch (error) {
-                    console.error('[PlayerService] Error refreshing radio stream URL:', error);
+                    console.error('[PlayerService] Error refreshing stream URL:', error);
                 }
             }
 
@@ -113,6 +176,11 @@ export class PlayerService extends EventEmitter {
             this.currentTrack = track;
             this.currentTime = 0;
             this.isPlaying = true;
+
+            if (this.isCasting) {
+                this.castService.play(track);
+            }
+
             this.scrobbleStartTime = Date.now();
             this.hasScrobbled = false;
 
@@ -131,6 +199,9 @@ export class PlayerService extends EventEmitter {
             // Resume current track
             console.log('[PlayerService] Resuming current track');
             this.isPlaying = true;
+            if (this.isCasting) {
+                this.castService.resume();
+            }
             this.emitStateChange();
         } else if (this.queue.length > 0) {
             // Play first item in queue
@@ -143,6 +214,9 @@ export class PlayerService extends EventEmitter {
 
     pause(): void {
         this.isPlaying = false;
+        if (this.isCasting) {
+            this.castService.pause();
+        }
         this.emitStateChange();
     }
 
@@ -162,6 +236,9 @@ export class PlayerService extends EventEmitter {
         this.currentIndex = -1;
         this.isRadioActive = false;
         this.currentStation = null;
+        if (this.isCasting) {
+            this.castService.stop();
+        }
         this.emitStateChange();
         this.emitTrackChange();
         this.emitRadioStateChange();
@@ -320,6 +397,9 @@ export class PlayerService extends EventEmitter {
     seek(time: number): void {
         const seekTime = Number(time);
         this.currentTime = Math.max(0, Math.min(seekTime, this.duration));
+        if (this.isCasting) {
+            this.castService.seek(this.currentTime);
+        }
         this.emitTimeUpdate();
         // Emit command to renderer to actually seek the audio element
         this.emit('seek-command', this.currentTime);
@@ -328,6 +408,9 @@ export class PlayerService extends EventEmitter {
     async setVolume(volume: number): Promise<void> {
         this.volume = Math.max(0, Math.min(1, volume));
         this.isMuted = false;
+        if (this.isCasting) {
+            this.castService.setVolume(this.volume);
+        }
         this.emitStateChange();
 
         // Debounce saving volume to database
@@ -343,6 +426,9 @@ export class PlayerService extends EventEmitter {
 
     toggleMute(): void {
         this.isMuted = !this.isMuted;
+        if (this.isCasting) {
+            this.castService.setMuted(this.isMuted);
+        }
         this.emitStateChange();
     }
 
@@ -538,6 +624,9 @@ export class PlayerService extends EventEmitter {
                 currentIndex: this.currentIndex,
                 shuffleOrder: this.isShuffled ? this.shuffleOrder : undefined,
             },
+            isCasting: this.isCasting,
+            castDevice: this.castService.getConnectedDevice() || undefined,
+            error: this.error,
         };
     }
 

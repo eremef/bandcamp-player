@@ -823,4 +823,38 @@ export class ScraperService extends EventEmitter {
             return { streamUrl: '', duration: 0 };
         }
     }
+
+    /**
+     * Get fresh stream URL for a track
+     */
+    async getTrackStreamUrl(track: Track): Promise<string> {
+        // Radio tracks
+        if (track.id.startsWith('radio-')) {
+            const { streamUrl } = await this.getStationStreamUrl(track.id.replace('radio-', ''));
+            return streamUrl || track.streamUrl;
+        }
+
+        // Normal tracks
+        if (!track.artistId || !track.id) return track.streamUrl;
+
+        try {
+            console.log(`[ScraperService] Refreshing stream URL for ${track.title} (ID: ${track.id})...`);
+            const mobileUrl = `https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${track.artistId}&tralbum_type=t&tralbum_id=${track.id}`;
+            const cookies = await this.authService.getSessionCookies();
+            const response = await this.http.get(mobileUrl, { headers: { Cookie: cookies } });
+
+            if (response.data && response.data.tracks && response.data.tracks.length > 0) {
+                const mobileTrack = response.data.tracks[0];
+                const freshUrl = mobileTrack.streaming_url?.['mp3-128'] || mobileTrack.streaming_url?.['mp3-v0'];
+                if (freshUrl) {
+                    console.log('[ScraperService] Successfully refreshed stream URL');
+                    return freshUrl;
+                }
+            }
+        } catch (e) {
+            console.error('[ScraperService] Error refreshing track stream URL:', e);
+        }
+
+        return track.streamUrl;
+    }
 }

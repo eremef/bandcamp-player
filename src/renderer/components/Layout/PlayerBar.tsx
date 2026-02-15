@@ -2,7 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
-    VolumeX, Volume1, Volume2, List, Minimize2
+    VolumeX, Volume1, Volume2, List, Minimize2, Cast
 } from 'lucide-react';
 import styles from './PlayerBar.module.css';
 
@@ -20,6 +20,12 @@ export function PlayerBar() {
         toggleQueue,
         toggleMiniPlayer,
         isQueueVisible,
+        castDevices,
+        castStatus,
+        startCastDiscovery,
+        stopCastDiscovery,
+        connectCast,
+        disconnectCast,
     } = useStore();
 
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -28,6 +34,7 @@ export function PlayerBar() {
     const [hoverTime, setHoverTime] = useState<number | null>(null);
     const [hoverVolume, setHoverVolume] = useState<number | null>(null);
     const [isDraggingVolume, setIsDraggingVolume] = useState(false);
+    const [isCastMenuOpen, setIsCastMenuOpen] = useState(false);
 
     const { isPlaying, currentTrack, currentTime, duration, volume, isMuted, isShuffled, repeatMode } = player;
 
@@ -184,9 +191,26 @@ export function PlayerBar() {
 
     // Update Media Session playback state
     useEffect(() => {
-        if (!('mediaSession' in navigator)) return;
-        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    }, [isPlaying]);
+        if (isCastMenuOpen) {
+            startCastDiscovery();
+        } else {
+            stopCastDiscovery();
+        }
+    }, [isCastMenuOpen, startCastDiscovery, stopCastDiscovery]);
+
+    // Close cast menu when clicking outside
+    useEffect(() => {
+        if (!isCastMenuOpen) return;
+
+        const handleClickOutside = (e: MouseEvent) => {
+            if (!(e.target as HTMLElement).closest(`.${styles.castContainer}`)) {
+                setIsCastMenuOpen(false);
+            }
+        };
+
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
+    }, [isCastMenuOpen]);
 
     const formatTime = (seconds: number) => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -386,6 +410,66 @@ export function PlayerBar() {
                         </div>
                     </div>
                     <span className={styles.volumeText}>{volumePercent}%</span>
+                </div>
+                <div className={styles.castContainer}>
+                    <button
+                        className={`${styles.controlBtn} ${player.isCasting ? styles.active : ''}`}
+                        onClick={() => setIsCastMenuOpen(!isCastMenuOpen)}
+                        title="Cast to Device"
+                    >
+                        <Cast size={20} />
+                    </button>
+
+                    {isCastMenuOpen && (
+                        <div className={styles.castMenu}>
+                            <div className={styles.castMenuHeader}>
+                                <h3>Cast to device</h3>
+                                <div className={styles.scanning} title="Scanning for devices..." />
+                            </div>
+                            <ul className={styles.castMenuList}>
+                                {castDevices.length === 0 ? (
+                                    <div className={styles.emptyDevices}>No devices found</div>
+                                ) : (
+                                    castDevices.map((device) => (
+                                        <li
+                                            key={device.id}
+                                            className={`${styles.castMenuItem} ${player.castDevice?.host === device.host ? styles.active : ''}`}
+                                            onClick={() => {
+                                                if (player.castDevice?.host === device.host) {
+                                                    disconnectCast();
+                                                } else {
+                                                    connectCast(device.host);
+                                                }
+                                                setIsCastMenuOpen(false);
+                                            }}
+                                        >
+                                            <Cast size={18} />
+                                            <div className={styles.deviceInfo}>
+                                                <div className={styles.deviceName}>{device.friendlyName}</div>
+                                                <div className={styles.deviceStatus}>
+                                                    {player.castDevice?.host === device.host ? 'Connected' : 'Click to connect'}
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))
+                                )}
+                                {player.isCasting && (
+                                    <li
+                                        className={styles.castMenuItem}
+                                        style={{ borderTop: '1px solid var(--border-subtle)', color: 'var(--error-primary)' }}
+                                        onClick={() => {
+                                            disconnectCast();
+                                            setIsCastMenuOpen(false);
+                                        }}
+                                    >
+                                        <div className={styles.deviceInfo}>
+                                            <div className={styles.deviceName}>Disconnect</div>
+                                        </div>
+                                    </li>
+                                )}
+                            </ul>
+                        </div>
+                    )}
                 </div>
                 <button
                     className={`${styles.controlBtn} ${isQueueVisible ? styles.active : ''}`}

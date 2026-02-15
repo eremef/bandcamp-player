@@ -13,6 +13,7 @@ import {
     REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
     UPDATE_CHANNELS,
+    CAST_CHANNELS,
 } from '../shared/ipc-channels';
 import type {
     Track,
@@ -31,6 +32,8 @@ import type {
     RadioState,
     Queue,
     RemoteClient,
+    CastDevice,
+    CastStatus,
 } from '../shared/types';
 
 // ============================================================================
@@ -230,6 +233,17 @@ const electronAPI = {
         onError: createEventSubscriber<string>(UPDATE_CHANNELS.ON_ERROR),
         onProgress: createEventSubscriber<any>(UPDATE_CHANNELS.ON_PROGRESS),
         onDownloaded: createEventSubscriber<any>(UPDATE_CHANNELS.ON_DOWNLOADED),
+    },
+
+    // ---- Chromecast ----
+    cast: {
+        startDiscovery: (): Promise<void> => ipcRenderer.invoke(CAST_CHANNELS.START_DISCOVERY),
+        stopDiscovery: (): Promise<void> => ipcRenderer.invoke(CAST_CHANNELS.STOP_DISCOVERY),
+        getDevices: (): Promise<CastDevice[]> => ipcRenderer.invoke(CAST_CHANNELS.GET_DEVICES),
+        connect: (host: string): Promise<void> => ipcRenderer.invoke(CAST_CHANNELS.CONNECT, host),
+        disconnect: (): Promise<void> => ipcRenderer.invoke(CAST_CHANNELS.DISCONNECT),
+        onDevicesUpdated: createEventSubscriber<CastDevice[]>(CAST_CHANNELS.ON_DEVICES_UPDATED),
+        onStatusChanged: createEventSubscriber<CastStatus>(CAST_CHANNELS.ON_STATUS_CHANGED),
     },
 };
 

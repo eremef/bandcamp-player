@@ -103,7 +103,16 @@ const mockElectron = {
         onError: vi.fn(),
         onProgress: vi.fn(),
         onDownloaded: vi.fn(),
-    }
+    },
+    cast: {
+        startDiscovery: vi.fn(),
+        stopDiscovery: vi.fn(),
+        getDevices: vi.fn(),
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        onDevicesUpdated: vi.fn(),
+        onStatusChanged: vi.fn(),
+    },
 };
 
 // Assign to window
@@ -134,9 +143,13 @@ describe('useStore', () => {
                 isMuted: false,
                 repeatMode: 'off',
                 isShuffled: false,
+                isCasting: false,
+                castDevice: undefined,
                 queue: { items: [], currentIndex: -1 },
             },
             queue: { items: [], currentIndex: -1 },
+            castDevices: [],
+            castStatus: { status: 'disconnected' },
             playlists: [],
             selectedPlaylist: null,
             selectedAlbum: null,
@@ -614,6 +627,8 @@ describe('useStore', () => {
         mockElectron.collection.onUpdated.mockImplementation(cb => listeners['collection'] = cb);
         mockElectron.collection.onRefreshStarted.mockImplementation(cb => listeners['collectionRefreshStarted'] = cb);
         mockElectron.remote.onConnectionsChanged.mockImplementation(cb => listeners['remoteConn'] = cb);
+        mockElectron.cast.onDevicesUpdated.mockImplementation(cb => listeners['castDevices'] = cb);
+        mockElectron.cast.onStatusChanged.mockImplementation(cb => listeners['castStatus'] = cb);
 
         mockElectron.player.getState.mockResolvedValue({ isPlaying: false });
 
@@ -649,6 +664,17 @@ describe('useStore', () => {
         useStore.setState({ remoteStatus: { connections: 0 } as any });
         act(() => listeners['remoteConn'](5));
         expect(useStore.getState().remoteStatus?.connections).toBe(5);
+
+        // Test Cast Updates
+        const mockDevices = [{ id: 'c1', name: 'Cast 1', host: '1.2.3.4' }];
+        act(() => listeners['castDevices'](mockDevices));
+        expect(useStore.getState().castDevices).toEqual(mockDevices);
+
+        const mockStatus = { status: 'connected', device: mockDevices[0] };
+        act(() => listeners['castStatus'](mockStatus));
+        expect(useStore.getState().castStatus).toEqual(mockStatus);
+        expect(useStore.getState().player.isCasting).toBe(true);
+        expect(useStore.getState().player.castDevice).toEqual(mockDevices[0]);
 
         // --- Synchronization Tests ---
         // Test sync from player state
