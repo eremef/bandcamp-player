@@ -1,6 +1,6 @@
 {
   "name": "bandcamp-desktop-player",
-  "version": "1.6.3a",
+  "version": "1.6.3-alpha-2",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "eremef.xyz",

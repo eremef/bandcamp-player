@@ -207,6 +207,8 @@ export const useStore = create<StoreState>((set, get) => ({
         repeatMode: 'off',
         isShuffled: false,
         queue: { items: [], currentIndex: -1 },
+        isCasting: false,
+        error: null,
     },
     setPlayerState: (state) => set((s) => ({ player: { ...s.player, ...state } })),
     play: async (track) => {
@@ -530,7 +532,13 @@ export async function initializeStoreSubscriptions() {
 
     // Player state updates
     window.electron.player.onStateChanged((state) => {
+        const previousError = useStore.getState().player.error;
         setPlayerState(state);
+
+        if (state.error && state.error !== previousError) {
+            useStore.getState().showToast(state.error, 'error');
+        }
+
         if (state.queue) {
             useStore.setState({ queue: state.queue });
         }

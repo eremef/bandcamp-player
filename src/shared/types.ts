@@ -123,6 +123,7 @@ export interface PlayerState {
     queue: Queue;
     isCasting: boolean;
     castDevice?: CastDevice;
+    error?: string | null;
 }
 
 // ============================================================================
