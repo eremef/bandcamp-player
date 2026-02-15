@@ -5,6 +5,9 @@
   "main": "dist/main/main.js",
   "author": "eremef.xyz",
   "license": "MIT",
+  "workspaces": [
+    "mobile"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\"",
