@@ -166,7 +166,10 @@ Clients send these messages to control the player.
     items: QueueItem[];
     currentIndex: number;
     shuffleOrder?: number[]; // Indices for shuffle mode
-  }
+  };
+  isCasting: boolean;
+  castDevice?: { name: string; id: string }; // Simplified CastDevice
+  error?: string | null;
 }
 ```
 

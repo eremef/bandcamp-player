@@ -32,6 +32,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
 
 - **Axios**: HTTP requests.
 - **Cheerio**: HTML parsing for scraping Bandcamp fan data and track streams.
+- **chromecast-api**: Discovery and control of Google Cast devices.
 
 ### UI
 
@@ -138,8 +139,22 @@ interface RadioStation {
 }
 ```
 
-> [!NOTE]
 > Playing a radio station clears the current queue and adds the station as its only item, matching track playback behavior.
+
+#### CastDevice
+
+Represents a Google Cast device.
+
+```typescript
+interface CastDevice {
+    id: string;
+    name: string;
+    host: string;
+    friendlyName: string;
+    type: 'chromecast';
+    status: 'connected' | 'disconnected';
+}
+```
 
 ### State Models
 
@@ -156,6 +171,9 @@ Current status of audio playback.
 - `repeatMode`: 'off' | 'one' | 'all'
 - `isShuffled`: boolean
 - `queue`: Queue object
+- `isCasting`: boolean
+- `castDevice`: CastDevice | undefined
+- `error`: string | null
 
 #### AppSettings
 
@@ -275,6 +293,16 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
 6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
+
+### Chromecast Integration
+
+1. **Discovery**: Casting is initiated by user action. The `CastService` scans for devices on the local network (MDNS) only while the Cast menu is open to save resources.
+2. **Connection**: When a device is selected, the app connects and launches the default media receiver.
+3. **Playback**:
+    - The `PlayerService` refreshes the track's stream URL using `ScraperService.getTrackStreamUrl` to ensure it's valid (Bandcamp URLs expire).
+    - The new URL is sent to the Chromecast device.
+    - Local playback stops or mutes, but the player state (`currentTime`, `isPlaying`) remains synced with the cast device.
+4. **Error Handling**: Connection drops or playback errors are caught by `CastService`, propagated to `PlayerService`, and displayed to the user via Toasts.
 
 ### Collection Search & Loading
 

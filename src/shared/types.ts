@@ -123,6 +123,9 @@ export interface PlayerState {
     repeatMode: RepeatMode;
     isShuffled: boolean;
     queue: Queue;
+    isCasting: boolean;
+    castDevice?: CastDevice;
+    error?: string | null;
 }
 
 // ============================================================================
@@ -258,6 +261,24 @@ export interface AppError {
     code: string;
     message: string;
     details?: unknown;
+}
+
+// ============================================================================
+// Chromecast Types
+// ============================================================================
+
+export interface CastDevice {
+    id: string;
+    name: string;
+    host: string;
+    friendlyName: string;
+    type: string;
+    status: 'connected' | 'disconnected' | 'connecting';
+}
+
+export interface CastStatus {
+    status: 'connected' | 'disconnected' | 'connecting';
+    device?: CastDevice;
 }
 
 // ============================================================================

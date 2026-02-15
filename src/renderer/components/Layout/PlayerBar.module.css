@@ -301,3 +301,117 @@
     font-variant-numeric: tabular-nums;
     margin-top: -4px;
 }
+
+/* Cast Menu */
+.castContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.castMenu {
+    position: absolute;
+    bottom: calc(var(--player-bar-height) + 10px);
+    right: 0;
+    width: 250px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    z-index: 1000;
+    overflow: hidden;
+    animation: slideUp var(--transition-md);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.castMenuHeader {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-tertiary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.castMenuHeader h3 {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.castMenuList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.castMenuItem {
+    padding: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+.castMenuItem:hover {
+    background: var(--bg-active);
+}
+
+.castMenuItem.active {
+    color: var(--accent-primary);
+}
+
+.deviceInfo {
+    flex: 1;
+    min-width: 0;
+}
+
+.deviceName {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.deviceStatus {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+}
+
+.emptyDevices {
+    padding: var(--spacing-xl) var(--spacing-md);
+    text-align: center;
+    color: var(--text-tertiary);
+    font-size: var(--font-size-sm);
+}
+
+.scanning {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--accent-primary);
+    border-radius: 50%;
+    border-top-color: transparent;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

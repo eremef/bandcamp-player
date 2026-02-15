@@ -3,6 +3,7 @@ import { PlayerService } from './player.service';
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
+import { CastService } from './cast.service';
 import { Database } from '../database/database';
 import { Track } from '../../shared/types';
 
@@ -10,6 +11,7 @@ import { Track } from '../../shared/types';
 vi.mock('./cache.service');
 vi.mock('./scrobbler.service');
 vi.mock('./scraper.service');
+vi.mock('./cast.service');
 vi.mock('../database/database');
 
 describe('PlayerService', () => {
@@ -17,6 +19,7 @@ describe('PlayerService', () => {
     let mockCacheService: any;
     let mockScrobblerService: any;
     let mockScraperService: any;
+    let mockCastService: any;
     let mockDatabase: any;
 
     const mockTrack: Track = {
@@ -42,6 +45,18 @@ describe('PlayerService', () => {
         };
         mockScraperService = {
             getStationStreamUrl: vi.fn().mockResolvedValue({ streamUrl: 'http://default.stream', duration: 0 }),
+            getTrackStreamUrl: vi.fn().mockResolvedValue('http://default.stream'),
+        };
+        mockCastService = {
+            on: vi.fn(),
+            play: vi.fn(),
+            pause: vi.fn(),
+            resume: vi.fn(),
+            stop: vi.fn(),
+            seek: vi.fn(),
+            setVolume: vi.fn(),
+            setMuted: vi.fn(),
+            getConnectedDevice: vi.fn().mockReturnValue(null),
         };
         mockDatabase = {
             getSettings: vi.fn().mockReturnValue({ defaultVolume: 0.5 }),
@@ -52,6 +67,7 @@ describe('PlayerService', () => {
             mockCacheService as unknown as CacheService,
             mockScrobblerService as unknown as ScrobblerService,
             mockScraperService as unknown as ScraperService,
+            mockCastService as unknown as CastService,
             mockDatabase as unknown as Database
         );
     });
@@ -259,11 +275,11 @@ describe('PlayerService', () => {
                 streamUrl: 'http://old.url'
             };
 
-            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://new.url', duration: 0 });
+            mockScraperService.getTrackStreamUrl.mockResolvedValue('http://new.url');
 
             await playerService.play(radioTrack);
 
-            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith('123');
+            expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalledWith(radioTrack);
             expect(playerService.getState().currentTrack?.streamUrl).toBe('http://new.url');
         });
 
