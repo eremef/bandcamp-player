@@ -1,13 +1,17 @@
 {
   "name": "bandcamp-desktop-player",
-  "version": "1.6.3-alpha-2",
+  "version": "1.6.7-beta",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "eremef.xyz",
   "license": "MIT",
+  "workspaces": [
+    "mobile"
+  ],
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
     "dev:start": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\"",
+    "dev:start:large": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start -- --simulate-large-collection\"",
     "dev:main": "tsc -p tsconfig.main.json --watch",
     "dev:renderer": "vite",
     "build": "npm run test && npm run build:main && npm run build:renderer && node scripts/copy-assets.js",
@@ -23,7 +27,8 @@
     "test:coverage": "vitest run --coverage",
     "package": "npm run build && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "postinstall": "npm run rebuild && electron-builder install-app-deps"
+    "postinstall": "npm run rebuild && electron-builder install-app-deps",
+    "release": "node scripts/release.js"
   },
   "dependencies": {
     "axios": "^1.13.5",
@@ -31,6 +36,7 @@
     "cheerio": "^1.2.0",
     "chromecast-api": "^0.4.2",
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.7.3",
     "lucide": "^0.563.0",
     "lucide-react": "^0.563.0",
     "qrcode.react": "^4.2.0",
@@ -79,6 +85,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "eremef",
+        "repo": "bandcamp-player"
+      }
+    ],
     "files": [
       "dist/**/*",
       "package.json"
@@ -101,7 +114,7 @@
         }
       ],
       "icon": "src/assets/icons/icon.ico",
-      "artifactName": "Windows-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -129,12 +142,12 @@
       ],
       "icon": "src/assets/icons",
       "maintainer": "eremef.xyz <eremef.xyz@gmail.com>",
-      "artifactName": "Linux-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
     "mac": {
       "target": "dmg",
       "icon": "src/assets/icons/icon.png",
-      "artifactName": "MacOS-${productName}-${version}-${arch}.${ext}"
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

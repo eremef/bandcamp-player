@@ -12,6 +12,7 @@ import {
     WINDOW_CHANNELS,
     REMOTE_CHANNELS,
     SYSTEM_CHANNELS,
+    UPDATE_CHANNELS,
     CAST_CHANNELS,
 } from '../shared/ipc-channels';
 import type {
@@ -220,6 +221,18 @@ const electronAPI = {
             ipcRenderer.invoke(SYSTEM_CHANNELS.OPEN_EXTERNAL, url),
         showItemInFolder: (path: string): Promise<void> =>
             ipcRenderer.invoke(SYSTEM_CHANNELS.SHOW_ITEM_IN_FOLDER, path),
+    },
+
+    // ---- Updates ----
+    update: {
+        check: (): Promise<void> => ipcRenderer.invoke(UPDATE_CHANNELS.CHECK),
+        install: (): Promise<void> => ipcRenderer.invoke(UPDATE_CHANNELS.INSTALL),
+        onChecking: createEventSubscriber<void>(UPDATE_CHANNELS.ON_CHECKING),
+        onAvailable: createEventSubscriber<any>(UPDATE_CHANNELS.ON_AVAILABLE),
+        onNotAvailable: createEventSubscriber<any>(UPDATE_CHANNELS.ON_NOT_AVAILABLE),
+        onError: createEventSubscriber<string>(UPDATE_CHANNELS.ON_ERROR),
+        onProgress: createEventSubscriber<any>(UPDATE_CHANNELS.ON_PROGRESS),
+        onDownloaded: createEventSubscriber<any>(UPDATE_CHANNELS.ON_DOWNLOADED),
     },
 
     // ---- Chromecast ----

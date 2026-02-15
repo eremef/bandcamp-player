@@ -4,15 +4,18 @@
  <img width="800" alt="Image" src="https://github.com/user-attachments/assets/b3a91281-dbb9-49ee-9fb5-539d4d66f7b3" />
 </p>
 
-AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, designing, prompting, testing, re-designing, prompting, testing, etc.) feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
 >⚠️ May violate Bandcamp terms and policies. Use at your own risk.
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
+\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional, craft programming, and not that eco-friendly.
+
 ## Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
 - 📥 **Offline Caching** - Download tracks for offline playback
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
@@ -22,11 +25,13 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
+- ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - View host IP, disconnect, and manage sessions
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
+- 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
 
 ## Tech Stack
 
@@ -38,6 +43,8 @@ AI-generated (not with one prompt, but with hundreds, in over 2-weeks-go, design
 - **Vite** - Build tool for renderer
 - **Cheerio** - Web scraping
 - **Axios** - HTTP client
+- **chromecast-api** - Casting support
+- **Electron Updater** - Auto-update support
 
 ## Getting Started
 
@@ -58,6 +65,9 @@ npm install
 # Run in development mode
 npm run dev
 
+# Run in simulation mode (mocks 5000 items + errors)
+npm run dev:start
+
 # In another terminal, start Electron
 npm start
 ```
@@ -67,6 +77,9 @@ npm start
 ```bash
 # Build for production
 npm run build
+
+# Create a new release (bumps version, runs tests, commits, and tags)
+npm run release <newVersion>
 ```
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
@@ -115,6 +128,7 @@ src/
 │   │   ├── scraper.service.ts
 │   │   ├── scrobbler.service.ts
 │   │   ├── remote.service.ts
+│   │   ├── updater.service.ts
 │   │   └── tray.service.ts
 │   └── database/           # SQLite database
 ├── renderer/               # React frontend
@@ -156,12 +170,14 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 ### Mobile Features
 
 - 📱 **Remote Control** - Play, Pause, Next, Previous, Volume, and Seek from your phone
+- 📺 **Chromecast Control** - Manage casting from your phone
 - 🎵 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
 - 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - ℹ️ **About & License** - View app version and open source licenses
 - 🔌 **Offline-ready UI** - Navigates smoothly even when disconnected (relies on Desktop for audio)
+- 📜 **Infinite Scroll** - efficiently browses large collections with lazy loading
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses the device's native volume steps for hardware synchronization
 
@@ -199,7 +215,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    npm run android:build
    ```
 
-2. **Build iOS** (macOS only):
+1. **Build iOS** (macOS only):
 
    ```bash
    cd mobile
@@ -233,3 +249,5 @@ MIT
 ### Disclaimer
 
 This application is an unofficial project intended for personal use only. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Bandcamp Ventures LLC. Users are responsible for complying with Bandcamp's Terms of Service and all applicable local and international laws regarding digital content and copyright.
+
+***

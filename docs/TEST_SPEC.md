@@ -18,6 +18,9 @@ The project uses a split testing architecture to accommodate the distinct runtim
   - Installs `@testing-library/jest-dom` matchers.
   - Mocks Electron IPC headers (`window.electron`) and API (`window.api`).
 - **Scope**: Covers `src/main` (backend logic) and `src/renderer` (frontend UI/Store).
+- **Environment Handling**:
+  - `src/main/services/*.test.ts` should use `// @vitest-environment node` to avoid browser-only limitations (like missing `process.argv`).
+  - `src/test/setup.ts` is cross-environment safe (checks for `window` before mocking).
 
 ### Mobile (React Native)
 
@@ -137,3 +140,12 @@ The project has comprehensive coverage across core logic, stores, and critical U
        return selector ? selector(mockState) : mockState;
    });
    ```
+
+### Manual Verification
+
+For features that cannot be easily tested in local unit environments (like auto-updates), manual verification is performed:
+
+- **Auto-Updates**:
+  - Verification of IPC event flow (Main -> Preload -> Store -> UI).
+  - Verification of GitHub Actions release configuration to include `latest.yml`.
+  - Manual check of "Check for Updates" UI states (checking, error, not available).

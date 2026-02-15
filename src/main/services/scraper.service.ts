@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { AuthService } from './auth.service';
+import { simulationService } from './simulation.service';
 import type { Track, Album, Collection, CollectionItem, RadioStation } from '../../shared/types';
 import { EventEmitter } from 'events';
 // ============================================================================
@@ -81,187 +82,353 @@ export class ScraperService extends EventEmitter {
     }
 
     /**
+     * Helper to robustly extract a JSON object from a string starting with a variable assignment
+     * e.g. "var foo = { ... };"
+     * Handles nested braces correctly unlike simple regex checks.
+     */
+    private extractJsonObject(content: string, keys: string[]): any | null {
+        // Find one of the keys followed by assignment
+        for (const key of keys) {
+            // Look for "key =" or "key:" or "var key ="
+            // We use a simplified search to find the start index
+            // Escape key for regex
+            const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`(?:var|let|const)?\\s*${escapedKey}\\s*[:=]\\s*`);
+
+            const match = content.match(regex);
+            if (match && match.index !== undefined) {
+                const startSearchIndex = match.index + match[0].length;
+                // Find the first '{'
+                const openBraceIndex = content.indexOf('{', startSearchIndex);
+                if (openBraceIndex === -1) continue;
+
+                // Balance braces
+                let braceCount = 0;
+                let inString = false;
+                let inEscape = false;
+                let closeBraceIndex = -1;
+
+                for (let i = openBraceIndex; i < content.length; i++) {
+                    const char = content[i];
+
+                    if (inEscape) {
+                        inEscape = false;
+                        continue;
+                    }
+
+                    if (char === '\\') {
+                        inEscape = true;
+                        continue;
+                    }
+
+                    if (char === '"' || char === "'") {
+                        // Simple string toggle - this assumes standard JSON/JS string behavior
+                        // (Technically quote styles matter, but for this purpose assume matching quotes isn't critical 
+                        // if we just toggle inString. However, mixing ' and " might be an issue. 
+                        // For now, simple toggle is better than regex.)
+                        // Actually, sticking to checking if it matches the *starting* quote is better.
+                        // But for simplicity, let's assume valid JS/JSON doesn't nest unescaped quotes improperly.
+                        // Let's implement a slightly smarter string check.
+                        // We can skip this complexity for now and assume the content is reasonably well-formed.
+                        // Or better: just count braces unless we are strictly sure we are in a string.
+                        // Given the complexity of full JS parsing, let's try a standard brace counter that ignores braces in quotes.
+                        // Standard simple implementation:
+                    }
+                }
+
+                // Simpler approach: Use a stack or counter, treating " and ' as string delimiters
+                // Reset indices
+
+                let stack = 0;
+                let quoteChar: string | null = null;
+
+                for (let i = openBraceIndex; i < content.length; i++) {
+                    const char = content[i];
+
+                    // Handle escaping
+                    if (i > 0 && content[i - 1] === '\\' && content[i - 2] !== '\\') {
+                        // Escaped character, ignore
+                        continue;
+                    }
+
+                    if (quoteChar) {
+                        if (char === quoteChar) {
+                            quoteChar = null; // End string
+                        }
+                    } else {
+                        if (char === '"' || char === "'") {
+                            quoteChar = char;
+                        } else if (char === '{') {
+                            stack++;
+                        } else if (char === '}') {
+                            stack--;
+                            if (stack === 0) {
+                                closeBraceIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (closeBraceIndex !== -1) {
+                    const jsonString = content.substring(openBraceIndex, closeBraceIndex + 1);
+                    try {
+                        // Try standard parse
+                        return JSON.parse(jsonString);
+                    } catch {
+                        // Try relax parse (e.g. key: value instead of "key": "value")
+                        try {
+                            // Simple sanitization for keys
+                            const sanitized = jsonString
+                                .replace(/(\w+)\s*:/g, '"$1":')
+                                .replace(/'/g, '"');
+                            return JSON.parse(sanitized);
+                        } catch (e2) {
+                            // Last resort: eval (if safe context? Using Function is safer than eval, but still risky if remote content)
+                            // For a desktop app scraping specific trusted site sections, it's a trade-off.
+                            // We used eval-like approach in extractTralbumData before.
+                            try {
+                                return new Function(`return ${jsonString}`)();
+                            } catch (e3) {
+                                console.error(`[Scraper] Failed to parse extracted object for ${key}:`, e3);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Fetch user's collection (purchased music)
+     */
+    private fetchPromise: Promise<Collection> | null = null;
+
+    /**
      * Fetch user's collection (purchased music)
      */
     async fetchCollection(forceRefresh = false): Promise<Collection> {
+        if (this.fetchPromise && !forceRefresh) {
+            return this.fetchPromise;
+        }
+
         if (this.cachedCollection && !forceRefresh) {
             return this.cachedCollection;
         }
 
-        const authState = this.authService.getUser();
-        if (!authState.isAuthenticated || !authState.user) {
-            throw new Error('User not authenticated');
-        }
+        this.fetchPromise = (async () => {
+            try {
+                const authState = this.authService.getUser();
+                if (!authState.isAuthenticated || !authState.user) {
+                    throw new Error('User not authenticated');
+                }
 
-        const cookies = await this.authService.getSessionCookies();
-        const profileUrl = authState.user.profileUrl;
+                const cookies = await this.authService.getSessionCookies();
+                const profileUrl = authState.user.profileUrl;
 
-        try {
-            // Fetch the collection page
-            const response = await this.http.get(profileUrl, {
-                headers: { Cookie: cookies },
-            });
+                // Fetch the collection page
+                const response = await this.http.get(profileUrl, {
+                    headers: { Cookie: cookies },
+                });
 
-            const $ = cheerio.load(response.data);
-            const items: CollectionItem[] = [];
+                const $ = cheerio.load(response.data);
+                const items: CollectionItem[] = [];
 
-            // Extract collection data from the page
-            // Bandcamp embeds collection data in a script tag
-            // const pageDataScript = $('script[data-tralbum]').attr('data-tralbum');
-            const collectionScript = $('script').filter((_, el) => {
-                const text = $(el).html() || '';
-                return text.includes('CollectionData') || text.includes('collection_data');
-            }).first().html();
+                // Extract collection data from the page
+                // Bandcamp embeds collection data in a script tag
+                // const pageDataScript = $('script[data-tralbum]').attr('data-tralbum');
+                const collectionScript = $('script').filter((_, el) => {
+                    const text = $(el).html() || '';
+                    return text.includes('CollectionData') || text.includes('collection_data');
+                }).first().html();
 
+                if (!collectionScript) {
+                    console.warn('[Scraper] Collection script NOT found in page.');
+                }
 
+                let collectionData: any = null; // Declare here
 
-            let collectionData: any = null; // Declare here
+                if (collectionScript) {
+                    // Parse collection data from script
+                    // Try robust extraction first
+                    collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
 
-            if (collectionScript) {
-                // Parse collection data from script
-                const collectionMatch = collectionScript.match(/collection_data\s*[:=]\s*(\{[\s\S]*?\})\s*[,;]/);
-                if (collectionMatch) {
-                    try {
-                        collectionData = JSON.parse(collectionMatch[1]);
-
-                        // Process collection data
-                        if (collectionData.items) {
-                            for (const item of collectionData.items) {
-                                const collectionItem = this.parseCollectionItem(item);
-                                if (collectionItem) {
-                                    items.push(collectionItem);
+                    if (collectionData) {
+                        try {
+                            // Process collection data
+                            if (collectionData.items) {
+                                for (const item of collectionData.items) {
+                                    const collectionItem = this.parseCollectionItem(item);
+                                    if (collectionItem) {
+                                        items.push(collectionItem);
+                                    }
                                 }
                             }
+                        } catch (__e) {
+                            console.error('Error processing collection data:', __e);
                         }
-                    } catch (__e) {
-                        console.error('Error parsing collection data:', __e);
                     }
                 }
-            }
 
-            // Also try to parse from DOM if script parsing fails
-            if (items.length === 0) {
-                $('.collection-item-container').each((_, element) => {
-                    const $item = $(element);
-                    const collectionItem = this.parseCollectionItemFromDOM($, $item);
-                    if (collectionItem) {
-                        items.push(collectionItem);
+                // Also try to parse from DOM if script parsing fails
+                if (items.length === 0) {
+                    $('.collection-item-container').each((_, element) => {
+                        const $item = $(element);
+                        const collectionItem = this.parseCollectionItemFromDOM($, $item);
+                        if (collectionItem) {
+                            items.push(collectionItem);
+                        }
+                    });
+                }
+
+                // Extract fan_id from the page to be sure we have the correct one
+                let pageFanId: number | null = null;
+
+                // Strategy 1: <div id="pagedata" data-blob="...">
+                // This seems to be the new standard for Bandcamp pages
+                const $pagedata = $('#pagedata');
+                const dataBlob = $pagedata.attr('data-blob');
+                if (dataBlob) {
+                    try {
+                        // It's usually HTML encoded (e.g. &quot;)
+                        // Use a single regex with a replacement map to avoid double-unescaping (CodeQL fix)
+                        const entities: Record<string, string> = {
+                            '&quot;': '"',
+                            '&amp;': '&',
+                            '&lt;': '<',
+                            '&gt;': '>'
+                        };
+                        const decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+
+                        const pd = JSON.parse(decoded);
+                        if (pd.fan_stats && pd.fan_stats.fan_id) {
+                            pageFanId = Number(pd.fan_stats.fan_id);
+                        } else if (pd.fan_id) {
+                            pageFanId = Number(pd.fan_id);
+                        }
+                    } catch (e) {
+                        console.error('[Scraper] Failed to parse #pagedata data-blob:', e);
                     }
-                });
-            }
+                }
 
-            // Extract fan_id from the page to be sure we have the correct one
-            let pageFanId: number | null = null;
-
-            // Try distinct regex for pagedata first (most reliable)
-            const pagedataMatch = response.data.match(/var\s+pagedata\s*=\s*(\{[\s\S]*?\});/);
-            if (pagedataMatch) {
-                try {
-                    const jsonStr = pagedataMatch[1].replace(/(\w+):/g, '"$1":');
-                    const pd = JSON.parse(jsonStr);
-                    if (pd.fan_id) {
+                // Strategy 2: Legacy Script Variable (Backup)
+                if (!pageFanId) {
+                    const pd = this.extractJsonObject(response.data, ['pagedata']);
+                    if (pd && pd.fan_id) {
                         pageFanId = Number(pd.fan_id);
                     }
-                } catch {
-                    const directId = pagedataMatch[1].match(/fan_id\s*:\s*(\d+)/);
-                    if (directId) {
-                        pageFanId = parseInt(directId[1], 10);
-                    }
                 }
-            }
 
-            if (!pageFanId) {
-                const fanDataMatch = response.data.match(/fan_id\s*:\s*(\d+)/);
+                // Strategy 3: Loose Regex (Backup)
+                const fanDataMatch = response.data.match(/["']?fan_id["']?\s*:\s*(\d+)/);
                 if (fanDataMatch) {
                     pageFanId = parseInt(fanDataMatch[1], 10);
                 }
-            }
 
-            if (!pageFanId) {
-                const dataBlobId = response.data.match(/data-fan-id="(\d+)"/);
-                if (dataBlobId) {
-                    pageFanId = parseInt(dataBlobId[1], 10);
-                }
-            }
-
-            const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
-            // Fetch more items via API
-            // We use blind fetching logic: try to fetch more until we get 0 items
-            // This is robust against missing totalCounts
-
-            // BOOTSTRAP: Fetch the first batch from API using future timestamp to ensure we have a valid token chain
-            // This bypasses potential issues with DOM-derived tokens
-            // Use a far future timestamp to get "newest" items
-            const futureToken = String(Math.floor(Date.now() / 1000) + ONE_YEAR_SECONDS);
-            try {
-                const apiItems = await this.fetchMoreCollectionItems(activeFanId, futureToken, cookies);
-
-                if (apiItems.length > 0) {
-                    // Merge and dedup
-                    const newItems = apiItems.filter(newI => !items.some(existing => existing.id === newI.id));
-                    items.push(...newItems);
-                }
-            } catch (e) {
-                console.error('Bootstrap failed:', e);
-            }
-
-            let hasMore = items.length > 0;
-            // Limit to avoid infinite loops in case of error
-            const MAX_FETCHES = 100;
-            let fetchCount = 0;
-
-            while (hasMore && fetchCount < MAX_FETCHES) {
-                // Find method to get next token
-                // 1. Try last item from the list (which now includes API items)
-                const lastItem = items[items.length - 1];
-
-                if (!lastItem || !lastItem.token) {
-                    break;
-                }
-
-                // Try full token
-                let moreItems = await this.fetchMoreCollectionItems(activeFanId, lastItem.token, cookies);
-
-                // FALLBACK: If 0 items, try using just the timestamp from the token
-                // This is often required if the full token format (timestamp:id:type::) is too strict for the API context
-                if (moreItems.length === 0 && lastItem.token.includes(':')) {
-                    const timestamp = lastItem.token.split(':')[0];
-                    moreItems = await this.fetchMoreCollectionItems(activeFanId, timestamp, cookies);
-                }
-
-                if (moreItems.length === 0) {
-                    hasMore = false;
-                } else {
-                    // Avoid duplicates
-                    const newItems = moreItems.filter(newI => !items.some(existing => existing.id === newI.id));
-                    if (newItems.length === 0) {
-                        hasMore = false;
-                    } else {
-                        items.push(...newItems);
+                if (!pageFanId) {
+                    const dataBlobId = response.data.match(/data-fan-id="(\d+)"/);
+                    if (dataBlobId) {
+                        pageFanId = parseInt(dataBlobId[1], 10);
                     }
                 }
-                fetchCount++;
+
+                const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
+
+                // Fetch more items via API
+                // ...
+
+                const futureToken = String(Math.floor(Date.now() / 1000) + ONE_YEAR_SECONDS);
+                try {
+                    const apiItems = await this.fetchMoreCollectionItems(activeFanId, futureToken, cookies);
+
+                    if (apiItems.length > 0) {
+                        // Merge and dedup
+                        const newItems = apiItems.filter(newI => !items.some(existing => existing.id === newI.id));
+                        items.push(...newItems);
+                    }
+                } catch (e) {
+                    console.error('Bootstrap failed:', e);
+                }
+
+                let hasMore = items.length > 0;
+                // Limit to avoid infinite loops in case of error
+                // Increased from 100 to 1000 to support collections up to ~20k items
+                const MAX_FETCHES = 1000;
+                let fetchCount = 0;
+                let retryCount = 0;
+                const MAX_RETRIES = 5;
+
+                while (hasMore && fetchCount < MAX_FETCHES) {
+                    // Find method to get next token
+                    // 1. Try last item from the list (which now includes API items)
+                    const lastItem = items[items.length - 1];
+
+                    if (!lastItem || !lastItem.token) {
+                        break;
+                    }
+
+                    try {
+                        // Try full token
+                        let moreItems = await this.fetchMoreCollectionItems(activeFanId, lastItem.token, cookies);
+
+                        // FALLBACK: If 0 items, try using just the timestamp from the token
+                        // This is often required if the full token format (timestamp:id:type::) is too strict for the API context
+                        if (moreItems.length === 0 && lastItem.token.includes(':')) {
+                            const timestamp = lastItem.token.split(':')[0];
+                            moreItems = await this.fetchMoreCollectionItems(activeFanId, timestamp, cookies);
+                        }
+
+                        if (moreItems.length === 0) {
+                            hasMore = false;
+                        } else {
+                            // Avoid duplicates
+                            const newItems = moreItems.filter(newI => !items.some(existing => existing.id === newI.id));
+                            if (newItems.length === 0) {
+                                hasMore = false;
+                            } else {
+                                items.push(...newItems);
+                                // Reset retry count on success
+                                retryCount = 0;
+                            }
+                        }
+                        fetchCount++;
+                    } catch (error) {
+                        console.error(`Error fetching batch ${fetchCount + 1}:`, error);
+                        retryCount++;
+                        if (retryCount > MAX_RETRIES) {
+                            console.error(`Max retries (${MAX_RETRIES}) reached. Stopping fetch.`);
+                            break;
+                        }
+                        // Wait longer before retry
+                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+                    }
+                }
+
+
+                this.cachedCollection = {
+                    items,
+                    totalCount: items.length,
+                    lastUpdated: new Date().toISOString(),
+                };
+
+                this.emit('collection-updated', this.cachedCollection);
+                return this.cachedCollection;
+            } catch (error: any) {
+                console.error('Error fetching collection:', error.message);
+                if (error.response) {
+                    console.error('Axios error details:', {
+                        status: error.response.status,
+                        data: typeof error.response.data === 'string' ? error.response.data.substring(0, 200) : 'non-string data'
+                    });
+                }
+                throw error;
+            } finally {
+                this.fetchPromise = null;
             }
+        })();
 
-
-            this.cachedCollection = {
-                items,
-                totalCount: items.length,
-                lastUpdated: new Date().toISOString(),
-            };
-
-            this.emit('collection-updated', this.cachedCollection);
-            return this.cachedCollection;
-        } catch (error: any) {
-            console.error('Error fetching collection:', error.message);
-            if (error.response) {
-                console.error('Axios error details:', {
-                    status: error.response.status,
-                    data: typeof error.response.data === 'string' ? error.response.data.substring(0, 200) : 'non-string data'
-                });
-            }
-            throw error;
-        }
+        return this.fetchPromise;
     }
 
     /**
@@ -272,8 +439,13 @@ export class ScraperService extends EventEmitter {
         lastToken: string | undefined,
         cookies: string
     ): Promise<CollectionItem[]> {
+        // Check for simulation mode
+        if (simulationService.shouldSimulate()) {
+            return simulationService.fetchBatch(lastToken);
+        }
+
         const items: CollectionItem[] = [];
-        const batchSize = 20;
+        const batchSize = 100;
 
         try {
             const requestBody: any = {
@@ -304,10 +476,13 @@ export class ScraperService extends EventEmitter {
                 }
             }
 
-            // Rate limiting
-            await new Promise(resolve => setTimeout(resolve, 200));
+            // Rate limiting - slightly increased from 200ms to 300ms + jitter
+            // to be nicer to the API and avoid rate limits
+            const jitter = Math.floor(Math.random() * 200);
+            await new Promise(resolve => setTimeout(resolve, 100 + jitter));
         } catch (error) {
-            console.error('Error fetching more collection items:', error);
+            // Propagate error to allow retry logic in main loop
+            throw error;
         }
 
         return items;
@@ -456,9 +631,6 @@ export class ScraperService extends EventEmitter {
                         if (response.data && response.data.tracks && response.data.tracks.length > 0) {
                             const mobileTrack = response.data.tracks[0];
                             streamUrl = mobileTrack.streaming_url?.['mp3-128'] || mobileTrack.streaming_url?.['mp3-v0'] || '';
-                            if (streamUrl) {
-                                console.log('[ScraperService] Successfully retrieved fallback stream URL');
-                            }
                         }
                     } catch (e: any) {
                         console.error('[ScraperService] Mobile API fallback failed:', e.message);
@@ -467,8 +639,6 @@ export class ScraperService extends EventEmitter {
 
                 if (!streamUrl) {
                     console.warn(`[ScraperService] No stream URL found for track ${trackInfo.title} (ID: ${trackInfo.track_id})`);
-                    console.log('[ScraperService] Full trackInfo object:', JSON.stringify(trackInfo, null, 2));
-                    console.log('[ScraperService] TralbumData ID:', tralbumData.id);
                 }
 
                 return {
@@ -520,28 +690,9 @@ export class ScraperService extends EventEmitter {
 
         // Try to find in inline scripts
         let tralbumData = null;
-        $('script').each((_, script) => {
-            const content = $(script).html() || '';
-            const match = content.match(/var\s+TralbumData\s*=\s*(\{[\s\S]*?\});/);
-            if (match) {
-                try {
-                    // Clean the JSON (handle JS syntax)
-                    const jsonStr = match[1]
-                        .replace(/'/g, '"')
-                        .replace(/(\w+):/g, '"$1":')
-                        .replace(/,\s*}/g, '}')
-                        .replace(/,\s*]/g, ']');
-                    tralbumData = JSON.parse(jsonStr);
-                } catch {
-                    // Try eval-based approach (safer alternative)
-                    try {
-                        tralbumData = new Function(`return ${match[1]}`)();
-                    } catch (e2) {
-                        console.error('Error parsing TralbumData:', e2);
-                    }
-                }
-            }
-        });
+        const scriptContent = $('script').map((_, el) => $(el).html()).get().join('\n');
+
+        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData']);
 
         return tralbumData;
     }
@@ -624,7 +775,6 @@ export class ScraperService extends EventEmitter {
      */
     async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
         try {
-            console.log(`Fetching stream URL for radio show ${showId}...`);
             // 1. Fetch the show page
             const response = await this.http.get(`https://bandcamp.com/?show=${showId}`);
             const $ = cheerio.load(response.data);
@@ -647,7 +797,6 @@ export class ScraperService extends EventEmitter {
                 }
 
                 const audioTrackId = show.audioTrackId;
-                console.log(`Found audioTrackId: ${audioTrackId} for show ${showId}`);
 
                 // 3. Fetch track details from mobile API
                 // Using band_id=1 as generic system ID often works for radio

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Trash2, Music, User, LogOut, Copy, Check } from 'lucide-react';
+import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 import ConnectedDevicesModal from './ConnectedDevicesModal';
@@ -23,6 +23,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         logout,
         remoteStatus,
         fetchRemoteStatus,
+        updateStatus,
+        checkForUpdates,
+        installUpdate,
     } = useStore();
 
     const [appVersion, setAppVersion] = useState<string>('1.0.0');
@@ -59,6 +62,75 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const renderUpdateSection = () => {
+        const { status, info, progress, error } = updateStatus;
+
+        switch (status) {
+            case 'checking':
+                return (
+                    <div className={styles.updateStatus}>
+                        <RefreshCw size={16} className={styles.spin} />
+                        <span>Checking for updates...</span>
+                    </div>
+                );
+            case 'available':
+                return (
+                    <div className={styles.updateStatus}>
+                        <Download size={16} />
+                        <span>Update available: {info?.version}</span>
+                        <button className={styles.updateBtn} disabled>Downloading...</button>
+                    </div>
+                );
+            case 'downloading':
+                return (
+                    <div className={styles.updateStatus}>
+                        <RefreshCw size={16} className={styles.spin} />
+                        <span>Downloading update: {Math.round(progress?.percent || 0)}%</span>
+                        <div className={styles.progressBar}>
+                            <div className={styles.progressFill} style={{ width: `${progress?.percent || 0}%` }} />
+                        </div>
+                    </div>
+                );
+            case 'downloaded':
+                return (
+                    <div className={styles.updateStatus}>
+                        <CheckCircle size={16} color="var(--accent-primary)" />
+                        <span>Update downloaded!</span>
+                        <button className={styles.installBtn} onClick={installUpdate}>
+                            Restart & Install
+                        </button>
+                    </div>
+                );
+            case 'error':
+                return (
+                    <div className={styles.updateStatus}>
+                        <AlertCircle size={16} color="#ff4444" />
+                        <span className={styles.errorText}>Error: {error}</span>
+                        <button className={styles.checkBtn} onClick={checkForUpdates}>
+                            Retry
+                        </button>
+                    </div>
+                );
+            case 'not-available':
+                return (
+                    <div className={styles.updateStatus}>
+                        <CheckCircle size={16} color="var(--accent-primary)" />
+                        <span>You're up to date!</span>
+                        <button className={styles.checkBtn} onClick={checkForUpdates}>
+                            Check Again
+                        </button>
+                    </div>
+                );
+            default:
+                return (
+                    <button className={styles.checkBtn} onClick={checkForUpdates}>
+                        <RefreshCw size={16} />
+                        <span>Check for Updates</span>
+                    </button>
+                );
+        }
     };
 
     return (
@@ -336,6 +408,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.about}>
                             <p><strong>Bandcamp Desktop Player</strong></p>
                             <p className={styles.version}>Version {appVersion}</p>
+                            <div className={styles.updateContainer}>
+                                {renderUpdateSection()}
+                            </div>
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://eremef.xyz')}>© {new Date().getFullYear()} eremef.xyz</p>
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://github.com/eremef/bandcamp-player/blob/main/LICENSE.txt')}>
                                 Licensed under the MIT License.

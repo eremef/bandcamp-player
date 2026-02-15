@@ -70,6 +70,7 @@ const mockElectron = {
     scrobbler: {
         connect: vi.fn(),
         disconnect: vi.fn(),
+        getState: vi.fn(),
         onStateChanged: vi.fn(),
     },
     radio: {
@@ -93,6 +94,16 @@ const mockElectron = {
     window: {
         toggleMiniPlayer: vi.fn(),
     },
+    update: {
+        check: vi.fn(),
+        install: vi.fn(),
+        onChecking: vi.fn(),
+        onAvailable: vi.fn(),
+        onNotAvailable: vi.fn(),
+        onError: vi.fn(),
+        onProgress: vi.fn(),
+        onDownloaded: vi.fn(),
+    }
     cast: {
         startDiscovery: vi.fn(),
         stopDiscovery: vi.fn(),
@@ -155,6 +166,18 @@ describe('useStore', () => {
             isMiniPlayer: false,
             isSettingsOpen: false,
             toast: null,
+        });
+        mockElectron.scrobbler.getState.mockResolvedValue({ isConnected: false, user: null });
+        mockElectron.player.getState.mockResolvedValue({
+            isPlaying: false,
+            currentTrack: null,
+            currentTime: 0,
+            duration: 0,
+            volume: 0.8,
+            isMuted: false,
+            repeatMode: 'off',
+            isShuffled: false,
+            queue: { items: [], currentIndex: -1 },
         });
         vi.clearAllMocks();
     });
@@ -338,6 +361,10 @@ describe('useStore', () => {
         const mockPlaylists = [{ id: '1', name: 'My Playlist' }];
         const mockNewPlaylist = { id: '2', name: 'New Playlist' };
 
+        let playlistListener: any;
+        mockElectron.playlist.onUpdated.mockImplementation(cb => playlistListener = cb);
+        await initializeStoreSubscriptions();
+
         mockElectron.playlist.getAll.mockResolvedValue(mockPlaylists);
         mockElectron.playlist.create.mockResolvedValue(mockNewPlaylist);
         mockElectron.playlist.getById.mockResolvedValue(mockPlaylists[0]);
@@ -349,6 +376,8 @@ describe('useStore', () => {
 
         await act(async () => {
             await useStore.getState().createPlaylist('New Playlist', 'Desc');
+            // Simulate broadcast
+            playlistListener([...mockPlaylists, mockNewPlaylist]);
         });
         expect(useStore.getState().playlists).toContainEqual(mockNewPlaylist);
         expect(mockElectron.playlist.create).toHaveBeenCalledWith({ name: 'New Playlist', description: 'Desc' });
@@ -361,15 +390,23 @@ describe('useStore', () => {
     });
 
     it('should update and delete playlist', async () => {
+        let playlistListener: any;
+        mockElectron.playlist.onUpdated.mockImplementation(cb => playlistListener = cb);
+        await initializeStoreSubscriptions();
+
         useStore.setState({ selectedPlaylist: { id: '1', name: 'Old' } as any, selectedPlaylistId: '1' });
 
         await act(async () => {
             await useStore.getState().updatePlaylist('1', 'New Name');
+            // Simulate broadcast
+            playlistListener([{ id: '1', name: 'New Name' }]);
         });
         expect(mockElectron.playlist.update).toHaveBeenCalledWith({ id: '1', name: 'New Name', description: undefined });
 
         await act(async () => {
             await useStore.getState().deletePlaylist('1');
+            // Simulate broadcast
+            playlistListener([]);
         });
         expect(mockElectron.playlist.delete).toHaveBeenCalledWith('1');
         expect(useStore.getState().selectedPlaylist).toBeNull();
@@ -377,23 +414,31 @@ describe('useStore', () => {
     });
 
     it('should add/remove tracks from playlist', async () => {
+        let playlistListener: any;
+        mockElectron.playlist.onUpdated.mockImplementation(cb => playlistListener = cb);
+        await initializeStoreSubscriptions();
+
         const mockTrack = { id: 't1', title: 'Track' } as any;
         const mockPlaylist = { id: 'p1', name: 'P1' } as any;
         useStore.setState({ playlists: [mockPlaylist] });
 
         await act(async () => {
             await useStore.getState().addTrackToPlaylist('p1', mockTrack);
+            // Simulate broadcast for count update if needed (though not verified in this test)
+            playlistListener([{ ...mockPlaylist, trackCount: 1 }]);
         });
         expect(mockElectron.playlist.addTrack).toHaveBeenCalledWith('p1', mockTrack);
         expect(useStore.getState().toast?.message).toContain('added');
 
         await act(async () => {
             await useStore.getState().addTracksToPlaylist('p1', [mockTrack]);
+            playlistListener([{ ...mockPlaylist, trackCount: 2 }]);
         });
         expect(mockElectron.playlist.addTracks).toHaveBeenCalledWith('p1', [mockTrack]);
 
         await act(async () => {
             await useStore.getState().removeTrackFromPlaylist('p1', 't1');
+            playlistListener([{ ...mockPlaylist, trackCount: 1 }]);
         });
         expect(mockElectron.playlist.removeTrack).toHaveBeenCalledWith('p1', 't1');
     });

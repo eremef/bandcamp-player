@@ -246,11 +246,13 @@ export class ScrobblerService extends EventEmitter {
                     url: response.data.user.url,
                     imageUrl: response.data.user.image?.[1]?.['#text'],
                 };
+                this.emitStateChange();
             }
         } catch {
             this.sessionKey = null;
             this.user = null;
             this.database.setSettings({ lastfmSessionKey: undefined });
+            this.emitStateChange();
         }
     }
 
