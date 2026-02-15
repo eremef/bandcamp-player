@@ -21,7 +21,7 @@ vi.mock('../../store/store', () => ({
 }));
 
 describe('ConnectedDevicesModal', () => {
-    const mockFetch = vi.fn();
+    const mockFetch = vi.fn().mockResolvedValue(undefined);
     const mockDisconnect = vi.fn();
     const mockOnClose = vi.fn();
 
