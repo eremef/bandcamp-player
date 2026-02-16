@@ -1,19 +1,26 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bandcamp Remote</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <header>Bandcamp Remote</header>
-    
+
     <div id="tabs">
         <button class="tab-btn active" onclick="switchTab('collection')">
             <!-- ICONS.Library -->
             <span class="icon-placeholder" data-icon="Library"></span>
             <span>Collection</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('artists')">
+            <!-- ICONS.Library -->
+            <span class="icon-placeholder" data-icon="Library"></span>
+            <span>Artists</span>
         </button>
         <button class="tab-btn" onclick="switchTab('playlists')">
             <!-- ICONS.ListMusic -->
@@ -34,66 +41,103 @@
 
     <div id="content">
         <div id="collection-tab" class="tab-content active" style="padding: 0;">
-            <input type="text" id="collection-search" placeholder="Search collection..." oninput="filterCollection(this.value)">
+            <input type="text" id="collection-search" placeholder="Search collection..."
+                oninput="filterCollection(this.value)">
             <div id="collection-list" style="padding: 0; overflow-y: auto; flex: 1;">
                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
             </div>
         </div>
 
+        <div id="artists-tab" class="tab-content" style="padding: 0;">
+            <input type="text" id="artists-search" placeholder="Filter artists..." oninput="filterArtists(this.value)">
+            <div id="artists-list" style="padding: 1rem; overflow-y: auto; flex: 1;">
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+            </div>
+        </div>
+
+        <div id="artist-detail-view" class="tab-content" style="padding: 0;">
+            <div class="album-header"
+                style="padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border-subtle);">
+                <img id="artist-view-image" src=""
+                    style="width: 120px; height: 120px; border-radius: 50%; background: var(--bg-tertiary); box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 1rem; object-fit: cover;">
+                <div id="artist-view-placeholder"
+                    style="width: 120px; height: 120px; border-radius: 50%; background: var(--bg-tertiary); margin: 0 auto 1rem auto; display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: bold; color: var(--text-secondary);">
+                </div>
+
+                <div id="artist-view-name"
+                    style="font-size: 1.5rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-primary);">
+                </div>
+                <div id="artist-view-stats" style="color: var(--text-secondary); font-size: 0.9rem;"></div>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <button onclick="switchTab('artists')"
+                        style="background: transparent; color: var(--text-secondary); padding: 8px; border: none; cursor: pointer;">Back
+                        to Artists</button>
+                    <a id="artist-view-link" href="#" target="_blank"
+                        style="color: var(--accent-primary); text-decoration: none; padding: 8px; font-size: 0.9rem; display: flex; align-items: center;">Bandcamp
+                        ↗</a>
+                </div>
+            </div>
+            <div id="artist-view-items" style="padding-bottom: 200px;"></div>
+        </div>
+
         <div id="playlists-tab" class="tab-content" style="padding: 0;">
             <div style="padding: 1rem; border-bottom: 1px solid var(--border-subtle); text-align: center;">
-                <button onclick="createPlaylist()" style="background: var(--bg-active); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 100%;">
+                <button onclick="createPlaylist()"
+                    style="background: var(--bg-active); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 100%;">
                     <span style="font-weight: 600;">+ Create Playlist</span>
                 </button>
             </div>
             <div id="playlists-list" style="padding: 0;">
-                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
             </div>
         </div>
 
         <div id="radio-tab" class="tab-content" style="padding: 0;">
             <div id="radio-list" style="padding: 0;">
-                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Loading...</div>
             </div>
         </div>
 
         <div id="queue-tab" class="tab-content" style="padding: 0;">
-             <div class="queue-header" style="padding: 1rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
+            <div class="queue-header"
+                style="padding: 1rem; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center;">
                 <span id="queue-count" style="color: var(--text-secondary); font-size: 0.9rem;">0 tracks</span>
                 <!-- Could add Clear button here if needed -->
-             </div>
-             <div id="queue-list" style="padding-bottom: 200px;">
-                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Queue is empty</div>
-             </div>
+            </div>
+            <div id="queue-list" style="padding-bottom: 200px;">
+                <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">Queue is empty</div>
+            </div>
         </div>
 
         <div id="album-tab" class="tab-content" style="padding: 0;">
-             <div class="album-header" style="padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border-subtle);">
-                <img id="album-view-artwork" src="" style="width: 150px; height: 150px; border-radius: var(--radius-md); background: var(--bg-tertiary); box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 1rem; object-fit: cover;">
-                <div id="album-view-title" style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-primary);"></div>
+            <div class="album-header"
+                style="padding: 1.5rem; text-align: center; border-bottom: 1px solid var(--border-subtle);">
+                <img id="album-view-artwork" src=""
+                    style="width: 150px; height: 150px; border-radius: var(--radius-md); background: var(--bg-tertiary); box-shadow: 0 4px 12px rgba(0,0,0,0.3); margin-bottom: 1rem; object-fit: cover;">
+                <div id="album-view-title"
+                    style="font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text-primary);">
+                </div>
                 <div id="album-view-artist" style="color: var(--text-secondary);"></div>
                 <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
-                    <button id="album-view-play" style="background: var(--text-primary); color: var(--bg-primary); padding: 8px 24px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer;">Play</button>
-                    <button id="album-view-queue" style="background: var(--bg-active); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer;">Queue</button>
-                    <button onclick="switchTab('collection')" style="background: transparent; color: var(--text-secondary); padding: 8px; border: none; cursor: pointer;">Back</button>
+                    <button id="album-view-play"
+                        style="background: var(--text-primary); color: var(--bg-primary); padding: 8px 24px; border-radius: 20px; border: none; font-weight: 600; cursor: pointer;">Play</button>
+                    <button id="album-view-queue"
+                        style="background: var(--bg-active); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer;">Queue</button>
+                    <button onclick="switchTab('collection')"
+                        style="background: transparent; color: var(--text-secondary); padding: 8px; border: none; cursor: pointer;">Back</button>
                 </div>
-             </div>
-             <div id="album-view-tracks" style="padding-bottom: 200px;"></div>
+            </div>
+            <div id="album-view-tracks" style="padding-bottom: 200px;"></div>
         </div>
     </div>
 
     <div id="mini-player">
         <div id="mini-progress-container">
-             <input type="range" id="mini-progress-slider" min="0" max="100" value="0" step="0.1" 
-                oninput="onSeekInput(this.value)" 
-                onchange="onSeekChange(this.value)"
-                onmousedown="isScrubbing=true"
-                ontouchstart="isScrubbing=true"
-                onmouseup="isScrubbing=false"
-                ontouchend="isScrubbing=false"
-            >
+            <input type="range" id="mini-progress-slider" min="0" max="100" value="0" step="0.1"
+                oninput="onSeekInput(this.value)" onchange="onSeekChange(this.value)" onmousedown="isScrubbing=true"
+                ontouchstart="isScrubbing=true" onmouseup="isScrubbing=false" ontouchend="isScrubbing=false">
         </div>
-        
+
         <div id="mini-time-labels">
             <span id="mini-current-time">0:00</span>
             <span id="mini-total-time">0:00</span>
@@ -105,7 +149,7 @@
                 <div id="mini-player-title">Not Playing</div>
                 <div id="mini-player-artist"></div>
             </div>
-            
+
             <div id="mini-player-controls">
                 <button id="mini-btn-shuffle" class="control-btn" onclick="sendCommand('toggle-shuffle')">
                     <!-- ICONS.Shuffle -->
@@ -128,14 +172,15 @@
                     <span class="icon-placeholder" data-icon="Repeat"></span>
                 </button>
             </div>
-            
-            
+
+
             <div id="mini-volume-container">
                 <button id="mini-volume-icon" class="control-btn" style="padding: 4px;" onclick="toggleMute()">
                     <!-- ICONS.Volume2 -->
                     <span class="icon-placeholder" data-icon="Volume2"></span>
                 </button>
-                <input type="range" id="mini-volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="setVolume(this.value)">
+                <input type="range" id="mini-volume-slider" min="0" max="1" step="0.01" value="0.8"
+                    oninput="setVolume(this.value)">
                 <span id="mini-volume-value">80%</span>
             </div>
         </div>
@@ -155,22 +200,23 @@
 
     <script>
         /* ICONS_INJECTION */
-        
+
         // Helper to replace placeholders with icons once ICONS is available
         // Wait, current logic in RemoteService generates HTML string with ${icons.Name}.
         // If I move to static HTML, those ${icons.Name} are gone.
         // I replaced them with <span class="icon-placeholder" data-icon="Name"></span> above.
         // Now I need a script to hydrate them.
-        
+
         document.addEventListener('DOMContentLoaded', () => {
-             document.querySelectorAll('.icon-placeholder').forEach(el => {
-                 const iconName = el.getAttribute('data-icon');
-                 if (ICONS[iconName]) {
-                     el.outerHTML = ICONS[iconName];
-                 }
-             });
+            document.querySelectorAll('.icon-placeholder').forEach(el => {
+                const iconName = el.getAttribute('data-icon');
+                if (ICONS[iconName]) {
+                    el.outerHTML = ICONS[iconName];
+                }
+            });
         });
     </script>
     <script src="client.js"></script>
 </body>
+
 </html>

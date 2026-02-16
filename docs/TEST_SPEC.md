@@ -46,7 +46,8 @@ The project uses a split testing architecture to accommodate the distinct runtim
 
 ## Directory Structure
 
-Tests are co-located with the source code they test, using the `*.test.ts` or `*.test.tsx` naming convention.
+Tests for Desktop are co-located with the source code (`*.test.ts`).
+Tests for Mobile are located in `mobile/__tests__/` to prevent checking them into production bundles or conflicting with Expo Router file-based routing.
 
 ```text
 src/
@@ -60,9 +61,12 @@ src/
         └── store.test.ts        # Frontend Store Tests
 
 mobile/
-└── store/
-    ├── index.ts
-    └── index.test.ts            # Mobile Store Tests
+├── app/
+│   └── (tabs)/artists.tsx
+└── __tests__/
+    └── app/
+        └── (tabs)/
+            └── artists.test.tsx # Mobile UI Tests
 ```
 
 ## Mocking Strategy
@@ -109,7 +113,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 
 ### Mobile (`npm run test:mobile` - Jest)
 
-**Overall Coverage:** ~20% (Store Logic: ~95%)
+**Overall Coverage:** ~25% (Store Logic: ~95%)
 
 | Test File | Description | Tests | Coverage Highlight |
 | ----------- | ------------- | ------- | ------------------ |
@@ -124,8 +128,10 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
 | `mobile/app/about.test.tsx` | About Screen UI | 5 | 100% |
 | `mobile/app/license.test.tsx` | License Screen UI | 3 | 100% |
+| `mobile/__tests__/app/(tabs)/artists.test.tsx` | Artists Screen UI | 4 | 100% |
+| `mobile/__tests__/app/artist/[id].test.tsx` | Artist Detail & Nav | 5 | 100% |
 
-**Total:** 282 tests across both platforms.
+**Total:** 305 tests across both platforms.
 
 ## Best Practices
 

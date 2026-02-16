@@ -80,6 +80,15 @@ export class Database {
         timestamp INTEGER NOT NULL,
         created_at TEXT NOT NULL
       );
+
+      -- Artists table
+      CREATE TABLE IF NOT EXISTS artists (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        url TEXT,
+        image_url TEXT,
+        cached_at TEXT NOT NULL
+      );
     `);
 
         // Initialize default settings if not exists
@@ -457,6 +466,40 @@ export class Database {
     }
 
     // ---- Cleanup ----
+
+    // ---- Artists ----
+
+    saveArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[]): void {
+        const now = new Date().toISOString();
+        const insert = this.db.prepare(`
+            INSERT OR REPLACE INTO artists (id, name, url, image_url, cached_at)
+            VALUES (?, ?, ?, ?, ?)
+        `);
+
+        const transaction = this.db.transaction(() => {
+            for (const artist of artists) {
+                insert.run(artist.id, artist.name, artist.url, artist.imageUrl || null, now);
+            }
+        });
+
+        transaction();
+    }
+
+    getArtists(): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
+        const rows = this.db.prepare('SELECT * FROM artists ORDER BY name COLLATE NOCASE ASC').all() as Array<{
+            id: string;
+            name: string;
+            url: string;
+            image_url: string | null;
+        }>;
+
+        return rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            bandcampUrl: row.url,
+            imageUrl: row.image_url || undefined
+        }));
+    }
 
     close(): void {
         this.db.close();

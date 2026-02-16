@@ -1,13 +1,11 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useStore } from '../../store/store';
-import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { AlbumCard } from './AlbumCard';
 import { Search, X, RefreshCw } from 'lucide-react';
+import { ItemsGrid } from './ItemsGrid';
 import styles from './CollectionView.module.css';
 
 export function CollectionView() {
     const { collection, isLoadingCollection, collectionError, fetchCollection, searchQuery, setSearchQuery } = useStore();
-    const [visibleCount, setVisibleCount] = useState(20);
 
     const filteredItems = useMemo(() => {
         if (!collection?.items) return [];
@@ -30,15 +28,6 @@ export function CollectionView() {
             return false;
         });
     }, [collection, searchQuery]);
-
-    const handleLoadMore = useCallback(() => {
-        setVisibleCount(prev => prev + 20);
-    }, []);
-
-    const targetRef = useIntersectionObserver({
-        onIntersect: handleLoadMore,
-        enabled: filteredItems.length > visibleCount,
-    });
 
     useEffect(() => {
         if (!collection) {
@@ -105,57 +94,12 @@ export function CollectionView() {
                 </div>
             </header>
 
-            {/* Collection grid */}
-            <div className={styles.gridContainer}>
-                {isLoadingCollection && collection && (
-                    <div className={styles.bufferingOverlay}>
-                        <div className={styles.spinner} />
-                        <p>Updating collection...</p>
-                    </div>
-                )}
-
-                {filteredItems.length > 0 ? (
-                    <div className={styles.grid}>
-                        {filteredItems.slice(0, visibleCount).map((item) =>
-                            item.type === 'album' && item.album ? (
-                                <AlbumCard key={item.id} album={item.album} />
-                            ) : item.type === 'track' && item.track ? (
-                                <AlbumCard
-                                    key={item.id}
-                                    album={{
-                                        id: item.track.id,
-                                        title: item.track.title,
-                                        artist: item.track.artist,
-                                        artworkUrl: item.track.artworkUrl,
-                                        bandcampUrl: item.track.bandcampUrl,
-                                        tracks: [item.track],
-                                        trackCount: 1,
-                                    }}
-                                />
-                            ) : null
-                        )}
-                    </div>
-                ) : (
-                    <div className={styles.empty}>
-                        {searchQuery ? (
-                            <p>No results for &quot;{searchQuery}&quot;</p>
-                        ) : (
-                            <>
-                                <p>Your collection is empty</p>
-                                <p className={styles.emptyHint}>
-                                    Purchase music on Bandcamp to see it here
-                                </p>
-                            </>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {filteredItems.length > visibleCount && (
-                <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
-                    {/* Sentinel element for infinite scroll */}
-                </div>
-            )}
+            <ItemsGrid
+                items={filteredItems}
+                isLoading={isLoadingCollection}
+                emptyMessage={searchQuery ? `No results for "${searchQuery}"` : "Your collection is empty"}
+                emptyHint={!searchQuery ? "Purchase music on Bandcamp to see it here" : undefined}
+            />
         </div>
     );
 }

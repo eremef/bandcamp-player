@@ -242,7 +242,7 @@ export interface CacheStats {
 // UI State Types
 // ============================================================================
 
-export type ViewType = 'collection' | 'playlists' | 'playlist-detail' | 'album-detail' | 'radio' | 'settings';
+export type ViewType = 'collection' | 'playlists' | 'playlist-detail' | 'album-detail' | 'artists' | 'radio' | 'settings';
 
 export interface UIState {
     currentView: ViewType;

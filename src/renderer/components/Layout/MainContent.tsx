@@ -4,6 +4,7 @@ import { AlbumDetailView } from '../Collection/AlbumDetailView';
 import { PlaylistsView } from '../Playlist/PlaylistsView';
 import { PlaylistDetailView } from '../Playlist/PlaylistDetailView';
 import { RadioView } from '../Radio/RadioView';
+import { ArtistsView } from '../ArtistsView';
 import styles from './MainContent.module.css';
 
 export function MainContent() {
@@ -19,6 +20,8 @@ export function MainContent() {
                 return <PlaylistsView />;
             case 'playlist-detail':
                 return <PlaylistDetailView />;
+            case 'artists':
+                return <ArtistsView />;
             case 'radio':
                 return <RadioView />;
             default:

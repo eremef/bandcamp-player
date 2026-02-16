@@ -43,6 +43,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
   - **Player**: Current playback control (synchronized via WebSocket).
   - **Native Integration**: `react-native-track-player` for background audio and system media controls (Lock Screen, Notification Center).
   - **Collection**: Browse user's collection (Grid view) with real-time search.
+  - **Artists**: Browse collection by Artist with detailed views.
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
   - **Queue**: View and manage the playback queue with remove and reorder support.

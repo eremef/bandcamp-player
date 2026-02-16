@@ -15,7 +15,9 @@ import type {
     Queue,
     RemoteClient,
     CastDevice,
+
     CastStatus,
+    Artist,
 } from '../../shared/types';
 
 // ============================================================================
@@ -172,7 +174,16 @@ type StoreState = AuthSlice &
     RemoteSlice &
     UpdateSlice &
     CastSlice &
+    ArtistSlice &
     UISlice;
+
+interface ArtistSlice {
+    artists: Artist[];
+    isLoadingArtists: boolean;
+    selectedArtistId: string | null;
+    fetchArtists: () => Promise<void>;
+    selectArtist: (artistId: string | null) => void;
+}
 
 // ============================================================================
 // Store Implementation
@@ -525,6 +536,22 @@ export const useStore = create<StoreState>((set, get) => ({
     toast: null,
     showToast: (message, type = 'success') => set({ toast: { message, type } }),
     hideToast: () => set({ toast: null }),
+
+    // ---- Artist Slice ----
+    artists: [],
+    isLoadingArtists: false,
+    selectedArtistId: null,
+    fetchArtists: async () => {
+        set({ isLoadingArtists: true });
+        try {
+            const artists = await window.electron.collection.getArtists();
+            set({ artists, isLoadingArtists: false });
+        } catch (error) {
+            console.error('Store: fetchArtists failed', error);
+            set({ isLoadingArtists: false });
+        }
+    },
+    selectArtist: (artistId) => set({ selectedArtistId: artistId }),
 }));
 
 // ============================================================================

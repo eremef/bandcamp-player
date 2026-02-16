@@ -7,7 +7,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
-    "dev:start": "npm run rebuild && concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\"",
+    "dev:start": "npm run build:renderer &&npm run rebuild && concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start\"",
     "dev:start:large": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && npm run start -- --simulate-large-collection\"",
     "dev:main": "tsc -p tsconfig.main.json --watch",
     "dev:renderer": "vite",

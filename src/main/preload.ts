@@ -33,7 +33,9 @@ import type {
     Queue,
     RemoteClient,
     CastDevice,
+
     CastStatus,
+    Artist,
 } from '../shared/types';
 
 // ============================================================================
@@ -70,6 +72,7 @@ const electronAPI = {
         refresh: (): Promise<Collection> => ipcRenderer.invoke(COLLECTION_CHANNELS.REFRESH),
         getAlbum: (id: string): Promise<Album> => ipcRenderer.invoke(COLLECTION_CHANNELS.GET_ALBUM, id),
         getTrack: (id: string): Promise<Track> => ipcRenderer.invoke(COLLECTION_CHANNELS.GET_TRACK, id),
+        getArtists: (): Promise<Artist[]> => ipcRenderer.invoke(COLLECTION_CHANNELS.GET_ARTISTS),
         search: (query: string): Promise<Collection> => ipcRenderer.invoke(COLLECTION_CHANNELS.SEARCH, query),
         onUpdated: createEventSubscriber<Collection>(COLLECTION_CHANNELS.ON_UPDATED),
     },

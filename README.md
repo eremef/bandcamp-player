@@ -174,6 +174,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📱 **Remote Control** - Play, Pause, Next, Previous, Volume, and Seek from your phone
 - 📺 **Chromecast Control** - Manage casting from your phone
 - 🎵 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
+- 🎤 **Artists Tab** - Browse your collection by Artist with detailed views
 - 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs

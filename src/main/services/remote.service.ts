@@ -351,6 +351,51 @@ export class RemoteControlService extends EventEmitter {
                 }
                 break;
             }
+            case 'get-artist-collection': {
+                try {
+                    const artistId = payload;
+                    if (!artistId) {
+                        this.sendToClient(ws, 'error', { message: 'Missing artist ID' });
+                        return;
+                    }
+
+                    const collection = await this.scraperService.fetchCollection();
+                    const artistItems = collection.items.filter((item: any) => {
+                        const data = item.type === 'album' ? item.album : item.track;
+                        return data?.artistId === artistId;
+                    });
+
+                    // Map to flat structure expected by remote client
+                    const artistCollection = {
+                        items: artistItems.map((item: any) => {
+                            if (item.type === 'album' && item.album) {
+                                return {
+                                    ...item,
+                                    ...item.album,
+                                    item_url: item.album.bandcampUrl,
+                                    hasTracks: item.album.tracks && item.album.tracks.length > 1
+                                };
+                            } else if (item.type === 'track' && item.track) {
+                                return {
+                                    ...item,
+                                    ...item.track,
+                                    item_url: item.track.bandcampUrl
+                                };
+                            }
+                            return item;
+                        }),
+                        artistId,
+                        totalCount: artistItems.length,
+                        lastUpdated: collection.lastUpdated
+                    };
+
+                    this.sendToClient(ws, 'artist-collection-data', artistCollection);
+                } catch (e) {
+                    console.error('[RemoteService] Error processing get-artist-collection:', e);
+                    this.sendToClient(ws, 'error', { message: 'Failed to fetch artist collection' });
+                }
+                break;
+            }
             case 'get-radio-stations': {
                 try {
                     const stations = await this.scraperService.getRadioStations();
@@ -363,6 +408,15 @@ export class RemoteControlService extends EventEmitter {
             case 'get-playlists': {
                 const playlists = this.playlistService.getAll();
                 this.sendToClient(ws, 'playlists-data', playlists);
+                break;
+            }
+            case 'get-artists': {
+                try {
+                    const artists = this.database.getArtists();
+                    this.sendToClient(ws, 'artists-data', artists);
+                } catch (e) {
+                    console.error('[RemoteService] Error processing get-artists:', e);
+                }
                 break;
             }
             case 'create-playlist': {
@@ -596,7 +650,12 @@ export class RemoteControlService extends EventEmitter {
             const iconsScript = `const ICONS = ${JSON.stringify(icons)};`;
             const finalHtml = html.replace('/* ICONS_INJECTION */', iconsScript);
 
-            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.writeHead(200, {
+                'Content-Type': 'text/html',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
             res.end(finalHtml);
         });
     }
@@ -613,7 +672,12 @@ export class RemoteControlService extends EventEmitter {
                 return;
             }
 
-            res.writeHead(200, { 'Content-Type': contentType });
+            res.writeHead(200, {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            });
             res.end(content);
         });
     }

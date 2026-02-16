@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
 import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
+import { CollectionGridItem } from '../../components/CollectionGridItem'; // Import new component
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const COLUMN_COUNT = 3;
+const LIST_PADDING = 12;
+const GAP = 12;
+// Calculate width: (Screen - (Padding * 2) - (Gap * (Cols - 1))) / Cols
+const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
+
 export default function CollectionScreen() {
     const collection = useStore((state) => state.collection);
+    // ... existing hooks ...
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
     const disconnect = useStore((state) => state.disconnect);
@@ -31,7 +40,10 @@ export default function CollectionScreen() {
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
 
+    // ... handlers (handleLongPress, handleSelectPlaylist, handleRefresh, handlePlayItem, handleDisconnect) same as before ... 
+
     const handleLongPress = (item: CollectionItem) => {
+        // ... same implementation ...
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         setActionSheetTitle(title || 'Item');
         setActionSheetActions([
@@ -39,7 +51,6 @@ export default function CollectionScreen() {
                 text: "Play Next",
                 onPress: () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        // Pass tracks if available (optimistic), otherwise just URL (server fetch)
                         addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
                     }
                     else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
@@ -84,9 +95,7 @@ export default function CollectionScreen() {
         Alert.alert("Success", "Added to playlist");
     };
 
-    // Server-side filtered collection is now in store
     const collectionData = useStore((state) => state.collection);
-    // If we want to be safe, defaulting to empty array
     const collectionItems = collectionData?.items || [];
 
     const handleRefresh = () => {
@@ -97,14 +106,11 @@ export default function CollectionScreen() {
 
     const handlePlayItem = (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
-            // Always navigate to album detail view
             if (item.album.bandcampUrl) {
                 router.push({ pathname: '/album_detail', params: { url: item.album.bandcampUrl } });
                 return;
             }
         } else if (item.type === 'track' && item.track) {
-            // Use playAlbum even for tracks if they have a URL, this ensures queue is updated/replaced
-            // on the desktop side, matching web remote behavior
             if (item.track.bandcampUrl) {
                 playAlbum(item.track.bandcampUrl);
             } else {
@@ -134,40 +140,14 @@ export default function CollectionScreen() {
     };
 
     const renderItem = ({ item }: { item: CollectionItem }) => {
-        let artworkUrl, title, artist;
-
-        if (item.type === 'album' && item.album) {
-            artworkUrl = item.album.artworkUrl;
-            title = item.album.title;
-            artist = item.album.artist;
-        } else if (item.type === 'track' && item.track) {
-            artworkUrl = item.track.artworkUrl;
-            title = item.track.title;
-            artist = item.track.artist;
-        } else {
-            return null;
-        }
-
         return (
-            <TouchableOpacity
-                style={styles.item}
-                onPress={() => handlePlayItem(item)}
-                onLongPress={() => handleLongPress(item)}
-                delayLongPress={500}
+            <CollectionGridItem
+                item={item}
+                onPress={handlePlayItem}
+                onLongPress={handleLongPress}
+                width={ITEM_WIDTH}
                 testID={`item-${item.id}`}
-            >
-                {artworkUrl ? (
-                    <Image source={{ uri: artworkUrl }} style={styles.artwork} />
-                ) : (
-                    <View style={[styles.artwork, styles.placeholderArtwork]}>
-                        <Text style={styles.placeholderText}>♪</Text>
-                    </View>
-                )}
-                <View style={styles.itemInfo}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{title}</Text>
-                    <Text style={styles.itemArtist} numberOfLines={1}>{artist}</Text>
-                </View>
-            </TouchableOpacity>
+            />
         );
     };
 
@@ -176,16 +156,14 @@ export default function CollectionScreen() {
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
-        refreshCollection(true, searchQuery, true); // Reset + Force Server Fetch (Pull-to-refresh)
+        refreshCollection(true, searchQuery, true);
         setTimeout(() => {
             setRefreshing(false);
         }, 1500);
     }, [refreshCollection, searchQuery]);
 
-    // Debounced search
     useEffect(() => {
         const timer = setTimeout(() => {
-            // Trigger server-side search (Reset + Use Cache)
             refreshCollection(true, searchQuery, false);
         }, 500);
 
@@ -227,14 +205,14 @@ export default function CollectionScreen() {
                 data={collectionItems}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                numColumns={2}
+                numColumns={COLUMN_COUNT}
+                key={COLUMN_COUNT} // Force re-render when columns change
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
                 }
                 onEndReached={() => {
-                    // Load more works for search too now!
                     loadMoreCollection();
                 }}
                 onEndReachedThreshold={0.5}
@@ -307,50 +285,11 @@ const styles = StyleSheet.create({
         fontSize: 16,
         height: '100%',
     },
-    headerButtons: {
-        flexDirection: 'row',
-        gap: 16,
-    },
-    iconButton: {
-        padding: 4,
-    },
     listContent: {
-        padding: 8,
+        padding: LIST_PADDING,
     },
     columnWrapper: {
-        justifyContent: 'space-between',
+        gap: GAP,
     },
-    item: {
-        width: '48%',
-        marginBottom: 16,
-        backgroundColor: '#1a1a1a',
-        borderRadius: 8,
-        overflow: 'hidden',
-    },
-    artwork: {
-        width: '100%',
-        aspectRatio: 1,
-    },
-    placeholderArtwork: {
-        backgroundColor: '#333',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    placeholderText: {
-        color: '#666',
-        fontSize: 24,
-    },
-    itemInfo: {
-        padding: 8,
-    },
-    itemTitle: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    itemArtist: {
-        color: '#888',
-        fontSize: 12,
-    },
+    // Removed old item styles as they are now in CollectionGridItem or unused
 });

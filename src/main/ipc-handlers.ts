@@ -85,6 +85,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(COLLECTION_CHANNELS.SEARCH, (_, query: string) =>
         scraperService.searchCollection(query)
     );
+    ipcMain.handle(COLLECTION_CHANNELS.GET_ARTISTS, () => database.getArtists());
 
     // ---- Player ----
     ipcMain.handle(PLAYER_CHANNELS.PLAY, (_, track?: Track) => playerService.play(track));
