@@ -273,3 +273,20 @@
 .iconButton:hover {
     background: var(--bg-hover);
 }
+
+.iconButtonContainer {
+    position: relative;
+    display: flex;
+}
+
+.updateDot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--color-success);
+    border-radius: var(--radius-full);
+    border: 2px solid var(--bg-secondary);
+    pointer-events: none;
+}

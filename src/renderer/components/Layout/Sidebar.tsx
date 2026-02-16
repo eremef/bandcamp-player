@@ -136,13 +136,20 @@ export function Sidebar() {
                     </div>
                 </div>
                 <div className={styles.userActions}>
-                    <button
-                        className={styles.iconButton}
-                        onClick={toggleSettings}
-                        title="Settings"
-                    >
-                        <Settings size={20} />
-                    </button>
+                    <div className={styles.iconButtonContainer}>
+                        <button
+                            className={styles.iconButton}
+                            onClick={toggleSettings}
+                            title="Settings"
+                        >
+                            <Settings size={20} />
+                        </button>
+                        {(useStore.getState().updateStatus.status === 'available' ||
+                            useStore.getState().updateStatus.status === 'downloaded' ||
+                            useStore.getState().updateStatus.status === 'downloading') && (
+                                <div className={styles.updateDot} title="Update Available" />
+                            )}
+                    </div>
                 </div>
             </div>
         </aside>

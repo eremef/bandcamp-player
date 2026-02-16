@@ -4,6 +4,10 @@ import { UPDATE_CHANNELS } from '../../shared/ipc-channels';
 
 export class UpdaterService extends EventEmitter {
     private isChecking = false;
+    private notifiedOnce = false;
+    private lastNotifiedVersion = '';
+    private checkInterval: NodeJS.Timeout | null = null;
+    private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
     constructor(private isDev: boolean) {
         super();
@@ -17,6 +21,19 @@ export class UpdaterService extends EventEmitter {
             autoUpdater.logger = console;
             // autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
         }
+
+        // Initial check after startup
+        setTimeout(() => this.checkForUpdates(), 1000 * 15); // 15 seconds after start
+
+        // Setup periodic check
+        this.startPeriodicCheck();
+    }
+
+    private startPeriodicCheck() {
+        if (this.checkInterval) clearInterval(this.checkInterval);
+        this.checkInterval = setInterval(() => {
+            this.checkForUpdates();
+        }, this.CHECK_INTERVAL_MS);
     }
 
     private setupListeners() {
@@ -27,6 +44,14 @@ export class UpdaterService extends EventEmitter {
 
         autoUpdater.on('update-available', (info) => {
             this.isChecking = false;
+
+            // Only notify once per version to avoid spamming the renderer
+            if (this.notifiedOnce && this.lastNotifiedVersion === info.version) {
+                return;
+            }
+
+            this.notifiedOnce = true;
+            this.lastNotifiedVersion = info.version;
             this.emit(UPDATE_CHANNELS.ON_AVAILABLE, info);
         });
 

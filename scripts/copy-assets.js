@@ -33,6 +33,10 @@ function copyDir(src, dest) {
         if (entry.isDirectory()) {
             copyDir(srcPath, destPath);
         } else {
+            // Ignore temporary lock files and dot files
+            if (entry.name.startsWith('.') || entry.name.includes('~lock~')) {
+                continue;
+            }
             console.log(`Copying ${srcPath} to ${destPath}`);
             fs.copyFileSync(srcPath, destPath);
         }
