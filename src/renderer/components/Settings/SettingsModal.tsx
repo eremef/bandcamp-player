@@ -117,7 +117,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 return (
                     <div className={styles.updateStatus}>
                         <CheckCircle size={16} color="var(--accent-primary)" />
-                        <span>You're up to date!</span>
+                        <span>You&apos;re up to date!</span>
                         <button className={styles.checkBtn} onClick={checkForUpdates}>
                             Check Again
                         </button>

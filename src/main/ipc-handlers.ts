@@ -261,7 +261,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(CAST_CHANNELS.START_DISCOVERY, () => castService.startDiscovery());
     ipcMain.handle(CAST_CHANNELS.STOP_DISCOVERY, () => castService.stopDiscovery());
     ipcMain.handle(CAST_CHANNELS.GET_DEVICES, () => castService.getDevices());
-    ipcMain.handle(CAST_CHANNELS.CONNECT, (_, host: string) => castService.connect(host));
+    ipcMain.handle(CAST_CHANNELS.CONNECT, (_, id: string) => castService.connect(id));
     ipcMain.handle(CAST_CHANNELS.DISCONNECT, () => castService.disconnect());
 
     castService.on('devices-updated', (devices) => {

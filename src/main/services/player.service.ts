@@ -115,8 +115,10 @@ export class PlayerService extends EventEmitter {
             console.error('[PlayerService] Cast error:', error);
             // If we are casting, stop or fallback
             if (this.isCasting) {
-                // Determine if we should stop or retry. For now, stop and log.
-                this.pause();
+                // UI update: stop playback locally if Chromecast failed
+                this.isPlaying = false;
+                // DO NOT call this.pause() here as it would trigger another castService.pause() 
+                // which might fail with INVALID_MEDIA_SESSION_ID if the error was session-related.
                 this.isCasting = false;
                 this.error = `Chromecast error: ${error.message || 'Unknown error'}`;
                 this.emitStateChange();
@@ -573,6 +575,10 @@ export class PlayerService extends EventEmitter {
     // ---- Time Updates (called from renderer via IPC) ----
 
     updateTime(currentTime: number, duration: number): void {
+        // If casting, ignore time updates from the renderer (local audio)
+        // because the cast device is the source of truth for progress.
+        if (this.isCasting) return;
+
         this.currentTime = currentTime;
         this.duration = duration;
         this.emitTimeUpdate();

@@ -21,7 +21,6 @@ export function PlayerBar() {
         toggleMiniPlayer,
         isQueueVisible,
         castDevices,
-        castStatus,
         startCastDiscovery,
         stopCastDiscovery,
         connectCast,
@@ -48,7 +47,8 @@ export function PlayerBar() {
                 audio.src = currentTrack.streamUrl;
             }
 
-            if (isPlaying) {
+            // Pause local playback if casting to avoid echo/delay
+            if (isPlaying && !player.isCasting) {
                 console.log('Attempting to play URL:', currentTrack.streamUrl);
                 const playPromise = audio.play();
                 if (playPromise !== undefined) {
@@ -69,7 +69,7 @@ export function PlayerBar() {
             audio.pause();
             audio.src = ''; // Clear source to stop buffering/loading
         }
-    }, [isPlaying, currentTrack]);
+    }, [isPlaying, currentTrack, player.isCasting]);
 
     useEffect(() => {
         const audio = audioRef.current;
@@ -88,6 +88,9 @@ export function PlayerBar() {
         if (!audio) return;
 
         const handleTimeUpdate = () => {
+            // If casting, don't report local time to main process to avoid jitter
+            // Chromecast status will report its own time which the main process will broadcast
+            if (player.isCasting) return;
             window.electron.player.updateTime(audio.currentTime, audio.duration);
         };
 
@@ -124,7 +127,7 @@ export function PlayerBar() {
             audio.removeEventListener('ended', handleEnded);
             audio.removeEventListener('error', handleError);
         };
-    }, [next]);
+    }, [next, player.isCasting]);
 
     useEffect(() => {
         const unsubscribe = window.electron.player.onSeek((time) => {
@@ -136,6 +139,14 @@ export function PlayerBar() {
             unsubscribe();
         };
     }, []);
+
+    // Keep local audio in sync with Chromecast progress for seamless handover
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (player.isCasting && audio && Math.abs(audio.currentTime - currentTime) > 1) {
+            audio.currentTime = currentTime;
+        }
+    }, [player.isCasting, currentTime]);
 
     // Media Session API for Windows SMTC integration
     useEffect(() => {
@@ -433,12 +444,12 @@ export function PlayerBar() {
                                     castDevices.map((device) => (
                                         <li
                                             key={device.id}
-                                            className={`${styles.castMenuItem} ${player.castDevice?.host === device.host ? styles.active : ''}`}
+                                            className={`${styles.castMenuItem} ${player.castDevice?.id === device.id ? styles.active : ''}`}
                                             onClick={() => {
-                                                if (player.castDevice?.host === device.host) {
+                                                if (player.castDevice?.id === device.id) {
                                                     disconnectCast();
                                                 } else {
-                                                    connectCast(device.host);
+                                                    connectCast(device.id);
                                                 }
                                                 setIsCastMenuOpen(false);
                                             }}
@@ -447,7 +458,7 @@ export function PlayerBar() {
                                             <div className={styles.deviceInfo}>
                                                 <div className={styles.deviceName}>{device.friendlyName}</div>
                                                 <div className={styles.deviceStatus}>
-                                                    {player.castDevice?.host === device.host ? 'Connected' : 'Click to connect'}
+                                                    {player.castDevice?.id === device.id ? 'Connected' : 'Click to connect'}
                                                 </div>
                                             </div>
                                         </li>
