@@ -152,6 +152,7 @@ interface UISlice {
     isSettingsOpen: boolean;
     searchQuery: string;
     toast: { message: string; type: 'success' | 'error' } | null;
+    albumDetailSourceView: ViewType | null;
     setView: (view: ViewType) => void;
     setSelectedPlaylistId: (id: string | null) => void;
     toggleQueue: () => void;
@@ -311,7 +312,11 @@ export const useStore = create<StoreState>((set, get) => ({
             });
         }
     },
-    selectAlbum: (album) => set({ selectedAlbum: album, currentView: 'album-detail' }),
+    selectAlbum: (album) => set((s) => ({
+        selectedAlbum: album,
+        currentView: 'album-detail',
+        albumDetailSourceView: s.currentView !== 'album-detail' ? s.currentView : s.albumDetailSourceView
+    })),
     searchCollection: async (query) => {
         return window.electron.collection.search(query);
     },
@@ -524,6 +529,7 @@ export const useStore = create<StoreState>((set, get) => ({
     isMiniPlayer: false,
     isSettingsOpen: false,
     searchQuery: '',
+    albumDetailSourceView: null,
     setView: (view) => set({ currentView: view }),
     setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
     toggleQueue: () => set((s) => ({ isQueueVisible: !s.isQueueVisible })),
