@@ -11,6 +11,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
 - **Simulation Mode**: Run with `npm run dev:start` to simulate a large collection (5000 items) with network errors for testing scalability and resilience.
 - **Mobile Lazy Loading**: Mobile app uses infinite scroll and paginated fetching to handle large collections efficiently.
+- **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.
 
 ## User Rules
 

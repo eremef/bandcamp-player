@@ -41,18 +41,23 @@ updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVer
 updateJson(path.join(mobileDir, 'package.json'), (json) => { json.version = newVersion; });
 updateJson(path.join(mobileDir, 'app.json'), (json) => { json.expo.version = newVersion; });
 
-// 2. Install Dependencies
-log('Step 2: Installing dependencies...');
+// 2. Ensure app is closed
+log('Step 2: Ensuring app is closed...');
+run('taskkill /F /IM node.exe');
+run('taskkill /F /IM electron.exe');
+
+// 3. Install Dependencies
+log('Step 3: Installing dependencies...');
 run('npm install');
 run('npm install', mobileDir);
 
-// 3. Run Tests
-log('Step 3: Running tests...');
+// 4. Run Tests
+log('Step 4: Running tests...');
 run('npm test');
 run('npm test', mobileDir);
 
-// 4. Git Operations
-log('Step 4: Git operations (commit, tag, push)...');
+// 5. Git Operations
+log('Step 5: Git operations (commit, tag, push)...');
 run('git add .');
 run(`git commit -m "chore: release v${newVersion}"`);
 run('git push');
