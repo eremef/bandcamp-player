@@ -5,7 +5,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 ## Critical Notes
 
 - **Shell**: Use `;` for sequential commands (PowerShell on Windows)
-- **Android**: Requires OpenJDK 17 (not 24+), CMake 3.22.1. Ensure `mobile/android/local.properties` points to SDK.
+- **Android**: Requires OpenJDK 17 (not 24+), CMake 3.22.1. React Native matches `react` 19.1.0. Test files must be in `mobile/__tests__`.
 - **IPC**: Channels in `src/shared/ipc-channels.ts`, handlers in `src/main/ipc-handlers.ts`
 - **Updates**: Desktop auto-updates handled by `UpdaterService` using `electron-updater` and GitHub Releases.
 - **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
@@ -17,4 +17,5 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 ## User Rules
 
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
-- **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files (`.ts`, `.tsx`). Always use ES6 `import` syntax to satisfy `@typescript-eslint/no-require-imports`. This includes dynamic imports and `jest.mock` factory functions.
+- **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.
+- **Mobile Tests**: Place all mobile unit tests in `mobile/__tests__/` to avoid bundling errors with Expo Router.

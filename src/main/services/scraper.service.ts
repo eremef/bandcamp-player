@@ -197,6 +197,10 @@ export class ScraperService extends EventEmitter {
                     console.log(`[Scraper] Loaded collection from database cache for user ${user.user.id}`);
                     this.cachedCollection = cached.data;
 
+                    // Ensure artists are populated even when loading from cache
+                    // This creates the artist data if it doesn't exist yet
+                    this.extractAndSaveArtists(cached.data.items);
+
                     // Check if cache is stale (older than 24 hours)
                     const lastUpdated = new Date(cached.cachedAt).getTime();
                     const now = Date.now();
@@ -419,11 +423,14 @@ export class ScraperService extends EventEmitter {
                 this.emit('collection-updated', this.cachedCollection);
 
                 // Save to database if we have enough items
-                if (this.database && this.cachedCollection.items.length > 100) {
+                if (this.database && this.cachedCollection.items.length > 0) {
                     const user = this.authService.getUser();
                     if (user.user?.id) {
                         this.database.saveCollectionCache(user.user.id, 'collection', this.cachedCollection);
                         console.log(`[Scraper] Saved collection to database cache for user ${user.user.id} (${this.cachedCollection.items.length} items)`);
+
+                        // Extract and save artists
+                        this.extractAndSaveArtists(this.cachedCollection.items);
                     }
                 }
 
@@ -444,6 +451,48 @@ export class ScraperService extends EventEmitter {
 
         return this.fetchPromise;
     }
+
+    /**
+     * Extract unique artists from collection items and save to database
+     */
+    private extractAndSaveArtists(items: CollectionItem[]): void {
+        if (!this.database) return;
+
+        const artistsMap = new Map<string, { id: string; name: string; url: string; imageUrl?: string }>();
+
+        for (const item of items) {
+            const data = item.type === 'album' ? item.album : item.track;
+            if (!data || !data.artistId) continue;
+
+            if (!artistsMap.has(data.artistId)) {
+                // Try to extract artist URL from item URL
+                let artistUrl = '';
+                if (data.bandcampUrl) {
+                    try {
+                        const urlObj = new URL(data.bandcampUrl);
+                        artistUrl = `${urlObj.protocol}//${urlObj.host}`;
+                    } catch (e) {
+                        // ignore invalid urls
+                    }
+                }
+
+                artistsMap.set(data.artistId, {
+                    id: data.artistId,
+                    name: data.artist,
+                    url: artistUrl,
+                    imageUrl: data.artworkUrl || undefined
+                });
+            }
+        }
+
+        const artists = Array.from(artistsMap.values());
+        if (artists.length > 0) {
+            this.database.saveArtists(artists);
+            console.log(`[Scraper] Saved ${artists.length} artists to database`);
+        }
+    }
+
+
 
     /**
      * Fetch additional collection items via Bandcamp's API

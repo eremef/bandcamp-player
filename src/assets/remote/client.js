@@ -84,6 +84,8 @@ function handleMessage(message) {
         renderRadio(payload);
     } else if (type === 'playlists-data') {
         renderPlaylists(payload);
+    } else if (type === 'artists-data') {
+        renderArtists(payload);
     } else if (type === 'time-update') {
         updateProgress(payload);
     } else if (type === 'album-details') {
@@ -368,7 +370,210 @@ function switchTab(tabId) {
         sendCommand('get-radio-stations');
     } else if (tabId === 'playlists') {
         sendCommand('get-playlists');
+    } else if (tabId === 'artists') {
+        // Check if we have artists data, otherwise fetch
+        // For simplicity, just fetch every time or check if empty?
+        // Let's fetch to be safe.
+        sendCommand('get-artists');
     }
+}
+
+let fullArtistsList = [];
+
+function filterArtists(query) {
+    const lowerQuery = query.toLowerCase();
+    const filtered = fullArtistsList.filter(artist =>
+        artist.name && artist.name.toLowerCase().includes(lowerQuery)
+    );
+    renderArtistsList(filtered);
+}
+
+function renderArtists(artists) {
+    fullArtistsList = artists.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    renderArtistsList(fullArtistsList);
+}
+
+function renderArtistsList(artists) {
+    const list = document.getElementById('artists-list');
+    list.innerHTML = '';
+
+    if (artists.length === 0) {
+        list.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">No artists found</div>';
+        return;
+    }
+
+    // Grouping Logic
+    const groups = {};
+    artists.forEach(artist => {
+        if (!artist.name) return;
+        const cleanName = artist.name.trim();
+        if (!cleanName) return;
+        const firstLetter = cleanName.charAt(0).toUpperCase();
+        const key = /[A-Z]/.test(firstLetter) ? firstLetter : '#';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(artist);
+    });
+
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+        if (a === '#') return 1;
+        if (b === '#') return -1;
+        return a.localeCompare(b);
+    });
+
+    sortedKeys.forEach(key => {
+        const header = document.createElement('div');
+        header.className = 'artist-section-header';
+        header.innerText = key;
+        list.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'artist-grid';
+
+        groups[key].forEach(artist => {
+            const card = document.createElement('div');
+            card.className = 'artist-card';
+            card.onclick = () => showArtist(artist);
+
+            if (artist.imageUrl) {
+                const img = document.createElement('img');
+                img.className = 'artist-card-image';
+                img.src = sanitizeUrl(artist.imageUrl);
+                card.appendChild(img);
+            } else {
+                const initial = artist.name ? artist.name.charAt(0).toUpperCase() : '?';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'artist-card-placeholder';
+                placeholder.innerText = initial;
+                card.appendChild(placeholder);
+            }
+
+            const name = document.createElement('div');
+            name.className = 'artist-card-name';
+            name.innerText = artist.name;
+            card.appendChild(name);
+
+            grid.appendChild(card);
+        });
+
+        list.appendChild(grid);
+    });
+}
+
+function showArtist(artist) {
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.getElementById('artist-detail-view').classList.add('active');
+
+    document.getElementById('artist-view-name').innerText = artist.name;
+    document.getElementById('artist-view-stats').innerText = 'Loading albums...';
+
+    // Artwork / Placeholder
+    const artworkImg = document.getElementById('artist-view-image');
+    const placeholder = document.getElementById('artist-view-placeholder');
+
+    if (artist.imageUrl) {
+        artworkImg.src = sanitizeUrl(artist.imageUrl);
+        artworkImg.style.display = 'block';
+        placeholder.style.display = 'none';
+    } else {
+        artworkImg.style.display = 'none';
+        placeholder.style.display = 'flex';
+        placeholder.innerText = artist.name ? artist.name.charAt(0).toUpperCase() : '?';
+    }
+
+    const link = document.getElementById('artist-view-link');
+    if (artist.url) {
+        link.href = artist.url;
+        link.style.display = 'flex';
+    } else {
+        link.style.display = 'none';
+    }
+
+    // Filter collection for this artist
+    // We used to fetch from backend? Actually collection is local to client in fullCollectionItems (if loaded)
+    // But better to ask backend to be robust or simple filter client side?
+    // Let's filter client side first since we have fullCollectionItems.
+    // If fullCollectionItems is empty (not visited collection tab), we might need to fetch it.
+
+    if (!fullCollectionItems || fullCollectionItems.length === 0) {
+        // Trigger fetch, but we need to wait?
+        // Or we can just rely on 'get-collection' and update view.
+        // For now, let's assume user might not have visited.
+        sendCommand('get-collection');
+        // We'll need to listen for collection-data to update if we are in artist view.
+        // But that logic is complex to wire up here.
+        // Simple hack: Set a filter?
+        // Implementation: Just filter what we have. If empty, show "No items loaded, check Collection tab".
+    }
+
+    // We can filter fullCollectionItems by artist name match.
+    // Ideally we should use artistId relation, but collection items only have string artist name usually?
+    // Let's check item structure: { artist: "Name", ... }
+    // The artist object has id, name, url.
+
+    // Better: Send command 'get-collection' with query? No, we want exact structure.
+    // Let's just filter client side for now.
+
+    renderArtistItems(artist);
+}
+
+function renderArtistItems(artist) {
+    const items = fullCollectionItems.filter(item => {
+        // Loose matching by name
+        return (item.artist && item.artist.toLowerCase() === artist.name.toLowerCase()) ||
+            (item.album && item.album.artist && item.album.artist.toLowerCase() === artist.name.toLowerCase());
+    });
+
+    document.getElementById('artist-view-stats').innerText = `${items.length} items`;
+    const list = document.getElementById('artist-view-items');
+    list.innerHTML = '';
+
+    // Reuse renderCollectionItems logic but append here
+    if (items.length === 0) {
+        list.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">No items found in local cache.</div>';
+        return;
+    }
+
+    items.forEach(item => {
+        // Create simple list item
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.onclick = () => {
+            if (item.type === 'album') {
+                if (item.trackCount !== 1 || item.hasTracks) {
+                    showAlbum(item.albumUrl || item.item_url);
+                } else {
+                    sendCommand('play-album', item.albumUrl || item.item_url);
+                }
+            } else {
+                sendCommand('play-track', item);
+            }
+        };
+
+        const img = document.createElement('img');
+        img.src = sanitizeUrl(item.artworkUrl);
+        div.appendChild(img);
+
+        const info = document.createElement('div');
+        info.className = 'list-item-info';
+        const title = document.createElement('div');
+        title.className = 'list-item-title';
+        title.innerText = item.title;
+        info.appendChild(title);
+        const sub = document.createElement('div');
+        sub.className = 'list-item-subtitle';
+        sub.innerText = item.type; // or year?
+        info.appendChild(sub);
+        div.appendChild(info);
+
+        const btn = document.createElement('button');
+        btn.className = 'item-options-btn';
+        btn.innerHTML = '...'; // ICONS not available in scope directly? They are global.
+        btn.onclick = (e) => { e.stopPropagation(); showCollectionOptions(item); };
+        div.appendChild(btn);
+
+        list.appendChild(div);
+    });
 }
 
 function filterCollection(query) {
@@ -383,6 +588,15 @@ function filterCollection(query) {
 function renderCollection(collection) {
     fullCollectionItems = collection.items;
     renderCollectionItems(fullCollectionItems);
+
+    // Refresh artist view if open
+    const artistView = document.getElementById('artist-detail-view');
+    if (artistView.classList.contains('active')) {
+        const artistName = document.getElementById('artist-view-name').innerText;
+        if (artistName) {
+            renderArtistItems({ name: artistName });
+        }
+    }
 }
 
 function renderCollectionItems(items) {

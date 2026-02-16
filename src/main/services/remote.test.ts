@@ -256,6 +256,45 @@ describe('RemoteControlService', () => {
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('collection-data'));
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('"items":[]'));
         });
+
+        it('should handle get-artists', async () => {
+            const mockArtists = [{ id: '1', name: 'Artist 1' }];
+            mockDatabase.getArtists = vi.fn().mockReturnValue(mockArtists);
+
+            sendMessage('get-artists');
+
+            expect(mockDatabase.getArtists).toHaveBeenCalled();
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'artists-data',
+                payload: mockArtists
+            }));
+        });
+
+        it('should handle get-artist-collection', async () => {
+            const mockCollection = {
+                items: [
+                    { id: '1', type: 'album', album: { artistId: 'a1', title: 'Album 1', bandcampUrl: 'url1' } },
+                    { id: '2', type: 'album', album: { artistId: 'a2', title: 'Album 2', bandcampUrl: 'url2' } },
+                    { id: '3', type: 'track', track: { artistId: 'a1', title: 'Track 1', bandcampUrl: 'url3' } },
+                ],
+                lastUpdated: '2026-01-01'
+            };
+            mockScraperService.fetchCollection.mockResolvedValue(mockCollection);
+
+            sendMessage('get-artist-collection', 'a1');
+
+            await new Promise(process.nextTick);
+
+            expect(mockScraperService.fetchCollection).toHaveBeenCalled();
+            expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('artist-collection-data'));
+
+            const lastCall = mockWs.send.mock.calls.find((call: any[]) => call[0].includes('artist-collection-data'));
+            const lastCallArgs = JSON.parse(lastCall[0]);
+            expect(lastCallArgs.payload.items).toHaveLength(2);
+            expect(lastCallArgs.payload.items[0].id).toBe('1');
+            expect(lastCallArgs.payload.items[1].id).toBe('3');
+            expect(lastCallArgs.payload.artistId).toBe('a1');
+        });
     });
 
     describe('Device Management', () => {

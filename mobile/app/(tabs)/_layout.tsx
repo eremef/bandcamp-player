@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Disc3, Library, ListMusic, Radio, ListOrdered } from 'lucide-react-native';
+import { Disc3, Library, ListMusic, Radio, ListOrdered, User } from 'lucide-react-native';
 import { useStore } from '../../store';
 import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -40,6 +40,13 @@ export default function TabLayout() {
                 options={{
                     title: 'Collection',
                     tabBarIcon: ({ color, size }: { color: string; size: number }) => <Library color={color} size={size} />,
+                }}
+            />
+            <Tabs.Screen
+                name="artists"
+                options={{
+                    title: 'Artists',
+                    tabBarIcon: ({ color, size }: { color: string; size: number }) => <User color={color} size={size} />,
                 }}
             />
             <Tabs.Screen

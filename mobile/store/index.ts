@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -15,6 +15,9 @@ interface AppState extends PlayerState {
     collection: Collection | null;
     playlists: Playlist[];
     radioStations: RadioStation[];
+    artists: Artist[];
+    artistCollection: Collection | null;
+    isArtistCollectionLoading: boolean;
 
     // Actions
     recentIps: string[];
@@ -67,6 +70,8 @@ interface AppState extends PlayerState {
     refreshPlaylists: () => void;
     refreshRadio: () => void;
     refreshQueue: () => void;
+    refreshArtists: () => void;
+    refreshArtistCollection: (artistId: string) => void;
 
     // Pagination State
     collectionOffset: number;
@@ -84,6 +89,7 @@ const initialState: Omit<PlayerState, 'queue'> = {
     isMuted: false,
     repeatMode: 'off',
     isShuffled: false,
+    isCasting: false,
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -95,10 +101,13 @@ export const useStore = create<AppState>((set, get) => ({
     collection: null,
     playlists: [],
     radioStations: [],
+    artists: [],
     isScanning: false,
     collectionOffset: 0,
     hasMoreCollection: true,
     isCollectionLoading: false,
+    artistCollection: null,
+    isArtistCollectionLoading: false,
     searchQuery: '',
 
     setHostIp: async (ip: string) => {
@@ -389,6 +398,11 @@ export const useStore = create<AppState>((set, get) => ({
     refreshPlaylists: () => webSocketService.send('get-playlists'),
     refreshRadio: () => webSocketService.send('get-radio-stations'),
     refreshQueue: () => webSocketService.send('get-state'),
+    refreshArtists: () => webSocketService.send('get-artists'),
+    refreshArtistCollection: (artistId: string) => {
+        set({ isArtistCollectionLoading: true });
+        webSocketService.send('get-artist-collection', artistId);
+    },
 
     // Initialize
     // This is called automatically when store is created? No, we need to call it.
@@ -409,6 +423,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
         useStore.getState().refreshCollection(false);
         webSocketService.send('get-playlists');
         webSocketService.send('get-radio-stations');
+        webSocketService.send('get-artists');
     }
 });
 
@@ -483,6 +498,14 @@ webSocketService.on('playlists-data', (playlists) => {
 
 webSocketService.on('radio-data', (radioStations) => {
     useStore.setState({ radioStations });
+});
+
+webSocketService.on('artists-data', (artists) => {
+    useStore.setState({ artists });
+});
+
+webSocketService.on('artist-collection-data', (artistCollection) => {
+    useStore.setState({ artistCollection, isArtistCollectionLoading: false });
 });
 
 webSocketService.on('time-update', async (payload) => {

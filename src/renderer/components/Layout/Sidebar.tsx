@@ -38,6 +38,7 @@ export function Sidebar() {
 
     const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
         { view: 'collection', label: 'Collection', icon: <Library size={20} /> },
+        { view: 'artists', label: 'Artists', icon: <User size={20} /> },
         { view: 'playlists', label: 'Playlists', icon: <ListMusic size={20} /> },
         { view: 'radio', label: 'Radio', icon: <Radio size={20} /> },
     ];

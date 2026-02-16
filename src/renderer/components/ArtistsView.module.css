@@ -1,0 +1,218 @@
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-xl);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.title {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.searchIcon {
+    position: absolute;
+    left: var(--spacing-md);
+    font-size: 0.9rem;
+    pointer-events: none;
+    color: var(--text-secondary);
+}
+
+.input {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    padding-left: 2.5rem;
+    color: var(--text-primary);
+    width: 250px;
+    transition: all 0.2s;
+}
+
+.input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.searchContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.scrollContainer {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: var(--spacing-xs);
+}
+
+.group {
+    margin-bottom: var(--spacing-2xl);
+}
+
+.groupHeader {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.artistCard {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.artistCard:hover {
+    background: var(--bg-hover);
+    transform: translateY(-2px);
+}
+
+.imageContainer {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: var(--spacing-md);
+    background: var(--bg-secondary);
+    position: relative;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.artistImage {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.artistCard:hover .artistImage {
+    transform: scale(1.05);
+}
+
+.placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+}
+
+.artistName {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: var(--spacing-2xs);
+}
+
+.itemCount {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60%;
+    color: var(--text-secondary);
+    gap: var(--spacing-sm);
+}
+
+/* Detail View Styles */
+.detailHeader {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--spacing-xl);
+}
+
+.backButton {
+    margin-right: var(--spacing-lg);
+    padding: var(--spacing-sm);
+    border-radius: 50%;
+    color: var(--text-primary);
+    transition: background 0.2s;
+}
+
+.backButton:hover {
+    background: var(--bg-hover);
+}
+
+.detailImageContainer {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: var(--spacing-lg);
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+}
+
+.detailInfo h1 {
+    font-size: var(--font-size-2xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.dot {
+    margin: 0 var(--spacing-sm);
+}
+
+.link {
+    display: flex;
+    align-items: center;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.link:hover {
+    color: var(--accent-primary);
+    text-decoration: underline;
+}
+
+.notFound {
+    padding: var(--spacing-xl);
+}

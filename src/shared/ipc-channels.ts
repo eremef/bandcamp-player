@@ -25,6 +25,7 @@ export const COLLECTION_CHANNELS = {
     GET_ALBUM: 'collection:get-album',
     GET_TRACK: 'collection:get-track',
     SEARCH: 'collection:search',
+    GET_ARTISTS: 'collection:get-artists',
     ON_UPDATED: 'collection:on-updated',
 } as const;
 
