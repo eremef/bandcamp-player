@@ -499,8 +499,8 @@ export const useStore = create<StoreState>((set, get) => ({
     stopCastDiscovery: async () => {
         await window.electron.cast.stopDiscovery();
     },
-    connectCast: async (host: string) => {
-        await window.electron.cast.connect(host);
+    connectCast: async (id: string) => {
+        await window.electron.cast.connect(id);
     },
     disconnectCast: async () => {
         await window.electron.cast.disconnect();

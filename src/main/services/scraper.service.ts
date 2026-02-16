@@ -102,39 +102,7 @@ export class ScraperService extends EventEmitter {
                 const openBraceIndex = content.indexOf('{', startSearchIndex);
                 if (openBraceIndex === -1) continue;
 
-                // Balance braces
-                let braceCount = 0;
-                let inString = false;
-                let inEscape = false;
                 let closeBraceIndex = -1;
-
-                for (let i = openBraceIndex; i < content.length; i++) {
-                    const char = content[i];
-
-                    if (inEscape) {
-                        inEscape = false;
-                        continue;
-                    }
-
-                    if (char === '\\') {
-                        inEscape = true;
-                        continue;
-                    }
-
-                    if (char === '"' || char === "'") {
-                        // Simple string toggle - this assumes standard JSON/JS string behavior
-                        // (Technically quote styles matter, but for this purpose assume matching quotes isn't critical 
-                        // if we just toggle inString. However, mixing ' and " might be an issue. 
-                        // For now, simple toggle is better than regex.)
-                        // Actually, sticking to checking if it matches the *starting* quote is better.
-                        // But for simplicity, let's assume valid JS/JSON doesn't nest unescaped quotes improperly.
-                        // Let's implement a slightly smarter string check.
-                        // We can skip this complexity for now and assume the content is reasonably well-formed.
-                        // Or better: just count braces unless we are strictly sure we are in a string.
-                        // Given the complexity of full JS parsing, let's try a standard brace counter that ignores braces in quotes.
-                        // Standard simple implementation:
-                    }
-                }
 
                 // Simpler approach: Use a stack or counter, treating " and ' as string delimiters
                 // Reset indices
@@ -447,43 +415,38 @@ export class ScraperService extends EventEmitter {
         const items: CollectionItem[] = [];
         const batchSize = 100;
 
-        try {
-            const requestBody: any = {
-                fan_id: parseInt(fanId, 10),
-                count: batchSize,
-            };
-            if (lastToken) {
-                requestBody.older_than_token = lastToken;
-            }
-
-            const response = await this.http.post(
-                'https://bandcamp.com/api/fancollection/1/collection_items',
-                requestBody,
-                {
-                    headers: {
-                        Cookie: cookies,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
-
-            if (response.data.items) {
-                for (const item of response.data.items) {
-                    const collectionItem = this.parseCollectionItem(item);
-                    if (collectionItem) {
-                        items.push(collectionItem);
-                    }
-                }
-            }
-
-            // Rate limiting - slightly increased from 200ms to 300ms + jitter
-            // to be nicer to the API and avoid rate limits
-            const jitter = Math.floor(Math.random() * 200);
-            await new Promise(resolve => setTimeout(resolve, 100 + jitter));
-        } catch (error) {
-            // Propagate error to allow retry logic in main loop
-            throw error;
+        const requestBody: any = {
+            fan_id: parseInt(fanId, 10),
+            count: batchSize,
+        };
+        if (lastToken) {
+            requestBody.older_than_token = lastToken;
         }
+
+        const response = await this.http.post(
+            'https://bandcamp.com/api/fancollection/1/collection_items',
+            requestBody,
+            {
+                headers: {
+                    Cookie: cookies,
+                    'Content-Type': 'application/json',
+                },
+            }
+        );
+
+        if (response.data.items) {
+            for (const item of response.data.items) {
+                const collectionItem = this.parseCollectionItem(item);
+                if (collectionItem) {
+                    items.push(collectionItem);
+                }
+            }
+        }
+
+        // Rate limiting - slightly increased from 200ms to 300ms + jitter
+        // to be nicer to the API and avoid rate limits
+        const jitter = Math.floor(Math.random() * 200);
+        await new Promise(resolve => setTimeout(resolve, 100 + jitter));
 
         return items;
     }
