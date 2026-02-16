@@ -311,11 +311,15 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
     - **Lazy Loading**: Uses infinite scroll and pagination (offset/limit) to handle thousands of items with minimal memory overhead.
     - **Server-Side Search**: Search queries are sent to the Desktop Main process. The Main process filters its cached collection and returns paginated results to the mobile client.
     - **Optimization**: Search requests use `forceRefresh: false` by default, filtering the existing cache instantly. Only a manual "Pull-to-Refresh" triggers a full re-scrape from Bandcamp.
-3. **Smart Buffering**:
+3. **Database Caching**:
+    - **Persistence**: Collections with >100 items are saved to the `collection_cache` SQLite table.
+    - **Stale-While-Revalidate**: On app start, the cached collection is returned immediately for near-instant UI availability.
+    - **Daily Refresh**: If the cache is older than 24 hours (based on `cached_at`), a background fetch is automatically triggered in the Main process to update the database without interrupting playback or user interaction.
+4. **Smart Buffering**:
     - **Initial Load**: Deduplicates concurrent fetch requests in `ScraperService` using a shared promise, preventing "empty" state flashes on startup.
     - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
-4. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
-5. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.
+5. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
+6. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.
 
 ### Desktop Auto-Updates
 

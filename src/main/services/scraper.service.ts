@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { AuthService } from './auth.service';
 import { simulationService } from './simulation.service';
+import { Database } from '../database/database';
 import type { Track, Album, Collection, CollectionItem, RadioStation } from '../../shared/types';
 import { EventEmitter } from 'events';
 // ============================================================================
@@ -12,12 +13,14 @@ const ONE_YEAR_SECONDS = 31536000; // 1 year
 
 export class ScraperService extends EventEmitter {
     private authService: AuthService;
+    private database?: Database;
     private http: AxiosInstance;
     private cachedCollection: Collection | null = null;
 
-    constructor(authService: AuthService) {
+    constructor(authService: AuthService, database?: Database) {
         super();
         this.authService = authService;
+        this.database = database;
         this.http = axios.create({
             timeout: 30000,
             headers: {
@@ -183,6 +186,39 @@ export class ScraperService extends EventEmitter {
 
         if (this.cachedCollection && !forceRefresh) {
             return this.cachedCollection;
+        }
+
+        // Try to load from database first if not forcing refresh
+        if (!forceRefresh && this.database) {
+            const user = this.authService.getUser();
+            if (user.user?.id) {
+                const cached = this.database.getCollectionCache(user.user.id);
+                if (cached) {
+                    console.log(`[Scraper] Loaded collection from database cache for user ${user.user.id}`);
+                    this.cachedCollection = cached.data;
+
+                    // Check if cache is stale (older than 24 hours)
+                    const lastUpdated = new Date(cached.cachedAt).getTime();
+                    const now = Date.now();
+                    const oneDayMs = 24 * 60 * 60 * 1000;
+
+                    if (now - lastUpdated > oneDayMs) {
+                        console.log('[Scraper] Cache is stale (> 24h), triggering background refresh...');
+                        // Trigger background refresh but DON'T await it
+                        // Use a separate async block to avoid non-blocking issues
+                        (async () => {
+                            try {
+                                await this.fetchCollection(true);
+                                console.log('[Scraper] Background refresh completed.');
+                            } catch (e) {
+                                console.error('[Scraper] Background refresh failed:', e);
+                            }
+                        })();
+                    }
+
+                    return this.cachedCollection!;
+                }
+            }
         }
 
         this.fetchPromise = (async () => {
@@ -381,6 +417,16 @@ export class ScraperService extends EventEmitter {
                 };
 
                 this.emit('collection-updated', this.cachedCollection);
+
+                // Save to database if we have enough items
+                if (this.database && this.cachedCollection.items.length > 100) {
+                    const user = this.authService.getUser();
+                    if (user.user?.id) {
+                        this.database.saveCollectionCache(user.user.id, 'collection', this.cachedCollection);
+                        console.log(`[Scraper] Saved collection to database cache for user ${user.user.id} (${this.cachedCollection.items.length} items)`);
+                    }
+                }
+
                 return this.cachedCollection;
             } catch (error: any) {
                 console.error('Error fetching collection:', error.message);

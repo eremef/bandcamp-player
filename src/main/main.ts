@@ -171,7 +171,7 @@ async function initializeServices() {
 
     // Initialize services
     authService = new AuthService(session.defaultSession);
-    scraperService = new ScraperService(authService);
+    scraperService = new ScraperService(authService, database);
     cacheService = new CacheService(database, path.join(userDataPath, 'cache'));
     playlistService = new PlaylistService(database);
     scrobblerService = new ScrobblerService(database);

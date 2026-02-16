@@ -243,10 +243,10 @@ export class Database {
 
         params.push(id);
         const sql = `UPDATE playlists SET ${sets.join(', ')} WHERE id = ?`;
-        
+
         // console.log(`[Database] Updating playlist ${id}: name=${name}, description=${description}`);
         const result = this.db.prepare(sql).run(...params);
-        
+
         if (result.changes === 0) {
             console.warn(`[Database] No playlist found with ID ${id} to update`);
         }
@@ -435,6 +435,25 @@ export class Database {
 
     deleteScrobble(id: number): void {
         this.db.prepare('DELETE FROM scrobble_queue WHERE id = ?').run(id);
+    }
+
+    // ---- Collection Cache ----
+
+    getCollectionCache(id: string): { data: any, cachedAt: string } | null {
+        const row = this.db.prepare('SELECT data, cached_at FROM collection_cache WHERE id = ?').get(id) as { data: string, cached_at: string } | undefined;
+        return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
+    }
+
+    saveCollectionCache(id: string, type: string, data: any): void {
+        const now = new Date().toISOString();
+        this.db.prepare(`
+      INSERT OR REPLACE INTO collection_cache (id, type, data, cached_at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, type, JSON.stringify(data), now);
+    }
+
+    clearCollectionCache(id: string): void {
+        this.db.prepare('DELETE FROM collection_cache WHERE id = ?').run(id);
     }
 
     // ---- Cleanup ----
