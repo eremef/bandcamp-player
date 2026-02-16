@@ -1,7 +1,7 @@
 # Unofficial Bandcamp Desktop Player
 
 <p align="center">
- <img width="800" alt="Image" src="https://github.com/user-attachments/assets/b3a91281-dbb9-49ee-9fb5-539d4d66f7b3" />
+ <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
 </p>
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
@@ -10,7 +10,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
-\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional, craft programming, and not that eco-friendly.
+\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not that eco-friendly.
 
 ## Features
 
@@ -164,7 +164,7 @@ src/
 ## Mobile Companion App
 
 <p align="center">
-  <img width="300" alt="Image" src="https://github.com/user-attachments/assets/fbb1c6c7-2c18-48fe-af36-0aa45ef4b5eb" />
+  <img width="300" alt="image" src="https://github.com/user-attachments/assets/4be464d7-0608-49ea-8a6d-c875221623fe" />
 </p>
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
