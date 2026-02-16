@@ -17,7 +17,8 @@ export function AlbumDetailView() {
         addToQueue,
         addTracksToPlaylist,
         playlists,
-        downloadTrack
+        downloadTrack,
+        albumDetailSourceView
     } = useStore();
 
     const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +57,9 @@ export function AlbumDetailView() {
         return (
             <div className={styles.container}>
                 <p>Album not found</p>
-                <button onClick={() => setView('collection')}>Back to collection</button>
+                <button onClick={() => setView(albumDetailSourceView || 'collection')}>
+                    Back to {albumDetailSourceView === 'artists' ? 'artists' : 'collection'}
+                </button>
             </div>
         );
     }
@@ -103,7 +106,7 @@ export function AlbumDetailView() {
         <div className={styles.container}>
             {/* Header */}
             <header className={styles.header}>
-                <button className={styles.backBtn} onClick={() => setView('collection')}>
+                <button className={styles.backBtn} onClick={() => setView(albumDetailSourceView || 'collection')}>
                     <ArrowLeft size={18} />
                     <span>Back</span>
                 </button>

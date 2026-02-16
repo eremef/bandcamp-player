@@ -356,6 +356,30 @@ describe('useStore', () => {
         expect(useStore.getState().currentView).toBe('album-detail');
     });
 
+    it('should capture source view when selecting an album', () => {
+        const mockAlbum = { id: 'a1', title: 'Album 1' } as any;
+
+        // From collection
+        act(() => {
+            useStore.getState().setView('collection');
+            useStore.getState().selectAlbum(mockAlbum);
+        });
+        expect(useStore.getState().albumDetailSourceView).toBe('collection');
+
+        // From artists
+        act(() => {
+            useStore.getState().setView('artists');
+            useStore.getState().selectAlbum(mockAlbum);
+        });
+        expect(useStore.getState().albumDetailSourceView).toBe('artists');
+
+        // Stay on album detail (should not overwrite with 'album-detail')
+        act(() => {
+            useStore.getState().selectAlbum(mockAlbum);
+        });
+        expect(useStore.getState().albumDetailSourceView).toBe('artists');
+    });
+
     // --- Playlist Slice Tests ---
     it('should manage playlists', async () => {
         const mockPlaylists = [{ id: '1', name: 'My Playlist' }];
