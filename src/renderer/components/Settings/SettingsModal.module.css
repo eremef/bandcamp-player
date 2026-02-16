@@ -619,3 +619,81 @@
     background: var(--accent-primary);
     transition: width 0.3s ease;
 }
+
+/* Update Alert at top */
+.updateAlert {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-lg);
+    background: var(--accent-muted);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-lg);
+    margin-bottom: var(--spacing-xl);
+    animation: slideDown var(--transition-normal) ease-out;
+}
+
+.updateReady {
+    background: rgba(var(--color-success-rgb, 75, 181, 67), 0.1);
+    border-color: var(--color-success);
+}
+
+.updateAlertInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    color: var(--accent-primary);
+}
+
+.updateReady .updateAlertInfo {
+    color: var(--color-success);
+}
+
+.updateAlertTitle {
+    display: block;
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-md);
+}
+
+.updateAlertVersion {
+    display: block;
+    font-size: var(--font-size-sm);
+    opacity: 0.8;
+}
+
+.installBtnInline,
+.downloadBtnInline {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+}
+
+.installBtnInline {
+    background: var(--color-success);
+    color: white;
+}
+
+.installBtnInline:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--color-success-rgb, 75, 181, 67), 0.3);
+}
+
+.downloadBtnInline {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: default;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

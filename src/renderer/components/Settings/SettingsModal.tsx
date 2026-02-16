@@ -144,6 +144,30 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                 </header>
 
                 <div className={styles.content}>
+                    {/* Update Alert */}
+                    {(updateStatus.status === 'available' || updateStatus.status === 'downloading' || updateStatus.status === 'downloaded') && (
+                        <div className={`${styles.updateAlert} ${updateStatus.status === 'downloaded' ? styles.updateReady : ''}`}>
+                            <div className={styles.updateAlertInfo}>
+                                <AlertCircle size={20} />
+                                <div>
+                                    <span className={styles.updateAlertTitle}>
+                                        {updateStatus.status === 'downloaded' ? 'Update Ready to Install' : 'New Version Available'}
+                                    </span>
+                                    <span className={styles.updateAlertVersion}>
+                                        {updateStatus.info?.version ? `Version ${updateStatus.info.version}` : 'A new update is available'}
+                                    </span>
+                                </div>
+                            </div>
+                            <button
+                                className={updateStatus.status === 'downloaded' ? styles.installBtnInline : styles.downloadBtnInline}
+                                onClick={updateStatus.status === 'downloaded' ? installUpdate : undefined}
+                                disabled={updateStatus.status !== 'downloaded'}
+                            >
+                                {updateStatus.status === 'downloaded' ? 'Restart & Install' : 'Downloading...'}
+                            </button>
+                        </div>
+                    )}
+
                     {/* Cache */}
                     <section className={styles.section}>
                         <h3>Offline Cache</h3>
