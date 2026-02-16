@@ -95,7 +95,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `src/main/services/auth.test.ts` | Authentication & Cookies | 7 | ~64% |
 | `src/main/services/playlist.test.ts` | Playlist Management | 9 | 100% |
 | `src/main/services/scrobbler.test.ts` | Last.fm Scrobbling | 8 | ~68% |
-| `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 12 | ~80% |
+| `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 17 | ~85% |
 | `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
 | `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
 | `src/main/services/remote.test.ts` | Remote Interface Logic | 10 | ~85% |

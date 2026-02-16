@@ -25,6 +25,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history
+- ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
@@ -152,12 +153,13 @@ src/
 ## Usage
 
 1. **Login** - Click "Login with Bandcamp" to authenticate with your fan account
-2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view
-3. **Play Music** - Click on an album to start playing
-4. **Create Playlists** - Use the + button in the sidebar to create playlists
-5. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
-6. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
-7. **Offline Mode** - Download tracks via the context menu for offline playback
+2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view. Large collections (>100 items) are automatically cached for instant loading on subsequent launches.
+3. **Daily Refresh** - The app automatically keeps your collection up-to-date in the background every 24 hours. Use the "Refresh" button for a manual update.
+4. **Play Music** - Click on an album to start playing
+5. **Create Playlists** - Use the + button in the sidebar to create playlists
+6. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
+7. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
+8. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile Companion App
 
