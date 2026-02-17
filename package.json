@@ -17,7 +17,7 @@
     "build:renderer": "vite build",
     "package": "npm run test && npm run build && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "test": "vitest run",
+    "test": "concurrently \"npm run build:main\" \"vitest run\"",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:mobile": "npm run test --prefix mobile",
