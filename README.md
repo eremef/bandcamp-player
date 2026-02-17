@@ -253,8 +253,8 @@ mobile/
 | Radio shows description/link     | XS   | 
 | Deeper Bandcamp integration | L |
 | Automatic end-to-end tests | XXL |
-| Light theme | XS |
-| Radio shows filter | XS |
+| ~~Light theme~~ | XS |
+| ~~Radio shows filter~~ | XS |
 
 ## License
 
