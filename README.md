@@ -1,4 +1,165 @@
 
+# Unofficial Bandcamp Desktop Player
+
+<p align="center">
+ <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
+</p>
+
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+
+>⚠️ May violate Bandcamp terms and policies. Use at your own risk.
+>
+>However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
+
+\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not that eco-friendly.
+
+## Features
+
+- 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
+- 📝 **Playlist Management** - Create and manage custom playlists
+- 📥 **Offline Caching** - Download tracks for offline playback
+- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
+- 🔍 **Smart Search** - Filter your collection instantly on all platforms (Desktop, Mobile, Web)
+- 🎛️ **Windows Media Controls** - Control playback with system media keys
+- 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
+- 📋 **Queue Management** - Manage your playback queue
+- 🔀 **Shuffle & Repeat** - Various playback modes
+- 🎧 **Last.fm Scrobbling** - Track your listening history
+- ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
+- ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
+- 📱 **Mobile Companion App** - Remote control via Android/iOS application
+- 🌐 **Web Remote Control** - Control playback via any web browser on the local network
+- 📡 **Connection Management** - View host IP, disconnect, and manage sessions
+- 🖥️ **Mini Player** - Compact floating player window
+- 💾 **System Tray** - Minimize to tray with quick controls
+- 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
+
+## Tech Stack
+
+- **Electron** - Desktop application framework
+- **React 19** - UI library
+- **TypeScript** - Type-safe development
+- **Zustand** - State management
+- **SQLite** (better-sqlite3) - Local database
+- **Vite** - Build tool for renderer
+- **Cheerio** - Web scraping
+- **Axios** - HTTP client
+- **chromecast-api** - Casting support
+- **Electron Updater** - Auto-update support
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+cd Bandcamp-player
+
+# Install dependencies (automatically runs native rebuilds)
+npm install
+
+# Run in development mode (starts watchers + Electron)
+npm run dev
+
+# Run in simulation mode (mocks 5000 items + errors)
+npm run dev:large
+```
+
+### Building
+
+```bash
+# Build for production
+npm run build
+
+# Create an installer package (runs tests + build + electron-builder)
+npm run package
+
+# Create a new release (bumps version, runs tests, commits, and tags)
+npm run release <newVersion>
+```
+
+> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
+
+## Settings & Configuration
+
+### Application Settings
+
+Access the settings menu (gear icon) to configure:
+
+- **Offline Cache**
+  - Toggle caching on/off
+  - Set maximum cache size (1-50 GB)
+  - View cache usage statistics
+  - Clear cache to free up space
+
+- **Last.fm**
+  - Connect/disconnect Last.fm account
+  - Toggle automatic scrobbling
+
+- **Window**
+  - Minimize to Tray: Keep the app running in the background when closed
+  - Show Notifications: Desktop notifications on track change
+
+### Last.fm Integration
+
+To enable scrobbling, you need to register with Last.fm API application:
+
+1. Go to <https://www.last.fm/api/account/create>
+2. Create a new application
+3. Update `src/main/services/scrobbler.service.ts` with your API key and secret (before building, if building yourself) or provide it in the Settings of the desktop app (when downloading from releases)
+
+## Project Structure
+
+```text
+src/
+├── main/                    # Electron main process
+│   ├── main.ts             # Entry point
+│   ├── preload.ts          # Preload script
+│   ├── ipc-handlers.ts     # IPC communication
+│   ├── services/           # Backend services
+│   │   ├── auth.service.ts
+│   │   ├── cache.service.ts
+│   │   ├── player.service.ts
+│   │   ├── playlist.service.ts
+│   │   ├── scraper.service.ts
+│   │   ├── scrobbler.service.ts
+│   │   ├── remote.service.ts
+│   │   ├── updater.service.ts
+│   │   └── tray.service.ts
+│   └── database/           # SQLite database
+├── renderer/               # React frontend
+│   ├── components/         # UI components
+│   │   ├── Auth/           # Auth Components
+│   │   ├── Collection/     # Collection Views
+│   │   ├── Layout/         # Layout Components
+│   │   ├── Player/         # Player Controls
+│   │   ├── Playlist/       # Playlist Management
+│   │   ├── Radio/          # Radio Player
+│   │   ├── Settings/       # Settings Modal
+│   │   └── UI/             # Common UI elements
+│   ├── store/             # Zustand store
+│   └── styles/            # CSS styles
+├── shared/                # Shared types
+└── assets/                # Static assets
+    ├── icons/             # Application icons
+    └── remote/            # Web Remote Interface (index.html, client.js, styles.css)
+```
+
+## Usage
+
+1. **Login** - Click "Login with Bandcamp" to authenticate with your fan account
+2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view. Large collections (>100 items) are automatically cached for instant loading on subsequent launches.
+3. **Daily Refresh** - The app automatically keeps your collection up-to-date in the background every 24 hours. Use the "Refresh" button for a manual update.
+4. **Play Music** - Click on an album to start playing
+5. **Create Playlists** - Use the + button in the sidebar to create playlists
+6. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
+7. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 8. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile Companion App
@@ -69,7 +230,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    open ios/BandcampRemote.xcworkspace
    ```
 
-### MobileProject Structure
+### Mobile Project Structure
 
 ```text
 mobile/
