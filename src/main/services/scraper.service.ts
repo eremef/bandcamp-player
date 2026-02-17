@@ -227,13 +227,13 @@ export class ScraperService extends EventEmitter {
 
         this.fetchPromise = (async () => {
             try {
-                const authState = this.authService.getUser();
-                if (!isSimulating && (!authState.isAuthenticated || !authState.user)) {
+                const { isAuthenticated, user } = this.authService.getUser();
+                if (!isSimulating && (!isAuthenticated || !user)) {
                     throw new Error('User not authenticated');
                 }
 
                 const cookies = isSimulating ? '' : await this.authService.getSessionCookies();
-                const profileUrl = isSimulating ? '' : authState.user?.profileUrl || '';
+                const profileUrl = isSimulating ? '' : user?.profileUrl || '';
                 const items: CollectionItem[] = [];
 
                 if (!isSimulating) {
@@ -266,7 +266,7 @@ export class ScraperService extends EventEmitter {
 
                     // Fetch more via API
                     const pageFanId = this.extractFanId(response.data);
-                    const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
+                    const activeFanId = pageFanId ? String(pageFanId) : user!.id;
 
                     // Initial API fetch
                     const initialBatch = await this.fetchMoreCollectionItems(activeFanId, undefined, cookies);
