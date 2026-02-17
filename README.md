@@ -250,9 +250,11 @@ mobile/
 | Feature                        | Size | 
 | :----------------------------- | ---- | 
 | Independent mobile app player  | XL   | 
-| Radio shows description        | XS   | 
+| Radio shows description/link     | XS   | 
 | Deeper Bandcamp integration | L |
 | Automatic end-to-end tests | XXL |
+| Light theme | XS |
+| Radio shows filter | XS |
 
 ## License
 
