@@ -64,6 +64,19 @@ jest.mock('expo-network', () => ({
     getIpAddressAsync: jest.fn(),
 }));
 
+jest.mock('@expo/vector-icons', () => ({
+    Ionicons: 'Ionicons',
+    MaterialIcons: 'MaterialIcons',
+    MaterialCommunityIcons: 'MaterialCommunityIcons',
+}));
+
+// Mock safe area context
+jest.mock('react-native-safe-area-context', () => ({
+    SafeAreaProvider: ({ children }) => <>{children}</>,
+    SafeAreaView: ({ children }) => <>{children}</>,
+    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
+
 // Mock WebSocket
 global.WebSocket = class WebSocket {
     constructor() {

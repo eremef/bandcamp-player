@@ -208,6 +208,10 @@ export class ScraperService extends EventEmitter {
                 } else {
                     console.log(`[Scraper] Loaded ${isSimulating ? 'simulated ' : ''}collection from cache for ${userId}`);
                     this.cachedCollection = cached.data;
+
+                    // Consolidate IDs even from cache to fix existing data
+                    this.consolidateArtistIds(this.cachedCollection!.items);
+
                     this.extractAndSaveArtists(cached.data.items, isSimulating);
 
                     // Background refresh for real collections if stale
@@ -336,8 +340,10 @@ export class ScraperService extends EventEmitter {
                             await new Promise(resolve => setTimeout(resolve, 500));
                         }
                     }
-                    console.log(`[Scraper] Simulation complete: ${items.length} items generated`);
+
                 }
+
+                this.consolidateArtistIds(items);
 
                 this.cachedCollection = {
                     items,
@@ -421,8 +427,8 @@ export class ScraperService extends EventEmitter {
 
         const artists = Array.from(artistsMap.values());
         if (artists.length > 0) {
-            this.database.saveArtists(artists, isSimulated);
-            console.log(`[Scraper] Saved ${artists.length} artists to database (isSimulated: ${isSimulated})`);
+            this.database.replaceArtists(artists, isSimulated);
+            console.log(`[Scraper] Replaced ${artists.length} artists in database (isSimulated: ${isSimulated})`);
         }
     }
 
@@ -765,6 +771,56 @@ export class ScraperService extends EventEmitter {
             totalCount: filteredItems.length,
             lastUpdated: this.cachedCollection.lastUpdated,
         };
+    }
+
+    /**
+     * Consolidate artist IDs across collection items
+     * Ensures that if we have found a numeric ID for an artist anywhere,
+     * we apply it to all items by that artist (fixing "doubled artist" issue)
+     */
+    private consolidateArtistIds(items: CollectionItem[]): void {
+        const artistMap = new Map<string, string>(); // Name -> Best ID
+
+        // Pass 1: Find best ID for each artist name
+        for (const item of items) {
+            const data = item.type === 'album' ? item.album : item.track;
+            if (!data) continue;
+
+            const name = data.artist.toLowerCase();
+            const currentBest = artistMap.get(name);
+            const id = data.artistId;
+
+            if (id) {
+                // If we don't have a best ID yet, use this one
+                if (!currentBest) {
+                    artistMap.set(name, id);
+                }
+                // If we have a non-numeric ID and found a numeric one, upgrade
+                else if (!/^\d+$/.test(currentBest) && /^\d+$/.test(id)) {
+                    artistMap.set(name, id);
+                }
+            }
+        }
+
+        // Pass 2: Apply best IDs
+        let updatedCount = 0;
+        for (const item of items) {
+            const data = item.type === 'album' ? item.album : item.track;
+            if (!data) continue;
+
+            const name = data.artist.toLowerCase();
+            const bestId = artistMap.get(name);
+
+            if (bestId && data.artistId !== bestId) {
+                // console.log(`[Scraper] Updating artist ID for "${data.artist}": ${data.artistId} -> ${bestId}`);
+                data.artistId = bestId;
+                updatedCount++;
+            }
+        }
+
+        if (updatedCount > 0) {
+            console.log(`[Scraper] Consolidated artist IDs for ${updatedCount} items`);
+        }
     }
     /**
      * Get stream URL for a specific radio station/episode

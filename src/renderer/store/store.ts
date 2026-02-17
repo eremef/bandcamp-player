@@ -159,6 +159,8 @@ interface UISlice {
     toggleMiniPlayer: () => void;
     toggleSettings: () => void;
     setSearchQuery: (query: string) => void;
+    radioSearchQuery: string;
+    setRadioSearchQuery: (query: string) => void;
     showToast: (message: string, type?: 'success' | 'error') => void;
     hideToast: () => void;
 }
@@ -529,6 +531,7 @@ export const useStore = create<StoreState>((set, get) => ({
     isMiniPlayer: false,
     isSettingsOpen: false,
     searchQuery: '',
+    radioSearchQuery: '',
     albumDetailSourceView: null,
     setView: (view) => set({ currentView: view }),
     setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
@@ -539,6 +542,7 @@ export const useStore = create<StoreState>((set, get) => ({
     },
     toggleSettings: () => set((s) => ({ isSettingsOpen: !s.isSettingsOpen })),
     setSearchQuery: (query) => set({ searchQuery: query }),
+    setRadioSearchQuery: (query) => set({ radioSearchQuery: query }),
     toast: null,
     showToast: (message, type = 'success') => set({ toast: { message, type } }),
     hideToast: () => set({ toast: null }),

@@ -42,7 +42,9 @@ describe('RadioView', () => {
             addRadioToQueue: vi.fn(),
             addRadioToPlaylist: vi.fn(),
             playlists: mockPlaylists,
-            fetchPlaylists: vi.fn()
+            fetchPlaylists: vi.fn(),
+            radioSearchQuery: '',
+            setRadioSearchQuery: vi.fn()
         });
     });
 
@@ -86,5 +88,34 @@ describe('RadioView', () => {
         await waitFor(() => {
             expect(screen.queryByText('Add to Queue')).not.toBeInTheDocument();
         });
+    });
+
+    it('filters stations based on search query', () => {
+        const mockSetRadioSearchQuery = vi.fn();
+        mockUseStore.mockReturnValue({
+            ...mockUseStore(),
+            radioSearchQuery: 'weekly',
+            setRadioSearchQuery: mockSetRadioSearchQuery,
+            radioStations: [
+                { id: '1', name: 'Bandcamp Weekly', description: 'Curated' },
+                { id: '2', name: 'Hip Hop', description: 'Beats' }
+            ]
+        });
+
+        const { rerender } = render(<RadioView />);
+
+        // Should focus on filtered list logic.
+        // The implementation uses useMemo to filter radioStations based on radioSearchQuery.
+        // Since we mocked radioSearchQuery as 'weekly', it should only show 'Bandcamp Weekly'.
+        expect(screen.getByText('Bandcamp Weekly')).toBeInTheDocument();
+        expect(screen.queryByText('Hip Hop')).not.toBeInTheDocument();
+
+        // Check search input value
+        const searchInput = screen.getByPlaceholderText('Search radio shows...');
+        expect(searchInput).toHaveValue('weekly');
+
+        // Test changing search query
+        fireEvent.change(searchInput, { target: { value: 'beats' } });
+        expect(mockSetRadioSearchQuery).toHaveBeenCalledWith('beats');
     });
 });

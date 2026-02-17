@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
-import { RefreshCw, MoreVertical, Search } from 'lucide-react-native';
+import { RefreshCw, MoreVertical } from 'lucide-react-native';
+import { SearchBar } from '../../components/SearchBar';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { CollectionGridItem } from '../../components/CollectionGridItem'; // Import new component
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
+import { useTheme } from '../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -18,6 +20,7 @@ const GAP = 12;
 const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 export default function CollectionScreen() {
+    const colors = useTheme();
     const collection = useStore((state) => state.collection);
     // ... existing hooks ...
     const playAlbum = useStore((state) => state.playAlbum);
@@ -30,6 +33,7 @@ export default function CollectionScreen() {
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const loadMoreCollection = useStore((state) => state.loadMoreCollection);
     const isCollectionLoading = useStore((state) => state.isCollectionLoading);
+    const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
@@ -172,33 +176,23 @@ export default function CollectionScreen() {
 
     if (!collection) {
         return (
-            <SafeAreaView style={styles.container}>
+            <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#0896afff" />
-                    <Text style={styles.text}>Loading Collection...</Text>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={[styles.text, { color: colors.textSecondary }]}>Loading Collection...</Text>
                 </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Collection</Text>
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
-            <View style={styles.searchContainer}>
-                <Search size={20} color="#888" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search collection..."
-                    placeholderTextColor="#888"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                />
-            </View>
+            <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search collection..."
+            />
 
             <FlatList
                 testID="collection-list"
@@ -210,7 +204,7 @@ export default function CollectionScreen() {
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
                 onEndReached={() => {
                     loadMoreCollection();
@@ -219,7 +213,7 @@ export default function CollectionScreen() {
                 ListFooterComponent={() => (
                     isCollectionLoading && !refreshing ? (
                         <View style={{ padding: 20, alignItems: 'center' }}>
-                            <ActivityIndicator size="small" color="#0896afff" />
+                            <ActivityIndicator size="small" color={colors.accent} />
                         </View>
                     ) : null
                 )}
@@ -236,7 +230,7 @@ export default function CollectionScreen() {
                 title={actionSheetTitle}
                 actions={actionSheetActions}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -265,25 +259,6 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: '#fff',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-        margin: 16,
-        marginTop: 0,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        height: 48,
-    },
-    searchIcon: {
-        marginRight: 8,
-    },
-    searchInput: {
-        flex: 1,
-        color: '#fff',
-        fontSize: 16,
-        height: '100%',
     },
     listContent: {
         padding: LIST_PADDING,

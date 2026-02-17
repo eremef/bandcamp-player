@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -78,6 +78,11 @@ interface AppState extends PlayerState {
     hasMoreCollection: boolean;
     isCollectionLoading: boolean;
     searchQuery: string;
+    radioSearchQuery: string;
+    setRadioSearchQuery: (query: string) => void;
+    // Theme State
+    theme: Theme;
+    setTheme: (theme: Theme) => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> = {
@@ -109,6 +114,13 @@ export const useStore = create<AppState>((set, get) => ({
     artistCollection: null,
     isArtistCollectionLoading: false,
     searchQuery: '',
+    radioSearchQuery: '',
+    theme: 'system',
+    setRadioSearchQuery: (query) => set({ radioSearchQuery: query }),
+    setTheme: async (theme: Theme) => {
+        await AsyncStorage.setItem('app_theme', theme);
+        set({ theme });
+    },
 
     setHostIp: async (ip: string) => {
         set({ hostIp: ip });
@@ -139,8 +151,9 @@ export const useStore = create<AppState>((set, get) => ({
         const lastIp = await AsyncStorage.getItem('last_ip');
         const recentsJson = await AsyncStorage.getItem('recent_ips');
         const recentIps = recentsJson ? JSON.parse(recentsJson) : [];
+        const savedTheme = await AsyncStorage.getItem('app_theme') as Theme || 'system';
 
-        set({ recentIps });
+        set({ recentIps, theme: savedTheme });
 
         if (lastIp) {
             set({ hostIp: lastIp });

@@ -113,6 +113,7 @@ export interface Queue {
 // ============================================================================
 
 export type RepeatMode = 'off' | 'one' | 'all';
+export type Theme = 'light' | 'dark' | 'system';
 
 export interface PlayerState {
     isPlaying: boolean;
@@ -209,6 +210,7 @@ export interface AppSettings {
     minimizeToTray: boolean;
     showNotifications: boolean;
     remoteEnabled: boolean;
+    theme: Theme;
 
     // Scrobbling
     scrobblingEnabled: boolean;

@@ -8,8 +8,10 @@ import { useStore } from '../store';
 import { ArrowLeft, Play, MoreVertical } from 'lucide-react-native';
 import { ActionSheet, Action } from '../components/ActionSheet';
 import { PlaylistSelectionModal } from '../components/PlaylistSelectionModal';
+import { useTheme } from '../theme';
 
 export default function AlbumDetailScreen() {
+    const colors = useTheme();
     const { url } = useLocalSearchParams<{ url: string }>();
     const router = useRouter();
     const [album, setAlbum] = useState<Album | null>(null);
@@ -153,15 +155,15 @@ export default function AlbumDetailScreen() {
 
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <ArrowLeft size={24} color="#fff" />
+                        <ArrowLeft size={24} color={colors.text} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color="#0896afff" />
-                    <Text style={styles.text}>Loading Album...</Text>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={[styles.text, { color: colors.textSecondary }]}>Loading Album...</Text>
                 </View>
             </SafeAreaView>
         );
@@ -169,14 +171,14 @@ export default function AlbumDetailScreen() {
 
     if (!album) {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <ArrowLeft size={24} color="#fff" />
+                        <ArrowLeft size={24} color={colors.text} />
                     </TouchableOpacity>
                 </View>
                 <View style={styles.center}>
-                    <Text style={styles.text}>Album not found</Text>
+                    <Text style={[styles.text, { color: colors.textSecondary }]}>Album not found</Text>
                 </View>
             </SafeAreaView>
         );
@@ -184,40 +186,40 @@ export default function AlbumDetailScreen() {
 
     const renderHeader = () => (
         <View style={styles.albumHeader}>
-            <Image source={{ uri: album.artworkUrl }} style={styles.artwork} />
-            <Text style={styles.title}>{album.title}</Text>
-            <Text style={styles.artist}>{album.artist}</Text>
-            <TouchableOpacity style={styles.playButton} onPress={handlePlayAll}>
-                <Play size={20} color="#000" fill="#000" />
-                <Text style={styles.playButtonText}>Play Album</Text>
+            <Image source={{ uri: album.artworkUrl }} style={[styles.artwork, { backgroundColor: colors.card }]} />
+            <Text style={[styles.title, { color: colors.text }]}>{album.title}</Text>
+            <Text style={[styles.artist, { color: colors.accent }]}>{album.artist}</Text>
+            <TouchableOpacity style={[styles.playButton, { backgroundColor: colors.accent }]} onPress={handlePlayAll}>
+                <Play size={20} color="#fff" fill="#fff" />
+                <Text style={[styles.playButtonText, { color: '#fff' }]}>Play Album</Text>
             </TouchableOpacity>
         </View>
     );
 
     const renderTrack = ({ item, index }: { item: Track, index: number }) => (
         <TouchableOpacity
-            style={styles.trackItem}
+            style={[styles.trackItem, { borderBottomColor: colors.border }]}
             onPress={() => handleTrackPress(item)}
             onLongPress={() => handleTrackLongPress(item)}
             delayLongPress={500}
         >
-            <Text style={styles.trackNumber}>{index + 1}</Text>
+            <Text style={[styles.trackNumber, { color: colors.textSecondary }]}>{index + 1}</Text>
             <View style={styles.trackInfo}>
-                <Text style={styles.trackTitle}>{item.title}</Text>
-                <Text style={styles.trackDuration}>{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</Text>
+                <Text style={[styles.trackTitle, { color: colors.text }]}>{item.title}</Text>
+                <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</Text>
             </View>
         </TouchableOpacity>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
-                    <ArrowLeft size={24} color="#fff" />
+                    <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Album</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>Album</Text>
                 <TouchableOpacity onPress={handleAlbumMenu} style={styles.backButton}>
-                    <MoreVertical size={24} color="#fff" />
+                    <MoreVertical size={24} color={colors.text} />
                 </TouchableOpacity>
             </View>
 

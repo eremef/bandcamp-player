@@ -168,6 +168,26 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         </div>
                     )}
 
+                    {/* Appearance */}
+                    <section className={styles.section}>
+                        <h3>Appearance</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Theme</span>
+                                <span className={styles.settingHint}>Choose application color theme</span>
+                            </div>
+                            <select
+                                className={styles.selectInput}
+                                value={settings?.theme || 'system'}
+                                onChange={(e) => updateSettings({ theme: e.target.value as any })}
+                            >
+                                <option value="system">System Default</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+                    </section>
+
                     {/* Cache */}
                     <section className={styles.section}>
                         <h3>Offline Cache</h3>

@@ -49,6 +49,7 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
   - **Queue**: View and manage the playback queue with remove and reorder support.
   - **Connection**: Manage connection to Host, view IP, and Disconnect.
   - **General**: Swipe-to-refresh on all lists, About screen, License viewer.
+  - **UI/UX**: Unified headerless design with standardized floating Search Bars, Safe Area compliance for Android camera bars, and persistent Theme Support (System/Light/Dark).
 
 ## 3. Data Models
 

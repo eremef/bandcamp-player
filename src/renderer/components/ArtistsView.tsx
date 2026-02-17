@@ -173,7 +173,7 @@ export const ArtistsView: React.FC = () => {
                     <Search className={styles.searchIcon} size={18} />
                     <input
                         type="text"
-                        placeholder="Filter artists..."
+                        placeholder="Search artists.."
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
                         className={styles.input}

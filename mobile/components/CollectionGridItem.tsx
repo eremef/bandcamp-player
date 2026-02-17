@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { CollectionItem } from '@shared/types';
+import { useTheme } from '../theme';
 
 interface CollectionGridItemProps {
     item: CollectionItem;
@@ -17,6 +18,7 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = ({
     width,
     testID
 }) => {
+    const colors = useTheme();
     let artworkUrl, title, artist;
 
     if (item.type === 'album' && item.album) {
@@ -39,18 +41,18 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = ({
             delayLongPress={500}
             testID={testID}
         >
-            <View style={styles.artworkContainer}>
+            <View style={[styles.artworkContainer, { backgroundColor: colors.input }]}>
                 {artworkUrl ? (
                     <Image source={{ uri: artworkUrl }} style={styles.artwork} />
                 ) : (
-                    <View style={[styles.artwork, styles.placeholderArtwork]}>
-                        <Text style={styles.placeholderText}>♪</Text>
+                    <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
                 )}
             </View>
             <View style={styles.info}>
-                <Text style={styles.title} numberOfLines={1}>{title}</Text>
-                <Text style={styles.artist} numberOfLines={1}>{artist}</Text>
+                <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
+                <Text style={[styles.artist, { color: colors.textSecondary }]} numberOfLines={1}>{artist}</Text>
             </View>
         </TouchableOpacity>
     );

@@ -83,7 +83,7 @@ Since the mobile app imports code from `src/shared` (outside its root), we use a
 Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
 
 - `src/test/setup.ts`: Mocks `window.electron` methods (`invoke`, `on`, `removeListener`).
-- `mobile/jest.setup.js`: Mocks `react-native-track-player`, `AsyncStorage`, and Expo modules.
+- `mobile/jest.setup.js`: Mocks `react-native-track-player`, `AsyncStorage`, and Expo modules (including `@expo/vector-icons`).
 
 ## Current Test Coverage
 

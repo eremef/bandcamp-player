@@ -15,13 +15,7 @@ jest.mock('expo-router', () => ({
     }),
 }));
 
-jest.mock('@expo/vector-icons', () => ({
-    Ionicons: 'Ionicons',
-}));
 
-jest.mock('react-native-safe-area-context', () => ({
-    SafeAreaView: ({ children }: any) => <>{children}</>,
-}));
 
 describe('ArtistsScreen', () => {
     const mockRefreshArtists = jest.fn();
@@ -44,7 +38,7 @@ describe('ArtistsScreen', () => {
     it('renders correctly and lists artists', () => {
         const { getByText, getAllByText } = render(<ArtistsScreen />);
 
-        expect(getByText('Artists')).toBeTruthy();
+        // Removed header check as it was moved to layout or removed
         expect(getAllByText('A')).toBeTruthy(); // Section A
         expect(getAllByText('B')).toBeTruthy(); // Section B
         expect(getAllByText('Z')).toBeTruthy(); // Section Z
@@ -58,7 +52,7 @@ describe('ArtistsScreen', () => {
     it('filters artists by search query', () => {
         const { getByPlaceholderText, getByText, queryByText } = render(<ArtistsScreen />);
 
-        const searchInput = getByPlaceholderText('Filter artists...');
+        const searchInput = getByPlaceholderText('Search artists..');
         fireEvent.changeText(searchInput, 'bb'); // Should match Abba
 
         expect(getByText('Abba')).toBeTruthy();

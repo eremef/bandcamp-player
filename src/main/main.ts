@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, nativeTheme } from 'electron';
 import * as path from 'path';
 import { TrayService } from './services/tray.service';
 import { AuthService } from './services/auth.service';
@@ -184,6 +184,11 @@ async function initializeServices() {
     const settings = database.getSettings();
     if (settings?.remoteEnabled) {
         remoteService.start();
+    }
+
+    // Set initial theme
+    if (settings?.theme) {
+        nativeTheme.themeSource = settings.theme;
     }
 
     // Register IPC handlers

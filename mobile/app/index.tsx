@@ -2,10 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useStore } from '../store';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle } from 'lucide-react-native';
+import { Wifi, AlertCircle, Settings } from 'lucide-react-native';
+import { useTheme } from '../theme';
+import { useRouter } from 'expo-router';
 
 export default function ConnectScreen() {
     const { connect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp, startScan, isScanning } = useStore();
+    const colors = useTheme();
+    const router = useRouter();
     const [ipInput, setIpInput] = useState(hostIp);
     const [isAutoConnecting, setIsAutoConnecting] = useState(true);
 
@@ -30,12 +34,12 @@ export default function ConnectScreen() {
 
     if (isAutoConnecting && connectionStatus === 'connecting') {
         return (
-            <SafeAreaView style={styles.container}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
                 <View style={styles.content}>
-                    <ActivityIndicator size="large" color="#0896afff" />
-                    <Text style={[styles.subtitle, { marginTop: 20 }]}>Auto-connecting...</Text>
+                    <ActivityIndicator size="large" color={colors.accent} />
+                    <Text style={[styles.subtitle, { marginTop: 20, color: colors.textSecondary }]}>Auto-connecting...</Text>
                     <TouchableOpacity onPress={() => setIsAutoConnecting(false)}>
-                        <Text style={{ color: '#0896afff', marginTop: 20 }}>Cancel</Text>
+                        <Text style={{ color: colors.accent, marginTop: 20 }}>Cancel</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -43,20 +47,20 @@ export default function ConnectScreen() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.content}>
-                <View style={styles.iconContainer}>
-                    <Wifi size={64} color="#0896afff" />
+                <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                    <Wifi size={64} color={colors.accent} />
                 </View>
 
-                <Text style={styles.title}>Bandcamp Remote</Text>
-                <Text style={styles.subtitle}>Enter the IP address of your desktop</Text>
+                <Text style={[styles.title, { color: colors.text }]}>Bandcamp Remote</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter the IP address of your desktop</Text>
 
                 <View style={styles.inputContainer}>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                         placeholder="192.168.1.x"
-                        placeholderTextColor="#666"
+                        placeholderTextColor={colors.textSecondary}
                         value={ipInput}
                         onChangeText={setIpInput}
                         keyboardType="numeric"
@@ -65,52 +69,52 @@ export default function ConnectScreen() {
                 </View>
 
                 <TouchableOpacity
-                    style={[styles.button, connectionStatus === 'connecting' && styles.buttonDisabled]}
+                    style={[styles.button, { backgroundColor: colors.accent }, connectionStatus === 'connecting' && styles.buttonDisabled]}
                     onPress={() => handleConnect()}
                     disabled={connectionStatus === 'connecting'}
                 >
                     {connectionStatus === 'connecting' ? (
                         <ActivityIndicator color="white" />
                     ) : (
-                        <Text style={styles.buttonText}>Connect</Text>
+                        <Text style={[styles.buttonText, { color: '#fff' }]}>Connect</Text>
                     )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.scanButton, isScanning && styles.buttonDisabled]}
+                    style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
                     onPress={() => startScan()}
                     disabled={connectionStatus === 'connecting' || isScanning}
                 >
                     {isScanning ? (
-                        <ActivityIndicator color="#0896afff" />
+                        <ActivityIndicator color={colors.accent} />
                     ) : (
-                        <Text style={styles.scanButtonText}>Auto Scan Network</Text>
+                        <Text style={[styles.scanButtonText, { color: colors.accent }]}>Auto Scan Network</Text>
                     )}
                 </TouchableOpacity>
 
                 {connectionStatus === 'disconnected' && hostIp && !isAutoConnecting && (
                     <View style={styles.statusContainer}>
                         <AlertCircle size={16} color="#ff4444" />
-                        <Text style={styles.errorText}>Disconnected. Check IP and try again.</Text>
+                        <Text style={[styles.errorText, { color: '#ff4444' }]}>Disconnected. Check IP and try again.</Text>
                     </View>
                 )}
 
                 {/* Recent IPs */}
                 {recentIps.length > 0 && (
                     <View style={styles.recentContainer}>
-                        <Text style={styles.recentTitle}>Recent Connections</Text>
+                        <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>Recent Connections</Text>
                         {recentIps.map((ip) => (
                             <TouchableOpacity
                                 key={ip}
-                                style={styles.recentItem}
+                                style={[styles.recentItem, { backgroundColor: colors.input, borderColor: colors.border }]}
                                 onPress={() => handleConnect(ip)}
                             >
-                                <Text style={styles.recentText}>{ip}</Text>
+                                <Text style={[styles.recentText, { color: colors.text }]}>{ip}</Text>
                                 <TouchableOpacity
                                     style={styles.removeRecent}
                                     onPress={() => removeRecentIp(ip)}
                                 >
-                                    <Text style={styles.removeRecentText}>×</Text>
+                                    <Text style={[styles.removeRecentText, { color: colors.textSecondary }]}>×</Text>
                                 </TouchableOpacity>
                             </TouchableOpacity>
                         ))}

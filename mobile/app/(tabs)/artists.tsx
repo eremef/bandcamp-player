@@ -2,9 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, SectionList, TouchableOpacity, Image, TextInput, Dimensions } from 'react-native';
 import { useStore } from '../../store';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../theme';
 import { Artist } from '@shared/types';
+import { SearchBar } from '../../components/SearchBar';
 
 const COLUMN_COUNT = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -12,8 +13,10 @@ const ITEM_WIDTH = (SCREEN_WIDTH - 40) / COLUMN_COUNT; // 20 padding on each sid
 
 export default function ArtistsScreen() {
     const { artists, refreshArtists, connectionStatus } = useStore();
+    const colors = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (connectionStatus === 'connected') {
@@ -68,20 +71,20 @@ export default function ArtistsScreen() {
         <TouchableOpacity
             key={item.id}
             style={styles.artistItem}
-            onPress={() => router.push({ pathname: '/artist/artist_detail', params: { id: item.id } })}
+            onPress={() => router.push({ pathname: '/artist/artist_detail' as any, params: { id: item.id } })}
         >
-            <View style={styles.avatarContainer}>
+            <View style={[styles.avatarContainer, { backgroundColor: colors.input }]}>
                 {item.imageUrl ? (
                     <Image source={{ uri: item.imageUrl }} style={styles.avatar} />
                 ) : (
-                    <View style={styles.placeholderAvatar}>
-                        <Text style={styles.placeholderText}>
+                    <View style={[styles.placeholderAvatar, { backgroundColor: colors.card }]}>
+                        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
                             {item.name.charAt(0).toUpperCase()}
                         </Text>
                     </View>
                 )}
             </View>
-            <Text style={styles.artistName} numberOfLines={1}>
+            <Text style={[styles.artistName, { color: colors.text }]} numberOfLines={1}>
                 {item.name}
             </Text>
         </TouchableOpacity>
@@ -98,32 +101,19 @@ export default function ArtistsScreen() {
     );
 
     const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
-        <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>{title}</Text>
+        <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sectionHeaderText, { color: colors.accent }]}>{title}</Text>
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Artists</Text>
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
-            <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Filter artists..."
-                    placeholderTextColor="#666"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                />
-                {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                        <Ionicons name="close-circle" size={20} color="#666" />
-                    </TouchableOpacity>
-                )}
-            </View>
+            <SearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search artists.."
+            />
 
             <SectionList
                 sections={sections}
@@ -134,11 +124,11 @@ export default function ArtistsScreen() {
                 stickySectionHeadersEnabled={false}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No artists found</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No artists found</Text>
                     </View>
                 }
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -155,24 +145,6 @@ const styles = StyleSheet.create({
         fontSize: 34,
         fontWeight: 'bold',
         color: '#fff',
-    },
-    searchContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#333',
-        marginHorizontal: 20,
-        borderRadius: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        marginBottom: 15,
-    },
-    searchIcon: {
-        marginRight: 10,
-    },
-    searchInput: {
-        flex: 1,
-        color: '#fff',
-        fontSize: 16,
     },
     listContent: {
         paddingBottom: 20,

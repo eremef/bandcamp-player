@@ -132,6 +132,7 @@ export class Database {
             scrobblingEnabled: true,
             scrobbleThreshold: 50,
             remoteEnabled: true,
+            theme: 'system',
         };
 
         const existing = this.db.prepare('SELECT value FROM settings WHERE key = ?').get('app_settings') as { value: string } | undefined;
@@ -504,6 +505,29 @@ export class Database {
         const transaction = this.db.transaction(() => {
             for (const artist of artists) {
                 insert.run(artist.id, artist.name, artist.url, artist.imageUrl || null, simulatedVal, now);
+            }
+        });
+
+        transaction();
+    }
+
+    replaceArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[], isSimulated = false): void {
+        const now = new Date().toISOString();
+        const simulatedVal = isSimulated ? 1 : 0;
+
+        const deleteStmt = this.db.prepare('DELETE FROM artists WHERE is_simulated = ?');
+        const insertStmt = this.db.prepare(`
+            INSERT INTO artists (id, name, url, image_url, is_simulated, cached_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `);
+
+        const transaction = this.db.transaction(() => {
+            // 1. Clear existing artists for this mode (real or simulated)
+            deleteStmt.run(simulatedVal);
+
+            // 2. Insert new artists
+            for (const artist of artists) {
+                insertStmt.run(artist.id, artist.name, artist.url, artist.imageUrl || null, simulatedVal, now);
             }
         });
 

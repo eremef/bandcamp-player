@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
 import { router } from 'expo-router';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { SearchBar } from '../../components/SearchBar';
+import { useTheme } from '../../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function RadioScreen() {
+    const insets = useSafeAreaInsets();
+    const colors = useTheme();
     const radioStations = useStore((state) => state.radioStations);
     const playlists = useStore((state) => state.playlists);
     const playStation = useStore((state) => state.playStation);
@@ -15,6 +20,8 @@ export default function RadioScreen() {
     const addStationToQueue = useStore((state) => state.addStationToQueue);
     const addStationToPlaylist = useStore((state) => state.addStationToPlaylist);
     const refreshRadio = useStore((state) => state.refreshRadio);
+    const radioSearchQuery = useStore((state) => state.radioSearchQuery);
+    const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
 
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
@@ -24,6 +31,15 @@ export default function RadioScreen() {
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
+    const filteredStations = React.useMemo(() => {
+        if (!radioSearchQuery.trim()) return radioStations;
+        const query = radioSearchQuery.toLowerCase();
+        return radioStations.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            (s.description && s.description.toLowerCase().includes(query))
+        );
+    }, [radioStations, radioSearchQuery]);
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
@@ -96,7 +112,7 @@ export default function RadioScreen() {
     const renderItem = ({ item }: { item: RadioStation }) => {
         return (
             <TouchableOpacity
-                style={styles.item}
+                style={[styles.item, { backgroundColor: colors.card }]}
                 onPress={() => handlePlayStation(item)}
                 onLongPress={() => handleLongPress(item)}
                 delayLongPress={500}
@@ -104,18 +120,18 @@ export default function RadioScreen() {
                 {item.imageUrl ? (
                     <Image source={{ uri: item.imageUrl }} style={styles.artwork} />
                 ) : (
-                    <View style={[styles.artwork, styles.placeholderArtwork]}>
-                        <Text style={styles.placeholderText}>Radio</Text>
+                    <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.input }]}>
+                        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>Radio</Text>
                     </View>
                 )}
                 <View style={styles.itemInfo}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
                     {item.date && (
-                        <Text style={styles.itemDate}>
+                        <Text style={[styles.itemDate, { color: colors.accent }]}>
                             {item.date}{item.duration ? ` • ${Math.floor(item.duration / 3600)}h ${Math.floor((item.duration % 3600) / 60)}m` : ''}
                         </Text>
                     )}
-                    <Text style={styles.itemSubtitle} numberOfLines={2}>{item.description}</Text>
+                    <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>{item.description}</Text>
                 </View>
             </TouchableOpacity>
         );
@@ -123,24 +139,27 @@ export default function RadioScreen() {
 
     const renderEmptyComponent = () => (
         <View style={styles.center}>
-            <Text style={styles.emptyText}>No radio stations found</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No radio stations found</Text>
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Radio</Text>
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+
+            <SearchBar
+                value={radioSearchQuery}
+                onChangeText={setRadioSearchQuery}
+                placeholder="Search radio shows..."
+            />
 
             <FlatList
-                data={radioStations}
+                data={filteredStations}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.listContent, radioStations.length === 0 && { flex: 1 }]}
+                contentContainerStyle={[styles.listContent, filteredStations.length === 0 && { flex: 1 }]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />
 
@@ -157,7 +176,7 @@ export default function RadioScreen() {
                 onSelect={handleAddToPlaylist}
                 playlists={playlists}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
