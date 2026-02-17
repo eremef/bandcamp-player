@@ -188,36 +188,36 @@ export class ScraperService extends EventEmitter {
             return this.cachedCollection;
         }
 
+        const user = this.authService.getUser();
+        const userId = user.user?.id;
+        const isSimulating = simulationService.shouldSimulate();
+
+        // Use a different cache ID for simulation to avoid clobbering real data
+        const cacheId = isSimulating ? `${userId}_sim` : (userId || 'anonymous');
+
         // Try to load from database first if not forcing refresh
-        if (!forceRefresh && this.database) {
-            const user = this.authService.getUser();
-            if (user.user?.id) {
-                const cached = this.database.getCollectionCache(user.user.id);
-                if (cached) {
-                    console.log(`[Scraper] Loaded collection from database cache for user ${user.user.id}`);
+        if (!forceRefresh && this.database && userId) {
+            const cached = this.database.getCollectionCache(cacheId);
+
+            if (cached) {
+                const hasMissingArtwork = isSimulating && cached.data.items.length > 0 &&
+                    !cached.data.items.some((item: any) => (item.track?.artworkUrl || item.album?.artworkUrl));
+
+                if (hasMissingArtwork) {
+                    console.log('[Scraper] Cached simulation is missing artwork, forcing refresh...');
+                } else {
+                    console.log(`[Scraper] Loaded ${isSimulating ? 'simulated ' : ''}collection from cache for ${userId}`);
                     this.cachedCollection = cached.data;
+                    this.extractAndSaveArtists(cached.data.items, isSimulating);
 
-                    // Ensure artists are populated even when loading from cache
-                    // This creates the artist data if it doesn't exist yet
-                    this.extractAndSaveArtists(cached.data.items);
-
-                    // Check if cache is stale (older than 24 hours)
-                    const lastUpdated = new Date(cached.cachedAt).getTime();
-                    const now = Date.now();
-                    const oneDayMs = 24 * 60 * 60 * 1000;
-
-                    if (now - lastUpdated > oneDayMs) {
-                        console.log('[Scraper] Cache is stale (> 24h), triggering background refresh...');
-                        // Trigger background refresh but DON'T await it
-                        // Use a separate async block to avoid non-blocking issues
-                        (async () => {
-                            try {
-                                await this.fetchCollection(true);
-                                console.log('[Scraper] Background refresh completed.');
-                            } catch (e) {
-                                console.error('[Scraper] Background refresh failed:', e);
-                            }
-                        })();
+                    // Background refresh for real collections if stale
+                    if (!isSimulating) {
+                        const lastUpdated = new Date(cached.cachedAt).getTime();
+                        const now = Date.now();
+                        if (now - lastUpdated > 24 * 60 * 60 * 1000) {
+                            console.log('[Scraper] Real cache is stale, refreshing in background...');
+                            this.fetchCollection(true).catch(e => console.error('[Scraper] Background refresh failed:', e));
+                        }
                     }
 
                     return this.cachedCollection!;
@@ -228,221 +228,135 @@ export class ScraperService extends EventEmitter {
         this.fetchPromise = (async () => {
             try {
                 const authState = this.authService.getUser();
-                if (!authState.isAuthenticated || !authState.user) {
+                if (!isSimulating && (!authState.isAuthenticated || !authState.user)) {
                     throw new Error('User not authenticated');
                 }
 
-                const cookies = await this.authService.getSessionCookies();
-                const profileUrl = authState.user.profileUrl;
-
-                // Fetch the collection page
-                const response = await this.http.get(profileUrl, {
-                    headers: { Cookie: cookies },
-                });
-
-                const $ = cheerio.load(response.data);
+                const cookies = isSimulating ? '' : await this.authService.getSessionCookies();
+                const profileUrl = isSimulating ? '' : authState.user?.profileUrl || '';
                 const items: CollectionItem[] = [];
 
-                // Extract collection data from the page
-                // Bandcamp embeds collection data in a script tag
-                // const pageDataScript = $('script[data-tralbum]').attr('data-tralbum');
-                const collectionScript = $('script').filter((_, el) => {
-                    const text = $(el).html() || '';
-                    return text.includes('CollectionData') || text.includes('collection_data');
-                }).first().html();
+                if (!isSimulating) {
+                    // Real scraping flow
+                    const response = await this.http.get(profileUrl, { headers: { Cookie: cookies } });
+                    const $ = cheerio.load(response.data);
 
-                if (!collectionScript) {
-                    console.warn('[Scraper] Collection script NOT found in page.');
-                }
+                    // Parse initial page items
+                    const collectionScript = $('script').filter((_, el) => {
+                        const text = $(el).html() || '';
+                        return text.includes('CollectionData') || text.includes('collection_data');
+                    }).first().html();
 
-                let collectionData: any = null; // Declare here
-
-                if (collectionScript) {
-                    // Parse collection data from script
-                    // Try robust extraction first
-                    collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
-
-                    if (collectionData) {
-                        try {
-                            // Process collection data
-                            if (collectionData.items) {
-                                for (const item of collectionData.items) {
-                                    const collectionItem = this.parseCollectionItem(item);
-                                    if (collectionItem) {
-                                        items.push(collectionItem);
-                                    }
-                                }
+                    if (collectionScript) {
+                        const collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
+                        if (collectionData?.items) {
+                            for (const item of collectionData.items) {
+                                const parsed = this.parseCollectionItem(item);
+                                if (parsed) items.push(parsed);
                             }
-                        } catch (__e) {
-                            console.error('Error processing collection data:', __e);
                         }
                     }
-                }
 
-                // Also try to parse from DOM if script parsing fails
-                if (items.length === 0) {
-                    $('.collection-item-container').each((_, element) => {
-                        const $item = $(element);
-                        const collectionItem = this.parseCollectionItemFromDOM($, $item);
-                        if (collectionItem) {
-                            items.push(collectionItem);
-                        }
-                    });
-                }
-
-                // Extract fan_id from the page to be sure we have the correct one
-                let pageFanId: number | null = null;
-
-                // Strategy 1: <div id="pagedata" data-blob="...">
-                // This seems to be the new standard for Bandcamp pages
-                const $pagedata = $('#pagedata');
-                const dataBlob = $pagedata.attr('data-blob');
-                if (dataBlob) {
-                    try {
-                        // It's usually HTML encoded (e.g. &quot;)
-                        // Use a single regex with a replacement map to avoid double-unescaping (CodeQL fix)
-                        const entities: Record<string, string> = {
-                            '&quot;': '"',
-                            '&amp;': '&',
-                            '&lt;': '<',
-                            '&gt;': '>'
-                        };
-                        const decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
-
-                        const pd = JSON.parse(decoded);
-                        if (pd.fan_stats && pd.fan_stats.fan_id) {
-                            pageFanId = Number(pd.fan_stats.fan_id);
-                        } else if (pd.fan_id) {
-                            pageFanId = Number(pd.fan_id);
-                        }
-                    } catch (e) {
-                        console.error('[Scraper] Failed to parse #pagedata data-blob:', e);
-                    }
-                }
-
-                // Strategy 2: Legacy Script Variable (Backup)
-                if (!pageFanId) {
-                    const pd = this.extractJsonObject(response.data, ['pagedata']);
-                    if (pd && pd.fan_id) {
-                        pageFanId = Number(pd.fan_id);
-                    }
-                }
-
-                // Strategy 3: Loose Regex (Backup)
-                const fanDataMatch = response.data.match(/["']?fan_id["']?\s*:\s*(\d+)/);
-                if (fanDataMatch) {
-                    pageFanId = parseInt(fanDataMatch[1], 10);
-                }
-
-                if (!pageFanId) {
-                    const dataBlobId = response.data.match(/data-fan-id="(\d+)"/);
-                    if (dataBlobId) {
-                        pageFanId = parseInt(dataBlobId[1], 10);
-                    }
-                }
-
-                const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
-
-                // Fetch more items via API
-                // ...
-
-                const futureToken = String(Math.floor(Date.now() / 1000) + ONE_YEAR_SECONDS);
-                try {
-                    const apiItems = await this.fetchMoreCollectionItems(activeFanId, futureToken, cookies);
-
-                    if (apiItems.length > 0) {
-                        // Merge and dedup
-                        const newItems = apiItems.filter(newI => !items.some(existing => existing.id === newI.id));
-                        items.push(...newItems);
-                    }
-                } catch (e) {
-                    console.error('Bootstrap failed:', e);
-                }
-
-                let hasMore = items.length > 0;
-                // Limit to avoid infinite loops in case of error
-                // Increased from 100 to 1000 to support collections up to ~20k items
-                const MAX_FETCHES = 1000;
-                let fetchCount = 0;
-                let retryCount = 0;
-                const MAX_RETRIES = 5;
-
-                while (hasMore && fetchCount < MAX_FETCHES) {
-                    // Find method to get next token
-                    // 1. Try last item from the list (which now includes API items)
-                    const lastItem = items[items.length - 1];
-
-                    if (!lastItem || !lastItem.token) {
-                        break;
+                    if (items.length === 0) {
+                        $('.collection-item-container').each((_, el) => {
+                            const parsed = this.parseCollectionItemFromDOM($, $(el));
+                            if (parsed) items.push(parsed);
+                        });
                     }
 
-                    try {
-                        // Try full token
-                        let moreItems = await this.fetchMoreCollectionItems(activeFanId, lastItem.token, cookies);
+                    // Fetch more via API
+                    const pageFanId = this.extractFanId(response.data);
+                    const activeFanId = pageFanId ? String(pageFanId) : authState.user.id;
 
-                        // FALLBACK: If 0 items, try using just the timestamp from the token
-                        // This is often required if the full token format (timestamp:id:type::) is too strict for the API context
-                        if (moreItems.length === 0 && lastItem.token.includes(':')) {
-                            const timestamp = lastItem.token.split(':')[0];
-                            moreItems = await this.fetchMoreCollectionItems(activeFanId, timestamp, cookies);
-                        }
+                    // Initial API fetch
+                    const initialBatch = await this.fetchMoreCollectionItems(activeFanId, undefined, cookies);
+                    for (const item of initialBatch) {
+                        if (!items.some(existing => existing.id === item.id)) items.push(item);
+                    }
 
-                        if (moreItems.length === 0) {
-                            hasMore = false;
-                        } else {
-                            // Avoid duplicates
-                            const newItems = moreItems.filter(newI => !items.some(existing => existing.id === newI.id));
-                            if (newItems.length === 0) {
+                    // Iterative fetch with retry logic
+                    let hasMore = items.length > 0;
+                    let batchCount = 0;
+                    let retryCount = 0;
+                    const MAX_RETRIES = 3;
+
+                    while (hasMore && batchCount < 1000) {
+                        const lastItem = items[items.length - 1];
+                        if (!lastItem?.token) break;
+
+                        try {
+                            const batch = await this.fetchMoreCollectionItems(activeFanId, lastItem.token, cookies);
+                            if (batch.length === 0) {
                                 hasMore = false;
                             } else {
-                                items.push(...newItems);
-                                // Reset retry count on success
-                                retryCount = 0;
+                                const newItems = batch.filter(b => !items.some(e => e.id === b.id));
+                                if (newItems.length === 0) {
+                                    hasMore = false;
+                                } else {
+                                    items.push(...newItems);
+                                    retryCount = 0; // Reset on success
+                                }
                             }
+                            batchCount++;
+                        } catch (error) {
+                            retryCount++;
+                            if (retryCount > MAX_RETRIES) {
+                                console.error(`[Scraper] Max retries reached for batch ${batchCount}, stopping.`);
+                                break;
+                            }
+                            console.warn(`[Scraper] Error fetching batch ${batchCount}, retry ${retryCount}/${MAX_RETRIES}...`);
+                            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
                         }
-                        fetchCount++;
-                    } catch (error) {
-                        console.error(`Error fetching batch ${fetchCount + 1}:`, error);
-                        retryCount++;
-                        if (retryCount > MAX_RETRIES) {
-                            console.error(`Max retries (${MAX_RETRIES}) reached. Stopping fetch.`);
-                            break;
-                        }
-                        // Wait longer before retry
-                        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
                     }
-                }
+                } else {
+                    // Simulation Flow with retries
+                    console.log('[Scraper] Starting large collection simulation...');
+                    let hasMore = true;
+                    let lastToken: string | undefined = undefined;
+                    let retryCount = 0;
+                    const MAX_RETRIES = 5;
 
+                    while (hasMore) {
+                        try {
+                            const batch = await simulationService.fetchBatch(lastToken);
+                            if (batch.length === 0) {
+                                hasMore = false;
+                            } else {
+                                items.push(...batch);
+                                lastToken = batch[batch.length - 1].token;
+                                retryCount = 0; // Reset on success
+                            }
+                        } catch (error) {
+                            retryCount++;
+                            if (retryCount > MAX_RETRIES) {
+                                console.error('[Scraper] Simulation failed repeatedly, stopping.');
+                                break;
+                            }
+                            console.warn(`[Scraper] Simulation error (retry ${retryCount}/${MAX_RETRIES})...`);
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        }
+                    }
+                    console.log(`[Scraper] Simulation complete: ${items.length} items generated`);
+                }
 
                 this.cachedCollection = {
                     items,
                     totalCount: items.length,
                     lastUpdated: new Date().toISOString(),
+                    isSimulated: isSimulating,
                 };
 
                 this.emit('collection-updated', this.cachedCollection);
 
-                // Save to database if we have enough items
-                if (this.database && this.cachedCollection.items.length > 0) {
-                    const user = this.authService.getUser();
-                    if (user.user?.id) {
-                        this.database.saveCollectionCache(user.user.id, 'collection', this.cachedCollection);
-                        console.log(`[Scraper] Saved collection to database cache for user ${user.user.id} (${this.cachedCollection.items.length} items)`);
-
-                        // Extract and save artists
-                        this.extractAndSaveArtists(this.cachedCollection.items);
-                    }
+                if (this.database && userId && items.length > 0) {
+                    this.database.saveCollectionCache(cacheId, 'collection', this.cachedCollection);
+                    console.log(`[Scraper] Saved ${isSimulating ? 'simulated ' : ''}collection to cache (${items.length} items)`);
+                    this.extractAndSaveArtists(items, isSimulating);
                 }
 
                 return this.cachedCollection;
             } catch (error: any) {
-                console.error('Error fetching collection:', error.message);
-                if (error.response) {
-                    console.error('Axios error details:', {
-                        status: error.response.status,
-                        data: typeof error.response.data === 'string' ? error.response.data.substring(0, 200) : 'non-string data'
-                    });
-                }
+                console.error('[Scraper] Collection fetch failed:', error.message);
                 throw error;
             } finally {
                 this.fetchPromise = null;
@@ -452,19 +366,39 @@ export class ScraperService extends EventEmitter {
         return this.fetchPromise;
     }
 
+    private extractFanId(html: string): number | null {
+        const $ = cheerio.load(html);
+        const dataBlob = $('#pagedata').attr('data-blob');
+        if (dataBlob) {
+            try {
+                const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+                const decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+                const pd = JSON.parse(decoded);
+                return pd.fan_stats?.fan_id || pd.fan_id || null;
+            } catch (e) {
+                console.error('[Scraper] Failed to parse #pagedata:', e);
+            }
+        }
+        return null;
+    }
+
     /**
      * Extract unique artists from collection items and save to database
      */
-    private extractAndSaveArtists(items: CollectionItem[]): void {
+    private extractAndSaveArtists(items: CollectionItem[], isSimulated = false): void {
         if (!this.database) return;
 
         const artistsMap = new Map<string, { id: string; name: string; url: string; imageUrl?: string }>();
 
         for (const item of items) {
             const data = item.type === 'album' ? item.album : item.track;
-            if (!data || !data.artistId) continue;
+            if (!data) continue;
 
-            if (!artistsMap.has(data.artistId)) {
+            // Use aristId if available, fallback to a name-based ID if missing
+            // This ensures artists with singles or limited DOM info still appear
+            const artistId = data.artistId || `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+
+            if (!artistsMap.has(artistId)) {
                 // Try to extract artist URL from item URL
                 let artistUrl = '';
                 if (data.bandcampUrl) {
@@ -476,8 +410,8 @@ export class ScraperService extends EventEmitter {
                     }
                 }
 
-                artistsMap.set(data.artistId, {
-                    id: data.artistId,
+                artistsMap.set(artistId, {
+                    id: artistId,
                     name: data.artist,
                     url: artistUrl,
                     imageUrl: data.artworkUrl || undefined
@@ -487,8 +421,8 @@ export class ScraperService extends EventEmitter {
 
         const artists = Array.from(artistsMap.values());
         if (artists.length > 0) {
-            this.database.saveArtists(artists);
-            console.log(`[Scraper] Saved ${artists.length} artists to database`);
+            this.database.saveArtists(artists, isSimulated);
+            console.log(`[Scraper] Saved ${artists.length} artists to database (isSimulated: ${isSimulated})`);
         }
     }
 
@@ -587,6 +521,7 @@ export class ScraperService extends EventEmitter {
                         id,
                         title: trackTitle,
                         artist,
+                        artistId: item.band_id ? String(item.band_id) : undefined,
                         album: item.album_title || '',
                         duration: item.duration || 0,
                         artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
@@ -613,6 +548,7 @@ export class ScraperService extends EventEmitter {
             const url = $item.find('a.item-link').attr('href') || '';
             const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
+            const artistId = $item.attr('data-bandid');
             const type = ($item.attr('data-itemtype') === 'track') ? 'track' : 'album';
             const token = $item.attr('data-token');
 
@@ -625,6 +561,7 @@ export class ScraperService extends EventEmitter {
                         id,
                         title,
                         artist,
+                        artistId,
                         artworkUrl: artworkUrl.replace('_9.jpg', '_10.jpg'),
                         bandcampUrl: url,
                         tracks: [],
@@ -641,6 +578,7 @@ export class ScraperService extends EventEmitter {
                         id,
                         title,
                         artist,
+                        artistId,
                         album: '', // DOM doesn't always have album name for tracks easily accessible
                         duration: 0,
                         artworkUrl: artworkUrl.replace('_9.jpg', '_10.jpg'),

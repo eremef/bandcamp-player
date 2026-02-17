@@ -83,13 +83,37 @@ export class Database {
 
       -- Artists table
       CREATE TABLE IF NOT EXISTS artists (
-        id TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
         name TEXT NOT NULL,
         url TEXT,
         image_url TEXT,
-        cached_at TEXT NOT NULL
+        is_simulated INTEGER DEFAULT 0,
+        cached_at TEXT NOT NULL,
+        PRIMARY KEY (id, is_simulated)
       );
     `);
+
+        // Migration: Add is_simulated to artists if it doesn't exist
+        try {
+            this.db.prepare('SELECT is_simulated FROM artists LIMIT 1').get();
+        } catch (e) {
+            console.log('[Database] Migrating artists table to include is_simulated column...');
+            this.db.exec(`
+                ALTER TABLE artists RENAME TO artists_old;
+                CREATE TABLE artists (
+                    id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    url TEXT,
+                    image_url TEXT,
+                    is_simulated INTEGER DEFAULT 0,
+                    cached_at TEXT NOT NULL,
+                    PRIMARY KEY (id, is_simulated)
+                );
+                INSERT INTO artists (id, name, url, image_url, cached_at, is_simulated)
+                SELECT id, name, url, image_url, cached_at, 0 FROM artists_old;
+                DROP TABLE artists_old;
+            `);
+        }
 
         // Initialize default settings if not exists
         this.initializeDefaultSettings();
@@ -469,24 +493,26 @@ export class Database {
 
     // ---- Artists ----
 
-    saveArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[]): void {
+    saveArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[], isSimulated = false): void {
         const now = new Date().toISOString();
+        const simulatedVal = isSimulated ? 1 : 0;
         const insert = this.db.prepare(`
-            INSERT OR REPLACE INTO artists (id, name, url, image_url, cached_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO artists (id, name, url, image_url, is_simulated, cached_at)
+            VALUES (?, ?, ?, ?, ?, ?)
         `);
 
         const transaction = this.db.transaction(() => {
             for (const artist of artists) {
-                insert.run(artist.id, artist.name, artist.url, artist.imageUrl || null, now);
+                insert.run(artist.id, artist.name, artist.url, artist.imageUrl || null, simulatedVal, now);
             }
         });
 
         transaction();
     }
 
-    getArtists(): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
-        const rows = this.db.prepare('SELECT * FROM artists ORDER BY name COLLATE NOCASE ASC').all() as Array<{
+    getArtists(isSimulated = false): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
+        const simulatedVal = isSimulated ? 1 : 0;
+        const rows = this.db.prepare('SELECT * FROM artists WHERE is_simulated = ? ORDER BY name COLLATE NOCASE ASC').all(simulatedVal) as Array<{
             id: string;
             name: string;
             url: string;
@@ -499,6 +525,19 @@ export class Database {
             bandcampUrl: row.url,
             imageUrl: row.image_url || undefined
         }));
+    }
+
+    clearSimulatedData(): void {
+        console.log('[Database] Cleaning up all simulated data...');
+
+        // 1. Clear simulated artists
+        const artistsResult = this.db.prepare('DELETE FROM artists WHERE is_simulated = 1').run();
+
+        // 2. Clear simulated collection cache
+        // IDs for simulation end with '_sim' (e.g. 'fanid_sim')
+        const cacheResult = this.db.prepare("DELETE FROM collection_cache WHERE id LIKE '%_sim'").run();
+
+        console.log(`[Database] Cleanup complete: ${artistsResult.changes} artists and ${cacheResult.changes} cache entries removed.`);
     }
 
     close(): void {

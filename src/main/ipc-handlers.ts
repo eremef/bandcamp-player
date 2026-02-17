@@ -26,6 +26,7 @@ import { RemoteControlService } from './services/remote.service';
 import { UpdaterService } from './services/updater.service';
 import { CastService } from './services/cast.service';
 import { Database } from './database/database';
+import { simulationService } from './services/simulation.service';
 
 // ============================================================================
 // IPC Handlers Registration
@@ -85,7 +86,12 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(COLLECTION_CHANNELS.SEARCH, (_, query: string) =>
         scraperService.searchCollection(query)
     );
-    ipcMain.handle(COLLECTION_CHANNELS.GET_ARTISTS, () => database.getArtists());
+    ipcMain.handle(COLLECTION_CHANNELS.GET_ARTISTS, () => {
+        return database.getArtists(simulationService.shouldSimulate());
+    });
+    ipcMain.handle(COLLECTION_CHANNELS.CLEAR_SIMULATION, () => {
+        database.clearSimulatedData();
+    });
 
     // ---- Player ----
     ipcMain.handle(PLAYER_CHANNELS.PLAY, (_, track?: Track) => playerService.play(track));
