@@ -27,7 +27,7 @@ if (process.platform === 'win32') {
     app.setAppUserModelId('xyz.eremef.bandcamp.player');
 }
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isDev = process.env.NODE_ENV === 'development' || (!app.isPackaged && process.env.NODE_ENV !== 'production');
 console.log('App starting. isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV, 'isPackaged:', app.isPackaged);
 
 let mainWindow: BrowserWindow | null = null;
@@ -236,7 +236,10 @@ function toggleMiniPlayer() {
 // ============================================================================
 
 // Ensure single instance
-const gotTheLock = app.requestSingleInstanceLock();
+// Ensure single instance
+const gotTheLock = process.env.E2E_TEST === 'true' ? true : app.requestSingleInstanceLock();
+
+console.log('Single instance lock:', gotTheLock);
 
 if (!gotTheLock) {
     app.quit();
