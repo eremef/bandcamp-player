@@ -177,7 +177,10 @@ async function initializeServices() {
     scrobblerService = new ScrobblerService(database);
     castService = new CastService();
     playerService = new PlayerService(cacheService, scrobblerService, scraperService, castService, database);
-    remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database);
+    
+    const remotePort = process.env.REMOTE_PORT ? parseInt(process.env.REMOTE_PORT, 10) : 9999;
+    remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database, remotePort);
+    
     updaterService = new UpdaterService(isDev);
 
     // Start remote service if enabled

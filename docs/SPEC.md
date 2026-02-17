@@ -290,7 +290,7 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 ### Remote Control (Mobile & Web)
 
 1. **Discovery**: Mobile app scans local network or User inputs IP. Web client is accessed directly via browser at `http://<host-ip>:9999`.
-2. **Connection**: Establishes WebSocket connection to Desktop on port `9999`.
+2. **Connection**: Establishes WebSocket connection to Desktop on port `9999` (default). The port can be configured via the `REMOTE_PORT` environment variable.
 3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status).
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
