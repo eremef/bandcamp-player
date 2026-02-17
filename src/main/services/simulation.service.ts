@@ -6,12 +6,18 @@ export class SimulationService {
     private readonly ERROR_RATE = 0.10; // 10% chance of error
 
     shouldSimulate(): boolean {
-        return process.argv.includes('--simulate-large-collection');
+        const hasFlag = process.argv.includes('--simulate-large-collection');
+        const hasEnv = process.env.SIMULATE_LARGE_COLLECTION === 'true';
+        if (hasFlag || hasEnv) {
+            console.log(`[SIMULATION] Simulation mode active (Flag: ${hasFlag}, Env: ${hasEnv})`);
+            return true;
+        }
+        return false;
     }
 
     async fetchBatch(lastToken: string | undefined): Promise<CollectionItem[]> {
-        // Simulate network latency
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Simulate network latency (reduced for faster loading while still simulating async)
+        await new Promise(resolve => setTimeout(resolve, 20));
 
         // Simulate network error
         if (Math.random() < this.ERROR_RATE) {
@@ -33,23 +39,46 @@ export class SimulationService {
         const dummyItems: CollectionItem[] = [];
         for (let i = 0; i < this.BATCH_SIZE; i++) {
             const itemId = currentIndex + i + 1;
-            dummyItems.push({
+            const isAlbum = itemId % 5 === 0; // Every 5th item is an album
+            const type = isAlbum ? 'album' : 'track';
+
+            // Use Picsum for varied artwork
+            const artworkUrl = `https://picsum.photos/seed/bc-${itemId}/300/300`;
+
+            const item: CollectionItem = {
                 id: `sim-${itemId}`,
-                type: 'track',
-                token: `sim-${itemId}:track::`, // Current item token pointing to this offset
-                track: {
+                type,
+                token: `sim-${itemId}:${type}::`,
+                purchaseDate: new Date(Date.now() - (itemId * 3600000)).toISOString(), // Older dates for higher IDs
+            };
+
+            if (isAlbum) {
+                item.album = {
+                    id: `sim-${itemId}`,
+                    title: `Simulated Album ${itemId}`,
+                    artist: `Artist ${Math.floor(itemId / 20)}`,
+                    artistId: `artist-${Math.floor(itemId / 20)}`,
+                    artworkUrl,
+                    bandcampUrl: 'https://bandcamp.com',
+                    tracks: [],
+                    trackCount: 10,
+                };
+            } else {
+                item.track = {
                     id: `sim-${itemId}`,
                     title: `Simulated Track ${itemId}`,
-                    artist: 'Simulated Artist',
+                    artist: `Artist ${Math.floor(itemId / 20)}`,
+                    artistId: `artist-${Math.floor(itemId / 20)}`,
                     album: `Simulated Album ${Math.floor(itemId / 10)}`,
-                    duration: 180,
-                    artworkUrl: '',
+                    duration: 180 + (itemId % 60),
+                    artworkUrl,
                     streamUrl: '',
-                    bandcampUrl: '',
+                    bandcampUrl: 'https://bandcamp.com',
                     isCached: false,
-                },
-                purchaseDate: new Date().toISOString(),
-            });
+                };
+            }
+
+            dummyItems.push(item);
         }
 
         console.log(`[SIMULATION] Generated batch starting at ${currentIndex + 1}`);

@@ -17,6 +17,24 @@ export const ArtistsView: React.FC = () => {
         artist.name.toLowerCase().includes(filter.toLowerCase())
     );
 
+    // Pre-calculate item counts for each artist to avoid O(N*M) complexity in render
+    const artistItemCounts = React.useMemo(() => {
+        const counts: Record<string, number> = {};
+        collection?.items.forEach(item => {
+            const data = item.type === 'album' ? item.album : item.track;
+            if (!data) return;
+
+            // Use aristId if available, fallback to a name-based ID if missing
+            // This matches the logic used in the scraper service
+            const artistId = data.artistId || `name-${data.artist.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}`;
+
+            if (artistId) {
+                counts[artistId] = (counts[artistId] || 0) + 1;
+            }
+        });
+        return counts;
+    }, [collection]);
+
     // Group artists by first letter
     const groupedArtists = React.useMemo(() => {
         try {
@@ -73,11 +91,16 @@ export const ArtistsView: React.FC = () => {
         const artist = artists.find(a => a.id === selectedArtistId);
 
         // Filter items for this artist
-        // Match by artistId first, then name
+        // Match by artistId first, then name-based ID, then raw name (case-insensitive)
         const artistItems = collection?.items.filter(item => {
             const data = item.type === 'album' ? item.album : item.track;
             if (!data) return false;
-            return data.artistId === selectedArtistId || (artist && data.artist === artist.name);
+
+            const artistId = data.artistId || `name-${data.artist.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')}`;
+            const matchesId = artistId === selectedArtistId;
+            const matchesName = artist && data.artist.toLowerCase().trim() === artist.name.toLowerCase().trim();
+
+            return matchesId || matchesName;
         }) || [];
 
         if (!artist) {
@@ -115,7 +138,9 @@ export const ArtistsView: React.FC = () => {
                     <div className={styles.detailInfo}>
                         <h1>{artist.name}</h1>
                         <div className={styles.meta}>
-                            <span>{artistItems.length} items in collection</span>
+                            <span>
+                                {artistItems.length} {artistItems.length === 1 ? 'item' : 'items'} in collection
+                            </span>
                             <span className={styles.dot}>•</span>
                             <a
                                 href={artist.bandcampUrl}
@@ -129,10 +154,12 @@ export const ArtistsView: React.FC = () => {
                     </div>
                 </div>
 
-                <ItemsGrid
-                    items={artistItems}
-                    emptyMessage="No items found for this artist in your collection."
-                />
+                <div className={`${styles.scrollContainer} custom-scrollbar`}>
+                    <ItemsGrid
+                        items={artistItems}
+                        emptyMessage="No items found for this artist in your collection."
+                    />
+                </div>
             </div>
         );
     }
@@ -185,10 +212,7 @@ export const ArtistsView: React.FC = () => {
                                         {artist.name}
                                     </div>
                                     <div className={styles.itemCount}>
-                                        {collection?.items.filter(i => {
-                                            const d = i.type === 'album' ? i.album : i.track;
-                                            return d?.artistId === artist.id;
-                                        }).length || 0} items
+                                        {artistItemCounts[artist.id] || 0} {artistItemCounts[artist.id] === 1 ? 'item' : 'items'}
                                     </div>
                                 </div>
                             ))}

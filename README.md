@@ -60,17 +60,14 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 # Clone the repository
 cd Bandcamp-player
 
-# Install dependencies
+# Install dependencies (automatically runs native rebuilds)
 npm install
 
-# Run in development mode
+# Run in development mode (starts watchers + Electron)
 npm run dev
 
 # Run in simulation mode (mocks 5000 items + errors)
-npm run dev:start
-
-# In another terminal, start Electron
-npm start
+npm run dev:large
 ```
 
 ### Building
@@ -78,6 +75,9 @@ npm start
 ```bash
 # Build for production
 npm run build
+
+# Create an installer package (runs tests + build + electron-builder)
+npm run package
 
 # Create a new release (bumps version, runs tests, commits, and tags)
 npm run release <newVersion>

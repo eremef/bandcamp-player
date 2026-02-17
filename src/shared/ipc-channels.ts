@@ -26,6 +26,7 @@ export const COLLECTION_CHANNELS = {
     GET_TRACK: 'collection:get-track',
     SEARCH: 'collection:search',
     GET_ARTISTS: 'collection:get-artists',
+    CLEAR_SIMULATION: 'collection:clear-simulation',
     ON_UPDATED: 'collection:on-updated',
 } as const;
 

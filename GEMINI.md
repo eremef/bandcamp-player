@@ -9,7 +9,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **IPC**: Channels in `src/shared/ipc-channels.ts`, handlers in `src/main/ipc-handlers.ts`
 - **Updates**: Desktop auto-updates handled by `UpdaterService` using `electron-updater` and GitHub Releases. The app checks for updates 15 seconds after startup and every 24 hours thereafter.
 - **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
-- **Simulation Mode**: Run with `npm run dev:start` to simulate a large collection (5000 items) with network errors for testing scalability and resilience.
+- **Simulation Mode**: Run with `npm run dev:large` to simulate a large collection (5000 items) with network errors for testing scalability and resilience.
 - **Mobile Lazy Loading**: Mobile app uses infinite scroll and paginated fetching to handle large collections efficiently.
 - **Collection Caching**: Collections > 100 items are cached in SQLite. Cache is refreshed daily in the background (stale-while-revalidate) to ensure fast startup without sacrificing data freshness.
 - **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.
