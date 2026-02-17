@@ -4,11 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { Playlist } from '@shared/types';
 import { router } from 'expo-router';
+import { useTheme } from '../../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MoreVertical, Plus } from 'lucide-react-native';
 import { ActionSheet } from '../../components/ActionSheet';
 import { InputModal } from '../../components/InputModal';
 
 export default function PlaylistsScreen() {
+    const insets = useSafeAreaInsets();
+    const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
     const playPlaylist = useStore((state) => state.playPlaylist);
     const disconnect = useStore((state) => state.disconnect);
@@ -94,20 +98,20 @@ export default function PlaylistsScreen() {
     const renderItem = ({ item }: { item: Playlist }) => {
         return (
             <TouchableOpacity
-                style={styles.item}
+                style={[styles.item, { backgroundColor: colors.card }]}
                 onPress={() => handlePlayPlaylist(item)}
                 onLongPress={() => handleLongPress(item)}
             >
                 {item.artworkUrl ? (
                     <Image source={{ uri: item.artworkUrl }} style={styles.artwork} />
                 ) : (
-                    <View style={[styles.artwork, styles.placeholderArtwork]}>
-                        <Text style={styles.placeholderText}>♪</Text>
+                    <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.input }]}>
+                        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
                 )}
                 <View style={styles.itemInfo}>
-                    <Text style={styles.itemTitle} numberOfLines={1}>{item.name}</Text>
-                    <Text style={styles.itemSubtitle}>
+                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
                         {item.trackCount} tracks • {formatDuration(item.totalDuration)}
                     </Text>
                 </View>
@@ -128,26 +132,18 @@ export default function PlaylistsScreen() {
 
     const renderEmptyComponent = () => (
         <View style={styles.center}>
-            <Text style={styles.emptyText}>No playlists found</Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
             <TouchableOpacity
-                style={styles.createButton}
+                style={[styles.createButton, { backgroundColor: colors.accent }]}
                 onPress={() => setCreateModalVisible(true)}
             >
-                <Text style={styles.createButtonText}>Create Playlist</Text>
+                <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
             </TouchableOpacity>
         </View>
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Playlists</Text>
-                <View style={{ flexDirection: 'row', gap: 16 }}>
-                    <TouchableOpacity onPress={() => setCreateModalVisible(true)}>
-                        <Plus size={24} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
             <FlatList
                 data={playlists}
@@ -156,7 +152,7 @@ export default function PlaylistsScreen() {
                 contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />
 
@@ -211,7 +207,7 @@ export default function PlaylistsScreen() {
                     }
                 ]}
             />
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -254,7 +250,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     listContent: {
-        padding: 16,
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     item: {
         flexDirection: 'row',

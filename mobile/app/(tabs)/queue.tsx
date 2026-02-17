@@ -4,8 +4,10 @@ import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Play, Trash2 } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
+import { useTheme } from '../../theme';
 
 export default function QueueScreen() {
+    const colors = useTheme();
     const queue = useStore((state) => state.queue);
     const playQueueIndex = useStore((state) => state.playQueueIndex);
     const removeFromQueue = useStore((state) => state.removeFromQueue);
@@ -33,31 +35,32 @@ export default function QueueScreen() {
             <TouchableOpacity
                 style={[
                     styles.item,
-                    isCurrent && styles.currentItem,
+                    { borderBottomColor: colors.border },
+                    isCurrent && { backgroundColor: colors.input },
                     isPlayed && styles.playedItem
                 ]}
                 onPress={() => handlePlay(index)}
             >
                 <Image
                     source={{ uri: item.track.artworkUrl }}
-                    style={styles.artwork}
+                    style={[styles.artwork, { backgroundColor: colors.card }]}
                 />
 
                 <View style={styles.info}>
                     <Text
-                        style={[styles.title, isCurrent && styles.currentText]}
+                        style={[styles.title, { color: colors.text }, isCurrent && { color: colors.accent }]}
                         numberOfLines={1}
                     >
                         {item.track.title}
                     </Text>
-                    <Text style={styles.artist} numberOfLines={1}>
+                    <Text style={[styles.artist, { color: colors.textSecondary }]} numberOfLines={1}>
                         {item.track.artist}
                     </Text>
                 </View>
 
                 {isCurrent && isPlaying && (
                     <View style={styles.playingIndicator}>
-                        <Play size={16} color="#0896afff" fill="#0896afff" />
+                        <Play size={16} color={colors.accent} fill={colors.accent} />
                     </View>
                 )}
 
@@ -66,7 +69,7 @@ export default function QueueScreen() {
                     onPress={() => handleRemove(item.id)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                    <Trash2 size={18} color="#666" />
+                    <Trash2 size={18} color={colors.textSecondary} />
                 </TouchableOpacity>
             </TouchableOpacity>
         );
@@ -86,16 +89,13 @@ export default function QueueScreen() {
 
     const renderEmptyComponent = () => (
         <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>Queue is empty</Text>
-            <Text style={styles.emptySubtext}>Add songs from your collection</Text>
+            <Text style={[styles.emptyText, { color: colors.text }]}>Queue is empty</Text>
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Add songs from your collection</Text>
         </View>
     );
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Queue ({queue.items.length})</Text>
-            </View>
+        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
             <FlatList
                 data={queue.items}
@@ -105,7 +105,7 @@ export default function QueueScreen() {
                 extraData={[queue.items.length, queue.currentIndex]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0896afff" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />
         </View>
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 10,
-        paddingHorizontal: 15,
+        paddingHorizontal: 16,
         borderBottomWidth: 1,
         borderBottomColor: '#1a1a1a',
     },

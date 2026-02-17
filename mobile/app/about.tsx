@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Github, ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
+import { useTheme } from '../theme';
 
 export default function AboutScreen() {
+    const colors = useTheme();
     const version = Constants.expoConfig?.version || '1.5.0-beta';
 
     const handleGithubPress = () => {
@@ -17,40 +19,41 @@ export default function AboutScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
-                    <ArrowLeft size={24} color="#fff" />
+                    <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>About</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>About</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             <View style={styles.content}>
                 <View style={styles.logoContainer}>
+                    {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
                     <Image source={require('../assets/icon.png')} style={styles.logo} />
                 </View>
 
-                <Text style={styles.appName}>Bandcamp Remote</Text>
-                <Text style={styles.version}>Version {version}</Text>
+                <Text style={[styles.appName, { color: colors.text }]}>Bandcamp Remote</Text>
+                <Text style={[styles.version, { color: colors.textSecondary }]}>Version {version}</Text>
 
-                <Text style={styles.description}>
+                <Text style={[styles.description, { color: colors.textSecondary }]}>
                     A remote control companion for the Bandcamp Desktop Player.
                     Control playback, browse your collection, and manage your queue from your mobile device.
                 </Text>
 
-                <TouchableOpacity style={styles.githubButton} onPress={handleGithubPress}>
+                <TouchableOpacity style={[styles.githubButton, { backgroundColor: colors.accent }]} onPress={handleGithubPress}>
                     <Github size={24} color="#fff" />
-                    <Text style={styles.githubText}>View on GitHub</Text>
+                    <Text style={[styles.githubText, { color: '#fff' }]}>View on GitHub</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.copyright} onPress={handleWebsitePress}>
-                    <Text style={styles.copyright}>
+                    <Text style={[styles.copyright, { color: colors.textSecondary }]}>
                         © {new Date().getFullYear()} eremef.xyz
                     </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/license')}>
-                    <Text style={[styles.copyright, styles.licenseLink]}>
+                <TouchableOpacity onPress={() => router.push('/license' as any)}>
+                    <Text style={[styles.copyright, styles.licenseLink, { color: colors.textSecondary }]}>
                         Licensed under the MIT License.
                     </Text>
                 </TouchableOpacity>

@@ -4,15 +4,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { Asset } from 'expo-asset';
+import { useTheme } from '../theme';
 import { File } from 'expo-file-system';
 
 export default function LicenseScreen() {
+    const colors = useTheme();
     const [content, setContent] = useState<string>('');
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function loadLicense() {
             try {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports
                 const asset = Asset.fromModule(require('../assets/license.txt'));
                 await asset.downloadAsync();
 
@@ -33,22 +36,22 @@ export default function LicenseScreen() {
     }, []);
 
     return (
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
-                    <ArrowLeft size={24} color="#fff" />
+                    <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>License</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>License</Text>
                 <View style={{ width: 24 }} />
             </View>
 
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#0896afff" />
+                    <ActivityIndicator size="large" color={colors.accent} />
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content}>
-                    <Text style={styles.licenseText}>{content}</Text>
+                    <Text style={[styles.licenseText, { color: colors.textSecondary }]}>{content}</Text>
                 </ScrollView>
             )}
         </SafeAreaView>

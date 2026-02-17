@@ -13,10 +13,6 @@ jest.mock('lucide-react-native', () => {
     };
 });
 
-// Mock SafeAreaContext
-jest.mock('react-native-safe-area-context', () => ({
-    useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
-}));
 
 // Mock Store
 jest.mock('../../../store', () => ({
@@ -68,7 +64,7 @@ describe('QueueScreen', () => {
 
     it('renders queue items', () => {
         const { getByText } = render(<QueueScreen />);
-        expect(getByText('Queue (2)')).toBeTruthy();
+        // Removed header check
         expect(getByText('Track One')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
     });

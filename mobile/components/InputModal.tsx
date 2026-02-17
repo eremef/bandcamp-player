@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { useTheme } from '../theme';
 
 interface InputModalProps {
     visible: boolean;
@@ -19,6 +20,7 @@ function InputModalContent({
     onSubmit,
     submitLabel = 'Submit'
 }: Omit<InputModalProps, 'visible'>) {
+    const colors = useTheme();
     const [value, setValue] = useState(initialValue);
 
     const handleSubmit = () => {
@@ -33,23 +35,23 @@ function InputModalContent({
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.overlay}
         >
-            <View style={styles.content}>
-                <Text style={styles.title}>{title}</Text>
+            <View style={[styles.content, { backgroundColor: colors.card }]}>
+                <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, { backgroundColor: colors.input, color: colors.text }]}
                     value={value}
                     onChangeText={setValue}
                     placeholder={placeholder}
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textSecondary}
                     autoFocus={true}
                     onSubmitEditing={handleSubmit}
                 />
                 <View style={styles.actions}>
                     <TouchableOpacity style={styles.button} onPress={onClose}>
-                        <Text style={styles.cancelText}>Cancel</Text>
+                        <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancel</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.button, styles.submitButton]} onPress={handleSubmit}>
-                        <Text style={styles.submitText}>{submitLabel}</Text>
+                    <TouchableOpacity style={[styles.button, styles.submitButton, { backgroundColor: colors.accent }]} onPress={handleSubmit}>
+                        <Text style={[styles.submitText, { color: '#fff' }]}>{submitLabel}</Text>
                     </TouchableOpacity>
                 </View>
             </View>

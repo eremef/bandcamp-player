@@ -184,6 +184,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📜 **Infinite Scroll** - efficiently browses large collections with lazy loading
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses the device's native volume steps for hardware synchronization
+- 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Mobile Tech Stack
 
@@ -247,12 +248,13 @@ mobile/
 ```
 
 ## Roadmap
-| Feature                        | Size | 
-| :----------------------------- | ---- | 
-| Independent mobile app player  | XL   | 
-| Radio shows description        | XS   | 
-| Deeper Bandcamp integration | L |
-| Automatic end-to-end tests | XXL |
+
+| Feature                        | Size |
+| :----------------------------- | ---- |
+| Independent mobile app player  | XL   |
+| Radio shows description        | XS   |
+| Deeper Bandcamp integration    | L    |
+| Automatic end-to-end tests     | XXL  |
 
 ## License
 

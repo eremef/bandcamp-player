@@ -14,6 +14,8 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Collection Caching**: Collections > 100 items are cached in SQLite. Cache is refreshed daily in the background (stale-while-revalidate) to ensure fast startup without sacrificing data freshness.
 - **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.
 - **Artist Collection Fetching**: Mobile app fetches the full artist collection from the server, bypassing local pagination limits to ensure all albums are visible.
+- **Mobile UI**: Unified headerless design with standardized Search Bars clearing the Android camera bar.
+- **Theme Support**: System/Light/Dark theme support with persistent settings.
 
 ## User Rules
 

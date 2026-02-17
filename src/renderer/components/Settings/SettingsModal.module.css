@@ -361,6 +361,27 @@
     color: var(--text-muted);
 }
 
+.selectInput {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.selectInput:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-strong);
+}
+
+.selectInput:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
 /* Remote Control Styles */
 .remoteInfo {
     margin-top: var(--spacing-md);

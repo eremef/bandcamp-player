@@ -4,7 +4,12 @@
 }
 
 .header {
-    margin-bottom: var(--spacing-2xl);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-xl);
+    gap: var(--spacing-xl);
+    flex-wrap: wrap;
 }
 
 .headerContent h1 {
@@ -14,6 +19,64 @@
 
 .headerContent p {
     color: var(--text-secondary);
+}
+
+.headerActions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.searchBox {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.searchIcon {
+    position: absolute;
+    left: var(--spacing-md);
+    font-size: 0.9rem;
+    pointer-events: none;
+    color: var(--text-secondary);
+}
+
+.searchBox input {
+    width: 280px;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    padding-left: 2.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+}
+
+.searchBox input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.clearSearch {
+    position: absolute;
+    right: var(--spacing-sm);
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-active);
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.clearSearch:hover {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
 }
 
 /* Grid */
@@ -117,6 +180,28 @@
     backdrop-filter: blur(4px);
     transition: all var(--transition-fast);
     z-index: 10;
+}
+
+.externalLink {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    backdrop-filter: blur(4px);
+    transition: all var(--transition-fast);
+    z-index: 10;
+}
+
+.externalLink:hover {
+    background: var(--accent-primary);
+    color: var(--text-primary);
 }
 
 .menuButton:hover {

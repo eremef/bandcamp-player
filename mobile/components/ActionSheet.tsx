@@ -1,5 +1,5 @@
-import React from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, TouchableWithoutFeedback } from 'react-native';
+import { useTheme } from '../theme';
 
 export interface Action {
     text: string;
@@ -15,6 +15,7 @@ interface ActionSheetProps {
 }
 
 export function ActionSheet({ visible, onClose, title, actions }: ActionSheetProps) {
+    const colors = useTheme();
     return (
         <Modal
             animationType="fade"
@@ -25,13 +26,14 @@ export function ActionSheet({ visible, onClose, title, actions }: ActionSheetPro
             <TouchableWithoutFeedback onPress={onClose}>
                 <View style={styles.overlay}>
                     <TouchableWithoutFeedback>
-                        <View style={styles.content}>
-                            {title && <Text style={styles.title}>{title}</Text>}
+                        <View style={[styles.content, { backgroundColor: colors.card }]}>
+                            {title && <Text style={[styles.title, { color: colors.textSecondary, borderBottomColor: colors.border }]}>{title}</Text>}
                             {actions.map((action, index) => (
                                 <TouchableOpacity
                                     key={index}
                                     style={[
                                         styles.actionButton,
+                                        { backgroundColor: colors.card, borderBottomColor: colors.border },
                                         index === actions.length - 1 && styles.lastButton
                                     ]}
                                     onPress={() => {
@@ -41,6 +43,7 @@ export function ActionSheet({ visible, onClose, title, actions }: ActionSheetPro
                                 >
                                     <Text style={[
                                         styles.actionText,
+                                        { color: colors.accent },
                                         action.style === 'destructive' && styles.destructiveText,
                                         action.style === 'cancel' && styles.cancelText
                                     ]}>

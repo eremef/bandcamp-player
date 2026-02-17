@@ -1,6 +1,6 @@
-import React from 'react';
 import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { X } from 'lucide-react-native';
+import { useTheme } from '../theme';
 import { Playlist } from '@shared/types';
 
 interface PlaylistSelectionModalProps {
@@ -11,6 +11,7 @@ interface PlaylistSelectionModalProps {
 }
 
 export function PlaylistSelectionModal({ visible, onClose, onSelect, playlists }: PlaylistSelectionModalProps) {
+    const colors = useTheme();
     return (
         <Modal
             animationType="slide"
@@ -19,11 +20,11 @@ export function PlaylistSelectionModal({ visible, onClose, onSelect, playlists }
             onRequestClose={onClose}
         >
             <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Add to Playlist</Text>
+                <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>Add to Playlist</Text>
                         <TouchableOpacity onPress={onClose}>
-                            <X size={24} color="#fff" />
+                            <X size={24} color={colors.text} />
                         </TouchableOpacity>
                     </View>
 
@@ -33,16 +34,16 @@ export function PlaylistSelectionModal({ visible, onClose, onSelect, playlists }
                             keyExtractor={(item) => item.id}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    style={styles.playlistItem}
+                                    style={[styles.playlistItem, { borderBottomColor: colors.border }]}
                                     onPress={() => onSelect(item.id)}
                                 >
-                                    <Text style={styles.playlistName}>{item.name}</Text>
-                                    <Text style={styles.playlistCount}>{item.tracks.length} tracks</Text>
+                                    <Text style={[styles.playlistName, { color: colors.text }]}>{item.name}</Text>
+                                    <Text style={[styles.playlistCount, { color: colors.textSecondary }]}>{item.tracks.length} tracks</Text>
                                 </TouchableOpacity>
                             )}
                         />
                     ) : (
-                        <Text style={styles.emptyText}>No playlists available</Text>
+                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists available</Text>
                     )}
                 </View>
             </View>

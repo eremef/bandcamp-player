@@ -1,8 +1,10 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { useTheme } from '../theme';
 
 export default function NotFoundScreen() {
+    const colors = useTheme();
     const router = useRouter();
 
     useEffect(() => {
@@ -13,10 +15,10 @@ export default function NotFoundScreen() {
     return (
         <>
             <Stack.Screen options={{ title: 'Loading...' }} />
-            <View style={styles.container}>
-                <Text style={styles.title}>Resuming specific route...</Text>
+            <View style={[styles.container, { backgroundColor: colors.background }]}>
+                <Text style={[styles.title, { color: colors.text }]}>Resuming specific route...</Text>
                 <TouchableOpacity onPress={() => router.replace('/')} style={styles.link}>
-                    <Text style={styles.linkText}>Go Home</Text>
+                    <Text style={[styles.linkText, { color: colors.accent }]}>Go Home</Text>
                 </TouchableOpacity>
             </View>
         </>

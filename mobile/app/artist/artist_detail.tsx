@@ -8,6 +8,7 @@ import { CollectionItem } from '../../../src/shared/types';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { useTheme } from '../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -16,6 +17,7 @@ const GAP = 12;
 const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1))) / COLUMN_COUNT;
 
 export default function ArtistDetailScreen() {
+    const colors = useTheme();
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const {
@@ -59,12 +61,12 @@ export default function ArtistDetailScreen() {
 
     if (!artist) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+                <View style={[styles.header, { borderBottomColor: colors.border }]}>
                     <TouchableOpacity onPress={handleBack} style={styles.backButton} testID="back-button">
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                        <Ionicons name="arrow-back" size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={styles.errorText}>Artist not found</Text>
+                    <Text style={[styles.errorText, { color: colors.error }]}>Artist not found</Text>
                 </View>
             </SafeAreaView>
         );
@@ -149,14 +151,14 @@ export default function ArtistDetailScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
             <Stack.Screen options={{ headerShown: false }} />
 
-            <View style={styles.header}>
+            <View style={[styles.header, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={handleBack} style={styles.backButton} testID="back-button">
-                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                    <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle} numberOfLines={1}>{artist.name}</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{artist.name}</Text>
                 <View style={{ width: 40 }} />
             </View>
 
@@ -169,33 +171,33 @@ export default function ArtistDetailScreen() {
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 ListHeaderComponent={
-                    <View style={styles.profileContainer}>
-                        <View style={styles.avatarContainer}>
+                    <View style={[styles.profileContainer, { borderBottomColor: colors.border }]}>
+                        <View style={[styles.avatarContainer, { backgroundColor: colors.input }]}>
                             {artist.imageUrl ? (
                                 <Image source={{ uri: artist.imageUrl }} style={styles.avatar} />
                             ) : (
-                                <View style={styles.placeholderAvatar}>
-                                    <Text style={styles.placeholderText}>
+                                <View style={[styles.placeholderAvatar, { backgroundColor: colors.card }]}>
+                                    <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
                                         {artist.name.charAt(0).toUpperCase()}
                                     </Text>
                                 </View>
                             )}
                         </View>
-                        <Text style={styles.name}>{artist.name}</Text>
-                        <Text style={styles.stats}>{artistItems.length} releases in collection</Text>
+                        <Text style={[styles.name, { color: colors.text }]}>{artist.name}</Text>
+                        <Text style={[styles.stats, { color: colors.textSecondary }]}>{artistItems.length} releases in collection</Text>
 
-                        <TouchableOpacity style={styles.bandcampButton}>
-                            <Text style={styles.bandcampButtonText}>View on Bandcamp</Text>
-                            <Ionicons name="open-outline" size={16} color="#aaa" style={{ marginLeft: 5 }} />
+                        <TouchableOpacity style={[styles.bandcampButton, { backgroundColor: colors.input }]}>
+                            <Text style={[styles.bandcampButtonText, { color: colors.textSecondary }]}>View on Bandcamp</Text>
+                            <Ionicons name="open-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 5 }} />
                         </TouchableOpacity>
                     </View>
                 }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         {isArtistCollectionLoading ? (
-                            <ActivityIndicator size="large" color="#0896afff" />
+                            <ActivityIndicator size="large" color={colors.accent} />
                         ) : (
-                            <Text style={styles.emptyText}>No items found in collection</Text>
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No items found in collection</Text>
                         )}
                     </View>
                 }

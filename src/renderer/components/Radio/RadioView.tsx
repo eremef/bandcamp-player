@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Play, Pause, MoreHorizontal } from 'lucide-react';
+import { Radio, Play, Pause, MoreHorizontal, Search, X, ExternalLink } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -13,10 +13,21 @@ export function RadioView() {
         addRadioToQueue,
         addRadioToPlaylist,
         playlists,
-        fetchPlaylists
+        fetchPlaylists,
+        radioSearchQuery,
+        setRadioSearchQuery
     } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
     const [contextMenu, setContextMenu] = useState<{ x: number; y: number; station: any } | null>(null);
+
+    const filteredStations = useMemo(() => {
+        if (!radioSearchQuery.trim()) return radioStations;
+        const query = radioSearchQuery.toLowerCase();
+        return radioStations.filter(s =>
+            s.name.toLowerCase().includes(query) ||
+            (s.description && s.description.toLowerCase().includes(query))
+        );
+    }, [radioStations, radioSearchQuery]);
 
     const handleLoadMore = useCallback(() => {
         setVisibleCount(prev => prev + 20);
@@ -24,7 +35,7 @@ export function RadioView() {
 
     const targetRef = useIntersectionObserver({
         onIntersect: handleLoadMore,
-        enabled: visibleCount < radioStations.length,
+        enabled: visibleCount < filteredStations.length,
     });
 
     useEffect(() => {
@@ -77,11 +88,27 @@ export function RadioView() {
                     <h1><Radio size={32} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '12px' }} /> Bandcamp Radio</h1>
                     <p>Discover new music curated by Bandcamp</p>
                 </div>
+                <div className={styles.headerActions}>
+                    <div className={styles.searchBox}>
+                        <Search className={styles.searchIcon} size={18} />
+                        <input
+                            type="text"
+                            placeholder="Search radio shows..."
+                            value={radioSearchQuery}
+                            onChange={(e) => setRadioSearchQuery(e.target.value)}
+                        />
+                        {radioSearchQuery && (
+                            <button className={styles.clearSearch} onClick={() => setRadioSearchQuery('')}>
+                                <X size={16} />
+                            </button>
+                        )}
+                    </div>
+                </div>
             </header>
 
             {/* Stations grid */}
             <div className={styles.grid}>
-                {radioStations.slice(0, visibleCount).map((station) => (
+                {filteredStations.slice(0, visibleCount).map((station: any) => (
                     <div
                         key={station.id}
                         className={`${styles.card} ${radioState.currentStation?.id === station.id ? styles.active : ''}`}
@@ -104,6 +131,17 @@ export function RadioView() {
                                     title="More options"
                                 >
                                     <MoreHorizontal size={20} />
+                                </button>
+                                <button
+                                    className={styles.externalLink}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        window.electron.system.openExternal(`https://bandcamp.com/?show=${station.id}`);
+                                    }}
+                                    title="View on Bandcamp"
+                                >
+                                    <ExternalLink size={16} />
                                 </button>
                             </div>
                         </div>
@@ -171,9 +209,15 @@ export function RadioView() {
                 </div>
             )}
 
-            {visibleCount < radioStations.length && (
+            {visibleCount < filteredStations.length && (
                 <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
                     {/* Sentinel element for infinite scroll */}
+                </div>
+            )}
+
+            {filteredStations.length === 0 && radioStations.length > 0 && (
+                <div className={styles.loading}>
+                    <p>No radio shows match your search.</p>
                 </div>
             )}
 

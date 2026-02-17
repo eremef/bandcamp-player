@@ -3,10 +3,14 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2 } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check } from 'lucide-react-native';
+import { Theme } from '@shared/types';
 import { router } from 'expo-router';
+import { useTheme } from '../../theme';
+import { StandardHeader } from '../../components/StandardHeader';
 
 export default function PlayerScreen() {
+    const colors = useTheme();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const insets = useSafeAreaInsets();
@@ -27,7 +31,9 @@ export default function PlayerScreen() {
         disconnect,
         volume,
         setVolume,
-        hostIp
+        hostIp,
+        theme,
+        setTheme
     } = useStore();
 
     const handleDisconnect = () => {
@@ -58,27 +64,47 @@ export default function PlayerScreen() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
+    const renderThemeOption = (option: Theme, label: string, Icon: any) => {
+        const isSelected = theme === option;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.menuThemeOption,
+                    isSelected && { borderColor: colors.accent, borderWidth: 1 }
+                ]}
+                onPress={() => setTheme(option)}
+            >
+                <View style={styles.menuThemeOptionLeft}>
+                    <Icon size={20} color={isSelected ? colors.accent : colors.textSecondary} />
+                    <Text style={[styles.menuThemeLabel, { color: colors.text }]}>{label}</Text>
+                </View>
+                {isSelected && <Check size={16} color={colors.accent} />}
+            </TouchableOpacity>
+        );
+    };
+
     return (
-        <View style={[styles.container, { paddingTop: insets.top }]}>
-            <View style={styles.header}>
-                <View style={{ width: 24 }} />
-                <Text style={styles.headerTitle}>Now Playing</Text>
-                <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
-                    <MoreVertical size={24} color="#fff" />
-                </TouchableOpacity>
-            </View>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <StandardHeader
+                title="Now Playing"
+                rightComponent={
+                    <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
+                        <MoreVertical size={24} color={colors.text} />
+                    </TouchableOpacity>
+                }
+            />
 
             <View style={styles.content}>
                 {/* Artwork */}
-                <View style={styles.artworkContainer}>
+                <View style={[styles.artworkContainer, { backgroundColor: colors.input, shadowColor: colors.text }]}>
                     {currentTrack && currentTrack.artworkUrl ? (
                         <Image
                             source={{ uri: currentTrack.artworkUrl }}
                             style={styles.artwork}
                         />
                     ) : (
-                        <View style={[styles.artwork, styles.placeholderArtwork]}>
-                            <Text style={styles.placeholderText}>
+                        <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.card }]}>
+                            <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
                                 {currentTrack ? 'No Art' : 'No Track'}
                             </Text>
                         </View>
@@ -87,13 +113,13 @@ export default function PlayerScreen() {
 
                 {/* Info */}
                 <View style={styles.infoContainer}>
-                    <Text style={styles.title} numberOfLines={1}>
+                    <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
                         {currentTrack?.title || 'Not Playing'}
                     </Text>
-                    <Text style={styles.artist} numberOfLines={1}>
+                    <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
                         {currentTrack?.artist || ''}
                     </Text>
-                    <Text style={styles.album} numberOfLines={1}>
+                    <Text style={[styles.album, { color: colors.textSecondary }]} numberOfLines={1}>
                         {currentTrack?.album || ''}
                     </Text>
                 </View>
@@ -108,28 +134,28 @@ export default function PlayerScreen() {
                         maximumValue={duration || 1}
                         value={currentTime || 0}
                         onSlidingComplete={seek}
-                        minimumTrackTintColor="#0896afff"
-                        maximumTrackTintColor="#333"
-                        thumbTintColor="#0896afff"
+                        minimumTrackTintColor={colors.accent}
+                        maximumTrackTintColor={colors.border}
+                        thumbTintColor={colors.accent}
                     />
                     <View style={styles.timeContainer}>
-                        <Text style={styles.timeText}>{formatTime(currentTime)}</Text>
-                        <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                        <Text style={[styles.timeText, { color: colors.textSecondary }]}>{formatTime(currentTime)}</Text>
+                        <Text style={[styles.timeText, { color: colors.textSecondary }]}>{formatTime(duration)}</Text>
                     </View>
                 </View>
 
                 {/* Controls */}
                 <View style={styles.controlsContainer}>
                     <TouchableOpacity onPress={toggleShuffle}>
-                        <Shuffle size={24} color={isShuffled ? '#0896afff' : '#666'} />
+                        <Shuffle size={24} color={isShuffled ? colors.accent : colors.textSecondary} />
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={previous}>
-                        <SkipBack size={32} color="#fff" />
+                        <SkipBack size={32} color={colors.text} />
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={styles.playButton}
+                        style={[styles.playButton, { backgroundColor: colors.accent }]}
                         onPress={isPlaying ? pause : play}
                     >
                         {isPlaying ? (
@@ -140,16 +166,16 @@ export default function PlayerScreen() {
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={next}>
-                        <SkipForward size={32} color="#fff" />
+                        <SkipForward size={32} color={colors.text} />
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={() => {
                         const nextMode = repeatMode === 'off' ? 'one' : repeatMode === 'one' ? 'all' : 'off';
                         setRepeat(nextMode);
                     }}>
-                        <Repeat size={24} color={repeatMode !== 'off' ? '#0896afff' : '#666'} />
+                        <Repeat size={24} color={repeatMode !== 'off' ? colors.accent : colors.textSecondary} />
                         {repeatMode === 'one' && (
-                            <View style={styles.badgeOne}>
+                            <View style={[styles.badgeOne, { backgroundColor: colors.accent }]}>
                                 <Text style={styles.badgeText}>1</Text>
                             </View>
                         )}
@@ -160,8 +186,8 @@ export default function PlayerScreen() {
                         style={styles.volumeButtonRowItem}
                         onPress={() => setIsVolumeVisible(true)}
                     >
-                        <Volume2 size={24} color="#fff" />
-                        <Text style={styles.volumeButtonTextRow}>{Math.round((volume ?? 0) * 100)}%</Text>
+                        <Volume2 size={24} color={colors.text} />
+                        <Text style={[styles.volumeButtonTextRow, { color: colors.textSecondary }]}>{Math.round((volume ?? 0) * 100)}%</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -173,23 +199,32 @@ export default function PlayerScreen() {
                     onRequestClose={() => setIsMenuVisible(false)}
                 >
                     <Pressable
-                        style={styles.menuModalOverlay}
+                        style={[styles.menuModalOverlay, { paddingTop: insets.top + 20 }]}
                         onPress={() => setIsMenuVisible(false)}
                     >
-                        <View style={styles.menuContainer}>
-                            <Text style={styles.menuTitle}>Connected to</Text>
-                            <Text style={styles.menuIp}>{hostIp}</Text>
+                        <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                            <Text style={[styles.menuTitle, { color: colors.textSecondary }]}>Connected to</Text>
+                            <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>
 
-                            <View style={styles.menuDivider} />
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+                            <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Appearance</Text>
+                            <View style={styles.themeOptionsContainer}>
+                                {renderThemeOption('system', 'System', Monitor)}
+                                {renderThemeOption('light', 'Light', Sun)}
+                                {renderThemeOption('dark', 'Dark', Moon)}
+                            </View>
+
+                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
                             <TouchableOpacity
                                 style={styles.menuItem}
                                 onPress={() => {
                                     setIsMenuVisible(false);
-                                    router.push('/about');
+                                    router.push('/about' as any);
                                 }}
                             >
-                                <Text style={styles.menuItemText}>About</Text>
+                                <Text style={[styles.menuItemText, { color: colors.text }]}>About</Text>
                             </TouchableOpacity>
 
                             <TouchableOpacity
@@ -213,7 +248,7 @@ export default function PlayerScreen() {
                         style={styles.volumeModalOverlay}
                         onPress={() => setIsVolumeVisible(false)}
                     >
-                        <View style={styles.verticalVolumeContainer}>
+                        <View style={[styles.verticalVolumeContainer, { backgroundColor: colors.card }]}>
                             <View style={styles.sliderWrapper}>
                                 <Slider
                                     style={styles.verticalSlider}
@@ -221,12 +256,12 @@ export default function PlayerScreen() {
                                     maximumValue={1}
                                     value={volume ?? 0.8}
                                     onSlidingComplete={setVolume}
-                                    minimumTrackTintColor="#0896afff"
-                                    maximumTrackTintColor="#333"
-                                    thumbTintColor="#fff"
+                                    minimumTrackTintColor={colors.accent}
+                                    maximumTrackTintColor={colors.border}
+                                    thumbTintColor={colors.accent}
                                 />
                             </View>
-                            <Text style={styles.modalVolumeText}>{Math.round((volume ?? 0) * 100)}%</Text>
+                            <Text style={[styles.modalVolumeText, { color: colors.text }]}>{Math.round((volume ?? 0) * 100)}%</Text>
 
                         </View>
                     </Pressable>
@@ -427,39 +462,69 @@ const styles = StyleSheet.create({
     },
     menuContainer: {
         backgroundColor: '#1e1e1e',
-        width: 200,
+        width: 240,
         borderRadius: 16,
         padding: 16,
-        alignItems: 'center',
+        borderWidth: 1,
     },
     menuTitle: {
         color: '#888',
-        fontSize: 12,
-        marginBottom: 4,
+        fontSize: 10,
+        marginBottom: 2,
+        alignSelf: 'flex-start',
     },
     menuIp: {
         color: '#fff',
-        fontSize: 16,
-        marginBottom: 16,
+        fontSize: 14,
+        marginBottom: 12,
         fontWeight: 'bold',
+        alignSelf: 'flex-start',
+    },
+    menuLabel: {
+        color: '#888',
+        fontSize: 10,
+        marginBottom: 8,
+        alignSelf: 'flex-start',
+        textTransform: 'uppercase',
+    },
+    themeOptionsContainer: {
+        width: '100%',
+        marginBottom: 8,
+    },
+    menuThemeOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        marginBottom: 4,
+    },
+    menuThemeOptionLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    menuThemeLabel: {
+        fontSize: 14,
     },
     menuDivider: {
         width: '100%',
         height: 1,
         backgroundColor: '#333',
-        marginBottom: 8,
+        marginVertical: 12,
     },
     menuItem: {
         width: '100%',
-        paddingVertical: 12,
+        paddingVertical: 10,
         alignItems: 'flex-start',
     },
     menuItemText: {
         color: '#fff',
-        fontSize: 18,
+        fontSize: 16,
     },
     menuItemDestructive: {
-        marginTop: 4,
+        marginTop: 0,
     },
     destructiveText: {
         color: '#ff4444',

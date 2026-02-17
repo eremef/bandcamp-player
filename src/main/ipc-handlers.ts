@@ -1,4 +1,4 @@
-import { IpcMain, BrowserWindow, app, shell } from 'electron';
+import { IpcMain, BrowserWindow, app, shell, nativeTheme } from 'electron';
 import {
     AUTH_CHANNELS,
     COLLECTION_CHANNELS,
@@ -240,6 +240,12 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(SETTINGS_CHANNELS.GET, () => database.getSettings());
     ipcMain.handle(SETTINGS_CHANNELS.SET, (_, settings) => {
         const updated = database.setSettings(settings);
+
+        // Update Electron nativeTheme if theme changed
+        if (settings.theme) {
+            nativeTheme.themeSource = settings.theme;
+        }
+
         broadcast(SETTINGS_CHANNELS.ON_CHANGED, updated);
         return updated;
     });

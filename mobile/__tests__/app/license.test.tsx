@@ -69,10 +69,10 @@ describe('LicenseScreen', () => {
     });
 
     it('navigates back on arrow press', () => {
-        const { router } = require('expo-router');
+        const { router: mockRouter } = jest.requireMock('expo-router');
         const { getByTestId } = render(<LicenseScreen />);
 
         fireEvent.press(getByTestId('back-button'));
-        expect(router.back).toHaveBeenCalled();
+        expect(mockRouter.back).toHaveBeenCalled();
     });
 });
