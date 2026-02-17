@@ -8,7 +8,12 @@ test.describe('Search', () => {
     test.beforeEach(async ({ }, testInfo) => {
         electronApp = await electron.launch({
             args: [join(__dirname, '../dist/main/main.js'), `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.workerIndex.toString())}`],
-            env: { ...process.env, NODE_ENV: 'production', E2E_TEST: 'true' },
+            env: { 
+                ...process.env, 
+                NODE_ENV: 'production', 
+                E2E_TEST: 'true',
+                REMOTE_PORT: (9999 + testInfo.workerIndex).toString()
+            },
         });
         window = await electronApp.firstWindow();
         await window.waitForLoadState('domcontentloaded');

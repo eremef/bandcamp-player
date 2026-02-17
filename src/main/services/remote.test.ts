@@ -119,12 +119,27 @@ describe('RemoteControlService', () => {
     });
 
     describe('Lifecycle', () => {
-        it('should start the server', () => {
+        it('should start the server on default port', () => {
             remoteService.start();
             expect(http.createServer).toHaveBeenCalled();
             expect(WebSocketServer).toHaveBeenCalled();
             expect(mockHttpServer.listen).toHaveBeenCalledWith(9999, '0.0.0.0', expect.any(Function));
             expect(remoteService.getStatus().isRunning).toBe(true);
+        });
+
+        it('should start the server on custom port', () => {
+            const customPort = 8888;
+            const customService = new RemoteControlService(
+                mockPlayerService,
+                mockScraperService,
+                mockPlaylistService,
+                mockAuthService,
+                mockDatabase,
+                customPort
+            );
+            customService.start();
+            expect(mockHttpServer.listen).toHaveBeenCalledWith(customPort, '0.0.0.0', expect.any(Function));
+            expect(customService.getStatus().port).toBe(customPort);
         });
 
         it('should stop the server', () => {

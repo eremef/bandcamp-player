@@ -4,7 +4,12 @@ import { join } from 'path';
 test('launch app', async ({ }, testInfo) => {
     const electronApp = await electron.launch({
         args: [join(__dirname, '../dist/main/main.js'), `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.workerIndex.toString())}`],
-        env: { ...process.env, NODE_ENV: 'production' },
+        env: { 
+            ...process.env, 
+            NODE_ENV: 'production',
+            E2E_TEST: 'true',
+            REMOTE_PORT: (9999 + testInfo.workerIndex).toString()
+        },
     });
     const window = await electronApp.firstWindow();
     // Wait for the window to load
