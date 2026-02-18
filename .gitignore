@@ -46,3 +46,5 @@ src/shared/*.js
 src/shared/*.d.ts
 src/shared/*.d.ts.map
 temp-test-data/
+playwright-report/
+test-results/
