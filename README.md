@@ -248,7 +248,7 @@ mobile/
 
 | Feature                        | Size |
 | :----------------------------- | ---- |
-| Independent mobile app player  | XL   |
+| Standalone mobile app player  | XL   |
 | Deeper Bandcamp integration    | L    |
 
 ## License
