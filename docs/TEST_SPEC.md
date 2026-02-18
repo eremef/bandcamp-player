@@ -34,6 +34,15 @@ The project uses a split testing architecture to accommodate the distinct runtim
   - Mocks shared dependencies.
 - **Scope**: Covers `mobile/` directory logic.
 
+### E2E (Electron + Playwright)
+
+- **Framework**: [Playwright](https://playwright.dev/) with custom Electron fixtures
+- **Configuration**: `playwright.config.ts` (4 workers default, 1 retry, 60s timeout)
+- **Fixtures**: `e2e/fixtures.ts` — launches Electron app, provides `electronApp` and `window` fixtures
+- **Mock Authentication**: `E2E_TEST=true` env var makes `AuthService.login()` return a mock user ("Test User") without opening a real Bandcamp login window
+- **User Data Isolation**: Each worker gets its own `--user-data-dir` and `REMOTE_PORT` to avoid conflicts in parallel runs
+- **Scope**: Full application user flows against the built Electron app
+
 ## Commands
 
 | Command | Description | Scope |
@@ -42,12 +51,15 @@ The project uses a split testing architecture to accommodate the distinct runtim
 | `npm run test:watch` | Runs desktop tests in watch mode. | Desktop |
 | `npm run test:coverage` | Generates coverage report for desktop. | Desktop |
 | `npm run test:mobile` | Runs all mobile unit tests. | Mobile |
+| `npm run test:e2e` | Runs all E2E tests (Playwright). | E2E |
+| `npx playwright test --workers=1` | Runs E2E tests sequentially (more reliable). | E2E |
 | `npm run build` | Runs desktop tests before building. | Desktop |
 
 ## Directory Structure
 
 Tests for Desktop are co-located with the source code (`*.test.ts`).
 Tests for Mobile are located in `mobile/__tests__/` to prevent checking them into production bundles or conflicting with Expo Router file-based routing.
+E2E tests live in `e2e/` with shared Playwright fixtures in `e2e/fixtures.ts`.
 
 ```text
 src/
@@ -59,6 +71,26 @@ src/
     └── store/
         ├── store.ts
         └── store.test.ts        # Frontend Store Tests
+
+e2e/
+├── fixtures.ts                  # Shared Electron launch/teardown fixtures
+├── album.spec.ts                # Album detail navigation
+├── album-detail.spec.ts         # Track list & queue actions
+├── artist-view.spec.ts          # Artist list & detail navigation
+├── auth.spec.ts                 # Login/authenticated state
+├── collection-search.spec.ts    # Collection search & filtering
+├── navigation.spec.ts           # Sidebar navigation between views
+├── player-controls.spec.ts      # Shuffle, repeat, mute, queue toggle
+├── player-state.spec.ts         # Empty player state & controls
+├── playlist.spec.ts             # Create playlist & add album
+├── playlist-management.spec.ts  # Create, rename, delete playlists
+├── queue.spec.ts                # Queue add, clear, empty state
+├── radio.spec.ts                # Radio search
+├── radio-player.spec.ts         # Radio station listing
+├── remote.spec.ts               # Remote control toggle & URL/QR
+├── settings.spec.ts             # Settings open/close & persistence
+├── sidebar.spec.ts              # Sidebar nav, user info, playlists
+└── theme.spec.ts                # Theme switching (dark/light/system)
 
 mobile/
 ├── app/
@@ -87,7 +119,7 @@ Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
 
 ## Current Test Coverage
 
-The project has comprehensive coverage across core logic, stores, and critical UI paths.
+The project has comprehensive coverage across core logic, stores, critical UI paths, and end-to-end user flows.
 
 ### Desktop (`npm test` - Vitest)
 
@@ -111,6 +143,40 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `src/renderer/components/Radio/RadioView.test.tsx` | Radio Station UI | 3 | ~62% |
 | `src/renderer/components/Settings/ConnectedDevicesModal.test.tsx` | Connected Devices UI | 5 | ~90% |
 
+### E2E (`npx playwright test` - Playwright)
+
+**38 tests** across 17 spec files. Tests run against the built Electron app with mock authentication (no real Bandcamp account needed).
+
+| Spec File | Description | Tests |
+| --- | --- | --- |
+| `e2e/album.spec.ts` | Album detail navigation, search→detail→back | 2 |
+| `e2e/album-detail.spec.ts` | Track table display, Add to Queue button | 2 |
+| `e2e/artist-view.spec.ts` | Artist list + search, detail navigation + back | 2 |
+| `e2e/auth.spec.ts` | Login prompt or authenticated state | 1 |
+| `e2e/collection-search.spec.ts` | Filter, clear, nonexistent query (0 results) | 3 |
+| `e2e/navigation.spec.ts` | Sidebar navigation between all 4 views | 1 |
+| `e2e/player-controls.spec.ts` | Shuffle toggle, Repeat cycling, Mute/Unmute, Queue toggle | 4 |
+| `e2e/player-state.spec.ts` | Empty state ("No track playing"), controls, Cast/Mini Player | 3 |
+| `e2e/playlist.spec.ts` | Create playlist + add album via context menu | 1 |
+| `e2e/playlist-management.spec.ts` | Empty view, create/rename/delete with confirm dialog | 2 |
+| `e2e/queue.spec.ts` | Empty state, add via context menu, clear | 3 |
+| `e2e/radio.spec.ts` | Radio search input | 1 |
+| `e2e/radio-player.spec.ts` | Radio station listing | 1 |
+| `e2e/remote.spec.ts` | Remote control toggle, URL + QR code | 1 |
+| `e2e/settings.spec.ts` | Open/close modal, setting persistence across sessions | 2 |
+| `e2e/sidebar.spec.ts` | Nav items, user info, playlists section, inline create | 4 |
+| `e2e/theme.spec.ts` | Dark/Light/System theme switching via dropdown | 1 |
+
+#### E2E Best Practices
+
+- **Use role-based locators**: Prefer `getByRole`, `getByTitle`, `getByPlaceholder` over CSS class selectors (CSS modules generate dynamic class names).
+- **Hidden toggle switches**: Settings checkboxes have `opacity: 0; width: 0; height: 0`. Use `evaluate(el => el.click())` instead of `setChecked()`.
+- **Context menus**: Right-click (`click({ button: 'right' })`) is more reliable than hover→button click.
+- **Scrollable modals**: Call `scrollIntoViewIfNeeded()` on the visible label before interacting with elements below the fold.
+- **Audio streaming**: Real Bandcamp audio doesn't work in E2E. Test UI state instead of actual playback.
+- **Fixture teardown**: `fixtures.ts` wraps `electronApp.close()` in try/catch to handle persistence tests that close and relaunch the app.
+- **App relaunch**: When relaunching, reuse the same `--user-data-dir`, `NODE_ENV`, `E2E_TEST`, and `REMOTE_PORT`. Always handle potential login flow again after relaunch.
+
 ### Mobile (`npm run test:mobile` - Jest)
 
 **Overall Coverage:** ~25% (Store Logic: ~95%)
@@ -131,7 +197,7 @@ The project has comprehensive coverage across core logic, stores, and critical U
 | `mobile/__tests__/app/(tabs)/artists.test.tsx` | Artists Screen UI | 4 | 100% |
 | `mobile/__tests__/app/artist/[id].test.tsx` | Artist Detail & Nav | 5 | 100% |
 
-**Total:** 305 tests across both platforms.
+**Total:** 343 tests across all platforms (167 Desktop unit + 38 E2E + 103 Mobile + 35 Android).
 
 ## Best Practices
 
