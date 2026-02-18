@@ -29,13 +29,14 @@ export class RemoteControlService extends EventEmitter {
     private database: Database;
     private clients: Map<string, { ws: WebSocket } & RemoteClient> = new Map();
 
-    constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, authService: AuthService, database: Database) {
+    constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, authService: AuthService, database: Database, port: number = 9999) {
         super();
         this.playerService = playerService;
         this.scraperService = scraperService;
         this.playlistService = playlistService;
         this.authService = authService;
         this.database = database;
+        this.port = port;
     }
 
     private async resolveTrack(payload: any): Promise<Track | null> {

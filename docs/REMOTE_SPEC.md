@@ -7,11 +7,11 @@ This document specifies the WebSocket protocol used to remote control the Bandca
 ## Connection
 
 - **Protocol**: WebSocket (WS)
-- **Default Port**: `9999`
-- **URL**: `ws://<host-ip>:9999`
+- **Default Port**: `9999` (Configurable via `REMOTE_PORT` environment variable)
+- **URL**: `ws://<host-ip>:<port>`
 
 > [!NOTE]
-> The desktop app also serves a fully functional **Web Remote Interface** at `http://<host-ip>:9999`.
+> The desktop app also serves a fully functional **Web Remote Interface** at `http://<host-ip>:<port>`.
 > This web client provides:
 >
 > - **Playback Controls**: Play, Pause, Previous, Next, Shuffle, Repeat.

@@ -27,7 +27,7 @@ if (process.platform === 'win32') {
     app.setAppUserModelId('xyz.eremef.bandcamp.player');
 }
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isDev = process.env.NODE_ENV === 'development' || (!app.isPackaged && process.env.NODE_ENV !== 'production');
 console.log('App starting. isDev:', isDev, 'NODE_ENV:', process.env.NODE_ENV, 'isPackaged:', app.isPackaged);
 
 let mainWindow: BrowserWindow | null = null;
@@ -177,7 +177,10 @@ async function initializeServices() {
     scrobblerService = new ScrobblerService(database);
     castService = new CastService();
     playerService = new PlayerService(cacheService, scrobblerService, scraperService, castService, database);
-    remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database);
+    
+    const remotePort = process.env.REMOTE_PORT ? parseInt(process.env.REMOTE_PORT, 10) : 9999;
+    remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database, remotePort);
+    
     updaterService = new UpdaterService(isDev);
 
     // Start remote service if enabled
@@ -236,7 +239,10 @@ function toggleMiniPlayer() {
 // ============================================================================
 
 // Ensure single instance
-const gotTheLock = app.requestSingleInstanceLock();
+// Ensure single instance
+const gotTheLock = process.env.E2E_TEST === 'true' ? true : app.requestSingleInstanceLock();
+
+console.log('Single instance lock:', gotTheLock);
 
 if (!gotTheLock) {
     app.quit();

@@ -20,6 +20,7 @@
     "test": "concurrently \"npm run build:main\" \"vitest run\"",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
     "test:mobile": "npm run test --prefix mobile",
     "lint": "eslint src scripts",
     "lint:mobile": "npm run lint --prefix mobile",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -68,6 +70,7 @@
     "globals": "^17.3.0",
     "happy-dom": "^20.5.0",
     "jimp": "^1.6.0",
+    "playwright": "^1.58.2",
     "png-to-ico": "^3.0.1",
     "rimraf": "^6.1.2",
     "typescript": "^5.9.3",
