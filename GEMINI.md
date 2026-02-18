@@ -17,6 +17,21 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Mobile UI**: Unified headerless design with standardized Search Bars clearing the Android camera bar.
 - **Theme Support**: System/Light/Dark theme support with persistent settings.
 
+## E2E Tests
+
+- **Framework**: Playwright with custom Electron fixtures in `e2e/fixtures.ts`. Run with `npx playwright test --workers=1`.
+- **Toggle Switch Checkboxes**: Settings checkboxes are styled as toggle switches with `opacity: 0; width: 0; height: 0` on the `<input>`. Playwright's `setChecked()` fails with "Element is outside of the viewport". Use `evaluate(el => el.click())` instead.
+- **Avoid CSS Module Selectors**: Selectors like `[class*="SettingsModal_modal"]` are fragile in Electron's production build. Prefer role-based (`getByRole`, `getByTitle`) and text-based (`locator('text=...')`, `locator('p').filter({ hasText: /regex/ })`) locators.
+- **Scrollable Modals**: The Settings modal is scrollable. Elements below the fold need `scrollIntoViewIfNeeded()` on their visible label before interacting with nearby hidden inputs.
+- **Radio Card Playback**: The play button overlay inside radio cards has **no onClick handler**. Only the card's root `onClick` calls `playRadioStation()`. Click the card, not the inner button.
+- **Album Detail Play Button**: Multiple "Play" buttons exist (album detail + player bar). Avoid `getByRole('button', { name: 'Play', exact: true })` as it matches multiple elements.
+- **Context Menus**: Right-click (`click({ button: 'right' })`) is more reliable than hover → menu button click for triggering context menus on album cards.
+- **Fixture Teardown**: `fixtures.ts` teardown calls `electronApp.close()`. Tests that close and relaunch the app (persistence tests) cause double-close. The teardown wraps `.close()` in try/catch.
+- **Checkbox Ordering**: Settings checkboxes by `getByRole('checkbox').nth(n)`: 0=Enable Caching, 1=Minimize to Tray, 2=Start Minimized, 3=Show Notifications, 4=Enable Remote Control.
+- **Back Button Navigation**: The Back button in album detail view needs an explicit visibility wait before clicking — it's not immediately available after navigation.
+- **Audio Streaming**: Real Bandcamp audio streaming doesn't work in the E2E test environment. Tests should verify UI state (station cards, track info) rather than actual playback.
+- **App Relaunch (Persistence Tests)**: When relaunching the app, reuse the same `--user-data-dir`, `NODE_ENV`, `E2E_TEST`, and `REMOTE_PORT`. Always handle potential login flow again after relaunch.
+
 ## User Rules
 
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.

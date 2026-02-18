@@ -48,6 +48,19 @@ export class AuthService {
      * Open login window for Bandcamp authentication
      */
     async login(): Promise<AuthState> {
+        console.log('AuthService.login called. E2E_TEST:', process.env.E2E_TEST);
+        if (process.env.E2E_TEST === 'true') {
+            console.log('Performing mock login for E2E test');
+            this.currentUser = {
+                id: 'test-user',
+                username: 'testuser',
+                displayName: 'Test User',
+                avatarUrl: 'https://placehold.co/100x100',
+                profileUrl: 'https://bandcamp.com/testuser'
+            };
+            return { isAuthenticated: true, user: this.currentUser };
+        }
+
         return new Promise((resolve) => {
             // Close existing login window if any
             if (this.loginWindow && !this.loginWindow.isDestroyed()) {
