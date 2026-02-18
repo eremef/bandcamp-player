@@ -250,7 +250,6 @@ mobile/
 | :----------------------------- | ---- |
 | Independent mobile app player  | XL   |
 | Deeper Bandcamp integration    | L    |
-| Automatic end-to-end tests     | XXL  |
 
 ## License
 
