@@ -127,9 +127,11 @@ export default function PlayerScreen() {
                     <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
                         {currentTrack?.title || 'Not Playing'}
                     </Text>
-                    <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
-                        {currentTrack?.artist || 'Unknown Artist'}
-                    </Text>
+                    {currentTrack && (
+                        <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
+                            {currentTrack.artist || 'Unknown Artist'}
+                        </Text>
+                    )}
                     <Text style={[styles.album, { color: colors.textSecondary }]} numberOfLines={1}>
                         {currentTrack?.album || ''}
                     </Text>
