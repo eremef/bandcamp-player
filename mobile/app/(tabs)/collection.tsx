@@ -22,7 +22,6 @@ const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1
 export default function CollectionScreen() {
     const colors = useTheme();
     const collection = useStore((state) => state.collection);
-    const collectionError = useStore((state) => state.collectionError);
     // ... existing hooks ...
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
@@ -176,21 +175,6 @@ export default function CollectionScreen() {
     }, [searchQuery, refreshCollection]);
 
     if (!collection) {
-        if (collectionError) {
-            return (
-                <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
-                    <View style={styles.center}>
-                        <Text style={[styles.text, { color: 'red', marginBottom: 16 }]}>Error: {collectionError}</Text>
-                        <TouchableOpacity
-                            onPress={() => refreshCollection(true, searchQuery, true)}
-                            style={{ padding: 12, backgroundColor: colors.accent, borderRadius: 8 }}
-                        >
-                            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            );
-        }
         return (
             <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
                 <View style={styles.center}>
@@ -209,11 +193,6 @@ export default function CollectionScreen() {
                 onChangeText={setSearchQuery}
                 placeholder="Search collection..."
             />
-            {collectionError && (
-                <TouchableOpacity onPress={() => refreshCollection(true, searchQuery, true)} style={{ padding: 8, backgroundColor: '#330000' }}>
-                    <Text style={{ color: 'red', textAlign: 'center' }}>Sync Error: {collectionError}. Tap to retry.</Text>
-                </TouchableOpacity>
-            )}
 
             <FlatList
                 testID="collection-list"
