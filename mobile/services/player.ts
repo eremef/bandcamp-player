@@ -46,6 +46,7 @@ export async function addTrack(track: Track, hostIp?: string) {
         url: streamUrl, // Use executable URL
         title: track.title || 'Untitled',
         artist: track.artist || 'Unknown Artist',
+        album: track.album,
         artwork: track.artworkUrl,
         duration: track.duration,
     });

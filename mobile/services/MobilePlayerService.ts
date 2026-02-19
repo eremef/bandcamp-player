@@ -220,6 +220,7 @@ class MobilePlayerService {
                 url: streamUrl,
                 title: track.title || 'Untitled',
                 artist: artistName,
+                album: track.album,
                 artwork: track.artworkUrl,
                 duration: track.duration,
             });
