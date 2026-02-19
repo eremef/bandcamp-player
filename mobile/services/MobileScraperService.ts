@@ -741,17 +741,30 @@ export class MobileScraperService {
 
             const $ = cheerio.load(html);
 
-            // 2. Extract data blob from ArchiveApp div
-            let dataBlob = $('#ArchiveApp').attr('data-blob');
+            // 2. Extract data blob from ArchiveApp div or other elements
+            let dataBlob = $('#ArchiveApp').attr('data-blob') ||
+                $('#p-show-player').attr('data-blob') ||
+                $('.bcweekly-player').attr('data-blob');
+
             if (!dataBlob) {
-                console.error('[MobileScraper] No data-blob found in ArchiveApp div. Trying scripts...');
-                // Fallback to searching scripts
+                console.log('[MobileScraper] No data-blob found in standard elements. Searching scripts...');
+                // Fallback 1: Search scripts for data-blob attribute in a string
                 const scripts = $('script').map((_, el) => $(el).html()).get();
                 for (const script of scripts) {
-                    if (script && script.includes('data-blob')) {
-                        const match = script.match(/data-blob="([^"]+)"/);
-                        if (match) {
-                            dataBlob = match[1];
+                    if (script) {
+                        // Look for data-blob="..."
+                        const blobMatch = script.match(/data-blob="([^"]+)"/);
+                        if (blobMatch) {
+                            dataBlob = blobMatch[1];
+                            console.log('[MobileScraper] Found data-blob in script via regex');
+                            break;
+                        }
+
+                        // Look for window.PlayerData = {...} or similar
+                        const playerMatch = script.match(/PlayerData\s*=\s*({.+?});/);
+                        if (playerMatch) {
+                            dataBlob = playerMatch[1];
+                            console.log('[MobileScraper] Found PlayerData in script via regex');
                             break;
                         }
                     }
@@ -785,29 +798,35 @@ export class MobileScraperService {
                     console.error('[MobileScraper] JSON parse failed for data-blob. Preview:', decoded.substring(0, 100));
                     throw parseErr;
                 }
-                const shows = appData.appData?.shows || appData.shows || [];
-                let show = shows.find((s: any) => String(s.showId || s.id) === showId);
 
-                // Fallback to current_show if not found in archive list
+                const shows = appData.appData?.shows || appData.shows || [];
+                let show = shows.find((s: any) =>
+                    String(s.showId || s.id || s.show_id) === showId
+                );
+
+                // Fallback to current_show
                 if (!show && (appData.appData?.current_show || appData.current_show)) {
                     const currentShow = appData.appData?.current_show || appData.current_show;
-                    if (String(currentShow.showId || currentShow.id) === showId) {
+                    if (String(currentShow.showId || currentShow.id || currentShow.show_id) === showId) {
                         show = currentShow;
                     }
                 }
 
-                if (!show || (!show.audioTrackId && !show.track_id)) {
-                    console.error('[MobileScraper] Show or audioTrackId not found in data blob', {
+                // Fallback: if data contains audioTrackId directly at root
+                const audioTrackId = show?.audioTrackId || show?.track_id || appData.audioTrackId || appData.track_id;
+
+                if (!audioTrackId) {
+                    console.error('[MobileScraper] Could not find audioTrackId for radio station', {
                         showId,
                         foundShow: !!show,
                         availableShows: shows.length,
-                        hasAudioTrackId: !!show?.audioTrackId,
-                        hasTrackIdFallback: !!show?.track_id
+                        hasRootId: !!(appData.audioTrackId || appData.track_id)
                     });
                     return { streamUrl: '', duration: 0 };
                 }
 
-                const audioTrackId = show.audioTrackId || show.track_id;
+                console.log(`[MobileScraper] Found track ID: ${audioTrackId}`);
+
                 console.log(`[MobileScraper] Fetching track details for ID: ${audioTrackId}`);
 
                 // 3. Fetch track details from mobile API
