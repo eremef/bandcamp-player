@@ -46,6 +46,31 @@ export default function AlbumDetailScreen() {
     useEffect(() => {
         if (!url) return;
 
+        // If in standalone mode, fetch via scraper
+        const store = useStore.getState();
+        if (store.mode === 'standalone') {
+            setIsLoading(true);
+            const { mobileScraperService } = require('../services/MobileScraperService');
+
+            mobileScraperService.getAlbumDetails(url)
+                .then((details: Album | null) => {
+                    if (details) {
+                        setAlbum(details);
+                    } else {
+                        Alert.alert('Error', 'Failed to load album details');
+                    }
+                })
+                .catch((err: any) => {
+                    console.error('Error fetching album details:', err);
+                    Alert.alert('Error', 'Failed to load album details');
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                });
+            return;
+        }
+
+        // Remote mode: use WebSocket
         const handleAlbumDetails = (details: Album) => {
             // Check if this details match the requested URL (or close enough)
             if (details.bandcampUrl === url) {
@@ -82,13 +107,19 @@ export default function AlbumDetailScreen() {
             {
                 text: "Play Next",
                 onPress: () => {
-                    if (album.bandcampUrl) addAlbumToQueue(album.bandcampUrl, true, album.tracks);
+                    if (album.bandcampUrl) {
+                        addAlbumToQueue(album.bandcampUrl, true, album.tracks);
+                        Alert.alert('Success', 'Album added to play next');
+                    }
                 }
             },
             {
                 text: "Add to Queue",
                 onPress: () => {
-                    if (album.bandcampUrl) addAlbumToQueue(album.bandcampUrl, false, album.tracks);
+                    if (album.bandcampUrl) {
+                        addAlbumToQueue(album.bandcampUrl, false, album.tracks);
+                        Alert.alert('Success', 'Album added to queue');
+                    }
                 }
             },
             {
