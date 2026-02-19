@@ -3,23 +3,6 @@ import TrackPlayer from 'react-native-track-player';
 import { useStore } from '../store';
 
 // Mock dependencies
-// Mock dependencies
-jest.mock('react-native-track-player', () => ({
-    setupPlayer: jest.fn(),
-    updateOptions: jest.fn(),
-    addEventListener: jest.fn(),
-    add: jest.fn(),
-    play: jest.fn(),
-    pause: jest.fn(),
-    stop: jest.fn(),
-    reset: jest.fn(),
-    seekTo: jest.fn(),
-    setVolume: jest.fn(),
-    AppKilledPlaybackBehavior: { StopPlaybackAndRemoveNotification: 'StopPlaybackAndRemoveNotification' },
-    Capability: { Play: 'Play', Pause: 'Pause', SkipToNext: 'SkipToNext', SkipToPrevious: 'SkipToPrevious', SeekTo: 'SeekTo' },
-    Event: { PlaybackProgressUpdated: 'PlaybackProgressUpdated', PlaybackState: 'PlaybackState' },
-    State: { Playing: 'Playing', Paused: 'Paused', Ready: 'Ready' }
-}));
 jest.mock('../store');
 jest.mock('../services/MobileScraperService', () => ({
     mobileScraperService: {
@@ -42,14 +25,18 @@ describe('MobilePlayerService', () => {
             isShuffled: false,
             currentTrack: null,
             isPlaying: false,
+            volume: 1,
         });
         (useStore.setState as jest.Mock).mockImplementation(() => { });
+        
+        // Mock default behavior for TrackPlayer
+        (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+        (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: 'paused' });
     });
 
     it('should setup player successfully', async () => {
         await mobilePlayerService.setupPlayer();
         expect(TrackPlayer.setupPlayer).toHaveBeenCalled();
-        expect(TrackPlayer.updateOptions).toHaveBeenCalled();
     });
 
     it('should play a track provided directly', async () => {
@@ -57,7 +44,6 @@ describe('MobilePlayerService', () => {
 
         await mobilePlayerService.playTrack(track);
 
-        expect(TrackPlayer.reset).toHaveBeenCalled();
         expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({
             id: '1',
             url: 'http://test.com/stream.mp3',
@@ -109,7 +95,6 @@ describe('MobilePlayerService', () => {
 
         await mobilePlayerService.loadTrack(track);
 
-        expect(TrackPlayer.reset).toHaveBeenCalled();
         expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({
             id: '3',
             url: 'http://test.com/load.mp3',

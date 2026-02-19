@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 import { Collection, CollectionItem, Album, Track, RadioStation } from '@shared/types';
 import { mobileAuthService } from './MobileAuthService';
 import { mobileDatabase } from './MobileDatabase';
+import { mobileSimulationService } from './MobileSimulationService';
 
 // ============================================================================
 // Mobile Bandcamp Scraper Service
@@ -142,7 +143,7 @@ export class MobileScraperService {
     /**
      * Fetch user's collection
      */
-    async fetchCollection(forceRefresh = false): Promise<Collection> {
+    async fetchCollection(forceRefresh = false, isSimulated = false, onProgress?: (msg: string) => void): Promise<Collection> {
         const authState = await mobileAuthService.checkSession();
         if (!authState.isAuthenticated || !authState.user) {
             console.error('[MobileScraper] User not authenticated in fetchCollection');
@@ -150,8 +151,7 @@ export class MobileScraperService {
         }
 
         const userId = authState.user.id;
-        // console.log('[MobileScraper] Fetching for user:', userId);
-        const cacheId = userId;
+        const cacheId = isSimulated ? `${userId}_sim` : userId;
 
         // Try to load from database first
         if (!forceRefresh) {
@@ -167,104 +167,115 @@ export class MobileScraperService {
             }
         }
 
+        const items: CollectionItem[] = [];
+
         try {
-            const cookies = await mobileAuthService.getCookies();
-            const profileUrl = authState.user.profileUrl;
+            if (isSimulated) {
+                console.log('[MobileScraper] Starting simulation...');
+                onProgress?.('Generating simulated items...');
+                let simHasMore = true;
+                let simLastToken: string | undefined;
+                let simBatchCount = 0;
+                let simRetryCount = 0;
 
-            const response = await fetch(profileUrl, {
-                headers: {
-                    'Cookie': cookies,
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
-                }
-            });
-
-            // console.log('[MobileScraper] Profile response status:', response.status);
-
-            const html = await response.text();
-            const $ = cheerio.load(html);
-            const items: CollectionItem[] = [];
-
-            // Parse initial page items using collection_data var
-            const collectionScript = $('script').filter((_, el) => {
-                const text = $(el).html() || '';
-                return text.includes('CollectionData') || text.includes('collection_data');
-            }).first().html();
-
-            if (collectionScript) {
-                // console.log('[MobileScraper] Found collection script, extracting JSON...');
-                const collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
-                if (collectionData?.items) {
-                    // console.log(`[MobileScraper] Found ${collectionData.items.length} items in initial script.`);
-                    for (const item of collectionData.items) {
-                        const parsed = this.parseCollectionItem(item);
-                        if (parsed) items.push(parsed);
-                    }
-                } else {
-                    console.log('[MobileScraper] Collection data object found but no items? Keys:', Object.keys(collectionData || {}));
-                }
-            }
-
-            // Fallback to DOM parsing if script failed
-            if (items.length === 0) {
-                $('#collection-grid .collection-item-container').each((_, el) => {
-                    const parsed = this.parseCollectionItemFromDOM($, $(el));
-                    if (parsed) items.push(parsed);
-                });
-            }
-
-            // Fetch more via API
-            const pageFanId = this.extractFanId(html);
-            const activeFanId = pageFanId ? String(pageFanId) : userId;
-
-            // Initial API fetch (using keys from desktop logic)
-            // Note: Desktop logic does a complex check for "has more".
-            // We'll simplify: just fetch "more" until done.
-
-            // First batch of API items
-            // We need the last token from initial items to continue?
-            // Bandcamp's initial page load usually has the first ~20-40 items.
-            // Then we use the token from the last item to get more.
-
-            let hasMore = items.length > 0;
-            let batchCount = 0;
-
-            // If we have items, use the last one's token
-            let lastToken = items.length > 0 ? items[items.length - 1].token : undefined;
-
-            // However, sometimes we need to just ask for the *first* batch via API if we are not sure
-            // But usually the page has the first batch.
-            // Let's force at least one API call if we found items, to ensure we get everything.
-            // If we didn't find items on page (empty?), maybe we should try API with no token?
-
-            if (items.length === 0) {
-                // Try fetching scratch
-                const initialBatch = await this.fetchMoreCollectionItems(activeFanId, undefined, cookies);
-                items.push(...initialBatch);
-                if (items.length > 0) lastToken = items[items.length - 1].token;
-            }
-
-            while (hasMore && batchCount < 200) { // Increased limit to ~20k items
-                if (!lastToken) break;
-
-                // console.log(`[MobileScraper] Fetching batch ${batchCount + 1}...`);
-                try {
-                    const batch = await this.fetchMoreCollectionItems(activeFanId, lastToken, cookies);
-                    if (batch.length === 0) {
-                        hasMore = false;
-                    } else {
-                        // Filter duplicates
-                        const newItems = batch.filter(b => !items.some(e => e.id === b.id));
-                        if (newItems.length === 0) {
-                            hasMore = false;
+                while (simHasMore && simBatchCount < 1000) {
+                    try {
+                        const batch = await mobileSimulationService.fetchBatch(simLastToken);
+                        if (batch.length === 0) {
+                            simHasMore = false;
                         } else {
-                            items.push(...newItems);
-                            lastToken = items[items.length - 1].token;
+                            items.push(...batch);
+                            simLastToken = items[items.length - 1].token;
+                            simBatchCount++;
+                            simRetryCount = 0; // Reset on success
+                            onProgress?.(`Loading simulated items: ${items.length}/5000`);
+                        }
+                    } catch (e) {
+                        simRetryCount++;
+                        console.warn(`[MobileScraper] Simulation error (retry ${simRetryCount}):`, e);
+                        if (simRetryCount > 5) {
+                            console.error('[MobileScraper] Simulation failed after 5 retries.');
+                            break;
+                        }
+                        // Short delay before retry
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                }
+            } else {
+                const cookies = await mobileAuthService.getCookies();
+                const profileUrl = authState.user.profileUrl;
+
+                const response = await fetch(profileUrl, {
+                    headers: {
+                        'Cookie': cookies,
+                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                    }
+                });
+
+                const html = await response.text();
+                const $ = cheerio.load(html);
+
+                // Parse initial page items using collection_data var
+                const collectionScript = $('script').filter((_, el) => {
+                    const text = $(el).html() || '';
+                    return text.includes('CollectionData') || text.includes('collection_data');
+                }).first().html();
+
+                if (collectionScript) {
+                    const collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
+                    if (collectionData?.items) {
+                        for (const item of collectionData.items) {
+                            const parsed = this.parseCollectionItem(item);
+                            if (parsed) items.push(parsed);
                         }
                     }
-                    batchCount++;
-                } catch (e) {
-                    console.warn('[MobileScraper] Batch fetch error:', e);
-                    break;
+                }
+
+                // Fallback to DOM parsing if script failed
+                if (items.length === 0) {
+                    $('#collection-grid .collection-item-container').each((_, el) => {
+                        const parsed = this.parseCollectionItemFromDOM($, $(el));
+                        if (parsed) items.push(parsed);
+                    });
+                }
+
+                // Fetch more via API
+                const pageFanId = this.extractFanId(html);
+                const activeFanId = pageFanId ? String(pageFanId) : userId;
+
+                let hasMore = items.length > 0;
+                let batchCount = 0;
+                let lastToken = items.length > 0 ? items[items.length - 1].token : undefined;
+
+                if (items.length === 0) {
+                    const initialBatch = await this.fetchMoreCollectionItems(activeFanId, undefined, cookies);
+                    items.push(...initialBatch);
+                    if (items.length > 0) lastToken = items[items.length - 1].token;
+                }
+
+                onProgress?.(`Loading collection...`);
+
+                while (hasMore && batchCount < 200) {
+                    if (!lastToken) break;
+                    try {
+                        const batch = await this.fetchMoreCollectionItems(activeFanId, lastToken, cookies);
+                        if (batch.length === 0) {
+                            hasMore = false;
+                        } else {
+                            const newItems = batch.filter(b => !items.some(e => e.id === b.id));
+                            if (newItems.length === 0) {
+                                hasMore = false;
+                            } else {
+                                items.push(...newItems);
+                                lastToken = items[items.length - 1].token;
+                                onProgress?.(`Loading collection: ${items.length} items...`);
+                            }
+                        }
+                        batchCount++;
+                    } catch (e) {
+                        console.warn('[MobileScraper] Batch fetch error:', e);
+                        break;
+                    }
                 }
             }
 
@@ -276,15 +287,15 @@ export class MobileScraperService {
                 items,
                 totalCount: items.length,
                 lastUpdated: new Date().toISOString(),
-                isSimulated: false,
+                isSimulated: isSimulated,
             };
 
             await mobileDatabase.saveCollectionCache(userId, this.cachedCollection);
-            await mobileDatabase.saveCollectionGranular(userId, items);
-            // console.log('[MobileScraper] Saved to database.');
+            await mobileDatabase.saveCollectionGranular(userId, items, onProgress);
 
-            await this.extractAndSaveArtists(items);
+            await this.extractAndSaveArtists(items, onProgress);
 
+            onProgress?.(''); // Explicitly clear ONLY when EVERYTHING is done
             console.log(`[MobileScraper] Collection sync complete. ${items.length} items.`);
             return this.cachedCollection;
 
@@ -460,7 +471,8 @@ export class MobileScraperService {
         }
     }
 
-    private async extractAndSaveArtists(items: CollectionItem[]): Promise<void> {
+    private async extractAndSaveArtists(items: CollectionItem[], onProgress?: (msg: string) => void): Promise<void> {
+        onProgress?.('Extracting artists...');
         const artistsMap = new Map<string, { id: string; name: string; url: string; image_url?: string }>();
 
         for (const item of items) {
@@ -470,10 +482,8 @@ export class MobileScraperService {
             const artistId = data.artistId || `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
             let artistUrl = '';
             if (data.bandcampUrl) {
-                try {
-                    const urlObj = new URL(data.bandcampUrl);
-                    artistUrl = `${urlObj.protocol}//${urlObj.host}`;
-                } catch (e) { }
+                const urlObj = new URL(data.bandcampUrl);
+                artistUrl = `${urlObj.protocol}//${urlObj.host}`;
             }
 
             const existing = artistsMap.get(artistId);
@@ -713,57 +723,57 @@ export class MobileScraperService {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
             // 1. Fetch the show page
             const cookies = await mobileAuthService.getCookies();
-                        // Try root with show param first, then weekly path
-                        const urls = [
-                            `https://bandcamp.com/?show=${showId}`,
-                            `https://bandcamp.com/weekly?show=${showId}`
-                        ];
-            
-                        let html = '';
-                        for (const url of urls) {
-                            console.log(`[MobileScraper] Trying URL: ${url}`);
-                            const response = await fetch(url, {
-                                headers: {
-                                    'Cookie': cookies,
-                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                                }
-                            });
-                            if (!response.ok) continue;
-                            const text = await response.text();
-                            // Check if this page contains the expected show data or at least a player
-                            if (text && (text.includes('audioTrackId') || text.includes('track_id') || text.includes('ArchiveApp'))) {
-                                html = text;
-                                break;
-                            }
-                        }
-            
-                        if (!html) {
-                            console.error('[MobileScraper] Failed to fetch radio page with valid show data');
-                            return { streamUrl: '', duration: 0 };
-                        }
-            
-                        const $ = cheerio.load(html);
-            
-                        // 2. Extract data blob from standard elements or any element containing it
-                        // We search for elements with data-blob and pick the one that looks like player data
-                        let dataBlob: string | undefined;
-                        
-                        $('[data-blob]').each((_, el) => {
-                            const blob = $(el).attr('data-blob');
-                            if (blob && (blob.includes('audioTrackId') || blob.includes('showId') || blob.includes('shows'))) {
-                                dataBlob = blob;
-                                return false; // found it
-                            }
-                        });
-            
-                        if (!dataBlob) {
-                            // Fallback to specific IDs just in case
-                            dataBlob = $('#ArchiveApp').attr('data-blob') || 
-                                       $('#p-show-player').attr('data-blob') || 
-                                       $('.bcweekly-player').attr('data-blob');
-                        }
-            
-                        if (!dataBlob) {
+            // Try root with show param first, then weekly path
+            const urls = [
+                `https://bandcamp.com/?show=${showId}`,
+                `https://bandcamp.com/weekly?show=${showId}`
+            ];
+
+            let html = '';
+            for (const url of urls) {
+                console.log(`[MobileScraper] Trying URL: ${url}`);
+                const response = await fetch(url, {
+                    headers: {
+                        'Cookie': cookies,
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                });
+                if (!response.ok) continue;
+                const text = await response.text();
+                // Check if this page contains the expected show data or at least a player
+                if (text && (text.includes('audioTrackId') || text.includes('track_id') || text.includes('ArchiveApp'))) {
+                    html = text;
+                    break;
+                }
+            }
+
+            if (!html) {
+                console.error('[MobileScraper] Failed to fetch radio page with valid show data');
+                return { streamUrl: '', duration: 0 };
+            }
+
+            const $ = cheerio.load(html);
+
+            // 2. Extract data blob from standard elements or any element containing it
+            // We search for elements with data-blob and pick the one that looks like player data
+            let dataBlob: string | undefined;
+
+            $('[data-blob]').each((_, el) => {
+                const blob = $(el).attr('data-blob');
+                if (blob && (blob.includes('audioTrackId') || blob.includes('showId') || blob.includes('shows'))) {
+                    dataBlob = blob;
+                    return false; // found it
+                }
+            });
+
+            if (!dataBlob) {
+                // Fallback to specific IDs just in case
+                dataBlob = $('#ArchiveApp').attr('data-blob') ||
+                    $('#p-show-player').attr('data-blob') ||
+                    $('.bcweekly-player').attr('data-blob');
+            }
+
+            if (!dataBlob) {
                 console.log('[MobileScraper] No data-blob found in standard elements. Searching scripts...');
                 // Fallback 1: Search scripts for data-blob attribute in a string
                 const scripts = $('script').map((_, el) => $(el).html()).get();
@@ -835,15 +845,15 @@ export class MobileScraperService {
 
                 if (!audioTrackId) {
                     console.log('[MobileScraper] Track ID not found in standard paths. Performing recursive search...');
-                    
+
                     // Recursive search helper
                     const findId = (obj: any): any => {
                         if (!obj || typeof obj !== 'object') return null;
-                        
+
                         // Prefer specific radio track fields
                         if (obj.audioTrackId) return obj.audioTrackId;
                         if (obj.track_id && typeof obj.track_id === 'number') return obj.track_id;
-                        
+
                         for (const key in obj) {
                             // Avoid searching very deep or recursive references if any
                             if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -853,7 +863,7 @@ export class MobileScraperService {
                         }
                         return null;
                     };
-                    
+
                     // Try searching in likely candidates first
                     audioTrackId = findId(appData.tracklists) || findId(appData.item_cache) || findId(appData);
                 }
@@ -913,7 +923,7 @@ export class MobileScraperService {
                 let trackData;
                 try {
                     trackData = JSON.parse(rawBody);
-                } catch (jsonErr) {
+                } catch {
                     console.error('[MobileScraper] Failed to parse API response as JSON. Body starts with:', rawBody.substring(0, 100));
                     return { streamUrl: '', duration: 0 };
                 }

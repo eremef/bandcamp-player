@@ -37,7 +37,8 @@ export class MobileDatabase {
                 type TEXT NOT NULL,
                 token TEXT,
                 purchase_date TEXT,
-                user_id TEXT NOT NULL
+                user_id TEXT NOT NULL,
+                position INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS albums (
@@ -67,9 +68,7 @@ export class MobileDatabase {
             CREATE VIRTUAL TABLE IF NOT EXISTS collection_search_fts USING fts5(
                 id UNINDEXED,
                 title,
-                artist,
-                content='collection_items',
-                content_rowid='id'
+                artist
             );
 
             CREATE TABLE IF NOT EXISTS playlists (
@@ -102,6 +101,36 @@ export class MobileDatabase {
                 value TEXT NOT NULL
             );
         `);
+
+        // Migration for existing users: add position column if missing
+        try {
+            const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(collection_items)");
+            const hasPosition = tableInfo.some(col => col.name === 'position');
+            if (!hasPosition) {
+                console.log('[MobileDatabase] Migrating: Adding position column to collection_items');
+                await this.db.execAsync("ALTER TABLE collection_items ADD COLUMN position INTEGER");
+            }
+        } catch (e) {
+            console.error('[MobileDatabase] Migration failed:', e);
+        }
+
+        // Migration for FTS5: Drop and recreate if it was incorrectly created with external content
+        try {
+            const ftsInfo = await this.db.getAllAsync<any>("SELECT sql FROM sqlite_master WHERE name='collection_search_fts'");
+            if (ftsInfo.length > 0 && ftsInfo[0].sql.includes("content='collection_items'")) {
+                console.log('[MobileDatabase] Migrating: Recreating broken FTS5 table');
+                await this.db.execAsync("DROP TABLE collection_search_fts");
+                await this.db.execAsync(`
+                    CREATE VIRTUAL TABLE collection_search_fts USING fts5(
+                        id UNINDEXED,
+                        title,
+                        artist
+                    )
+                `);
+            }
+        } catch (e) {
+            console.error('[MobileDatabase] FTS Migration failed:', e);
+        }
     }
 
     // --- Collection Cache ---
@@ -129,62 +158,55 @@ export class MobileDatabase {
         );
     }
 
-    async saveCollectionGranular(userId: string, items: CollectionItem[]) {
+    async saveCollectionGranular(userId: string, items: CollectionItem[], onProgress?: (msg: string) => void) {
         if (!this.db) await this.init();
 
+        const totalItems = items.length;
+        const BATCH_SIZE = 100; // Multi-row inserts of 100 items at a time
+
         await this.db!.withTransactionAsync(async () => {
-            // Delete existing items for this user to ensure sync
+            onProgress?.(`Clearing old collection search index...`);
+            await this.db!.runAsync(
+                'DELETE FROM collection_search_fts WHERE id IN (SELECT id FROM collection_items WHERE user_id = ?)',
+                [userId]
+            );
+
+            onProgress?.(`Cleaning collection records...`);
             await this.db!.runAsync('DELETE FROM collection_items WHERE user_id = ?', [userId]);
 
-            for (const item of items) {
-                // Insert into collection_items
-                await this.db!.runAsync(
-                    'INSERT INTO collection_items (id, type, token, purchase_date, user_id) VALUES (?, ?, ?, ?, ?)',
-                    [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId]
-                );
+            onProgress?.(`Consolidating in bulk...`);
 
-                if (item.type === 'album' && item.album) {
-                    await this.db!.runAsync(
-                        'INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [
-                            item.album.id,
-                            item.album.title,
-                            item.album.artistId ?? null,
-                            item.album.artist,
-                            item.album.artworkUrl ?? null,
-                            item.album.bandcampUrl ?? null,
-                            item.album.trackCount ?? 0
-                        ]
-                    );
+            let position = 0;
+            for (let i = 0; i < totalItems; i += BATCH_SIZE) {
+                const batch = items.slice(i, i + BATCH_SIZE);
+                onProgress?.(`Consolidating items: ${Math.min(i + BATCH_SIZE, totalItems)}/${totalItems}`);
 
-                    // Update FTS index
-                    await this.db!.runAsync(
-                        'INSERT INTO collection_search_fts (id, title, artist) VALUES (?, ?, ?)',
-                        [item.id, item.album.title, item.album.artist]
-                    );
-                } else if (item.type === 'track' && item.track) {
-                    await this.db!.runAsync(
-                        'INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                        [
-                            item.track.id,
-                            item.track.title,
-                            item.track.artistId ?? null,
-                            item.track.artist,
-                            item.track.albumId ?? null,
-                            item.track.album ?? null,
-                            item.track.artworkUrl ?? null,
-                            item.track.streamUrl ?? null,
-                            item.track.duration ?? 0,
-                            item.track.bandcampUrl ?? null
-                        ]
-                    );
+                // 1. Bulk Insert collection_items
+                const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+                const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++]);
+                await this.db!.runAsync(`INSERT INTO collection_items (id, type, token, purchase_date, user_id, position) VALUES ${itemPlaceholders}`, itemParams);
 
-                    // Update FTS index
-                    await this.db!.runAsync(
-                        'INSERT INTO collection_search_fts (id, title, artist) VALUES (?, ?, ?)',
-                        [item.id, item.track.title, item.track.artist]
-                    );
+                // 2. Bulk Insert albums
+                const albums = batch.filter(it => it.type === 'album' && it.album).map(it => it.album!);
+                if (albums.length > 0) {
+                    const albumPlaceholders = albums.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const albumParams = albums.flatMap(a => [a.id, a.title, a.artistId ?? null, a.artist, a.artworkUrl ?? null, a.bandcampUrl ?? null, a.trackCount ?? 0]);
+                    await this.db!.runAsync(`INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES ${albumPlaceholders}`, albumParams);
                 }
+
+                // 3. Bulk Insert tracks
+                const tracks = batch.filter(it => it.type === 'track' && it.track).map(it => it.track!);
+                if (tracks.length > 0) {
+                    const trackPlaceholders = tracks.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const trackParams = tracks.flatMap(t => [t.id, t.title, t.artistId ?? null, t.artist, t.albumId ?? null, t.album ?? null, t.artworkUrl ?? null, t.streamUrl ?? null, t.duration ?? 0, t.bandcampUrl ?? null]);
+                    await this.db!.runAsync(`INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES ${trackPlaceholders}`, trackParams);
+                }
+
+                // 4. Bulk Insert FTS
+                const ftsItems = batch.map(it => ({ id: it.id, title: it.type === 'album' ? it.album?.title : it.track?.title, artist: it.type === 'album' ? it.album?.artist : it.track?.artist }));
+                const ftsPlaceholders = ftsItems.map(() => '(?, ?, ?)').join(', ');
+                const ftsParams = ftsItems.flatMap(f => [f.id, f.title ?? 'Untitled', f.artist ?? 'Unknown Artist']);
+                await this.db!.runAsync(`INSERT INTO collection_search_fts (id, title, artist) VALUES ${ftsPlaceholders}`, ftsParams);
             }
         });
     }
@@ -205,7 +227,7 @@ export class MobileDatabase {
                 LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                 LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
                 WHERE ci.user_id = ? AND collection_search_fts MATCH ?
-                ORDER BY ci.purchase_date DESC
+                ORDER BY ci.position ASC
                 LIMIT ? OFFSET ?
             `;
             params = [userId, `${query}*`, limit, offset];
@@ -217,7 +239,7 @@ export class MobileDatabase {
                 LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                 LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
                 WHERE ci.user_id = ?
-                ORDER BY ci.purchase_date DESC
+                ORDER BY ci.position ASC
                 LIMIT ? OFFSET ?
             `;
             params = [userId, limit, offset];
@@ -419,13 +441,15 @@ export class MobileDatabase {
                 const deleted = await this.db!.runAsync('DELETE FROM artists WHERE is_simulated = 0');
                 console.log(`[MobileDatabase] Deleted ${deleted.changes} non-simulated artists`);
 
+                const BATCH_SIZE = 200;
                 let inserted = 0;
-                for (const artist of artists) {
-                    await this.db!.runAsync(
-                        'INSERT OR REPLACE INTO artists (id, name, url, image_url, is_simulated) VALUES (?, ?, ?, ?, 0)',
-                        [artist.id, artist.name, artist.url, artist.image_url ?? null]
-                    );
-                    inserted++;
+
+                for (let i = 0; i < artists.length; i += BATCH_SIZE) {
+                    const batch = artists.slice(i, i + BATCH_SIZE);
+                    const placeholders = batch.map(() => '(?, ?, ?, ?, 0)').join(', ');
+                    const params = batch.flatMap(a => [a.id, a.name, a.url, a.image_url ?? null]);
+                    await this.db!.runAsync(`INSERT OR REPLACE INTO artists (id, name, url, image_url, is_simulated) VALUES ${placeholders}`, params);
+                    inserted += batch.length;
                 }
                 console.log(`[MobileDatabase] Inserted/Replaced ${inserted} artists`);
             });

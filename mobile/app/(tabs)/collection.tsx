@@ -34,6 +34,7 @@ export default function CollectionScreen() {
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const loadMoreCollection = useStore((state) => state.loadMoreCollection);
     const isCollectionLoading = useStore((state) => state.isCollectionLoading);
+    const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -168,15 +169,33 @@ export default function CollectionScreen() {
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = React.useCallback(() => {
-        setRefreshing(true);
-        refreshCollection(true, searchQuery, true);
-        setTimeout(() => {
-            setRefreshing(false);
-        }, 1500);
-    }, [refreshCollection, searchQuery]);
+        const totalCount = collection?.totalCount || 0;
+
+        const performRefresh = () => {
+            setRefreshing(true);
+            refreshCollection(true, searchQuery, true);
+            setTimeout(() => {
+                setRefreshing(false);
+            }, 1500);
+        };
+
+        if (totalCount > 1000) {
+            Alert.alert(
+                "Large Collection Sync",
+                `Your collection has ${totalCount} items. A full synchronization may take a minute. Do you want to proceed?`,
+                [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Proceed", onPress: performRefresh }
+                ]
+            );
+        } else {
+            performRefresh();
+        }
+    }, [refreshCollection, searchQuery, collection?.totalCount]);
 
     useEffect(() => {
-        // Skip refreshing if we already have items and no search query (already handled by store initialization)
+        // Skip refreshing if we already have items and no search query
+        // We use a ref-like check or just rely on searchQuery changes
         if (!searchQuery && collection && collection.items.length > 0) return;
 
         const timer = setTimeout(() => {
@@ -184,7 +203,7 @@ export default function CollectionScreen() {
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, refreshCollection, collection]);
+    }, [searchQuery, refreshCollection]);
 
     if (!collection) {
         if (collectionError) {
@@ -205,8 +224,19 @@ export default function CollectionScreen() {
         return (
             <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
                 <View style={styles.center}>
-                    <ActivityIndicator size="large" color={colors.accent} />
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>Loading Collection...</Text>
+                    <View style={[styles.loadingIconContainer, { backgroundColor: colors.card }]}>
+                        <ActivityIndicator size="large" color={colors.accent} />
+                    </View>
+                    <Text style={[styles.loadingTitle, { color: colors.text }]}>Loading Your Music</Text>
+                    <Text style={[styles.loadingSubtitle, { color: colors.textSecondary }]}>Syncing with Bandcamp...</Text>
+
+                    {collectionLoadingStatus && (
+                        <View style={[styles.statusBadge, { backgroundColor: colors.accent + '20', borderColor: colors.accent }]}>
+                            <Text style={[styles.statusText, { color: colors.accent }]}>
+                                {collectionLoadingStatus}
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -280,17 +310,40 @@ const styles = StyleSheet.create({
         color: '#888',
         marginTop: 16,
     },
-    header: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
+    loadingIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: 'center',
         alignItems: 'center',
-        padding: 16,
-        paddingBottom: 8,
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#fff',
+    loadingTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 8,
+    },
+    loadingSubtitle: {
+        fontSize: 14,
+        marginBottom: 32,
+    },
+    statusBadge: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        marginTop: 10,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
     },
     listContent: {
         padding: LIST_PADDING,
@@ -298,5 +351,4 @@ const styles = StyleSheet.create({
     columnWrapper: {
         gap: GAP,
     },
-    // Removed old item styles as they are now in CollectionGridItem or unused
 });

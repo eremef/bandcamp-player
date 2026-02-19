@@ -36,7 +36,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                 autoCorrect={false}
             />
             {value.length > 0 && (
-                <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
+                <TouchableOpacity
+                    onPress={handleClear}
+                    style={styles.clearButton}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                     <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
             )}
