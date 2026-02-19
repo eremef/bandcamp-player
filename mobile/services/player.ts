@@ -1,8 +1,11 @@
 import TrackPlayer, {
     Capability,
-    AppKilledPlaybackBehavior
+    AppKilledPlaybackBehavior,
+    Event,
+    State
 } from 'react-native-track-player';
 import { Track } from '@shared/types';
+import { useStore } from '../store';
 
 export async function setupPlayer() {
     let isSetup = false;
@@ -16,28 +19,13 @@ export async function setupPlayer() {
             console.error('Error setting up player:', e);
         }
     }
-
-    if (isSetup) {
-        await TrackPlayer.updateOptions({
-            android: {
-                appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-            },
-            // capabilities defines the media controls available
-            capabilities: [
-                Capability.Play,
-                Capability.Pause,
-                Capability.SkipToNext,
-                Capability.SkipToPrevious,
-                Capability.SeekTo,
-            ],
-            // compactCapabilities is removed in v4+, Android uses capabilities
-            progressUpdateEventInterval: 2,
-        });
-    }
     return isSetup;
 }
 
 export async function addTrack(track: Track, hostIp?: string) {
+    // Ensure player is set up before adding track
+    await setupPlayer();
+
     // We add a "dummy" track that represents the remote state
     // We don't actually play audio on the phone (to avoid double audio), 
     // but TrackPlayer needs some URL to show metadata.
@@ -49,16 +37,28 @@ export async function addTrack(track: Track, hostIp?: string) {
         streamUrl = streamUrl.replace(/localhost|127\.0\.0\.1/g, hostIp);
     }
 
-    await TrackPlayer.reset();
+    // Seamlessly transition by adding and then skipping
+    const tracks = await TrackPlayer.getQueue();
+    const newTrackIndex = tracks.length;
+
     await TrackPlayer.add({
         id: track.id,
         url: streamUrl, // Use executable URL
-        title: track.title,
-        artist: track.artist,
+        title: track.title || 'Untitled',
+        artist: track.artist || 'Unknown Artist',
+        album: track.album,
         artwork: track.artworkUrl,
         duration: track.duration,
     });
 
-    // Set volume to 0 on the mobile device so we only hear the desktop
-    await TrackPlayer.setVolume(0);
+    if (newTrackIndex > 0) {
+        await TrackPlayer.skip(newTrackIndex);
+        // Clean up previous tracks to keep the queue small
+        const indicesToRemove = Array.from({ length: newTrackIndex }, (_, i) => i);
+        await TrackPlayer.remove(indicesToRemove);
+    }
+
+    // Set volume to near-zero (but not 0) on the mobile device so we only hear the desktop.
+    // 0 volume can cause Android to treat the media session as inactive/stalled.
+    await TrackPlayer.setVolume(0.01);
 }

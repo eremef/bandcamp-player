@@ -1,13 +1,62 @@
-import TrackPlayer, { Event } from 'react-native-track-player';
+import TrackPlayer, { Event, Capability, AppKilledPlaybackBehavior, State } from 'react-native-track-player';
 import { useStore } from '../store';
 
 export async function PlaybackService() {
+    // Initial configuration
+    await TrackPlayer.updateOptions({
+        android: {
+            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+        },
+        capabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.SeekTo,
+            Capability.Stop,
+            Capability.JumpForward,
+            Capability.JumpBackward,
+        ],
+        notificationCapabilities: [
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.SeekTo,
+            Capability.Stop,
+        ],
+        progressUpdateEventInterval: 1,
+    });
+
+    // Progress and state listeners for Standalone mode
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
+        if (useStore.getState().mode !== 'standalone') return;
+        useStore.setState({
+            currentTime: event.position,
+            duration: event.duration
+        });
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
+        if (useStore.getState().mode !== 'standalone') return;
+        const isPlaying = event.state === State.Playing;
+        useStore.setState({ isPlaying });
+    });
+
     TrackPlayer.addEventListener(Event.RemotePlay, () => {
         useStore.getState().play();
     });
 
     TrackPlayer.addEventListener(Event.RemotePause, () => {
         useStore.getState().pause();
+    });
+
+    TrackPlayer.addEventListener(Event.RemotePlayPause, () => {
+        if (useStore.getState().isPlaying) {
+            useStore.getState().pause();
+        } else {
+            useStore.getState().play();
+        }
     });
 
     TrackPlayer.addEventListener(Event.RemoteNext, () => {
@@ -34,5 +83,13 @@ export async function PlaybackService() {
 
     TrackPlayer.addEventListener(Event.RemoteStop, () => {
         TrackPlayer.reset();
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (event) => {
+        // Only handle track end in standalone mode
+        // In remote mode, TrackPlayer.reset() in addTrack() fires this event spuriously
+        if (useStore.getState().mode !== 'standalone') return;
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        await mobilePlayerService.handleTrackEnd();
     });
 }
