@@ -741,12 +741,12 @@ export class MobileScraperService {
 
             const $ = cheerio.load(html);
 
-            // 2. Extract data blob from ArchiveApp div or other elements
-            let dataBlob = $('#ArchiveApp').attr('data-blob') ||
-                $('#p-show-player').attr('data-blob') ||
-                $('.bcweekly-player').attr('data-blob');
-
-            if (!dataBlob) {
+                        // 2. Extract data blob from standard elements
+                        let dataBlob = $('#ArchiveApp').attr('data-blob') || 
+                                       $('#p-show-player').attr('data-blob') || 
+                                       $('#pagedata').attr('data-blob') ||
+                                       $('.bcweekly-player').attr('data-blob');
+                        if (!dataBlob) {
                 console.log('[MobileScraper] No data-blob found in standard elements. Searching scripts...');
                 // Fallback 1: Search scripts for data-blob attribute in a string
                 const scripts = $('script').map((_, el) => $(el).html()).get();
@@ -813,7 +813,25 @@ export class MobileScraperService {
                 }
 
                 // Fallback: if data contains audioTrackId directly at root
-                const audioTrackId = show?.audioTrackId || show?.track_id || appData.audioTrackId || appData.track_id;
+                let audioTrackId = show?.audioTrackId || show?.track_id || appData.audioTrackId || appData.track_id;
+
+                if (!audioTrackId) {
+                    console.log('[MobileScraper] Track ID not found in standard paths. Performing recursive search...');
+                    
+                    // Recursive search helper
+                    const findId = (obj: any): any => {
+                        if (!obj || typeof obj !== 'object') return null;
+                        if (obj.audioTrackId || obj.track_id) return obj.audioTrackId || obj.track_id;
+                        for (const key in obj) {
+                            const found = findId(obj[key]);
+                            if (found) return found;
+                        }
+                        return null;
+                    };
+                    
+                    // Try searching in likely candidates first
+                    audioTrackId = findId(appData.tracklists) || findId(appData.item_cache) || findId(appData);
+                }
 
                 if (!audioTrackId) {
                     console.error('[MobileScraper] Could not find audioTrackId for radio station', {
