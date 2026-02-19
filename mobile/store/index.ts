@@ -1,19 +1,15 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
 import { addTrack } from '../services/player';
-// import { mobilePlayerService } from '../services/MobilePlayerService';
 
 interface AppState extends PlayerState {
     // Connection State
     connectionStatus: 'disconnected' | 'connected' | 'connecting';
-    mode: 'remote' | 'standalone';
     hostIp: string;
-    auth: { isAuthenticated: boolean; user: BandcampUser | null };
-    skipAutoLogin: boolean;
 
     // Data Caches
     collection: Collection | null;
@@ -22,19 +18,14 @@ interface AppState extends PlayerState {
     artists: Artist[];
     artistCollection: Collection | null;
     isArtistCollectionLoading: boolean;
-    collectionError: string | null;
 
     // Actions
     recentIps: string[];
 
     // Actions
     setHostIp: (ip: string) => Promise<void>;
-    restoreStandaloneState: () => Promise<void>;
-    setMode: (mode: 'remote' | 'standalone') => Promise<void>;
-    loginBandcamp: () => Promise<void>;
-    logoutBandcamp: () => Promise<void>;
     connect: (ip?: string) => Promise<void>;
-    disconnect: () => Promise<void>;
+    disconnect: () => void;
     autoConnect: () => Promise<void>;
     startScan: () => Promise<void>;
     removeRecentIp: (ip: string) => Promise<void>;
@@ -92,12 +83,9 @@ interface AppState extends PlayerState {
     // Theme State
     theme: Theme;
     setTheme: (theme: Theme) => Promise<void>;
-
-    // Persistence Helpers
-    saveQueue: () => Promise<void>;
 }
 
-const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
+const initialState: Omit<PlayerState, 'queue'> = {
     isPlaying: false,
     currentTrack: null,
     currentTime: 0,
@@ -107,17 +95,13 @@ const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
     repeatMode: 'off',
     isShuffled: false,
     isCasting: false,
-    skipAutoLogin: false,
 };
 
 export const useStore = create<AppState>((set, get) => ({
     ...initialState,
     queue: { items: [], currentIndex: -1 },
     connectionStatus: 'disconnected',
-    skipAutoLogin: false,
-    mode: 'remote',
     hostIp: '',
-    auth: { isAuthenticated: false, user: null },
     recentIps: [],
     collection: null,
     playlists: [],
@@ -129,7 +113,6 @@ export const useStore = create<AppState>((set, get) => ({
     isCollectionLoading: false,
     artistCollection: null,
     isArtistCollectionLoading: false,
-    collectionError: null,
     searchQuery: '',
     radioSearchQuery: '',
     theme: 'system',
@@ -143,156 +126,6 @@ export const useStore = create<AppState>((set, get) => ({
         set({ hostIp: ip });
     },
 
-    restoreStandaloneState: async () => {
-        // Restore standalone queue
-        let restoredQueue = { items: [] as QueueItem[], currentIndex: -1 };
-        let restoredTrack = null as Track | null;
-        let restoredDuration = 0;
-
-        const savedQueueJson = await AsyncStorage.getItem('standalone_queue');
-        if (savedQueueJson) {
-            try {
-                const parsed = JSON.parse(savedQueueJson);
-                if (parsed?.items?.length > 0) {
-                    restoredQueue = parsed;
-                    restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
-                    restoredDuration = restoredTrack?.duration || 0;
-                }
-            } catch (e) {
-                console.error('[MobileStore] Failed to parse standalone queue:', e);
-            }
-        }
-
-        // Restore persisted volume from DB
-        const { mobileDatabase } = require('../services/MobileDatabase');
-        const settings = await mobileDatabase.getSettings();
-        const restoredVolume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
-
-        // Atomic set: restored playback state
-        set({
-            mode: 'standalone',
-            ...initialState,
-            volume: restoredVolume,
-            queue: restoredQueue,
-            currentTrack: restoredTrack,
-            duration: restoredDuration,
-            currentTime: 0,
-            isPlaying: false,
-            skipAutoLogin: false,
-        });
-
-        // Ensure TrackPlayer volume is restored (might have been set to 0 in remote mode)
-        const { mobilePlayerService } = require('../services/MobilePlayerService');
-        await mobilePlayerService.setVolume(restoredVolume);
-
-        // Load track into player without playing if restored
-        if (restoredTrack) {
-            await mobilePlayerService.loadTrack(restoredTrack);
-        }
-
-        // Restore auth
-        const { mobileAuthService } = require('../services/MobileAuthService');
-        const authState = await mobileAuthService.checkSession();
-        if (authState.isAuthenticated) {
-            set({ auth: authState, connectionStatus: 'connected' });
-        }
-
-        // Data refresh — stagger to avoid SQLite "database is locked" errors
-        get().refreshCollection(false);
-        setTimeout(() => {
-            get().refreshArtists();
-            get().refreshPlaylists();
-            get().refreshRadio();
-        }, 200);
-    },
-
-    setMode: async (mode) => {
-        const currentMode = get().mode;
-        if (currentMode === mode) return;
-
-        // ── STEP 1: Snapshot before any mutations ──
-        // Capture everything we need BEFORE stop() or set() modifies anything
-        const wasConnected = get().connectionStatus === 'connected';
-
-        if (currentMode === 'standalone') {
-            // Save standalone playback snapshot to AsyncStorage
-            await get().saveQueue();
-        }
-
-        // ── STEP 2: Stop local audio without touching store state ──
-        // Don't call mobilePlayerService.stop() — it sets currentTrack: null.
-        // Just stop the audio engine directly. The store will be updated by
-        // the target mode's restoration logic.
-        // Reset TrackPlayer for BOTH directions:
-        // - standalone→remote: clear standalone playback
-        // - remote→standalone: clear remote track to prevent progress bleed
-        await TrackPlayer.reset();
-
-        // ── STEP 3: Atomic state transition ──
-        await AsyncStorage.setItem('app_mode', mode);
-
-        // Set mode early so WebSocket event guards (e.g. state-changed)
-        // block remote updates during the async transition below
-        set({ mode });
-
-        if (mode === 'standalone') {
-            await get().restoreStandaloneState();
-        } else {
-            // Remote mode: only reset data collections, NOT playback state.
-            // The server will provide playback state via state-changed event.
-            const isActuallyConnected = webSocketService.isConnected();
-
-            set({
-                mode: 'remote',
-                collection: null,
-                playlists: [],
-                radioStations: [],
-                artists: [],
-                collectionOffset: 0,
-                hasMoreCollection: true,
-                isCollectionLoading: false,
-                // When switching from standalone → remote without an existing connection,
-                // skip auto-login so the connect screen shows the manual Connect button
-                // instead of auto-connecting (which would cause a navigation loop).
-                skipAutoLogin: !isActuallyConnected,
-            });
-
-            if (isActuallyConnected) {
-                // Delay refresh to let the UI settle with the mode change
-                setTimeout(() => {
-                    get().refreshCollection(false);
-                    get().refreshPlaylists();
-                    get().refreshRadio();
-                    get().refreshArtists();
-                    get().refreshQueue();
-                }, 100);
-            } else {
-                // Not connected — the connect screen will handle connection
-                // via its autoConnect effect when the UI navigates there
-                set({ connectionStatus: 'disconnected' });
-            }
-        }
-    },
-
-    loginBandcamp: async () => {
-        // Placeholder for Phase 2
-        console.log('Login logic to be implemented in Phase 2');
-    },
-
-    logoutBandcamp: async () => {
-        const { mobileAuthService } = require('../services/MobileAuthService');
-        await mobileAuthService.logout();
-        const { mobilePlayerService } = require('../services/MobilePlayerService');
-        mobilePlayerService.stop();
-        await AsyncStorage.removeItem('standalone_queue');
-        set({
-            auth: { isAuthenticated: false, user: null },
-            connectionStatus: 'disconnected',
-            ...initialState,
-            queue: { items: [], currentIndex: -1 }
-        });
-    },
-
     connect: async (manualIp?: string) => {
         const ip = manualIp || get().hostIp;
         if (!ip) return;
@@ -304,75 +137,30 @@ export const useStore = create<AppState>((set, get) => ({
         await AsyncStorage.setItem('recent_ips', JSON.stringify(newRecents));
         await AsyncStorage.setItem('last_ip', ip);
 
-        set({ hostIp: ip, recentIps: newRecents, connectionStatus: 'connecting', skipAutoLogin: false });
+        set({ hostIp: ip, recentIps: newRecents, connectionStatus: 'connecting' });
         webSocketService.connect(ip);
     },
 
-    disconnect: async () => {
-        const { mode } = get();
-
-        if (mode === 'remote') {
-            webSocketService.disconnect();
-            await AsyncStorage.removeItem('last_ip'); // Clear last IP to prevent auto-connect loop
-        } else if (mode === 'standalone') {
-            // Save queue before clearing it from active state
-            await get().saveQueue();
-        }
-
-        const { mobilePlayerService } = require('../services/MobilePlayerService');
-        mobilePlayerService.stop();
-
-        set({
-            connectionStatus: 'disconnected',
-            hostIp: mode === 'standalone' ? get().hostIp : '',
-            ...initialState,
-            mode, // Preserve current mode
-            queue: { items: [], currentIndex: -1 },
-            skipAutoLogin: true
-        });
+    disconnect: () => {
+        webSocketService.disconnect();
+        set({ connectionStatus: 'disconnected', hostIp: '' });
+        AsyncStorage.removeItem('last_ip'); // Clear last IP to prevent auto-connect loop
     },
 
     autoConnect: async () => {
-        if (get().connectionStatus === 'connected' || get().connectionStatus === 'connecting') {
-            return;
-        }
-
         const lastIp = await AsyncStorage.getItem('last_ip');
         const recentsJson = await AsyncStorage.getItem('recent_ips');
         const recentIps = recentsJson ? JSON.parse(recentsJson) : [];
         const savedTheme = await AsyncStorage.getItem('app_theme') as Theme || 'system';
 
-        const savedMode = await AsyncStorage.getItem('app_mode') as 'remote' | 'standalone' || 'remote';
-        const { mobileDatabase } = require('../services/MobileDatabase');
-        const settings = await mobileDatabase.getSettings();
-        const volume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
+        set({ recentIps, theme: savedTheme });
 
-        set({ recentIps, theme: savedTheme, mode: savedMode, volume });
-
-        // Always attempt connection to last known IP if available,
-        // so remote state is tracked even in standalone mode.
-        if (lastIp && !get().skipAutoLogin) {
-            await get().connect(lastIp);
-        }
-
-        if (savedMode === 'standalone' && !get().skipAutoLogin) {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-
-            // Set listener for queue changes (automatic track advancement)
-            if (!mobilePlayerService.onQueueChange) {
-                mobilePlayerService.onQueueChange = () => {
-                    get().saveQueue();
-                };
-            }
-
-            await get().restoreStandaloneState();
-        }
-    },
-
-    saveQueue: async () => {
-        if (get().mode === 'standalone') {
-            const { queue } = get();
-            await AsyncStorage.setItem('standalone_queue', JSON.stringify(queue));
+        if (lastIp) {
+            set({ hostIp: lastIp });
+            get().connect(lastIp);
+        } else {
+            // If no last IP, try scanning automatically? Or let user decide.
+            // Let's just ready the recents.
         }
     },
 
@@ -402,219 +190,26 @@ export const useStore = create<AppState>((set, get) => ({
         set({ recentIps: newRecents });
     },
 
-    play: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.play();
-        }
-    },
-    pause: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('pause');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.pause();
-        }
-    },
-    next: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('next');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.next();
-        }
-    },
-    previous: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('previous');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.previous();
-        }
-    },
-    seek: (time) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('seek', time);
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.seek(time);
-        }
-    },
-    setVolume: (vol) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('set-volume', vol);
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.setVolume(vol);
-        }
-    },
-    toggleShuffle: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('toggle-shuffle');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.toggleShuffle();
-        }
-    },
-    setRepeat: (mode) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('set-repeat', mode);
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.setRepeat(mode);
-        }
-    },
+    play: () => webSocketService.send('play'),
+    pause: () => webSocketService.send('pause'),
+    next: () => webSocketService.send('next'),
+    previous: () => webSocketService.send('previous'),
+    seek: (time) => webSocketService.send('seek', time),
+    setVolume: (vol) => webSocketService.send('set-volume', vol),
+    toggleShuffle: () => webSocketService.send('toggle-shuffle'),
+    setRepeat: (mode) => webSocketService.send('set-repeat', mode),
 
     playTrack: (track) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            // Optimistic update
-            set({
-                currentTrack: track,
-                isPlaying: true
-            });
-            webSocketService.send('play-track', track);
-        } else {
-            console.log(`[MobileStore] playTrack standalone: ${track.title}`);
-            const queueItem: QueueItem = {
-                id: `track-${track.id}-${Date.now()}`,
-                track,
-                source: 'collection'
-            };
-
-            set({
-                queue: {
-                    items: [queueItem],
-                    currentIndex: 0
-                },
-                currentTrack: track,
-                isPlaying: true
-            });
-
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.playQueueIndex(0);
-            get().saveQueue();
-        }
+        // Optimistic update
+        set({
+            currentTrack: track,
+            isPlaying: true
+        });
+        webSocketService.send('play-track', track);
     },
-    playAlbum: (url) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-album', url);
-        } else {
-            console.log(`[MobileStore] playAlbum standalone: ${url}`);
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            set({ isCollectionLoading: true, collectionError: null });
-
-            mobileScraperService.getAlbumDetails(url)
-                .then((album: any) => {
-                    if (album && album.tracks && album.tracks.length > 0) {
-                        console.log(`[MobileStore] Album details loaded: ${album.title} (${album.tracks.length} tracks)`);
-                        const queueItems: QueueItem[] = album.tracks.map((track: any, i: number) => ({
-                            id: `album-${album.id}-${Date.now()}-${i}`,
-                            track,
-                            source: 'collection'
-                        }));
-
-                        set({
-                            queue: {
-                                items: queueItems,
-                                currentIndex: 0
-                            },
-                            currentTrack: album.tracks[0],
-                            isPlaying: true,
-                            isCollectionLoading: false
-                        });
-                        get().saveQueue();
-
-                        // Play the first track
-                        const { mobilePlayerService } = require('../services/MobilePlayerService');
-                        mobilePlayerService.playQueueIndex(0);
-                    } else {
-                        console.warn('[MobileStore] No tracks found in album details');
-                        set({ isCollectionLoading: false, collectionError: 'No tracks found in this album.' });
-                    }
-                })
-                .catch((err: any) => {
-                    console.error('[MobileStore] Play Album Error:', err);
-                    set({ isCollectionLoading: false, collectionError: 'Failed to load album details.' });
-                });
-        }
-    },
-    playPlaylist: (id) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-playlist', id);
-        } else {
-            const playlist = get().playlists.find(p => p.id === id);
-            if (!playlist || playlist.tracks.length === 0) return;
-
-            const queueItems: QueueItem[] = playlist.tracks.map((track, i) => ({
-                id: `playlist-${id}-${Date.now()}-${i}`,
-                track,
-                source: 'playlist'
-            }));
-
-            set({
-                queue: {
-                    items: queueItems,
-                    currentIndex: 0
-                },
-                currentTrack: playlist.tracks[0],
-                isPlaying: true
-            });
-
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.playQueueIndex(0);
-            get().saveQueue();
-        }
-    },
-    playStation: (station) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-station', station);
-        } else {
-            console.log(`[MobileStore] playStation standalone: ${station.name}`);
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            set({ isCollectionLoading: true, collectionError: null });
-
-            mobileScraperService.getStationStreamUrl(station.id)
-                .then(({ streamUrl, duration }: { streamUrl: string; duration: number }) => {
-                    const stationTrack: Track = {
-                        id: `station-${station.id}`,
-                        title: station.name,
-                        artist: 'Bandcamp Weekly',
-                        artworkUrl: station.imageUrl || '',
-                        streamUrl,
-                        duration,
-                        bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
-                        album: 'Radio',
-                        isCached: false
-                    };
-
-                    const queueItem: QueueItem = {
-                        id: `queue-${station.id}-${Date.now()}`,
-                        track: stationTrack,
-                        source: 'radio'
-                    };
-
-                    set({
-                        queue: {
-                            items: [queueItem],
-                            currentIndex: 0
-                        },
-                        currentTrack: stationTrack,
-                        isPlaying: true,
-                        isCollectionLoading: false
-                    });
-                    get().saveQueue();
-
-                    mobilePlayerService.playQueueIndex(0);
-                })
-                .catch((err: any) => {
-                    console.error('[MobileStore] Play Station Error:', err);
-                    set({ isCollectionLoading: false, collectionError: 'Failed to load station stream.' });
-                });
-        }
-    },
+    playAlbum: (url) => webSocketService.send('play-album', url),
+    playPlaylist: (id) => webSocketService.send('play-playlist', id),
+    playStation: (station) => webSocketService.send('play-station', station),
     addStationToQueue: (station, playNext) => {
         // Optimistic update
         const { queue } = get();
@@ -651,36 +246,9 @@ export const useStore = create<AppState>((set, get) => ({
             }
         });
 
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-station-to-queue', { station, playNext });
-        } else {
-            // Local state already updated optimistically above.
-            get().saveQueue();
-            // Check if we should auto-play
-            if (queue.items.length === 0) {
-                get().playStation(station);
-            }
-        }
+        webSocketService.send('add-station-to-queue', { station, playNext });
     },
-    addStationToPlaylist: (playlistId, station) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-station-to-playlist', { playlistId, station });
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            const stationTrack: Track = {
-                id: `station-${station.id}`,
-                title: station.name,
-                artist: 'Bandcamp Radio',
-                artworkUrl: station.imageUrl || '',
-                streamUrl: station.streamUrl,
-                duration: 0,
-                bandcampUrl: '',
-                album: 'Radio',
-                isCached: false
-            };
-            mobileDatabase.addTrackToPlaylist(playlistId, stationTrack).then(() => get().refreshPlaylists());
-        }
-    },
+    addStationToPlaylist: (playlistId, station) => webSocketService.send('add-station-to-playlist', { playlistId, station }),
     addTrackToQueue: (track, playNext) => {
         // Optimistic update
         const { queue } = get();
@@ -705,20 +273,12 @@ export const useStore = create<AppState>((set, get) => ({
             }
         });
 
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-track-to-queue', { track, playNext });
-        } else {
-            get().saveQueue();
-            // mobilePlayerService.addTrackToQueue(track, playNext);
-        }
+        webSocketService.send('add-track-to-queue', { track, playNext });
     },
     addAlbumToQueue: (albumUrl, playNext, tracks) => {
-        console.log(`[MobileStore] addAlbumToQueue called. URL: ${albumUrl}, PlayNext: ${playNext}, Tracks: ${tracks?.length}`);
         // Optimistic update if tracks are provided
         if (tracks && tracks.length > 0) {
             const { queue } = get();
-            console.log('[MobileStore] Current queue length:', queue.items.length);
-
             const newQueueItems: QueueItem[] = tracks.map((track, index) => ({
                 id: `queue-${Date.now()}-${index}`,
                 track: track,
@@ -734,88 +294,20 @@ export const useStore = create<AppState>((set, get) => ({
                 newItems.push(...newQueueItems);
             }
 
-            console.log('[MobileStore] New queue length:', newItems.length);
-
             set({
                 queue: {
                     ...queue,
                     items: newItems
                 }
             });
-            get().saveQueue();
-        } else {
-            console.warn('[MobileStore] addAlbumToQueue called without tracks! Fetching...', albumUrl);
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            // Force fetch tracks
-            mobileScraperService.getAlbumDetails(albumUrl)
-                .then((album: any) => {
-                    if (album && album.tracks && album.tracks.length > 0) {
-                        // Recursive call with tracks
-                        get().addAlbumToQueue(albumUrl, playNext, album.tracks);
-                    } else {
-                        useStore.setState({ collectionError: 'Failed to load tracks for queue' });
-                    }
-                })
-                .catch((err: any) => {
-                    console.error('Failed to fetch album for queue:', err);
-                    useStore.setState({ collectionError: 'Failed to fetch album for queue' });
-                });
         }
 
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-album-to-queue', { albumUrl, playNext, tracks });
-        } else {
-            if (tracks && tracks.length > 0) {
-                console.log('[MobileStore] Added album to queue locally');
-                // Check if we should auto-play (if queue was empty)
-                const { mobilePlayerService } = require('../services/MobilePlayerService');
-                // If the queue only contains the items we just added, it was empty.
-                // Note: Use fresh state
-                const currentQueue = get().queue;
-                console.log(`[MobileStore] Checking auto-play. Queue len: ${currentQueue.items.length}, Tracks added: ${tracks?.length}`);
+        webSocketService.send('add-album-to-queue', { albumUrl, playNext, tracks });
+    },
+    addTrackToPlaylist: (playlistId, track) => webSocketService.send('add-track-to-playlist', { playlistId, track }),
+    addAlbumToPlaylist: (playlistId, albumUrl) => webSocketService.send('add-album-to-playlist', { playlistId, albumUrl }),
 
-                if (currentQueue.items.length === (tracks?.length || 0)) {
-                    console.log('[MobileStore] Queue was empty, auto-playing index 0');
-                    mobilePlayerService.playQueueIndex(0).then(() => get().saveQueue());
-                } else {
-                    get().saveQueue();
-                }
-            }
-        }
-    },
-    addTrackToPlaylist: (playlistId, track) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-track-to-playlist', { playlistId, track });
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.addTrackToPlaylist(playlistId, track).then(() => get().refreshPlaylists());
-        }
-    },
-    addAlbumToPlaylist: (playlistId, albumUrl) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-album-to-playlist', { playlistId, albumUrl });
-        } else {
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileScraperService.getAlbumDetails(albumUrl).then(async (album: any) => {
-                if (album && album.tracks) {
-                    for (const track of album.tracks) {
-                        await mobileDatabase.addTrackToPlaylist(playlistId, track);
-                    }
-                    get().refreshPlaylists();
-                }
-            });
-        }
-    },
-    playQueueIndex: (index) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-queue-index', index);
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.playQueueIndex(index);
-            get().saveQueue();
-        }
-    },
+    playQueueIndex: (index) => webSocketService.send('play-queue-index', index),
     removeFromQueue: (id) => {
         const { queue } = get();
         const index = queue.items.findIndex(item => item.id === id);
@@ -842,25 +334,17 @@ export const useStore = create<AppState>((set, get) => ({
                 currentIndex: newIndex
             }
         });
-        get().saveQueue();
 
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('remove-from-queue', id);
-        } else {
-            // Local state is already updated optimistically above.
-            if (index === queue.currentIndex) {
-                const { mobilePlayerService } = require('../services/MobilePlayerService');
-                if (newItems.length > 0) {
-                    mobilePlayerService.playQueueIndex(newIndex);
-                } else {
-                    mobilePlayerService.stop();
-                }
-            }
-        }
+        webSocketService.send('remove-from-queue', id);
     },
     clearQueue: () => {
         const { queue } = get();
-        let newItems: QueueItem[] = [];
+        // Optimistic clear (keeping current if exists/playing logic is usually handled by server, 
+        // but for simple clear we can just keep current if index valid)
+        // Checks player service logic: usually keeps current. 
+        // Let's assume we keep the playing track if there is one.
+
+        let newItems: any[] = [];
         let newIndex = -1;
 
         if (queue.currentIndex >= 0 && queue.currentIndex < queue.items.length) {
@@ -875,39 +359,13 @@ export const useStore = create<AppState>((set, get) => ({
                 currentIndex: newIndex
             }
         });
-        get().saveQueue();
 
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('clear-queue');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.stop(); // Clear and stop
-        }
+        webSocketService.send('clear-queue');
     },
-    createPlaylist: (name, description) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('create-playlist', { name, description });
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.createPlaylist(name).then(() => get().refreshPlaylists());
-        }
-    },
-    renamePlaylist: (id, name, description) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('update-playlist', { id, name, description });
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.renamePlaylist(id, name).then(() => get().refreshPlaylists());
-        }
-    },
-    deletePlaylist: (id) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('delete-playlist', id);
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.deletePlaylist(id).then(() => get().refreshPlaylists());
-        }
-    },
+
+    createPlaylist: (name, description) => webSocketService.send('create-playlist', { name, description }),
+    renamePlaylist: (id, name, description) => webSocketService.send('update-playlist', { id, name, description }),
+    deletePlaylist: (id) => webSocketService.send('delete-playlist', id),
 
     refreshCollection: (reset = false, query = '', forceServerRefresh = false) => {
         if (reset) {
@@ -915,123 +373,23 @@ export const useStore = create<AppState>((set, get) => ({
                 collectionOffset: 0,
                 hasMoreCollection: true,
                 searchQuery: query, // Update query state on reset/search
-                isCollectionLoading: true,
-                collectionError: null
+                isCollectionLoading: true
             });
-            if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-                webSocketService.send('get-collection', {
-                    forceRefresh: forceServerRefresh,
-                    offset: 0,
-                    limit: 50,
-                    query
-                });
-            } else {
-                mobileScraperService.fetchCollection(forceServerRefresh)
-                    .then(collection => {
-                        const { searchQuery } = get();
-                        if (searchQuery) {
-                            const filtered = mobileScraperService.searchCollection(searchQuery);
-                            useStore.setState({
-                                collection: filtered,
-                                isCollectionLoading: false,
-                                hasMoreCollection: false
-                            });
-                        } else {
-                            useStore.setState({
-                                collection,
-                                isCollectionLoading: false,
-                                collectionOffset: collection.items.length,
-                                hasMoreCollection: true
-                            });
-                        }
-
-                        // Stale-while-revalidate check
-                        if (!forceServerRefresh && collection.lastUpdated) {
-                            const lastUpdated = new Date(collection.lastUpdated).getTime();
-                            const now = new Date().getTime();
-                            const isStale = now - lastUpdated > 24 * 60 * 60 * 1000; // 24 hours
-
-                            if (isStale) {
-                                console.log('[MobileStore] Collection cache is stale (>24h). Refreshing in background...');
-                                mobileScraperService.fetchCollection(true)
-                                    .then(newCollection => {
-                                        const { searchQuery: currentQuery } = get();
-                                        if (currentQuery) {
-                                            const filtered = mobileScraperService.searchCollection(currentQuery);
-                                            useStore.setState({ collection: filtered });
-                                        } else {
-                                            useStore.setState({
-                                                collection: newCollection,
-                                                collectionOffset: newCollection.items.length
-                                            });
-                                        }
-                                        get().refreshArtists();
-                                    })
-                                    .catch(err => console.warn('[MobileStore] Background refresh failed:', err));
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Fetch collection error:', err);
-                        useStore.setState({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
-                    });
-            }
+            webSocketService.send('get-collection', {
+                forceRefresh: forceServerRefresh,
+                offset: 0,
+                limit: 50,
+                query
+            });
         } else {
-            // Loading more or non-reset refresh
-            set({ isCollectionLoading: true });
+            // Legacy full refresh - should we support this? 
+            // Maybe just default to current query?
             const { searchQuery } = get();
-            if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-                webSocketService.send('get-collection', {
-                    forceRefresh: forceServerRefresh,
-                    query: searchQuery,
-                    offset: get().collectionOffset,
-                    limit: 50
-                });
-            } else {
-                if (forceServerRefresh) {
-                    useStore.setState({ isCollectionLoading: true, collectionError: null });
-                }
-
-                // Race fetch with timeout
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Request timed out')), 15000)
-                );
-
-                Promise.race([
-                    mobileScraperService.fetchCollection(forceServerRefresh),
-                    timeoutPromise
-                ])
-                    .then((result) => {
-                        const collection = result as Collection;
-                        const { searchQuery: currentQuery } = get();
-                        if (currentQuery) {
-                            // If there is a query, filter the result
-                            const filtered = mobileScraperService.searchCollection(currentQuery);
-                            useStore.setState({
-                                collection: filtered,
-                                isCollectionLoading: false,
-                                hasMoreCollection: false
-                            });
-                        } else {
-                            useStore.setState({
-                                collection,
-                                isCollectionLoading: false,
-                                collectionOffset: collection.items.length,
-                                hasMoreCollection: true
-                            });
-                        }
-
-                        // Always refresh artists after collection sync to ensure new artists appear
-                        get().refreshArtists();
-                    })
-                    .catch(err => {
-                        console.error('[MobileStore] Fetch collection error:', err);
-                        useStore.setState({
-                            isCollectionLoading: false,
-                            collectionError: err.message || 'Failed to load collection'
-                        });
-                    });
-            }
+            useStore.setState({ isCollectionLoading: true });
+            webSocketService.send('get-collection', {
+                forceRefresh: forceServerRefresh,
+                query: searchQuery
+            });
         }
     },
 
@@ -1042,127 +400,38 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isCollectionLoading: true });
 
         // Fetch next batch with current query
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-collection', {
-                forceRefresh: false,
-                offset: collectionOffset,
-                limit: 50,
-                query: searchQuery
-            });
-        } else {
-            // For mobile scraper, fetchCollection automatically gets all/paginates internally, 
-            // OR we need to expose a loadMore.
-            // Our MobileScraperService current implementation of fetchCollection gets EVERYTHING (or up to limit).
-            // So 'loadMore' locally just means "render more" if we virtualized, OR "fetch more from API".
-            // Since MobileScraperService.fetchCollection tries to get a lot, maybe we assume it got everything for now?
-            // Or we should update MobileScraper to be more granular.
-            // Given the complexity, let's just trigger a re-fetch which acts as a check for new items 
-            // if we didn't force refresh.
-
-            // Actually, MobileScraper fetches 50 batches. It likely gets everything.
-            // So loadMore might not be needed for "pagination", but if we implement local pagination 
-            // (show 20, load 20), we handle that in UI/Selector.
-            // But the store 'collectionOffset' implies server-side pagination.
-
-            // For now, let's just log.
-            console.log('Load more called in standalone - assuming all loaded.');
-            useStore.setState({ isCollectionLoading: false, hasMoreCollection: false });
-        }
+        webSocketService.send('get-collection', {
+            forceRefresh: false,
+            offset: collectionOffset,
+            limit: 50,
+            query: searchQuery
+        });
     },
 
-    refreshPlaylists: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-playlists');
-        } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
-        }
-    },
-    refreshRadio: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-radio-stations');
-        } else {
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            mobileScraperService.getRadioStations().then((stations: RadioStation[]) => set({ radioStations: stations }));
-        }
-    },
-    refreshQueue: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-state');
-        } else {
-            // Local queue is already managed in store state
-        }
-    },
-    refreshArtists: () => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-artists');
-        } else {
-            console.log('[MobileStore] Refreshing artists from DB...');
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.getArtists()
-                .then((artists: any[]) => {
-                    console.log(`[MobileStore] Loaded ${artists.length} artists from DB`);
-                    const mappedArtists: Artist[] = artists.map(a => ({
-                        id: a.id,
-                        name: a.name,
-                        bandcampUrl: a.url,
-                        imageUrl: a.image_url
-                    }));
-                    set({ artists: mappedArtists });
-                })
-                .catch((err: any) => console.error('[MobileStore] Failed to load artists:', err));
-        }
-    },
+    refreshPlaylists: () => webSocketService.send('get-playlists'),
+    refreshRadio: () => webSocketService.send('get-radio-stations'),
+    refreshQueue: () => webSocketService.send('get-state'),
+    refreshArtists: () => webSocketService.send('get-artists'),
     refreshArtistCollection: (artistId: string) => {
         set({ isArtistCollectionLoading: true });
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-artist-collection', artistId);
-        } else {
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            mobileScraperService.fetchCollection(false)
-                .then((collection: any) => {
-                    const items = collection.items || [];
-                    const artistItems = items.filter((item: any) => {
-                        const data = item.type === 'album' ? item.album : item.track;
-                        return data && (data.artistId === artistId || data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-') === artistId.replace('name-', ''));
-                    });
-                    set({
-                        artistCollection: {
-                            items: artistItems,
-                            totalCount: artistItems.length,
-                            lastUpdated: new Date().toISOString()
-                        },
-                        isArtistCollectionLoading: false
-                    });
-                })
-                .catch((err: any) => {
-                    console.error('[MobileStore] Failed to load artist collection:', err);
-                    set({ isArtistCollectionLoading: false });
-                });
-        }
+        webSocketService.send('get-artist-collection', artistId);
     },
+
+    // Initialize
+    // This is called automatically when store is created? No, we need to call it.
+    // We'll call autoConnect in app index.
 }));
 
 // Initialize Listeners
 webSocketService.on('connection-status', (status, isExplicit) => {
-    const { mode, connectionStatus: currentStatus } = useStore.getState();
-
-    // In standalone mode, we don't want background WebSocket drops 
-    // to overwrite our 'connected' state unless it's an explicit disconnect.
-    if (mode === 'standalone' && status === 'disconnected' && !isExplicit) {
-        return;
-    }
-
-    if (currentStatus !== status) {
-        useStore.setState({ connectionStatus: status });
-    }
+    useStore.setState({ connectionStatus: status });
 
     if (status === 'disconnected' && isExplicit) {
         // Clear last_ip to prevent auto-reconnect loop on app focus/restart
         AsyncStorage.removeItem('last_ip');
     }
 
-    if (status === 'connected' && useStore.getState().mode === 'remote') {
+    if (status === 'connected') {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
         webSocketService.send('get-playlists');
@@ -1172,9 +441,17 @@ webSocketService.on('connection-status', (status, isExplicit) => {
 });
 
 webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
-    if (useStore.getState().mode !== 'remote') return;
     const currentState = useStore.getState();
     const prevTrackId = currentState.currentTrack?.id;
+
+    // Debug logging for queue updates
+    if (payload.queue) {
+        console.log('[MobileStore] Received queue update from server:', {
+            itemCount: payload.queue.items.length,
+            currentIndex: payload.queue.currentIndex,
+            firstItem: payload.queue.items[0]?.track?.title,
+        });
+    }
 
     useStore.setState(payload);
 
@@ -1197,7 +474,6 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 });
 
 webSocketService.on('collection-data', (collectionData) => {
-    if (useStore.getState().mode !== 'remote') return;
     const currentStore = useStore.getState();
     const isReset = collectionData.offset === 0;
 
@@ -1230,36 +506,22 @@ webSocketService.on('collection-data', (collectionData) => {
 
 
 webSocketService.on('playlists-data', (playlists) => {
-    if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ playlists });
 });
 
 webSocketService.on('radio-data', (radioStations) => {
-    if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ radioStations });
 });
 
 webSocketService.on('artists-data', (artists) => {
-    if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ artists });
 });
 
 webSocketService.on('artist-collection-data', (artistCollection) => {
-    if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ artistCollection, isArtistCollectionLoading: false });
 });
 
-// Mobile Scraper Events
-import { mobileScraperService } from '../services/MobileScraperService';
-
-// We can subscribe to the scraper service explicitly or just handle the promise result in the action.
-// The desktop app uses events. Let's stick to promise handling in the action for simplicity in React Native store,
-// OR we can add a listener here if we want to support background updates.
-// For now, the actions handle the state setting.
-
 webSocketService.on('time-update', async (payload) => {
-    if (useStore.getState().mode !== 'remote') return;
-
     useStore.setState(payload);
 
     // Sync TrackPlayer progress (Smart Sync)
