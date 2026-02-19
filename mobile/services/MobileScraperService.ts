@@ -714,21 +714,29 @@ export class MobileScraperService {
             // 1. Fetch the show page
             const cookies = await mobileAuthService.getCookies();
             // Try both root with show param and weekly path
+            // The weekly path is often more reliable for specific shows
             const urls = [
-                `https://bandcamp.com/?show=${showId}`,
-                `https://bandcamp.com/weekly?show=${showId}`
+                `https://bandcamp.com/weekly?show=${showId}`,
+                `https://bandcamp.com/?show=${showId}`
             ];
 
             let html = '';
             for (const url of urls) {
+                console.log(`[MobileScraper] Trying URL: ${url}`);
                 const response = await fetch(url, {
                     headers: {
                         'Cookie': cookies,
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' // Use desktop UA for better parsing
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                     }
                 });
+                if (!response.ok) continue;
                 html = await response.text();
-                if (html.includes('id="ArchiveApp"')) break;
+                if (html && (html.includes('id="ArchiveApp"') || html.includes('data-blob'))) break;
+            }
+
+            if (!html) {
+                console.error('[MobileScraper] Failed to fetch radio page content');
+                return { streamUrl: '', duration: 0 };
             }
 
             const $ = cheerio.load(html);
@@ -756,17 +764,27 @@ export class MobileScraperService {
             }
 
             try {
-                // Decode HTML entities (Bandcamp often encodes " as &quot; in data attributes)
-                const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-                const decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+                // Determine if we need to decode entities. 
+                // cheerio.attr() usually handles this, but regex fallback might not.
+                let decoded = dataBlob;
+                if (dataBlob.includes('&quot;')) {
+                    const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+                    decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+                }
 
                 // If it still starts with <, it's definitely not JSON
                 if (decoded.trim().startsWith('<')) {
-                    console.error('[MobileScraper] Decoded data-blob starts with <, invalid JSON');
+                    console.error('[MobileScraper] Decoded data-blob starts with <, invalid JSON. Preview:', decoded.substring(0, 100));
                     return { streamUrl: '', duration: 0 };
                 }
 
-                const appData = JSON.parse(decoded);
+                let appData;
+                try {
+                    appData = JSON.parse(decoded);
+                } catch (parseErr) {
+                    console.error('[MobileScraper] JSON parse failed for data-blob. Preview:', decoded.substring(0, 100));
+                    throw parseErr;
+                }
                 const shows = appData.appData?.shows || appData.shows || [];
                 let show = shows.find((s: any) => String(s.showId || s.id) === showId);
 
@@ -790,6 +808,7 @@ export class MobileScraperService {
                 }
 
                 const audioTrackId = show.audioTrackId || show.track_id;
+                console.log(`[MobileScraper] Fetching track details for ID: ${audioTrackId}`);
 
                 // 3. Fetch track details from mobile API
                 const apiRes = await fetch(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`, {
@@ -798,7 +817,21 @@ export class MobileScraperService {
                         'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
                     }
                 });
-                const trackData = await apiRes.json();
+
+                if (!apiRes.ok) {
+                    const errorText = await apiRes.text().catch(() => 'No error text');
+                    console.error(`[MobileScraper] API request failed with status ${apiRes.status}:`, errorText.substring(0, 200));
+                    return { streamUrl: '', duration: 0 };
+                }
+
+                let trackData;
+                try {
+                    trackData = await apiRes.json();
+                } catch (jsonErr) {
+                    const rawBody = await apiRes.text().catch(() => 'Could not read body');
+                    console.error('[MobileScraper] Failed to parse API response as JSON. Body starts with:', rawBody.substring(0, 100));
+                    throw jsonErr;
+                }
 
                 if (trackData && trackData.tracks && trackData.tracks.length > 0) {
                     const track = trackData.tracks[0];
