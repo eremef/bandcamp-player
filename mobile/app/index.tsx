@@ -31,6 +31,20 @@ export default function ConnectScreen() {
         setIpInput(hostIp);
     }, [hostIp]);
 
+    // Auto-redirect to player when connected or authenticated and ready
+    useEffect(() => {
+        if (!isAutoConnecting) {
+            const canAccess =
+                ((mode === 'remote' || mode === 'standalone') && connectionStatus === 'connected') &&
+                (mode === 'remote' || (mode === 'standalone' && auth.isAuthenticated));
+
+            if (canAccess && useStore.getState().currentTrack) {
+                console.log('[ConnectScreen] Conditions met, auto-redirecting to player');
+                router.replace('/(tabs)/player');
+            }
+        }
+    }, [connectionStatus, mode, auth.isAuthenticated, isAutoConnecting, router]);
+
     const handleConnect = (ip?: string) => {
         const targetIp = ip || ipInput;
         setHostIp(targetIp);
@@ -137,8 +151,8 @@ export default function ConnectScreen() {
                                     >
                                         <Text style={[styles.buttonText, { color: '#fff' }]}>Resume Remote Session</Text>
                                     </TouchableOpacity>
-                                    
-                                    <TouchableOpacity 
+
+                                    <TouchableOpacity
                                         style={{ marginTop: 24 }}
                                         onPress={() => disconnect()}
                                     >

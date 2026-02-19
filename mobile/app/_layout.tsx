@@ -34,6 +34,21 @@ export default function RootLayout() {
             ) {
                 console.log('[RootLayout] App moved to background, saving queue...');
                 saveQueue();
+            } else if (
+                appState.current.match(/inactive|background/) &&
+                nextAppState === 'active'
+            ) {
+                // App coming to foreground - check if we should navigate to player
+                const state = useStore.getState();
+                const canAccess =
+                    ((state.mode === 'remote' || state.mode === 'standalone') && state.connectionStatus === 'connected') &&
+                    (state.mode === 'remote' || (state.mode === 'standalone' && state.auth.isAuthenticated));
+
+                const isRoot = segments.length === 0 || segments[0] === 'index';
+                if (canAccess && isRoot && state.currentTrack) {
+                    console.log('[RootLayout] App foregrounded with active state, navigating to player');
+                    router.replace('/(tabs)/player');
+                }
             }
             appState.current = nextAppState;
         });
