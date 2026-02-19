@@ -8,7 +8,6 @@ import { Theme } from '@shared/types';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
-import { webSocketService } from '../../services/WebSocketService';
 
 export default function PlayerScreen() {
     const colors = useTheme();
@@ -34,39 +33,29 @@ export default function PlayerScreen() {
         setVolume,
         hostIp,
         theme,
-        setTheme,
-        mode,
-        setMode,
-        logoutBandcamp,
-        connectionStatus
+        setTheme
     } = useStore();
 
     const handleDisconnect = () => {
         setIsMenuVisible(false); // Close menu first
-        disconnect();
-        router.replace('/');
-    };
-
-    const handleLogout = () => {
-        setIsMenuVisible(false);
 
         setTimeout(() => {
             Alert.alert(
-                "Logout",
-                "Are you sure you want to logout from Bandcamp?",
+                "Disconnect",
+                "Are you sure you want to disconnect?",
                 [
                     { text: "Cancel", style: "cancel" },
                     {
-                        text: "Logout",
+                        text: "Disconnect",
                         style: "destructive",
-                        onPress: async () => {
-                            await logoutBandcamp();
+                        onPress: () => {
+                            disconnect();
                             router.replace('/');
                         }
                     }
                 ]
             );
-        }, 300);
+        }, 300); // Small delay to allow menu animation to finish
     };
 
     const formatTime = (seconds: number) => {
@@ -241,10 +230,8 @@ export default function PlayerScreen() {
                         onPress={() => setIsMenuVisible(false)}
                     >
                         <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                            <Text style={[styles.menuTitle, { color: colors.textSecondary }]}>
-                                {mode === 'standalone' ? 'Standalone Mode' : 'Connected to'}
-                            </Text>
-                            {mode === 'remote' && <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>}
+                            <Text style={[styles.menuTitle, { color: colors.textSecondary }]}>Connected to</Text>
+                            <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>
 
                             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
@@ -267,22 +254,11 @@ export default function PlayerScreen() {
                                 <Text style={[styles.menuItemText, { color: colors.text }]}>About</Text>
                             </TouchableOpacity>
 
-                            {mode === 'standalone' && (
-                                <TouchableOpacity
-                                    style={styles.menuItem}
-                                    onPress={handleLogout}
-                                >
-                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Logout</Text>
-                                </TouchableOpacity>
-                            )}
-
                             <TouchableOpacity
                                 style={[styles.menuItem, styles.menuItemDestructive]}
                                 onPress={handleDisconnect}
                             >
-                                <Text style={[styles.menuItemText, styles.destructiveText]}>
-                                    {mode === 'standalone' ? 'Exit' : 'Disconnect'}
-                                </Text>
+                                <Text style={[styles.menuItemText, styles.destructiveText]}>Disconnect</Text>
                             </TouchableOpacity>
                         </View>
                     </Pressable>

@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 import { useStore } from '../store';
-import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import TrackPlayer from 'react-native-track-player';
 import { PlaybackService } from '../services/TrackPlayerService';
@@ -9,17 +8,14 @@ import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
 
-export default function RootLayout() {
-    const connectionStatus = useStore(state => state.connectionStatus);
-    const mode = useStore(state => state.mode);
-    const auth = useStore(state => state.auth);
-    const saveQueue = useStore(state => state.saveQueue);
+// Register the playback service
+TrackPlayer.registerPlaybackService(() => PlaybackService);
 
+
+export default function RootLayout() {
+    const connectionStatus = useStore((state) => state.connectionStatus);
     const router = useRouter();
     const segments = useSegments() as string[];
-    const appState = useRef(AppState.currentState);
-
-    const lastNavigatedPath = useRef<string | null>(null);
 
     // Listen for hardware volume button presses
     useVolumeButtons();
@@ -63,18 +59,13 @@ export default function RootLayout() {
     useEffect(() => {
         const inTabsGroup = segments[0] === '(tabs)';
         const isLoginScreen = segments.length === 0 || segments[0] === 'index';
-        const isAuthScreen = segments[0] === 'bandcamp_login';
 
-        const canAccessApp =
-            ((mode === 'remote' || mode === 'standalone') && connectionStatus === 'connected') &&
-            (mode === 'remote' || (mode === 'standalone' && auth.isAuthenticated));
-
-        let targetPath: string | null = null;
-
-        if (canAccessApp && (isLoginScreen || isAuthScreen)) {
-            targetPath = '/(tabs)/player';
-        } else if (!canAccessApp && inTabsGroup) {
-            targetPath = '/';
+        // Only auto-redirect to player if we are connected AND currently on the login screen
+        if (connectionStatus === 'connected' && isLoginScreen) {
+            router.replace('/(tabs)/player');
+        } else if (connectionStatus !== 'connected' && inTabsGroup) {
+            // If disconnected, force back to connect screen
+            router.replace('/');
         }
 
         if (targetPath && targetPath !== lastNavigatedPath.current) {
@@ -86,7 +77,6 @@ export default function RootLayout() {
     return (
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="album_detail" />
             <Stack.Screen name="about" options={{ presentation: 'modal' }} />

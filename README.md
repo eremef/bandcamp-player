@@ -5,18 +5,17 @@
  <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
 </p>
 
-AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and many more.
 
 >⚠️ May violate Bandcamp terms and policies. Use at your own risk.
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
-\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not that eco-friendly.
+\*not with one prompt, but hundreds of them (to be precise, so far, 101 conversations and approximately 901 user prompts, only in Antigravity), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
 ## Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
-- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
 - 📥 **Offline Caching** - Download tracks for offline playback
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
@@ -25,7 +24,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history
+- 🎧 **Last.FM Scrobbling** - Track your listening history
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
@@ -34,6 +33,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices (might be buggy)
 
 ## Tech Stack
 
@@ -248,7 +248,7 @@ mobile/
 
 | Feature                        | Size |
 | :----------------------------- | ---- |
-| Independent mobile app player  | XL   |
+| Standalone mobile app player  | XL   |
 | Deeper Bandcamp integration    | L    |
 
 ## License

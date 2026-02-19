@@ -1,11 +1,10 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 
 import PlayerScreen from '../../../app/(tabs)/player';
 import { useStore } from '../../../store';
 
 // Mock Dependencies
-const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
     router: { replace: mockReplace, push: jest.fn() },
     useFocusEffect: jest.fn(),
@@ -66,13 +65,6 @@ describe('PlayerScreen', () => {
         disconnect: jest.fn(),
         volume: 0.8,
         setVolume: jest.fn(),
-        hostIp: '192.168.1.100',
-        theme: 'dark',
-        setTheme: jest.fn(),
-        mode: 'standalone',
-        setMode: jest.fn().mockResolvedValue(undefined),
-        logoutBandcamp: jest.fn().mockResolvedValue(undefined),
-        connectionStatus: 'disconnected',
     };
 
     beforeEach(() => {
@@ -102,6 +94,17 @@ describe('PlayerScreen', () => {
 
     it('calls play/pause when button is pressed', () => {
         render(<PlayerScreen />);
+
+        // Finding buttons might be tricky with Lucide mocks rendering strings.
+        // We can check for the TouchableOpacity wrapping them.
+        // In the component:
+        // <TouchableOpacity ... onPress={isPlaying ? pause : play}>
+        //   {isPlaying ? <Pause ... /> : <Play ... />}
+        // </TouchableOpacity>
+
+        // Since we mocked icons as strings, we can search for text 'Play' or 'Pause'.
+        // However, they are inside TouchableOpacity.
+        // Let's rely on finding the text node.
 
         fireEvent.press(render(<PlayerScreen />).getByText('Play'));
         expect(mockStore.play).toHaveBeenCalled();
@@ -144,25 +147,9 @@ describe('PlayerScreen', () => {
         // Press volume button (Volume2 icon)
         fireEvent.press(getByText('Volume2'));
 
+        // Now we expect the modal to be visible.
+        // The modal contains a vertical slider and text percentage,
+        // so we might find multiple "80%" texts (one on button, one in modal)
         expect(getAllByText('80%').length).toBeGreaterThan(0);
     });
-
-    it('switches to remote mode when mode badge is pressed', async () => {
-        // User is in standalone mode
-        (useStore as unknown as jest.Mock).mockReturnValue({
-            ...mockStore,
-            mode: 'standalone',
-            connectionStatus: 'disconnected',
-        });
-
-        const { getByText } = render(<PlayerScreen />);
-
-        // Press the mode badge (shows "Standalone" text when in standalone mode)
-        fireEvent.press(getByText('Standalone'));
-
-        await waitFor(() => {
-            expect(mockStore.setMode).toHaveBeenCalledWith('remote');
-        });
-    });
 });
-

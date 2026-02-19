@@ -47,10 +47,9 @@ The Bandcamp Desktop Player is a desktop application built with **Electron**, le
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
   - **Queue**: View and manage the playback queue with remove and reorder support.
-  - **Connection**: Manage connection to Host, view IP, and Disconnect. Persistent background connection tracking allows seamless mode switching.
+  - **Connection**: Manage connection to Host, view IP, and Disconnect.
   - **General**: Swipe-to-refresh on all lists, About screen, License viewer.
-  - **UI/UX**: Unified headerless design with standardized floating Search Bars, Safe Area compliance for Android camera bars, persistent Theme Support (System/Light/Dark), and a **Mode Switch Badge** in the player for toggling control.
-  - **Persistence**: Playback queue and current track are persisted to storage in Standalone mode and restored on startup.
+  - **UI/UX**: Unified headerless design with standardized floating Search Bars, Safe Area compliance for Android camera bars, and persistent Theme Support (System/Light/Dark).
 
 ## 3. Data Models
 
@@ -296,7 +295,6 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
 6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
-7. **Hybrid Persistence**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
 
 ### Chromecast Integration
 
@@ -307,16 +305,6 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
     - The new URL is sent to the Chromecast device.
     - Local playback stops or mutes, but the player state (`currentTime`, `isPlaying`) remains synced with the cast device.
 4. **Error Handling**: Connection drops or playback errors are caught by `CastService`, propagated to `PlayerService`, and displayed to the user via Toasts.
-
-### Standalone Mode Persistence (Mobile)
-
-1. **State Snapshot**: Every time the queue is modified or a track index changes in Standalone mode, the `MobileStore` triggers a `saveQueue()` action.
-2. **Storage**: The state (including `items`, `currentIndex`, and `currentTrack` metadata) is serialized to JSON and saved in `AsyncStorage` under the `standalone_queue` key.
-3. **Restoration**: On app launch (`autoConnect` workflow):
-    - Background connection to the last Remote host is initiated.
-    - If `mode` is `standalone`, `restoreStandaloneState` pulls the snapshot from `AsyncStorage`.
-    - The `MobilePlayerService.loadTrack` method is called to initialize `TrackPlayer` with the restored track details and stream URL, but in a **paused** state.
-    - UI is populated immediately, allowing the user to resume playback instantly without re-searching their collection.
 
 ### Collection Search & Loading
 

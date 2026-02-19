@@ -143,19 +143,13 @@ export default function AlbumDetailScreen() {
             {
                 text: "Play Next",
                 onPress: () => {
-                    if (album.bandcampUrl) {
-                        addAlbumToQueue(album.bandcampUrl, true, album.tracks);
-                        Alert.alert('Success', 'Album added to play next');
-                    }
+                    if (album.bandcampUrl) addAlbumToQueue(album.bandcampUrl, true, album.tracks);
                 }
             },
             {
                 text: "Add to Queue",
                 onPress: () => {
-                    if (album.bandcampUrl) {
-                        addAlbumToQueue(album.bandcampUrl, false, album.tracks);
-                        Alert.alert('Success', 'Album added to queue');
-                    }
+                    if (album.bandcampUrl) addAlbumToQueue(album.bandcampUrl, false, album.tracks);
                 }
             },
             {
