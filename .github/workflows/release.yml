@@ -7,11 +7,11 @@ on:
       - 'v*'
 
 jobs:
-  build-desktop-windows-x64:
-    name: Build Desktop (Windows x64)
+  build-desktop-windows:
+    name: Build Desktop (Windows)
     runs-on: windows-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -29,51 +29,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package
+      - name: Package x64
         run: npm run package -- --win --x64 -p never
 
-      - name: Rename Artifacts
-        shell: bash
-        run: |
-          cd release
-          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
-          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
-          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
-
-      - name: Release Desktop
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            release/*.exe
-            release/*.msi
-            release/*.yml
-            release/*.blockmap
-          generate_release_notes: true
-
-  build-desktop-windows-arm64:
-    name: Build Desktop (Windows ARM64)
-    runs-on: windows-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Package
+      - name: Package ARM64
         run: npm run package -- --win --arm64 -p never
 
       - name: Rename Artifacts
@@ -84,22 +43,21 @@ jobs:
           for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
           for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
-      - name: Release Desktop
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: desktop-windows
+          path: |
             release/*.exe
             release/*.msi
             release/*.yml
             release/*.blockmap
-          generate_release_notes: true
 
   build-desktop-linux:
     name: Build Desktop (Linux)
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -128,23 +86,22 @@ jobs:
           for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
           for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
-      - name: Release Desktop
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: desktop-linux
+          path: |
             release/*.AppImage
             release/*.deb
             release/*.rpm
             release/*.yml
             release/*.blockmap
-          generate_release_notes: true
 
-  build-desktop-macos-arm64:
-    name: Build Desktop (MacOS ARM64)
+  build-desktop-macos:
+    name: Build Desktop (MacOS)
     runs-on: macos-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -162,7 +119,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package
+      - name: Package x64
+        run: npm run package -- --mac --x64 -p never
+
+      - name: Package ARM64
         run: npm run package -- --mac --arm64 -p never
 
       - name: Rename Artifacts
@@ -173,64 +133,20 @@ jobs:
           for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
           for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
-      - name: Release Desktop
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: desktop-macos
+          path: |
             release/*.dmg
             release/*.yml
             release/*.blockmap
-          generate_release_notes: true
-
-  build-desktop-macos-x64:
-    name: Build Desktop (MacOS x64)
-    runs-on: macos-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Package
-        run: npm run package -- --mac --x64 -p never
-
-      - name: Rename Artifacts
-        shell: bash
-        run: |
-          cd release
-          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
-          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
-          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
-
-      - name: Release Desktop
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            release/*.dmg
-            release/*.yml
-            release/*.blockmap
-          generate_release_notes: true
 
   build-android:
     name: Build Android (APK)
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -269,20 +185,19 @@ jobs:
           mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/bandcamp-remote-${{ github.ref_name }}-android.apk
           mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/bandcamp-remote-${{ github.ref_name }}-android.aab
 
-      - name: Release Android
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            mobile/android/app/build/outputs/apk/release/bandcamp-remote-${{ github.ref_name }}-android.apk
-            mobile/android/app/build/outputs/bundle/release/bandcamp-remote-${{ github.ref_name }}-android.aab
-          generate_release_notes: true
+          name: mobile-android
+          path: |
+            mobile/android/app/build/outputs/apk/release/*.apk
+            mobile/android/app/build/outputs/bundle/release/*.aab
 
   build-ios:
     name: Build iOS (IPA)
     runs-on: macos-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout code
@@ -323,10 +238,45 @@ jobs:
           cp -r BandcampRemote.app Payload/
           zip -r bandcamp-remote-${{ github.ref_name }}-ios.ipa Payload
 
-      - name: Release IPA
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: mobile/ios/build/Build/Products/Release-iphoneos/bandcamp-remote-${{ github.ref_name }}-ios.ipa
-          generate_release_notes: true
+          name: mobile-ios
+          path: mobile/ios/build/Build/Products/Release-iphoneos/*.ipa
 
+  release:
+    name: Release
+    needs: [build-desktop-windows, build-desktop-linux, build-desktop-macos, build-android, build-ios]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare for Release
+        run: |
+          mkdir release
+          find artifacts -type f -exec mv {} release/ \;
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/*.msi
+            release/*.dmg
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.apk
+            release/*.aab
+            release/*.ipa
+            release/*.yml
+            release/*.blockmap
+          generate_release_notes: true
+          overwrite_files: true

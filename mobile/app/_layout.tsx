@@ -7,6 +7,7 @@ import TrackPlayer from 'react-native-track-player';
 import { PlaybackService } from '../services/TrackPlayerService';
 import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
+import { registerBackgroundSync } from '../services/BackgroundSyncService';
 
 export default function RootLayout() {
     const connectionStatus = useStore(state => state.connectionStatus);
@@ -25,6 +26,7 @@ export default function RootLayout() {
 
     useEffect(() => {
         setupPlayer();
+        registerBackgroundSync();
 
         // Save queue when app goes to background
         const subscription = AppState.addEventListener('change', nextAppState => {
@@ -76,7 +78,6 @@ export default function RootLayout() {
         }
 
         if (targetPath && targetPath !== lastNavigatedPath.current) {
-            console.log(`[RootLayout] Navigating to: ${targetPath} (from ${segments.join('/') || 'root'})`);
             lastNavigatedPath.current = targetPath;
             router.replace(targetPath as any);
         }

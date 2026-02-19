@@ -24,14 +24,8 @@ export default function ArtistsScreen() {
     useFocusEffect(
         React.useCallback(() => {
             refreshArtists();
-        }, [])
+        }, [refreshArtists])
     );
-
-    useEffect(() => {
-        if (connectionStatus === 'connected') {
-            refreshArtists();
-        }
-    }, [connectionStatus]);
 
 
     const filteredArtists = useMemo(() =>

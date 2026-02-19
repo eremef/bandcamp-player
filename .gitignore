@@ -48,3 +48,9 @@ src/shared/*.d.ts.map
 temp-test-data/
 playwright-report/
 test-results/
+test_*.txt
+
+# Debug
+debug_*.json
+.gemini/
+gha-creds-*.json

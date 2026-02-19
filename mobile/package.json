@@ -1,5 +1,5 @@
 {
-  "name": "xyz.eremef.bandcamp.remote",
+  "name": "xyz.eremef.bandcampremote",
   "version": "v1.7.3-alpha-2",
   "main": "index.js",
   "scripts": {
@@ -21,6 +21,7 @@
     "cheerio": "^1.0.0-rc.12",
     "expo": "~54.0.33",
     "expo-asset": "^12.0.12",
+    "expo-background-fetch": "^14.0.9",
     "expo-build-properties": "^1.0.10",
     "expo-constants": "~18.0.13",
     "expo-dev-client": "^6.0.20",
@@ -32,6 +33,7 @@
     "expo-sqlite": "~16.0.10",
     "expo-status-bar": "~3.0.9",
     "expo-system-ui": "~6.0.9",
+    "expo-task-manager": "^14.0.9",
     "expo-web-browser": "~15.0.10",
     "js-base64": "^3.7.8",
     "lucide-react-native": "^0.563.0",

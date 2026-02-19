@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album } from '@shared/types';
+import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -148,6 +148,7 @@ export const useStore = create<AppState>((set, get) => ({
         let restoredQueue = { items: [] as QueueItem[], currentIndex: -1 };
         let restoredTrack = null as Track | null;
         let restoredDuration = 0;
+        let restoredTime = 0;
 
         const savedQueueJson = await AsyncStorage.getItem('standalone_queue');
         if (savedQueueJson) {
@@ -157,6 +158,7 @@ export const useStore = create<AppState>((set, get) => ({
                     restoredQueue = parsed;
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;
+                    restoredTime = typeof parsed.currentTime === 'number' ? parsed.currentTime : 0;
                 }
             } catch (e) {
                 console.error('[MobileStore] Failed to parse standalone queue:', e);
@@ -176,7 +178,7 @@ export const useStore = create<AppState>((set, get) => ({
             queue: restoredQueue,
             currentTrack: restoredTrack,
             duration: restoredDuration,
-            currentTime: 0,
+            currentTime: restoredTime,
             isPlaying: false,
             skipAutoLogin: false,
         });
@@ -187,7 +189,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         // Load track into player without playing if restored
         if (restoredTrack) {
-            await mobilePlayerService.loadTrack(restoredTrack);
+            await mobilePlayerService.loadTrack(restoredTrack, restoredTime);
         }
 
         // Restore auth
@@ -198,9 +200,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         // Data refresh — stagger to avoid SQLite "database is locked" errors
-        get().refreshCollection(false);
+        get().refreshCollection(true);
         setTimeout(() => {
-            get().refreshArtists();
             get().refreshPlaylists();
             get().refreshRadio();
         }, 200);
@@ -375,8 +376,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     saveQueue: async () => {
         if (get().mode === 'standalone') {
-            const { queue } = get();
-            await AsyncStorage.setItem('standalone_queue', JSON.stringify(queue));
+            const { queue, currentTime } = get();
+            await AsyncStorage.setItem('standalone_queue', JSON.stringify({ ...queue, currentTime }));
         }
     },
 
@@ -941,59 +942,52 @@ export const useStore = create<AppState>((set, get) => ({
                     webSocketService.send('get-artists');
                 }
             } else {
-                mobileScraperService.fetchCollection(forceServerRefresh)
-                    .then(collection => {
-                        const { searchQuery } = get();
-                        if (searchQuery) {
-                            const filtered = mobileScraperService.searchCollection(searchQuery);
-                            useStore.setState({
-                                collection: filtered,
-                                isCollectionLoading: false,
-                                hasMoreCollection: false
-                            });
-                        } else {
-                            useStore.setState({
-                                collection,
-                                isCollectionLoading: false,
-                                collectionOffset: collection.items.length,
-                                hasMoreCollection: true
-                            });
-                        }
+                const { mobileDatabase } = require('../services/MobileDatabase');
 
-                        // Ensure artists are refreshed after collection sync
-                        get().refreshArtists();
+                const fetchLogic = async () => {
+                    if (forceServerRefresh) {
+                        await mobileScraperService.fetchCollection(true);
+                    }
 
+                    const { user } = get().auth;
+                    if (!user) throw new Error('User not authenticated');
 
-                        // Stale-while-revalidate check
-                        if (!forceServerRefresh && collection.lastUpdated) {
-                            const lastUpdated = new Date(collection.lastUpdated).getTime();
-                            const now = new Date().getTime();
-                            const isStale = now - lastUpdated > 24 * 60 * 60 * 1000; // 24 hours
+                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
+                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
 
-                            if (isStale) {
-                                console.log('[MobileStore] Collection cache is stale (>24h). Refreshing in background...');
-                                mobileScraperService.fetchCollection(true)
-                                    .then(newCollection => {
-                                        const { searchQuery: currentQuery } = get();
-                                        if (currentQuery) {
-                                            const filtered = mobileScraperService.searchCollection(currentQuery);
-                                            useStore.setState({ collection: filtered });
-                                        } else {
-                                            useStore.setState({
-                                                collection: newCollection,
-                                                collectionOffset: newCollection.items.length
-                                            });
-                                        }
-                                        get().refreshArtists();
-                                    })
-                                    .catch(err => console.warn('[MobileStore] Background refresh failed:', err));
-                            }
-                        }
-                    })
-                    .catch(err => {
-                        console.error('Fetch collection error:', err);
-                        useStore.setState({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
+                    // Fresh start detection: if DB is empty and no search query, fetch from scraper
+                    if (totalCount === 0 && !query && !forceServerRefresh) {
+                        console.log('[MobileStore] Collection empty, performing initial fetch...');
+                        await mobileScraperService.fetchCollection(false);
+                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
+                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+                    }
+
+                    useStore.setState({
+                        collection: {
+                            items,
+                            totalCount,
+                            lastUpdated: new Date().toISOString(),
+                            isSimulated: false
+                        },
+                        isCollectionLoading: false,
+                        collectionOffset: items.length,
+                        hasMoreCollection: items.length < totalCount
                     });
+
+                    get().refreshArtists();
+
+                    // Stale-while-revalidate check (non-forced)
+                    if (!forceServerRefresh) {
+                        // We still use the old cache for lastUpdated check if available, or just ignore for now
+                        // For simplicity, let's just trigger bg sync if needed
+                    }
+                };
+
+                fetchLogic().catch(err => {
+                    console.error('Fetch collection error:', err);
+                    useStore.setState({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
+                });
             }
         } else {
             // Loading more or non-reset refresh
@@ -1007,60 +1001,17 @@ export const useStore = create<AppState>((set, get) => ({
                     limit: 50
                 });
             } else {
-                if (forceServerRefresh) {
-                    useStore.setState({ isCollectionLoading: true, collectionError: null });
-                }
-
-                // Race fetch with timeout
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Request timed out')), 15000)
-                );
-
-                Promise.race([
-                    mobileScraperService.fetchCollection(forceServerRefresh),
-                    timeoutPromise
-                ])
-                    .then((result) => {
-                        const collection = result as Collection;
-                        const { searchQuery: currentQuery } = get();
-                        if (currentQuery) {
-                            // If there is a query, filter the result
-                            const filtered = mobileScraperService.searchCollection(currentQuery);
-                            useStore.setState({
-                                collection: filtered,
-                                isCollectionLoading: false,
-                                hasMoreCollection: false
-                            });
-                        } else {
-                            useStore.setState({
-                                collection,
-                                isCollectionLoading: false,
-                                collectionOffset: collection.items.length,
-                                hasMoreCollection: true
-                            });
-                        }
-
-                        // Always refresh artists after collection sync to ensure new artists appear
-                        get().refreshArtists();
-                    })
-                    .catch(err => {
-                        console.error('[MobileStore] Fetch collection error:', err);
-                        useStore.setState({
-                            isCollectionLoading: false,
-                            collectionError: err.message || 'Failed to load collection'
-                        });
-                    });
+                get().loadMoreCollection();
             }
         }
     },
 
     loadMoreCollection: () => {
-        const { collectionOffset, hasMoreCollection, isCollectionLoading, searchQuery } = get();
+        const { collectionOffset, hasMoreCollection, isCollectionLoading, searchQuery, collection } = get();
         if (!hasMoreCollection || isCollectionLoading) return;
 
         set({ isCollectionLoading: true });
 
-        // Fetch next batch with current query
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-collection', {
                 forceRefresh: false,
@@ -1069,23 +1020,32 @@ export const useStore = create<AppState>((set, get) => ({
                 query: searchQuery
             });
         } else {
-            // For mobile scraper, fetchCollection automatically gets all/paginates internally, 
-            // OR we need to expose a loadMore.
-            // Our MobileScraperService current implementation of fetchCollection gets EVERYTHING (or up to limit).
-            // So 'loadMore' locally just means "render more" if we virtualized, OR "fetch more from API".
-            // Since MobileScraperService.fetchCollection tries to get a lot, maybe we assume it got everything for now?
-            // Or we should update MobileScraper to be more granular.
-            // Given the complexity, let's just trigger a re-fetch which acts as a check for new items 
-            // if we didn't force refresh.
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { user } = get().auth;
+            if (!user || !collection) {
+                set({ isCollectionLoading: false });
+                return;
+            }
 
-            // Actually, MobileScraper fetches 50 batches. It likely gets everything.
-            // So loadMore might not be needed for "pagination", but if we implement local pagination 
-            // (show 20, load 20), we handle that in UI/Selector.
-            // But the store 'collectionOffset' implies server-side pagination.
+            mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery)
+                .then((newItems: CollectionItem[]) => {
+                    const updatedItems = [...collection.items, ...newItems];
+                    const uniqueItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
 
-            // For now, let's just log.
-            console.log('Load more called in standalone - assuming all loaded.');
-            useStore.setState({ isCollectionLoading: false, hasMoreCollection: false });
+                    useStore.setState({
+                        collection: {
+                            ...collection,
+                            items: uniqueItems
+                        },
+                        collectionOffset: collectionOffset + newItems.length,
+                        hasMoreCollection: uniqueItems.length < collection.totalCount,
+                        isCollectionLoading: false
+                    });
+                })
+                .catch((err: any) => {
+                    console.error('[MobileStore] loadMore error:', err);
+                    set({ isCollectionLoading: false });
+                });
         }
     },
 

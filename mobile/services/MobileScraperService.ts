@@ -202,8 +202,6 @@ export class MobileScraperService {
                 } else {
                     console.log('[MobileScraper] Collection data object found but no items? Keys:', Object.keys(collectionData || {}));
                 }
-            } else {
-                console.log('[MobileScraper] Collection script NOT found in HTML.');
             }
 
             // Fallback to DOM parsing if script failed
@@ -282,11 +280,12 @@ export class MobileScraperService {
             };
 
             await mobileDatabase.saveCollectionCache(userId, this.cachedCollection);
+            await mobileDatabase.saveCollectionGranular(userId, items);
             // console.log('[MobileScraper] Saved to database.');
 
             await this.extractAndSaveArtists(items);
 
-            console.log(`[MobileScraper] Collection sync complete.${items.length} items.`);
+            console.log(`[MobileScraper] Collection sync complete. ${items.length} items.`);
             return this.cachedCollection;
 
         } catch (error: any) {
