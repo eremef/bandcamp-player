@@ -112,7 +112,15 @@ export default function CollectionScreen() {
     const handlePlayItem = (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
             if (item.album.bandcampUrl) {
-                router.push({ pathname: '/album_detail', params: { url: item.album.bandcampUrl } });
+                router.push({
+                    pathname: '/album_detail',
+                    params: {
+                        url: item.album.bandcampUrl,
+                        artist: item.album.artist,
+                        title: item.album.title,
+                        artworkUrl: item.album.artworkUrl
+                    }
+                });
                 return;
             }
         } else if (item.type === 'track' && item.track) {

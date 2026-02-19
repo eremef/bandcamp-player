@@ -1,4 +1,4 @@
-import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser } from '@shared/types';
+import { PlayerState, Collection, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -53,7 +53,7 @@ interface AppState extends PlayerState {
 
     // Play Actions
     playTrack: (track: Track) => void;
-    playAlbum: (albumUrl: string) => void;
+    playAlbum: (albumUrl: string, album?: Album) => void;
     playPlaylist: (playlistId: string) => void;
     playStation: (station: RadioStation) => void;
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
@@ -310,7 +310,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     disconnect: async () => {
         const { mode } = get();
-        
+
         if (mode === 'remote') {
             webSocketService.disconnect();
             await AsyncStorage.removeItem('last_ip'); // Clear last IP to prevent auto-connect loop
@@ -321,7 +321,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         mobilePlayerService.stop();
-        
+
         set({
             connectionStatus: 'disconnected',
             hostIp: mode === 'standalone' ? get().hostIp : '',
@@ -357,7 +357,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (savedMode === 'standalone' && !get().skipAutoLogin) {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
-            
+
             // Set listener for queue changes (automatic track advancement)
             if (!mobilePlayerService.onQueueChange) {
                 mobilePlayerService.onQueueChange = () => {
@@ -497,47 +497,55 @@ export const useStore = create<AppState>((set, get) => ({
             get().saveQueue();
         }
     },
-    playAlbum: (url) => {
+    playAlbum: (url, album) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('play-album', url);
         } else {
             console.log(`[MobileStore] playAlbum standalone: ${url}`);
-            const { mobileScraperService } = require('../services/MobileScraperService');
-            set({ isCollectionLoading: true, collectionError: null });
 
-            mobileScraperService.getAlbumDetails(url)
-                .then((album: any) => {
-                    if (album && album.tracks && album.tracks.length > 0) {
-                        console.log(`[MobileStore] Album details loaded: ${album.title} (${album.tracks.length} tracks)`);
-                        const queueItems: QueueItem[] = album.tracks.map((track: any, i: number) => ({
-                            id: `album-${album.id}-${Date.now()}-${i}`,
-                            track,
-                            source: 'collection'
-                        }));
+            const handleAlbumData = (albumData: any) => {
+                if (albumData && albumData.tracks && albumData.tracks.length > 0) {
+                    console.log(`[MobileStore] Album details loaded: ${albumData.title} (${albumData.tracks.length} tracks)`);
+                    const queueItems: QueueItem[] = albumData.tracks.map((track: any, i: number) => ({
+                        id: `album-${albumData.id}-${Date.now()}-${i}`,
+                        track,
+                        source: 'collection'
+                    }));
 
-                        set({
-                            queue: {
-                                items: queueItems,
-                                currentIndex: 0
-                            },
-                            currentTrack: album.tracks[0],
-                            isPlaying: true,
-                            isCollectionLoading: false
-                        });
-                        get().saveQueue();
+                    set({
+                        queue: {
+                            items: queueItems,
+                            currentIndex: 0
+                        },
+                        currentTrack: albumData.tracks[0],
+                        isPlaying: true,
+                        isCollectionLoading: false,
+                        collectionError: null
+                    });
+                    get().saveQueue();
 
-                        // Play the first track
-                        const { mobilePlayerService } = require('../services/MobilePlayerService');
-                        mobilePlayerService.playQueueIndex(0);
-                    } else {
-                        console.warn('[MobileStore] No tracks found in album details');
-                        set({ isCollectionLoading: false, collectionError: 'No tracks found in this album.' });
-                    }
-                })
-                .catch((err: any) => {
-                    console.error('[MobileStore] Play Album Error:', err);
-                    set({ isCollectionLoading: false, collectionError: 'Failed to load album details.' });
-                });
+                    // Play the first track
+                    const { mobilePlayerService } = require('../services/MobilePlayerService');
+                    mobilePlayerService.playQueueIndex(0);
+                } else {
+                    console.warn('[MobileStore] No tracks found in album details');
+                    set({ isCollectionLoading: false, collectionError: 'No tracks found in this album.' });
+                }
+            };
+
+            if (album && album.tracks && album.tracks.length > 0) {
+                handleAlbumData(album);
+            } else {
+                const { mobileScraperService } = require('../services/MobileScraperService');
+                set({ isCollectionLoading: true, collectionError: null });
+
+                mobileScraperService.getAlbumDetails(url)
+                    .then(handleAlbumData)
+                    .catch((err: any) => {
+                        console.error('[MobileStore] Play Album Error:', err);
+                        set({ isCollectionLoading: false, collectionError: 'Failed to load album details.' });
+                    });
+            }
         }
     },
     playPlaylist: (id) => {

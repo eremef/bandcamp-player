@@ -62,8 +62,8 @@ export async function addTrack(track: Track, hostIp?: string) {
     await TrackPlayer.add({
         id: track.id,
         url: streamUrl, // Use executable URL
-        title: track.title,
-        artist: track.artist,
+        title: track.title || 'Untitled',
+        artist: track.artist || 'Unknown Artist',
         artwork: track.artworkUrl,
         duration: track.duration,
     });
