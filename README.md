@@ -16,7 +16,6 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 ## Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
-- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
 - 📥 **Offline Caching** - Download tracks for offline playback
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
@@ -34,6 +33,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices (migh be buggy)
 
 ## Tech Stack
 
