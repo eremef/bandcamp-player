@@ -11,7 +11,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
-\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not that eco-friendly.
+\*not with one prompt, but hundreds of them (to be precise, so far, 101 conversations and approximately 901 user prompts, only in Antigravity), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
 ## Features
 
