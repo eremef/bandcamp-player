@@ -56,15 +56,21 @@ describe('CollectionScreen', () => {
 
     const mockStore = {
         collection: mockCollection,
-        playAlbum: jest.fn(),
-        playTrack: jest.fn(),
+        searchQuery: '',
+        playAlbum: jest.fn().mockResolvedValue(undefined),
+        playTrack: jest.fn().mockResolvedValue(undefined),
         disconnect: jest.fn(),
         playlists: [],
-        addTrackToQueue: jest.fn(),
+        addTrackToQueue: jest.fn().mockResolvedValue(undefined),
         addAlbumToQueue: jest.fn(),
-        addTrackToPlaylist: jest.fn(),
-        addAlbumToPlaylist: jest.fn(),
-        refreshCollection: jest.fn(),
+        addTrackToPlaylist: jest.fn().mockResolvedValue(undefined),
+        addAlbumToPlaylist: jest.fn().mockResolvedValue(undefined),
+        createPlaylist: jest.fn(),
+        refreshCollection: jest.fn().mockResolvedValue(undefined),
+        loadMoreCollection: jest.fn().mockResolvedValue(undefined),
+        isCollectionLoading: false,
+        collectionLoadingStatus: null,
+        collectionError: null,
     };
 
     beforeEach(() => {
@@ -80,7 +86,7 @@ describe('CollectionScreen', () => {
             return selector(state);
         });
         const { getByText } = render(<CollectionScreen />);
-        expect(getByText('Loading Collection...')).toBeTruthy();
+        expect(getByText('Loading Your Music')).toBeTruthy();
     });
 
     it('renders collection items', () => {
@@ -119,7 +125,7 @@ describe('CollectionScreen', () => {
 
     });
 
-    it('plays item directly on press if it is a single track or single-track album', () => {
+    it('plays item directly on press if it is a single track or single-track album', async () => {
         const { getByText } = render(<CollectionScreen />);
 
         // Album One is a single-track album (trackCount: 1)
@@ -134,7 +140,7 @@ describe('CollectionScreen', () => {
 
         // Track Two is a single track
         fireEvent.press(getByText('Track Two'));
-        expect(mockStore.playAlbum).toHaveBeenCalledWith('burl2');
+        expect(mockStore.playTrack).toHaveBeenCalledWith(mockCollection.items[1].track);
     });
 
     it('shows context menu on long press', async () => {

@@ -550,7 +550,7 @@ describe('Mobile useStore', () => {
                 await useStore.getState().refreshCollection(true);
             });
 
-            expect(mobileScraperService.fetchCollection).toHaveBeenCalledWith(false);
+            expect(mobileScraperService.fetchCollection).toHaveBeenCalledWith(false, false, expect.any(Function));
             expect(useStore.getState().collection?.items).toHaveLength(1);
             expect(mobileDatabase.getArtists).toHaveBeenCalled(); // via refreshArtists
         });

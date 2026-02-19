@@ -5,6 +5,7 @@ import { PlaylistSelectionModal } from './PlaylistSelectionModal';
 // Mock Lucide icons
 jest.mock('lucide-react-native', () => ({
     X: () => 'X-Icon',
+    Plus: () => 'Plus-Icon',
 }));
 
 describe('PlaylistSelectionModal', () => {
@@ -33,6 +34,7 @@ describe('PlaylistSelectionModal', () => {
     ];
     const mockOnClose = jest.fn();
     const mockOnSelect = jest.fn();
+    const mockOnCreateNew = jest.fn();
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -44,11 +46,13 @@ describe('PlaylistSelectionModal', () => {
                 visible={true}
                 onClose={mockOnClose}
                 onSelect={mockOnSelect}
+                onCreateNew={mockOnCreateNew}
                 playlists={mockPlaylists}
             />
         );
 
         expect(getByText('Add to Playlist')).toBeTruthy();
+        expect(getByText('Create New Playlist')).toBeTruthy();
         expect(getByText('Chill Vibes')).toBeTruthy();
         expect(getByText('2 tracks')).toBeTruthy();
         expect(getByText('Gym Mix')).toBeTruthy();
@@ -61,6 +65,7 @@ describe('PlaylistSelectionModal', () => {
                 visible={true}
                 onClose={mockOnClose}
                 onSelect={mockOnSelect}
+                onCreateNew={mockOnCreateNew}
                 playlists={[]}
             />
         );
@@ -74,11 +79,27 @@ describe('PlaylistSelectionModal', () => {
                 visible={true}
                 onClose={mockOnClose}
                 onSelect={mockOnSelect}
+                onCreateNew={mockOnCreateNew}
                 playlists={mockPlaylists}
             />
         );
 
         fireEvent.press(getByText('Chill Vibes'));
         expect(mockOnSelect).toHaveBeenCalledWith('1');
+    });
+
+    it('calls onCreateNew when Create New Playlist is pressed', () => {
+        const { getByText } = render(
+            <PlaylistSelectionModal
+                visible={true}
+                onClose={mockOnClose}
+                onSelect={mockOnSelect}
+                onCreateNew={mockOnCreateNew}
+                playlists={mockPlaylists}
+            />
+        );
+
+        fireEvent.press(getByText('Create New Playlist'));
+        expect(mockOnCreateNew).toHaveBeenCalled();
     });
 });

@@ -8,6 +8,7 @@ import { useStore } from '../store';
 import { ArrowLeft, Play, MoreVertical } from 'lucide-react-native';
 import { ActionSheet, Action } from '../components/ActionSheet';
 import { PlaylistSelectionModal } from '../components/PlaylistSelectionModal';
+import { InputModal } from '../components/InputModal';
 import { useTheme } from '../theme';
 
 export default function AlbumDetailScreen() {
@@ -51,6 +52,7 @@ export default function AlbumDetailScreen() {
     const playlists = useStore((state) => state.playlists);
     const addTrackToPlaylist = useStore((state) => state.addTrackToPlaylist);
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
+    const createPlaylist = useStore((state) => state.createPlaylist);
 
     // ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -59,6 +61,7 @@ export default function AlbumDetailScreen() {
 
     // Playlist Modal state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
     const [isAlbumAction, setIsAlbumAction] = useState(false);
 
@@ -178,24 +181,30 @@ export default function AlbumDetailScreen() {
 
     const handleTrackLongPress = (track: Track) => {
         setActionSheetTitle(track.title);
+        // Ensure track has artist if it was fixed in the album state
+        const trackWithArtist = {
+            ...track,
+            artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : (album?.artist || track.artist)
+        };
+
         setActionSheetActions([
             {
                 text: "Play Next",
                 onPress: () => {
-                    addTrackToQueue(track, true);
+                    addTrackToQueue(trackWithArtist, true);
                 }
             },
             {
                 text: "Add to Queue",
                 onPress: () => {
-                    addTrackToQueue(track, false);
+                    addTrackToQueue(trackWithArtist, false);
                 }
             },
             {
                 text: "Add to Playlist",
                 onPress: () => {
                     setIsAlbumAction(false);
-                    setSelectedTrack(track);
+                    setSelectedTrack(trackWithArtist);
                     setPlaylistModalVisible(true);
                 }
             },
@@ -210,7 +219,8 @@ export default function AlbumDetailScreen() {
 
     const handleSelectPlaylist = (playlistId: string) => {
         if (isAlbumAction && album?.bandcampUrl) {
-            addAlbumToPlaylist(playlistId, album.bandcampUrl);
+            // We pass the resolved album object which has correct artists
+            addAlbumToPlaylist(playlistId, album.bandcampUrl, album);
             Alert.alert("Success", "Album added to playlist");
         } else if (!isAlbumAction && selectedTrack) {
             addTrackToPlaylist(playlistId, selectedTrack);
@@ -220,6 +230,11 @@ export default function AlbumDetailScreen() {
         setPlaylistModalVisible(false);
         setSelectedTrack(null);
         setIsAlbumAction(false);
+    };
+
+    const handleCreatePlaylist = (name: string) => {
+        createPlaylist(name);
+        setCreatePlaylistModalVisible(false);
     };
 
     if (isLoading) {
@@ -320,7 +335,17 @@ export default function AlbumDetailScreen() {
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
+            />
+
+            <InputModal
+                visible={createPlaylistModalVisible}
+                title="Create Playlist"
+                placeholder="Playlist Name"
+                onClose={() => setCreatePlaylistModalVisible(false)}
+                onSubmit={handleCreatePlaylist}
+                submitLabel="Create"
             />
         </SafeAreaView>
     );
