@@ -9,11 +9,13 @@ export class MobileSimulationService {
         // Simulate minor network latency
         await new Promise(resolve => setTimeout(resolve, 10));
 
+        /* 
         // Disable network error for stability during debugging
-        if (false && Math.random() < this.ERROR_RATE) {
+        if (Math.random() < this.ERROR_RATE) {
             console.log('[MOBILE-SIMULATION] Simulating network error...');
             throw new Error('Simulated network error');
         }
+        */
 
         // Parse index from token
         let currentIndex = 0;

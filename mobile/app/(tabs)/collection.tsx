@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, TextInput, RefreshControl, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, RefreshControl, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
-import { RefreshCw, MoreVertical } from 'lucide-react-native';
 import { SearchBar } from '../../components/SearchBar';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
-import { CollectionGridItem } from '../../components/CollectionGridItem'; // Import new component
+import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { webSocketService } from '../../services/WebSocketService';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
@@ -48,8 +47,7 @@ export default function CollectionScreen() {
 
     // ... handlers (handleLongPress, handleSelectPlaylist, handleRefresh, handlePlayItem, handleDisconnect) same as before ... 
 
-    const handleLongPress = (item: CollectionItem) => {
-        // ... same implementation ...
+    const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         setActionSheetTitle(title || 'Item');
         setActionSheetActions([
@@ -85,9 +83,9 @@ export default function CollectionScreen() {
             }
         ]);
         setActionSheetVisible(true);
-    };
+    }, [addAlbumToQueue, addTrackToQueue]);
 
-    const handleSelectPlaylist = (playlistId: string) => {
+    const handleSelectPlaylist = useCallback((playlistId: string) => {
         if (!selectedItem) return;
 
         if (selectedItem.type === 'album' && selectedItem.album?.bandcampUrl) {
@@ -99,18 +97,12 @@ export default function CollectionScreen() {
         setPlaylistModalVisible(false);
         setSelectedItem(null);
         Alert.alert("Success", "Added to playlist");
-    };
+    }, [selectedItem, addAlbumToPlaylist, addTrackToPlaylist]);
 
-    const collectionData = useStore((state) => state.collection);
-    const collectionItems = collectionData?.items || [];
+    const collectionItems = useMemo(() => collection?.items || [], [collection?.items]);
 
-    const handleRefresh = () => {
-        if (webSocketService) {
-            webSocketService.send('get-collection');
-        }
-    };
 
-    const handlePlayItem = (item: CollectionItem) => {
+    const handlePlayItem = useCallback((item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
             if (item.album.bandcampUrl) {
                 router.push({
@@ -131,29 +123,10 @@ export default function CollectionScreen() {
                 playTrack(item.track);
             }
         }
-    };
+    }, [playAlbum, playTrack]);
 
-    const handleDisconnect = () => {
-        setActionSheetTitle("Disconnect");
-        setActionSheetActions([
-            {
-                text: "Disconnect",
-                style: "destructive",
-                onPress: () => {
-                    disconnect();
-                    router.replace('/');
-                }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
-            }
-        ]);
-        setActionSheetVisible(true);
-    };
 
-    const renderItem = ({ item }: { item: CollectionItem }) => {
+    const renderItem = useCallback(({ item }: { item: CollectionItem }) => {
         return (
             <CollectionGridItem
                 item={item}
@@ -163,7 +136,7 @@ export default function CollectionScreen() {
                 testID={`item-${item.id}`}
             />
         );
-    };
+    }, [handlePlayItem, handleLongPress]);
 
     const refreshCollection = useStore((state) => state.refreshCollection);
     const [refreshing, setRefreshing] = useState(false);
@@ -203,6 +176,8 @@ export default function CollectionScreen() {
         }, 500);
 
         return () => clearTimeout(timer);
+        // collection intentionally omitted to avoid infinite reload loop
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, refreshCollection]);
 
     if (!collection) {
@@ -265,6 +240,9 @@ export default function CollectionScreen() {
                 key={COLUMN_COUNT} // Force re-render when columns change
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
+                initialNumToRender={12}
+                maxToRenderPerBatch={10}
+                windowSize={10}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
