@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, ArrowLeftRight } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, ArrowLeftRight, Settings } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
@@ -99,7 +99,10 @@ export default function PlayerScreen() {
             <StandardHeader
                 title="Now Playing"
                 rightComponent={
-                    <TouchableOpacity onPress={() => setIsMenuVisible(true)}>
+                    <TouchableOpacity
+                        onPress={() => setIsMenuVisible(true)}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
                         <MoreVertical size={24} color={colors.text} />
                     </TouchableOpacity>
                 }
@@ -256,6 +259,21 @@ export default function PlayerScreen() {
                             </View>
 
                             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
+
+                            {__DEV__ && (
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={() => {
+                                        setIsMenuVisible(false);
+                                        router.push('/settings' as any);
+                                    }}
+                                >
+                                    <View style={styles.menuItemWithIcon}>
+                                        <Settings size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                        <Text style={[styles.menuItemText, { color: colors.text }]}>Settings</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
 
                             <TouchableOpacity
                                 style={styles.menuItem}
@@ -572,6 +590,10 @@ const styles = StyleSheet.create({
     menuItemText: {
         color: '#fff',
         fontSize: 16,
+    },
+    menuItemWithIcon: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
     menuItemDestructive: {
         marginTop: 0,

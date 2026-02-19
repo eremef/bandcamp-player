@@ -43,4 +43,10 @@ export default tseslint.config(
             '@typescript-eslint/no-explicit-any': 'warn',
         },
     },
+    {
+        files: ['mobile/**/*.{ts,tsx}'],
+        rules: {
+            '@typescript-eslint/no-require-imports': 'off',
+        },
+    },
 );

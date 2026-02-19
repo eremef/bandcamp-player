@@ -58,7 +58,8 @@ export async function addTrack(track: Track, hostIp?: string) {
         await TrackPlayer.remove(indicesToRemove);
     }
 
-    // Set volume to near-zero (but not 0) on the mobile device so we only hear the desktop.
-    // 0 volume can cause Android to treat the media session as inactive/stalled.
-    await TrackPlayer.setVolume(0.01);
+    // Set volume to 0 on the mobile device so we only hear the desktop.
+    // The phone still "plays" the track to keep the media session active
+    // and provide lock screen controls/metadata, but without outputting sound.
+    await TrackPlayer.setVolume(0);
 }

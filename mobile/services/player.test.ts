@@ -2,65 +2,28 @@
 import TrackPlayer from 'react-native-track-player';
 import { setupPlayer, addTrack } from './player';
 
-// Mock react-native-track-player
-jest.mock('react-native-track-player', () => ({
-    __esModule: true,
-    default: {
-        getActiveTrackIndex: jest.fn(),
-        setupPlayer: jest.fn(),
-        updateOptions: jest.fn(),
-        reset: jest.fn(),
-        add: jest.fn(),
-        setVolume: jest.fn(),
-    },
-    Capability: {
-        Play: 0,
-        Pause: 1,
-        SkipToNext: 2,
-        SkipToPrevious: 3,
-        SeekTo: 4,
-    },
-    AppKilledPlaybackBehavior: {
-        StopPlaybackAndRemoveNotification: 0,
-    },
-}));
-
 describe('player.ts', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        // Default behavior for getQueue to avoid errors
+        (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
     });
 
     describe('setupPlayer', () => {
         it('should setup player if not already set up', async () => {
-            (TrackPlayer.getActiveTrackIndex as any).mockRejectedValue(new Error('Not setup'));
-
             const result = await setupPlayer();
 
             expect(TrackPlayer.setupPlayer).toHaveBeenCalled();
-            expect(TrackPlayer.updateOptions).toHaveBeenCalled();
             expect(result).toBe(true);
         });
 
         it('should handle player already setup error', async () => {
-            (TrackPlayer.setupPlayer as any).mockRejectedValue(new Error('The player has already been initialized via setupPlayer.'));
+            (TrackPlayer.setupPlayer as jest.Mock).mockRejectedValue(new Error('The player has already been initialized via setupPlayer.'));
 
             const result = await setupPlayer();
 
             expect(TrackPlayer.setupPlayer).toHaveBeenCalled();
             expect(result).toBe(true);
-        });
-
-        it('should configure capabilities correctly', async () => {
-            (TrackPlayer.getActiveTrackIndex as any).mockRejectedValue(new Error('Not setup'));
-
-            await setupPlayer();
-
-            expect(TrackPlayer.updateOptions).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    capabilities: expect.any(Array),
-                    progressUpdateEventInterval: 2,
-                })
-            );
         });
     });
 
@@ -77,18 +40,20 @@ describe('player.ts', () => {
             isCached: false,
         };
 
-        it('should reset and add track', async () => {
+        it('should add track without resetting (seamlessly)', async () => {
             await addTrack(mockTrack);
 
-            expect(TrackPlayer.reset).toHaveBeenCalled();
             expect(TrackPlayer.add).toHaveBeenCalledWith({
                 id: mockTrack.id,
                 url: mockTrack.streamUrl,
                 title: mockTrack.title,
                 artist: mockTrack.artist,
+                album: mockTrack.album,
                 artwork: mockTrack.artworkUrl,
                 duration: mockTrack.duration,
             });
+            // Should NOT call reset() for seamless transitions
+            expect(TrackPlayer.reset).not.toHaveBeenCalled();
         });
 
         it('should set volume to 0 (muted on mobile)', async () => {

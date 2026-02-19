@@ -15,7 +15,6 @@ export default function LicenseScreen() {
     useEffect(() => {
         async function loadLicense() {
             try {
-                // eslint-disable-next-line @typescript-eslint/no-require-imports
                 const asset = Asset.fromModule(require('../assets/license.txt'));
                 await asset.downloadAsync();
 

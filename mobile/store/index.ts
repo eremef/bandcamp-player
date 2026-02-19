@@ -89,6 +89,11 @@ interface AppState extends PlayerState {
     searchQuery: string;
     radioSearchQuery: string;
     setRadioSearchQuery: (query: string) => void;
+    collectionLoadingStatus: string | null;
+    // Simulation Mode
+    isSimulationMode: boolean;
+    toggleSimulationMode: () => Promise<void>;
+
     // Theme State
     theme: Theme;
     setTheme: (theme: Theme) => Promise<void>;
@@ -132,11 +137,22 @@ export const useStore = create<AppState>((set, get) => ({
     collectionError: null,
     searchQuery: '',
     radioSearchQuery: '',
-    theme: 'system',
     setRadioSearchQuery: (query) => set({ radioSearchQuery: query }),
+    collectionLoadingStatus: null,
+    theme: 'system',
     setTheme: async (theme: Theme) => {
         await AsyncStorage.setItem('app_theme', theme);
         set({ theme });
+    },
+
+    isSimulationMode: false,
+    toggleSimulationMode: async () => {
+        const newValue = !get().isSimulationMode;
+        await AsyncStorage.setItem('is_simulation_mode', newValue ? 'true' : 'false');
+        set({ isSimulationMode: newValue });
+
+        // Force a fresh collection refresh to generate/load simulation data
+        await get().refreshCollection(true, '', true);
     },
 
     setHostIp: async (ip: string) => {
@@ -199,6 +215,10 @@ export const useStore = create<AppState>((set, get) => ({
             set({ auth: authState, connectionStatus: 'connected' });
         }
 
+        // Restore simulation mode
+        const simMode = await AsyncStorage.getItem('is_simulation_mode');
+        set({ isSimulationMode: simMode === 'true' });
+
         // Data refresh — stagger to avoid SQLite "database is locked" errors
         get().refreshCollection(true);
         setTimeout(() => {
@@ -228,6 +248,10 @@ export const useStore = create<AppState>((set, get) => ({
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
         await TrackPlayer.reset();
+
+        if (mode === 'remote') {
+            await TrackPlayer.setVolume(0);
+        }
 
         // ── STEP 3: Atomic state transition ──
         await AsyncStorage.setItem('app_mode', mode);
@@ -343,22 +367,25 @@ export const useStore = create<AppState>((set, get) => ({
         const recentsJson = await AsyncStorage.getItem('recent_ips');
         const recentIps = recentsJson ? JSON.parse(recentsJson) : [];
         const savedTheme = await AsyncStorage.getItem('app_theme') as Theme || 'system';
+        const isSimulationMode = await AsyncStorage.getItem('is_simulation_mode') === 'true';
 
         const savedMode = await AsyncStorage.getItem('app_mode') as 'remote' | 'standalone' || 'remote';
         const { mobileDatabase } = require('../services/MobileDatabase');
+        const { mobileAuthService } = require('../services/MobileAuthService');
+
         const settings = await mobileDatabase.getSettings();
         const volume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
 
-        set({ recentIps, theme: savedTheme, mode: savedMode, volume });
+        // Check auth status early
+        const authStatus = await mobileAuthService.checkSession();
+
+        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus });
 
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.
         if (lastIp && !get().skipAutoLogin) {
             await get().connect(lastIp);
         }
-
-
-
 
         if (savedMode === 'standalone' && !get().skipAutoLogin) {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
@@ -925,11 +952,13 @@ export const useStore = create<AppState>((set, get) => ({
     refreshCollection: (reset = false, query = '', forceServerRefresh = false) => {
         if (reset) {
             useStore.setState({
+                collection: forceServerRefresh ? null : get().collection, // Clear collection if forced refresh to show loading screen
                 collectionOffset: 0,
                 hasMoreCollection: true,
                 searchQuery: query, // Update query state on reset/search
                 isCollectionLoading: true,
-                collectionError: null
+                collectionError: null,
+                collectionLoadingStatus: null // Reset status on new refresh
             });
             if (get().mode === 'remote' && get().connectionStatus === 'connected') {
                 webSocketService.send('get-collection', {
@@ -943,10 +972,17 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             } else {
                 const { mobileDatabase } = require('../services/MobileDatabase');
+                const { mobileScraperService } = require('../services/MobileScraperService');
 
                 const fetchLogic = async () => {
+                    const onProgress = (msg: string) => {
+                        useStore.setState({ collectionLoadingStatus: msg || null });
+                    };
+
+                    onProgress('Connecting...');
+
                     if (forceServerRefresh) {
-                        await mobileScraperService.fetchCollection(true);
+                        await mobileScraperService.fetchCollection(true, get().isSimulationMode, onProgress);
                     }
 
                     const { user } = get().auth;
@@ -958,7 +994,7 @@ export const useStore = create<AppState>((set, get) => ({
                     // Fresh start detection: if DB is empty and no search query, fetch from scraper
                     if (totalCount === 0 && !query && !forceServerRefresh) {
                         console.log('[MobileStore] Collection empty, performing initial fetch...');
-                        await mobileScraperService.fetchCollection(false);
+                        await mobileScraperService.fetchCollection(false, get().isSimulationMode, onProgress);
                         items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
                         totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
                     }
@@ -968,7 +1004,7 @@ export const useStore = create<AppState>((set, get) => ({
                             items,
                             totalCount,
                             lastUpdated: new Date().toISOString(),
-                            isSimulated: false
+                            isSimulated: get().isSimulationMode
                         },
                         isCollectionLoading: false,
                         collectionOffset: items.length,

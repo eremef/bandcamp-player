@@ -3,26 +3,6 @@ import TrackPlayer, { Event } from 'react-native-track-player';
 import { PlaybackService } from './TrackPlayerService';
 import { useStore } from '../store';
 
-// Mock dependencies
-jest.mock('react-native-track-player', () => ({
-    __esModule: true,
-    default: {
-        addEventListener: jest.fn(),
-        getProgress: jest.fn().mockResolvedValue({ position: 30 }),
-        reset: jest.fn(),
-    },
-    Event: {
-        RemotePlay: 'remote-play',
-        RemotePause: 'remote-pause',
-        RemoteNext: 'remote-next',
-        RemotePrevious: 'remote-previous',
-        RemoteSeek: 'remote-seek',
-        RemoteJumpForward: 'remote-jump-forward',
-        RemoteJumpBackward: 'remote-jump-backward',
-        RemoteStop: 'remote-stop',
-    },
-}));
-
 jest.mock('../store', () => ({
     useStore: {
         getState: jest.fn(() => ({
@@ -55,6 +35,9 @@ describe('TrackPlayerService', () => {
             eventHandlers[event] = handler;
             return { remove: jest.fn() };
         });
+
+        // Set up mock position for getProgress
+        (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 30 });
     });
 
     afterEach(() => {

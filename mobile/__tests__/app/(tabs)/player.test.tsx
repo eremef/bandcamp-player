@@ -8,7 +8,7 @@ import { useStore } from '../../../store';
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
     router: { replace: mockReplace, push: jest.fn() },
-    useFocusEffect: jest.fn(),
+    useFocusEffect: (cb: any) => cb(),
 }));
 
 

@@ -246,10 +246,10 @@ mobile/
 
 ## Roadmap
 
-| Feature                        | Size |
-| :----------------------------- | ---- |
-| Independent mobile app player  | XL   |
-| Deeper Bandcamp integration    | L    |
+| Feature                        | Size | Status      |
+| :----------------------------- | ---- | ----------- |
+| Independent mobile app player  | XL   | ✅ Done      |
+| Deeper Bandcamp integration    | L    | In Progress |
 
 ## License
 

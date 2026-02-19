@@ -4,48 +4,80 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 // Mock React Native Track Player
-jest.mock('react-native-track-player', () => ({
-    setupPlayer: jest.fn(),
-    updateOptions: jest.fn(),
-    add: jest.fn(),
-    remove: jest.fn(),
-    skip: jest.fn(),
-    skipToNext: jest.fn(),
-    skipToPrevious: jest.fn(),
-    reset: jest.fn(),
-    play: jest.fn(),
-    pause: jest.fn(),
-    seekTo: jest.fn(),
-    setVolume: jest.fn(),
-    getVolume: jest.fn(),
-    setRate: jest.fn(),
-    getRate: jest.fn(),
-    getTrack: jest.fn(),
-    getQueue: jest.fn(),
-    getCurrentTrack: jest.fn(),
-    getDuration: jest.fn(),
-    getPosition: jest.fn(),
-    getBufferedPosition: jest.fn(),
-    getState: jest.fn(),
-    useTrackPlayerEvents: jest.fn(),
-    useProgress: jest.fn(() => ({ position: 0, duration: 0, buffered: 0 })),
-    Event: {
-        PlaybackState: 'playback-state',
-        PlaybackError: 'playback-error',
-        PlaybackQueueEnded: 'playback-queue-ended',
-        PlaybackTrackChanged: 'playback-track-changed',
-        PlaybackProgressUpdated: 'playback-progress-updated',
-    },
-    State: {
-        None: 'none',
-        Ready: 'ready',
-        Playing: 'playing',
-        Paused: 'paused',
-        Stopped: 'stopped',
-        Buffering: 'buffering',
-        Connecting: 'connecting',
-    }
-}));
+jest.mock('react-native-track-player', () => {
+    const TrackPlayerMock = {
+        setupPlayer: jest.fn().mockResolvedValue(undefined),
+        updateOptions: jest.fn().mockResolvedValue(undefined),
+        add: jest.fn().mockResolvedValue(undefined),
+        remove: jest.fn().mockResolvedValue(undefined),
+        skip: jest.fn().mockResolvedValue(undefined),
+        skipToNext: jest.fn().mockResolvedValue(undefined),
+        skipToPrevious: jest.fn().mockResolvedValue(undefined),
+        reset: jest.fn().mockResolvedValue(undefined),
+        play: jest.fn().mockResolvedValue(undefined),
+        pause: jest.fn().mockResolvedValue(undefined),
+        seekTo: jest.fn().mockResolvedValue(undefined),
+        setVolume: jest.fn().mockResolvedValue(undefined),
+        getVolume: jest.fn().mockResolvedValue(1),
+        getQueue: jest.fn().mockResolvedValue([]),
+        getCurrentTrack: jest.fn().mockResolvedValue(0),
+        getDuration: jest.fn().mockResolvedValue(0),
+        getPosition: jest.fn().mockResolvedValue(0),
+        getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
+        getState: jest.fn().mockResolvedValue('paused'),
+        addEventListener: jest.fn(),
+        getPlaybackState: jest.fn().mockResolvedValue({ state: 'paused' }),
+        useTrackPlayerEvents: jest.fn(),
+        useProgress: jest.fn(() => ({ position: 0, duration: 0, buffered: 0 })),
+    };
+
+    return {
+        __esModule: true,
+        default: TrackPlayerMock,
+        ...TrackPlayerMock,
+        Event: {
+            PlaybackState: 'playback-state',
+            PlaybackError: 'playback-error',
+            PlaybackQueueEnded: 'playback-queue-ended',
+            PlaybackTrackChanged: 'playback-track-changed',
+            PlaybackProgressUpdated: 'playback-progress-updated',
+            RemotePlay: 'remote-play',
+            RemotePause: 'remote-pause',
+            RemoteStop: 'remote-stop',
+            RemoteNext: 'remote-next',
+            RemotePrevious: 'remote-previous',
+            RemoteSeek: 'remote-seek',
+            RemoteDuck: 'remote-duck',
+            RemotePlayPause: 'remote-play-pause',
+            RemoteJumpForward: 'remote-jump-forward',
+            RemoteJumpBackward: 'remote-jump-backward',
+        },
+        State: {
+            None: 'none',
+            Ready: 'ready',
+            Playing: 'playing',
+            Paused: 'paused',
+            Stopped: 'stopped',
+            Buffering: 'buffering',
+            Connecting: 'connecting',
+        },
+        Capability: {
+            Play: 0,
+            Pause: 1,
+            Stop: 2,
+            SkipToNext: 3,
+            SkipToPrevious: 4,
+            SeekTo: 5,
+            JumpForward: 6,
+            JumpBackward: 7,
+        },
+        AppKilledPlaybackBehavior: {
+            StopPlaybackAndRemoveNotification: 'stop-playback-and-remove-notification',
+            ContinuePlayback: 'continue-playback',
+        },
+        RepeatMode: { Off: 0, Track: 1, Queue: 2 },
+    };
+});
 
 // Mock Expo modules if necessary
 jest.mock('expo-linking', () => ({
@@ -58,7 +90,9 @@ jest.mock('expo-router', () => ({
         replace: jest.fn(),
         back: jest.fn(),
     }),
-    useFocusEffect: jest.fn(),
+    useFocusEffect: (callback) => {
+        callback();
+    },
 
 }));
 

@@ -25,10 +25,13 @@ export default function AlbumDetailScreen() {
     } : null);
     const [isLoading, setIsLoading] = useState(true);
     const [lastUrl, setLastUrl] = useState(url);
+    const mode = useStore(state => state.mode);
+    const [lastMode, setLastMode] = useState(mode);
 
-    // Reset state when URL changes (runs during render to avoid cascading updates)
-    if (url !== lastUrl) {
+    // Reset state when URL or mode changes (runs during render to avoid cascading updates)
+    if (url !== lastUrl || mode !== lastMode) {
         setLastUrl(url);
+        setLastMode(mode);
         setIsLoading(true);
         setAlbum(artist ? {
             id: '',
@@ -63,9 +66,8 @@ export default function AlbumDetailScreen() {
         if (!url) return;
 
         // If in standalone mode, fetch via scraper
-        const store = useStore.getState();
-        if (store.mode === 'standalone') {
-            setIsLoading(true);
+        if (mode === 'standalone') {
+            // Loading state is set in the render phase above during URL/mode change
             const { mobileScraperService } = require('../services/MobileScraperService');
 
             mobileScraperService.getAlbumDetails(url)
@@ -124,7 +126,7 @@ export default function AlbumDetailScreen() {
         return () => {
             unsubscribe();
         };
-    }, [url]);
+    }, [url, mode, artist]);
 
     const handlePlayAll = () => {
         if (url && album) {
@@ -281,11 +283,20 @@ export default function AlbumDetailScreen() {
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton} testID="back-button">
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={styles.backButton}
+                    testID="back-button"
+                    hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                >
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]}>Album</Text>
-                <TouchableOpacity onPress={handleAlbumMenu} style={styles.backButton}>
+                <TouchableOpacity
+                    onPress={handleAlbumMenu}
+                    style={styles.backButton}
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                >
                     <MoreVertical size={24} color={colors.text} />
                 </TouchableOpacity>
             </View>

@@ -30,7 +30,6 @@ export default function AboutScreen() {
 
             <View style={styles.content}>
                 <View style={styles.logoContainer}>
-                    {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
                     <Image source={require('../assets/icon.png')} style={styles.logo} />
                 </View>
 
