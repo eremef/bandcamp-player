@@ -5,7 +5,7 @@
  <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
 </p>
 
-AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and many more.
 
 >⚠️ May violate Bandcamp terms and policies. Use at your own risk.
 >
@@ -24,7 +24,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history
+- 🎧 **Last.FM Scrobbling** - Track your listening history
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
@@ -33,7 +33,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
-- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices (migh be buggy)
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices (might be buggy)
 
 ## Tech Stack
 
