@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useStore } from '../store';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle, Settings } from 'lucide-react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Wifi, AlertCircle, Settings, Globe, LogIn } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useRouter } from 'expo-router';
+import { webSocketService } from '../services/WebSocketService';
 
 export default function ConnectScreen() {
-    const { connect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp, startScan, isScanning } = useStore();
+    const insets = useSafeAreaInsets();
+    const {
+        connect, disconnect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp, startScan, isScanning,
+        mode, setMode, auth
+    } = useStore();
     const colors = useTheme();
     const router = useRouter();
     const [ipInput, setIpInput] = useState(hostIp);
@@ -26,102 +31,232 @@ export default function ConnectScreen() {
         setIpInput(hostIp);
     }, [hostIp]);
 
+    // Auto-redirect to player when connected or authenticated and ready
+    useEffect(() => {
+        if (!isAutoConnecting) {
+            const canAccess =
+                ((mode === 'remote' || mode === 'standalone') && connectionStatus === 'connected') &&
+                (mode === 'remote' || (mode === 'standalone' && auth.isAuthenticated));
+
+            if (canAccess && useStore.getState().currentTrack) {
+                console.log('[ConnectScreen] Conditions met, auto-redirecting to player');
+                router.replace('/(tabs)/player');
+            }
+        }
+    }, [connectionStatus, mode, auth.isAuthenticated, isAutoConnecting, router]);
+
     const handleConnect = (ip?: string) => {
         const targetIp = ip || ipInput;
         setHostIp(targetIp);
         connect(targetIp);
     };
 
+    const handleModeSelect = async (newMode: 'remote' | 'standalone') => {
+        await setMode(newMode);
+        if (newMode === 'remote' && useStore.getState().connectionStatus === 'connected') {
+            router.replace('/(tabs)/player');
+        }
+    };
+
+    const handleStandaloneLogin = () => {
+        router.push('/bandcamp_login');
+    };
+
+    const handleStandaloneContinue = async () => {
+        await setMode('standalone');
+        // If mode was already 'standalone', setMode is a no-op and connectionStatus
+        // stays 'disconnected'. Ensure state is restored.
+        if (useStore.getState().connectionStatus !== 'connected') {
+            await useStore.getState().restoreStandaloneState();
+        }
+        router.replace('/(tabs)/player');
+    };
+
     if (isAutoConnecting && connectionStatus === 'connecting') {
         return (
-            <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
                 <View style={styles.content}>
                     <ActivityIndicator size="large" color={colors.accent} />
                     <Text style={[styles.subtitle, { marginTop: 20, color: colors.textSecondary }]}>Auto-connecting...</Text>
-                    <TouchableOpacity onPress={() => setIsAutoConnecting(false)}>
+                    <TouchableOpacity onPress={() => {
+                        setIsAutoConnecting(false);
+                        disconnect();
+                    }}>
                         <Text style={{ color: colors.accent, marginTop: 20 }}>Cancel</Text>
                     </TouchableOpacity>
                 </View>
-            </SafeAreaView>
+            </View>
         );
     }
 
     return (
-        <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.content}>
-                <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                    <Wifi size={64} color={colors.accent} />
-                </View>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+                <View style={styles.content}>
 
-                <Text style={[styles.title, { color: colors.text }]}>Bandcamp Remote</Text>
-                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>Enter the IP address of your desktop</Text>
-
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                        placeholder="192.168.1.x"
-                        placeholderTextColor={colors.textSecondary}
-                        value={ipInput}
-                        onChangeText={setIpInput}
-                        keyboardType="numeric"
-                        autoCapitalize="none"
-                    />
-                </View>
-
-                <TouchableOpacity
-                    style={[styles.button, { backgroundColor: colors.accent }, connectionStatus === 'connecting' && styles.buttonDisabled]}
-                    onPress={() => handleConnect()}
-                    disabled={connectionStatus === 'connecting'}
-                >
-                    {connectionStatus === 'connecting' ? (
-                        <ActivityIndicator color="white" />
-                    ) : (
-                        <Text style={[styles.buttonText, { color: '#fff' }]}>Connect</Text>
-                    )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
-                    onPress={() => startScan()}
-                    disabled={connectionStatus === 'connecting' || isScanning}
-                >
-                    {isScanning ? (
-                        <ActivityIndicator color={colors.accent} />
-                    ) : (
-                        <Text style={[styles.scanButtonText, { color: colors.accent }]}>Auto Scan Network</Text>
-                    )}
-                </TouchableOpacity>
-
-                {connectionStatus === 'disconnected' && hostIp && !isAutoConnecting && (
-                    <View style={styles.statusContainer}>
-                        <AlertCircle size={16} color="#ff4444" />
-                        <Text style={[styles.errorText, { color: '#ff4444' }]}>Disconnected. Check IP and try again.</Text>
+                    {/* App Hero / Title */}
+                    <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        {mode === 'remote' ? (
+                            <Wifi size={64} color={colors.accent} />
+                        ) : (
+                            <Globe size={64} color={colors.accent} />
+                        )}
                     </View>
-                )}
 
-                {/* Recent IPs */}
-                {recentIps.length > 0 && (
-                    <View style={styles.recentContainer}>
-                        <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>Recent Connections</Text>
-                        {recentIps.map((ip) => (
-                            <TouchableOpacity
-                                key={ip}
-                                style={[styles.recentItem, { backgroundColor: colors.input, borderColor: colors.border }]}
-                                onPress={() => handleConnect(ip)}
-                            >
-                                <Text style={[styles.recentText, { color: colors.text }]}>{ip}</Text>
+                    <Text style={[styles.title, { color: colors.text }]}>
+                        {mode === 'remote' ? 'Bandcamp Remote' : 'Bandcamp Standalone'}
+                    </Text>
+
+                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                        {mode === 'remote'
+                            ? 'Control your desktop player'
+                            : (auth.isAuthenticated
+                                ? `Logged in as ${auth.user?.displayName || auth.user?.username}`
+                                : 'Play your collection directly')}
+                    </Text>
+
+                    {/* Mode Selector - Now below title for better visibility */}
+                    <View style={[styles.modeContainer, { backgroundColor: colors.input, borderRadius: 16, padding: 4 }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.modeButtonSmall,
+                                mode === 'remote' && { backgroundColor: colors.card }
+                            ]}
+                            onPress={() => handleModeSelect('remote')}
+                        >
+                            <Text style={[styles.modeTextSmall, { color: mode === 'remote' ? colors.text : colors.textSecondary }]}>Remote</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.modeButtonSmall,
+                                mode === 'standalone' && { backgroundColor: colors.card }
+                            ]}
+                            onPress={() => handleModeSelect('standalone')}
+                        >
+                            <Text style={[styles.modeTextSmall, { color: mode === 'standalone' ? colors.text : colors.textSecondary }]}>Standalone</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {mode === 'remote' ? (
+                        <View style={{ width: '100%', alignItems: 'center' }}>
+                            {webSocketService.isConnected() ? (
+                                <View style={{ width: '100%', alignItems: 'center' }}>
+                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginBottom: 24 }]}>
+                                        Connected to {hostIp}
+                                    </Text>
+                                    <TouchableOpacity
+                                        style={[styles.button, { backgroundColor: colors.accent }]}
+                                        onPress={() => router.replace('/(tabs)/player')}
+                                    >
+                                        <Text style={[styles.buttonText, { color: '#fff' }]}>Resume Remote Session</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={{ marginTop: 24 }}
+                                        onPress={() => disconnect()}
+                                    >
+                                        <Text style={{ color: '#ff4444', fontWeight: '600' }}>Disconnect</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <>
+                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Enter the IP address of your desktop</Text>
+                                    <View style={styles.inputContainer}>
+                                        <TextInput
+                                            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                            placeholder="192.168.1.x"
+                                            placeholderTextColor={colors.textSecondary}
+                                            value={ipInput}
+                                            onChangeText={setIpInput}
+                                            keyboardType="numeric"
+                                            autoCapitalize="none"
+                                        />
+                                    </View>
+
+                                    <TouchableOpacity
+                                        style={[styles.button, { backgroundColor: colors.accent }, connectionStatus === 'connecting' && styles.buttonDisabled]}
+                                        onPress={() => handleConnect()}
+                                        disabled={connectionStatus === 'connecting'}
+                                    >
+                                        {connectionStatus === 'connecting' ? (
+                                            <ActivityIndicator color="white" />
+                                        ) : (
+                                            <Text style={[styles.buttonText, { color: '#fff' }]}>Connect</Text>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
+                                        onPress={() => startScan()}
+                                        disabled={connectionStatus === 'connecting' || isScanning}
+                                    >
+                                        {isScanning ? (
+                                            <ActivityIndicator color={colors.accent} />
+                                        ) : (
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <Wifi size={18} color={colors.accent} />
+                                                <Text style={[styles.scanButtonText, { color: colors.accent }]}>Auto Scan Network</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    {connectionStatus === 'disconnected' && hostIp && !isAutoConnecting && (
+                                        <View style={styles.statusContainer}>
+                                            <AlertCircle size={16} color="#ff4444" />
+                                            <Text style={[styles.errorText, { color: '#ff4444' }]}>Disconnected. Check IP and try again.</Text>
+                                        </View>
+                                    )}
+
+                                    {/* Recent IPs */}
+                                    {recentIps.length > 0 && (
+                                        <View style={styles.recentContainer}>
+                                            <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>Recent Connections</Text>
+                                            {recentIps.map((ip) => (
+                                                <TouchableOpacity
+                                                    key={ip}
+                                                    style={[styles.recentItem, { backgroundColor: colors.input, borderColor: colors.border }]}
+                                                    onPress={() => handleConnect(ip)}
+                                                >
+                                                    <Text style={[styles.recentText, { color: colors.text }]}>{ip}</Text>
+                                                    <TouchableOpacity
+                                                        style={styles.removeRecent}
+                                                        onPress={() => removeRecentIp(ip)}
+                                                    >
+                                                        <Text style={[styles.removeRecentText, { color: colors.textSecondary }]}>×</Text>
+                                                    </TouchableOpacity>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
+                                </>
+                            )}
+                        </View>
+                    ) : (
+                        <View style={{ width: '100%', alignItems: 'center' }}>
+                            {auth.isAuthenticated ? (
                                 <TouchableOpacity
-                                    style={styles.removeRecent}
-                                    onPress={() => removeRecentIp(ip)}
+                                    style={[styles.button, { backgroundColor: colors.accent }]}
+                                    onPress={handleStandaloneContinue}
                                 >
-                                    <Text style={[styles.removeRecentText, { color: colors.textSecondary }]}>×</Text>
+                                    <Text style={[styles.buttonText, { color: '#fff' }]}>Continue to Player</Text>
                                 </TouchableOpacity>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
-            </View>
-        </SafeAreaView>
+                            ) : (
+                                <TouchableOpacity
+                                    style={[styles.button, { backgroundColor: colors.accent }]}
+                                    onPress={handleStandaloneLogin}
+                                >
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <LogIn size={20} color="#fff" />
+                                        <Text style={[styles.buttonText, { color: '#fff' }]}>Login to Bandcamp</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+                </View>
+            </ScrollView>
+        </View>
     );
 }
 
@@ -131,13 +266,37 @@ const styles = StyleSheet.create({
         backgroundColor: '#121212',
     },
     content: {
-        flex: 1,
-        justifyContent: 'center',
         alignItems: 'center',
         padding: 24,
     },
-    iconContainer: {
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+    },
+    modeContainer: {
+        flexDirection: 'row',
         marginBottom: 32,
+        gap: 8,
+        width: '100%',
+        maxWidth: 300,
+    },
+    modeButtonSmall: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderRadius: 12,
+    },
+    modeTextSmall: {
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    sectionLabel: {
+        fontSize: 14,
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    iconContainer: {
+        marginBottom: 24,
         padding: 24,
         backgroundColor: '#1a1a1a',
         borderRadius: 50,
@@ -149,12 +308,14 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#ffffff',
         marginBottom: 8,
+        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
         color: '#888888',
-        marginBottom: 48,
+        marginBottom: 32,
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
     inputContainer: {
         width: '100%',

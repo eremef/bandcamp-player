@@ -22,6 +22,7 @@ const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1
 export default function CollectionScreen() {
     const colors = useTheme();
     const collection = useStore((state) => state.collection);
+    const collectionError = useStore((state) => state.collectionError);
     // ... existing hooks ...
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
@@ -111,7 +112,15 @@ export default function CollectionScreen() {
     const handlePlayItem = (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
             if (item.album.bandcampUrl) {
-                router.push({ pathname: '/album_detail', params: { url: item.album.bandcampUrl } });
+                router.push({
+                    pathname: '/album_detail',
+                    params: {
+                        url: item.album.bandcampUrl,
+                        artist: item.album.artist,
+                        title: item.album.title,
+                        artworkUrl: item.album.artworkUrl
+                    }
+                });
                 return;
             }
         } else if (item.type === 'track' && item.track) {
@@ -167,14 +176,32 @@ export default function CollectionScreen() {
     }, [refreshCollection, searchQuery]);
 
     useEffect(() => {
+        // Skip refreshing if we already have items and no search query (already handled by store initialization)
+        if (!searchQuery && collection && collection.items.length > 0) return;
+
         const timer = setTimeout(() => {
             refreshCollection(true, searchQuery, false);
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, refreshCollection]);
+    }, [searchQuery, refreshCollection, collection]);
 
     if (!collection) {
+        if (collectionError) {
+            return (
+                <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
+                    <View style={styles.center}>
+                        <Text style={[styles.text, { color: 'red', marginBottom: 16 }]}>Error: {collectionError}</Text>
+                        <TouchableOpacity
+                            onPress={() => refreshCollection(true, searchQuery, true)}
+                            style={{ padding: 12, backgroundColor: colors.accent, borderRadius: 8 }}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Retry</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
         return (
             <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
                 <View style={styles.center}>
@@ -193,6 +220,11 @@ export default function CollectionScreen() {
                 onChangeText={setSearchQuery}
                 placeholder="Search collection..."
             />
+            {collectionError && (
+                <TouchableOpacity onPress={() => refreshCollection(true, searchQuery, true)} style={{ padding: 8, backgroundColor: '#330000' }}>
+                    <Text style={{ color: 'red', textAlign: 'center' }}>Sync Error: {collectionError}. Tap to retry.</Text>
+                </TouchableOpacity>
+            )}
 
             <FlatList
                 testID="collection-list"

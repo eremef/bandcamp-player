@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import CollectionScreen from '../../../app/(tabs)/collection';
 import { useStore } from '../../../store';
 import { webSocketService } from '../../../services/WebSocketService';
@@ -114,8 +114,9 @@ describe('CollectionScreen', () => {
 
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/album_detail',
-            params: { url: 'burl_multi' }
+            params: expect.objectContaining({ url: 'burl_multi', title: 'Album Multi' })
         });
+
     });
 
     it('plays item directly on press if it is a single track or single-track album', () => {
@@ -125,8 +126,9 @@ describe('CollectionScreen', () => {
         fireEvent.press(getByText('Album One'));
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/album_detail',
-            params: { url: 'burl1' }
+            params: expect.objectContaining({ url: 'burl1', title: 'Album One' })
         });
+
 
         jest.clearAllMocks();
 
@@ -149,9 +151,10 @@ describe('CollectionScreen', () => {
         const list = getByTestId('collection-list');
         const { refreshControl } = list.props;
 
-        await waitFor(() => {
+        await act(async () => {
             refreshControl.props.onRefresh();
         });
+
 
         // Expects (reset: true, query: '', forceServerRefresh: true)
         expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);

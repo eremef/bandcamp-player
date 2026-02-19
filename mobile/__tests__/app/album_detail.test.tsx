@@ -119,7 +119,11 @@ describe('AlbumDetailScreen', () => {
         const mockStore = useStore.getState();
 
         fireEvent.press(getByText('Play Album'));
-        expect(mockStore.playAlbum).toHaveBeenCalledWith('http://bc.com/album/1');
+        expect(mockStore.playAlbum).toHaveBeenCalledWith(
+            'http://bc.com/album/1',
+            expect.objectContaining({ title: 'Test Album', artist: 'Test Artist' })
+        );
+
     });
 
     it('plays track when track is pressed', () => {
@@ -132,6 +136,9 @@ describe('AlbumDetailScreen', () => {
         const mockStore = useStore.getState();
 
         fireEvent.press(getByText('Track 1'));
-        expect(mockStore.playTrack).toHaveBeenCalledWith(mockAlbum.tracks[0]);
+        expect(mockStore.playTrack).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 't1', title: 'Track 1', artist: 'Test Artist' })
+        );
+
     });
 });

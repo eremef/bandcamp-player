@@ -186,6 +186,7 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 | `mobile/store/index.test.ts` | State, WebSocket, Playback | 28 | ~95% |
 | `mobile/services/WebSocketService.test.ts` | Connection & Events | 12 | ~95% |
 | `mobile/services/discovery.service.test.ts` | mDNS Discovery | 4 | ~90% |
+| `mobile/__tests__/MobilePlayerService.test.ts` | Player Loading & Persistence | 5 | ~85% |
 | `mobile/services/player.test.ts` | TrackPlayer Integration | 6 | 100% |
 | `mobile/services/TrackPlayerService.test.ts` | Remote Event Handlers | 9 | 100% |
 | `mobile/app/(tabs)/player.test.tsx` | Player Screen UI | 14 | ~70% |
@@ -197,7 +198,7 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 | `mobile/__tests__/app/(tabs)/artists.test.tsx` | Artists Screen UI | 4 | 100% |
 | `mobile/__tests__/app/artist/[id].test.tsx` | Artist Detail & Nav | 5 | 100% |
 
-**Total:** 343 tests across all platforms (167 Desktop unit + 38 E2E + 103 Mobile + 35 Android).
+**Total:** 348 tests across all platforms (167 Desktop unit + 38 E2E + 108 Mobile + 35 Android).
 
 ## Best Practices
 
