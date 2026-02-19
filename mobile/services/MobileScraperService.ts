@@ -208,7 +208,7 @@ export class MobileScraperService {
 
             // Fallback to DOM parsing if script failed
             if (items.length === 0) {
-                $('.collection-item-container').each((_, el) => {
+                $('#collection-grid .collection-item-container').each((_, el) => {
                     const parsed = this.parseCollectionItemFromDOM($, $(el));
                     if (parsed) items.push(parsed);
                 });
@@ -329,6 +329,11 @@ export class MobileScraperService {
 
     private parseCollectionItem(item: any): CollectionItem | null {
         try {
+            // Skip wishlist items if they accidentally appeared 
+            if (item.is_wishlist || item.why === 'wishlist') {
+                return null;
+            }
+
             const isAlbum = item.item_type === 'album' || item.tralbum_type === 'a';
             const id = String(item.item_id || item.tralbum_id);
             // Aligned with desktop: use band_name, with fallbacks for mobile API variations

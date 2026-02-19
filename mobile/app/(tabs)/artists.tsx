@@ -11,6 +11,8 @@ const COLUMN_COUNT = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ITEM_WIDTH = (SCREEN_WIDTH - 40) / COLUMN_COUNT; // 20 padding on each side
 
+import { useFocusEffect } from 'expo-router';
+
 export default function ArtistsScreen() {
     const { artists, refreshArtists, connectionStatus } = useStore();
     const colors = useTheme();
@@ -18,11 +20,19 @@ export default function ArtistsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
 
+    // Refresh artists when the screen is focused to ensure it's in sync with collection
+    useFocusEffect(
+        React.useCallback(() => {
+            refreshArtists();
+        }, [])
+    );
+
     useEffect(() => {
         if (connectionStatus === 'connected') {
             refreshArtists();
         }
     }, [connectionStatus]);
+
 
     const filteredArtists = useMemo(() =>
         artists.filter(artist =>

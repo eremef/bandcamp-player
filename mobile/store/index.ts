@@ -933,6 +933,9 @@ export const useStore = create<AppState>((set, get) => ({
                     limit: 50,
                     query
                 });
+                if (forceServerRefresh) {
+                    webSocketService.send('get-artists');
+                }
             } else {
                 mobileScraperService.fetchCollection(forceServerRefresh)
                     .then(collection => {
@@ -952,6 +955,10 @@ export const useStore = create<AppState>((set, get) => ({
                                 hasMoreCollection: true
                             });
                         }
+
+                        // Ensure artists are refreshed after collection sync
+                        get().refreshArtists();
+
 
                         // Stale-while-revalidate check
                         if (!forceServerRefresh && collection.lastUpdated) {
