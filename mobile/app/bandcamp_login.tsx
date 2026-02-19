@@ -146,7 +146,7 @@ export default function BandcampLoginScreen() {
             // Also trigger native check on interaction/interval
             checkNativeSession();
         } catch (e) {
-            // ignore
+            console.log('Error in handleMessage:', e);
         }
     };
 

@@ -67,11 +67,4 @@ describe('ArtistsScreen', () => {
         render(<ArtistsScreen />);
         expect(mockRefreshArtists).toHaveBeenCalled();
     });
-
-    it('renders placeholders for artists without images', () => {
-        const { getByText } = render(<ArtistsScreen />);
-        // Beatles has no image, should show 'B' placeholder
-        // There might be multiple 'B's (Section header and placeholder), logic renders initials
-        // We can check if specific element structure exists but let's just ensure no error
-    });
 });
