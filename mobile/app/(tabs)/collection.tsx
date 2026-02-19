@@ -176,12 +176,15 @@ export default function CollectionScreen() {
     }, [refreshCollection, searchQuery]);
 
     useEffect(() => {
+        // Skip refreshing if we already have items and no search query (already handled by store initialization)
+        if (!searchQuery && collection && collection.items.length > 0) return;
+
         const timer = setTimeout(() => {
             refreshCollection(true, searchQuery, false);
         }, 500);
 
         return () => clearTimeout(timer);
-    }, [searchQuery, refreshCollection]);
+    }, [searchQuery, refreshCollection, collection]);
 
     if (!collection) {
         if (collectionError) {

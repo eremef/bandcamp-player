@@ -83,6 +83,7 @@ jest.mock('expo-sqlite', () => ({
         runAsync: jest.fn(),
         getFirstAsync: jest.fn(),
         getAllAsync: jest.fn(),
+        withTransactionAsync: jest.fn((callback) => callback()),
     })),
 }));
 

@@ -90,6 +90,8 @@ jest.mock('../services/MobileDatabase', () => ({
         createPlaylist: jest.fn().mockResolvedValue(undefined),
         renamePlaylist: jest.fn().mockResolvedValue(undefined),
         deletePlaylist: jest.fn().mockResolvedValue(undefined),
+        getCollectionGranular: jest.fn().mockResolvedValue([]),
+        getCollectionTotalCount: jest.fn().mockResolvedValue(0),
     },
 }));
 
@@ -526,6 +528,32 @@ describe('Mobile useStore', () => {
                 limit: 50,
                 query: 'test'
             });
+        });
+
+        it('should fetch from scraper on fresh start (standalone)', async () => {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { mobileScraperService } = require('../services/MobileScraperService');
+
+            useStore.setState({
+                mode: 'standalone',
+                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any }
+            });
+
+            // Mock DB to return empty
+            (mobileDatabase.getCollectionGranular as jest.Mock).mockResolvedValueOnce([]);
+            (mobileDatabase.getCollectionTotalCount as jest.Mock).mockResolvedValueOnce(0);
+
+            // After fetch, return items
+            (mobileDatabase.getCollectionGranular as jest.Mock).mockResolvedValueOnce([{ id: 'item1' } as any]);
+            (mobileDatabase.getCollectionTotalCount as jest.Mock).mockResolvedValueOnce(1);
+
+            await act(async () => {
+                await useStore.getState().refreshCollection(true);
+            });
+
+            expect(mobileScraperService.fetchCollection).toHaveBeenCalledWith(false);
+            expect(useStore.getState().collection?.items).toHaveLength(1);
+            expect(mobileDatabase.getArtists).toHaveBeenCalled(); // via refreshArtists
         });
     });
 });

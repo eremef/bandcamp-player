@@ -8,6 +8,7 @@ import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';
 import { Track, RepeatMode } from '@shared/types';
+import { setupPlayer } from './player';
 
 class MobilePlayerService {
     private isInitialized = false;
@@ -16,60 +17,12 @@ class MobilePlayerService {
     async setupPlayer() {
         if (this.isInitialized) return;
 
-        try {
-            await TrackPlayer.setupPlayer();
-        } catch (e: unknown) {
-            const error = e as Error;
-            if (!error?.message?.includes('already been initialized')) {
-                console.error('[MobilePlayer] Error setting up player:', error);
-                return; // Don't continue if real error
-            }
-        }
-
-        await TrackPlayer.updateOptions({
-            android: {
-                appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-            },
-            capabilities: [
-                Capability.Play,
-                Capability.Pause,
-                Capability.SkipToNext,
-                Capability.SkipToPrevious,
-                Capability.SeekTo,
-                Capability.Stop,
-                Capability.JumpForward,
-                Capability.JumpBackward,
-            ],
-            notificationCapabilities: [
-                Capability.Play,
-                Capability.Pause,
-                Capability.SkipToNext,
-                Capability.SkipToPrevious,
-                Capability.SeekTo,
-                Capability.Stop,
-            ],
-            progressUpdateEventInterval: 1,
-        });
+        const success = await setupPlayer();
+        if (!success) return;
 
         // Set initial volume from store
         const { volume } = useStore.getState();
         await TrackPlayer.setVolume(volume);
-
-        TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
-            // Only update store from TrackPlayer in standalone mode
-            // In remote mode, the server provides these values via state-changed/time-update
-            if (useStore.getState().mode !== 'standalone') return;
-            useStore.setState({
-                currentTime: event.position,
-                duration: event.duration
-            });
-        });
-
-        TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
-            if (useStore.getState().mode !== 'standalone') return;
-            const isPlaying = event.state === State.Playing;
-            useStore.setState({ isPlaying });
-        });
 
         this.isInitialized = true;
     }
@@ -108,7 +61,8 @@ class MobilePlayerService {
     }
 
     async stop() {
-        await TrackPlayer.reset();
+        await TrackPlayer.pause();
+        await TrackPlayer.seekTo(0);
         useStore.setState({ isPlaying: false, currentTrack: null, currentTime: 0 });
     }
 
@@ -207,7 +161,7 @@ class MobilePlayerService {
     /**
      * Prepare the player with a track (resolve URL, add to player) without playing
      */
-    public async loadTrack(track: Track): Promise<boolean> {
+    public async loadTrack(track: Track, initialPosition: number = 0): Promise<boolean> {
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
@@ -251,14 +205,16 @@ class MobilePlayerService {
             useStore.setState({
                 currentTrack: { ...track, streamUrl, artist },
                 duration: track.duration,
-                currentTime: 0,
+                currentTime: initialPosition,
                 collectionError: null
             });
 
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
             const artistName = track.artist || 'Unknown Artist';
 
-            await TrackPlayer.reset();
+            const queue = await TrackPlayer.getQueue();
+            const nextIndex = queue.length;
+
             await TrackPlayer.add({
                 id: track.id,
                 url: streamUrl,
@@ -267,6 +223,18 @@ class MobilePlayerService {
                 artwork: track.artworkUrl,
                 duration: track.duration,
             });
+
+            if (nextIndex > 0) {
+                await TrackPlayer.skip(nextIndex);
+                // Clean up previous tracks
+                const oldIndices = Array.from({ length: nextIndex }, (_, i) => i);
+                await TrackPlayer.remove(oldIndices);
+            }
+
+            if (initialPosition > 0) {
+                console.log(`[MobilePlayer] Seeking to initial position: ${initialPosition}`);
+                await TrackPlayer.seekTo(initialPosition);
+            }
 
             return true;
         } catch (e) {

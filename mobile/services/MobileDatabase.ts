@@ -32,13 +32,54 @@ export class MobileDatabase {
                 cached_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS collection_items (
+                id TEXT PRIMARY KEY,
+                type TEXT NOT NULL,
+                token TEXT,
+                purchase_date TEXT,
+                user_id TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS albums (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                artist_id TEXT,
+                artist_name TEXT,
+                artwork_url TEXT,
+                bandcamp_url TEXT,
+                track_count INTEGER
+            );
+
+            CREATE TABLE IF NOT EXISTS tracks (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                artist_id TEXT,
+                artist_name TEXT,
+                album_id TEXT,
+                album_title TEXT,
+                artwork_url TEXT,
+                stream_url TEXT,
+                duration INTEGER,
+                bandcamp_url TEXT
+            );
+
+            -- FTS5 Virtual Table for searching
+            CREATE VIRTUAL TABLE IF NOT EXISTS collection_search_fts USING fts5(
+                id UNINDEXED,
+                title,
+                artist,
+                content='collection_items',
+                content_rowid='id'
+            );
+
             CREATE TABLE IF NOT EXISTS playlists (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
-
+            
+            -- ... rest of playlists and other tables ...
             CREATE TABLE IF NOT EXISTS playlist_tracks (
                 id TEXT PRIMARY KEY,
                 playlist_id TEXT NOT NULL,
@@ -86,6 +127,162 @@ export class MobileDatabase {
             'INSERT OR REPLACE INTO collection_cache (id, type, data, cached_at) VALUES (?, ?, ?, ?)',
             [userId, 'collection', JSON.stringify(data), now]
         );
+    }
+
+    async saveCollectionGranular(userId: string, items: CollectionItem[]) {
+        if (!this.db) await this.init();
+
+        await this.db!.withTransactionAsync(async () => {
+            // Delete existing items for this user to ensure sync
+            await this.db!.runAsync('DELETE FROM collection_items WHERE user_id = ?', [userId]);
+
+            for (const item of items) {
+                // Insert into collection_items
+                await this.db!.runAsync(
+                    'INSERT INTO collection_items (id, type, token, purchase_date, user_id) VALUES (?, ?, ?, ?, ?)',
+                    [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId]
+                );
+
+                if (item.type === 'album' && item.album) {
+                    await this.db!.runAsync(
+                        'INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            item.album.id,
+                            item.album.title,
+                            item.album.artistId ?? null,
+                            item.album.artist,
+                            item.album.artworkUrl ?? null,
+                            item.album.bandcampUrl ?? null,
+                            item.album.trackCount ?? 0
+                        ]
+                    );
+
+                    // Update FTS index
+                    await this.db!.runAsync(
+                        'INSERT INTO collection_search_fts (id, title, artist) VALUES (?, ?, ?)',
+                        [item.id, item.album.title, item.album.artist]
+                    );
+                } else if (item.type === 'track' && item.track) {
+                    await this.db!.runAsync(
+                        'INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [
+                            item.track.id,
+                            item.track.title,
+                            item.track.artistId ?? null,
+                            item.track.artist,
+                            item.track.albumId ?? null,
+                            item.track.album ?? null,
+                            item.track.artworkUrl ?? null,
+                            item.track.streamUrl ?? null,
+                            item.track.duration ?? 0,
+                            item.track.bandcampUrl ?? null
+                        ]
+                    );
+
+                    // Update FTS index
+                    await this.db!.runAsync(
+                        'INSERT INTO collection_search_fts (id, title, artist) VALUES (?, ?, ?)',
+                        [item.id, item.track.title, item.track.artist]
+                    );
+                }
+            }
+        });
+    }
+
+    async getCollectionGranular(userId: string, offset: number = 0, limit: number = 50, query?: string): Promise<CollectionItem[]> {
+        if (!this.db) await this.init();
+
+        let sql = '';
+        let params: any[] = [];
+
+        if (query) {
+            // Use FTS5 search
+            sql = `
+                SELECT ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid
+                FROM collection_items ci
+                JOIN collection_search_fts fts ON ci.id = fts.id
+                LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                WHERE ci.user_id = ? AND collection_search_fts MATCH ?
+                ORDER BY ci.purchase_date DESC
+                LIMIT ? OFFSET ?
+            `;
+            params = [userId, `${query}*`, limit, offset];
+        } else {
+            sql = `
+                SELECT ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid
+                FROM collection_items ci
+                LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                WHERE ci.user_id = ?
+                ORDER BY ci.purchase_date DESC
+                LIMIT ? OFFSET ?
+            `;
+            params = [userId, limit, offset];
+        }
+
+        const rows = await this.db!.getAllAsync<any>(sql, params);
+
+        return rows.map(row => {
+            if (row.type === 'album') {
+                return {
+                    id: row.id,
+                    type: 'album',
+                    token: row.token,
+                    purchaseDate: row.purchase_date,
+                    album: {
+                        id: row.id,
+                        title: row.a_title,
+                        artist: row.a_artist,
+                        artistId: row.a_aid,
+                        artworkUrl: row.a_art,
+                        bandcampUrl: row.a_url,
+                        trackCount: row.a_count,
+                        tracks: []
+                    }
+                };
+            } else {
+                return {
+                    id: row.id,
+                    type: 'track',
+                    token: row.token,
+                    purchaseDate: row.purchase_date,
+                    track: {
+                        id: row.id,
+                        title: row.t_title,
+                        artist: row.t_artist,
+                        artistId: row.t_aid,
+                        album: row.t_album,
+                        albumId: row.t_alid,
+                        duration: row.t_dur,
+                        artworkUrl: row.t_art,
+                        streamUrl: row.t_stream,
+                        bandcampUrl: row.t_url,
+                        isCached: false
+                    }
+                };
+            }
+        });
+    }
+
+    async getCollectionTotalCount(userId: string, query?: string): Promise<number> {
+        if (!this.db) await this.init();
+
+        if (query) {
+            const result = await this.db!.getFirstAsync<{ count: number }>(
+                'SELECT COUNT(*) as count FROM collection_items ci JOIN collection_search_fts fts ON ci.id = fts.id WHERE ci.user_id = ? AND collection_search_fts MATCH ?',
+                [userId, `${query}*`]
+            );
+            return result?.count ?? 0;
+        } else {
+            const result = await this.db!.getFirstAsync<{ count: number }>(
+                'SELECT COUNT(*) as count FROM collection_items WHERE user_id = ?',
+                [userId]
+            );
+            return result?.count ?? 0;
+        }
     }
 
     // --- Playlists ---
