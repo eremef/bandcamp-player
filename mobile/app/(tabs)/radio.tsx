@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
-import { router } from 'expo-router';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { InputModal } from '../../components/InputModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,14 +15,15 @@ export default function RadioScreen() {
     const radioStations = useStore((state) => state.radioStations);
     const playlists = useStore((state) => state.playlists);
     const playStation = useStore((state) => state.playStation);
-    const disconnect = useStore((state) => state.disconnect);
     const addStationToQueue = useStore((state) => state.addStationToQueue);
     const addStationToPlaylist = useStore((state) => state.addStationToPlaylist);
+    const createPlaylist = useStore((state) => state.createPlaylist);
     const refreshRadio = useStore((state) => state.refreshRadio);
     const radioSearchQuery = useStore((state) => state.radioSearchQuery);
     const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
 
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -89,24 +89,9 @@ export default function RadioScreen() {
         }
     };
 
-    const handleDisconnect = () => {
-        setActionSheetTitle("Disconnect");
-        setActionSheetActions([
-            {
-                text: "Disconnect",
-                style: "destructive",
-                onPress: () => {
-                    disconnect();
-                    router.replace('/');
-                }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
-            }
-        ]);
-        setActionSheetVisible(true);
+    const handleCreatePlaylist = (name: string) => {
+        createPlaylist(name);
+        setCreatePlaylistModalVisible(false);
     };
 
     const renderItem = ({ item }: { item: RadioStation }) => {
@@ -174,7 +159,17 @@ export default function RadioScreen() {
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleAddToPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
+            />
+
+            <InputModal
+                visible={createPlaylistModalVisible}
+                title="Create Playlist"
+                placeholder="Playlist Name"
+                onClose={() => setCreatePlaylistModalVisible(false)}
+                onSubmit={handleCreatePlaylist}
+                submitLabel="Create"
             />
         </View>
     );

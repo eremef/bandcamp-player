@@ -567,14 +567,20 @@ export class MobileScraperService {
                 return null;
             }
 
-            // Enhance tralbumData with DOM fallbacks if missing
+            // Enhance tralbumData with DOM fallbacks if missing or generic
             const domArtist = $('span[itemprop="byArtist"]').text().trim() ||
                 $('#name-section h3').text().trim().replace(/^by\s+/i, '') ||
                 $('h3.album-artist').text().trim() ||
-                $('header h2').text().trim().split('by ')[1];
+                $('header h2').text().trim().split('by ')[1] ||
+                $('.albumArtist').text().trim();
 
-            // Aligned with desktop: prioritize tralbumData.artist
-            const albumArtist = this.cleanArtistName(tralbumData.artist || tralbumData.artist_name || tralbumData.band_name || domArtist || 'Unknown Artist');
+            // Aligned with desktop: prioritize tralbumData.artist but fallback to DOM if it's 'Unknown Artist'
+            let rawArtist = tralbumData.artist || tralbumData.artist_name || tralbumData.band_name;
+            if (!rawArtist || rawArtist === 'Unknown Artist') {
+                rawArtist = domArtist;
+            }
+            
+            const albumArtist = this.cleanArtistName(rawArtist || 'Unknown Artist');
 
             const tracks: Track[] = await Promise.all((tralbumData.trackinfo || []).map(async (trackInfo: any, index: number) => {
                 let streamUrl = trackInfo.file?.['mp3-128'] || trackInfo.file?.['mp3-v0'] || '';

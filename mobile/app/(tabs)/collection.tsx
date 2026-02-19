@@ -7,7 +7,7 @@ import { SearchBar } from '../../components/SearchBar';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
-import { webSocketService } from '../../services/WebSocketService';
+import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 
@@ -22,22 +22,23 @@ export default function CollectionScreen() {
     const colors = useTheme();
     const collection = useStore((state) => state.collection);
     const collectionError = useStore((state) => state.collectionError);
-    // ... existing hooks ...
     const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
-    const disconnect = useStore((state) => state.disconnect);
     const playlists = useStore((state) => state.playlists);
     const addTrackToQueue = useStore((state) => state.addTrackToQueue);
     const addAlbumToQueue = useStore((state) => state.addAlbumToQueue);
     const addTrackToPlaylist = useStore((state) => state.addTrackToPlaylist);
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
+    const createPlaylist = useStore((state) => state.createPlaylist);
     const loadMoreCollection = useStore((state) => state.loadMoreCollection);
     const isCollectionLoading = useStore((state) => state.isCollectionLoading);
     const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
+    const storeSearchQuery = useStore((state) => state.searchQuery);
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
 
     // ActionSheet state
@@ -45,28 +46,30 @@ export default function CollectionScreen() {
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
 
-    // ... handlers (handleLongPress, handleSelectPlaylist, handleRefresh, handlePlayItem, handleDisconnect) same as before ... 
-
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         setActionSheetTitle(title || 'Item');
         setActionSheetActions([
             {
                 text: "Play Next",
-                onPress: () => {
+                onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
                     }
-                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
+                    else if (item.type === 'track' && item.track) {
+                        await addTrackToQueue(item.track, true);
+                    }
                 }
             },
             {
                 text: "Add to Queue",
-                onPress: () => {
+                onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
                     }
-                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
+                    else if (item.type === 'track' && item.track) {
+                        await addTrackToQueue(item.track, false);
+                    }
                 }
             },
             {
@@ -99,10 +102,17 @@ export default function CollectionScreen() {
         Alert.alert("Success", "Added to playlist");
     }, [selectedItem, addAlbumToPlaylist, addTrackToPlaylist]);
 
+    const handleCreatePlaylist = useCallback((name: string) => {
+        createPlaylist(name);
+        setCreatePlaylistModalVisible(false);
+        // After creating, the playlists in store will update.
+        // We stay in the PlaylistSelectionModal so user can select the newly created playlist.
+    }, [createPlaylist]);
+
     const collectionItems = useMemo(() => collection?.items || [], [collection?.items]);
 
 
-    const handlePlayItem = useCallback((item: CollectionItem) => {
+    const handlePlayItem = useCallback(async (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
             if (item.album.bandcampUrl) {
                 router.push({
@@ -117,13 +127,11 @@ export default function CollectionScreen() {
                 return;
             }
         } else if (item.type === 'track' && item.track) {
-            if (item.track.bandcampUrl) {
-                playAlbum(item.track.bandcampUrl);
-            } else {
-                playTrack(item.track);
-            }
+            // For tracks in collection, we already have the artist name. 
+            // playTrack handles details resolution if needed while preserving the artist.
+            await playTrack(item.track);
         }
-    }, [playAlbum, playTrack]);
+    }, [playTrack]);
 
 
     const renderItem = useCallback(({ item }: { item: CollectionItem }) => {
@@ -167,9 +175,8 @@ export default function CollectionScreen() {
     }, [refreshCollection, searchQuery, collection?.totalCount]);
 
     useEffect(() => {
-        // Skip refreshing if we already have items and no search query
-        // We use a ref-like check or just rely on searchQuery changes
-        if (!searchQuery && collection && collection.items.length > 0) return;
+        // Skip refreshing if we already have items and the search query hasn't changed
+        if (searchQuery === storeSearchQuery && collection && collection.items.length > 0) return;
 
         const timer = setTimeout(() => {
             refreshCollection(true, searchQuery, false);
@@ -178,7 +185,7 @@ export default function CollectionScreen() {
         return () => clearTimeout(timer);
         // collection intentionally omitted to avoid infinite reload loop
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, refreshCollection]);
+    }, [searchQuery, storeSearchQuery, refreshCollection]);
 
     if (!collection) {
         if (collectionError) {
@@ -262,7 +269,16 @@ export default function CollectionScreen() {
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
+            />
+            <InputModal
+                visible={createPlaylistModalVisible}
+                title="Create Playlist"
+                placeholder="Playlist Name"
+                onClose={() => setCreatePlaylistModalVisible(false)}
+                onSubmit={handleCreatePlaylist}
+                submitLabel="Create"
             />
             <ActionSheet
                 visible={actionSheetVisible}

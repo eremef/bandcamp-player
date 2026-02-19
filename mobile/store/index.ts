@@ -52,16 +52,16 @@ interface AppState extends PlayerState {
     setRepeat: (mode: 'off' | 'one' | 'all') => void;
 
     // Play Actions
-    playTrack: (track: Track) => void;
-    playAlbum: (albumUrl: string, album?: Album) => void;
+    playTrack: (track: Track) => Promise<void>;
+    playAlbum: (albumUrl: string, album?: Album) => Promise<void>;
     playPlaylist: (playlistId: string) => void;
     playStation: (station: RadioStation) => void;
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
-    addStationToPlaylist: (playlistId: string, station: RadioStation) => void;
-    addTrackToQueue: (track: Track, playNext?: boolean) => void;
+    addStationToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
+    addTrackToQueue: (track: Track, playNext?: boolean) => Promise<void>;
     addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[]) => void;
-    addTrackToPlaylist: (playlistId: string, track: Track) => void;
-    addAlbumToPlaylist: (playlistId: string, albumUrl: string) => void;
+    addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
+    addAlbumToPlaylist: (playlistId: string, albumUrl: string, album?: Album) => Promise<void>;
 
     // Queue Actions
     playQueueIndex: (index: number) => void;
@@ -499,7 +499,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    playTrack: (track) => {
+    playTrack: async (track) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             // Optimistic update
             set({
@@ -509,9 +509,36 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('play-track', track);
         } else {
             console.log(`[MobileStore] playTrack standalone: ${track.title}`);
+
+            let trackToPlay = track;
+
+            // If artist is 'Unknown Artist', try to fetch details
+            if (track.artist === 'Unknown Artist' && track.bandcampUrl) {
+                try {
+                    const { mobileScraperService } = require('../services/MobileScraperService');
+                    const albumDetails = await mobileScraperService.getAlbumDetails(track.bandcampUrl);
+                    if (albumDetails) {
+                        const foundTrack = (albumDetails.tracks || []).find((t: { id: any; title: string; }) =>
+                            String(t.id) === String(track.id) || t.title === track.title
+                        );
+                        if (foundTrack) {
+                            trackToPlay = {
+                                ...track,
+                                ...foundTrack,
+                                artist: (foundTrack.artist && foundTrack.artist !== 'Unknown Artist') ? foundTrack.artist : (albumDetails.artist || track.artist)
+                            };
+                        } else if (albumDetails.artist && albumDetails.artist !== 'Unknown Artist') {
+                            trackToPlay = { ...track, artist: albumDetails.artist };
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[MobileStore] Failed to fetch track details for playback:', e);
+                }
+            }
+
             const queueItem: QueueItem = {
-                id: `track-${track.id}-${Date.now()}`,
-                track,
+                id: `track-${trackToPlay.id}-${Date.now()}`,
+                track: trackToPlay,
                 source: 'collection'
             };
 
@@ -520,7 +547,7 @@ export const useStore = create<AppState>((set, get) => ({
                     items: [queueItem],
                     currentIndex: 0
                 },
-                currentTrack: track,
+                currentTrack: trackToPlay,
                 isPlaying: true
             });
 
@@ -529,7 +556,7 @@ export const useStore = create<AppState>((set, get) => ({
             get().saveQueue();
         }
     },
-    playAlbum: (url, album) => {
+    playAlbum: async (url, album) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('play-album', url);
         } else {
@@ -538,18 +565,24 @@ export const useStore = create<AppState>((set, get) => ({
             const handleAlbumData = (albumData: any) => {
                 if (albumData && albumData.tracks && albumData.tracks.length > 0) {
                     console.log(`[MobileStore] Album details loaded: ${albumData.title} (${albumData.tracks.length} tracks)`);
-                    const queueItems: QueueItem[] = albumData.tracks.map((track: any, i: number) => ({
-                        id: `album-${albumData.id}-${Date.now()}-${i}`,
-                        track,
-                        source: 'collection'
-                    }));
+
+                    const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : '';
+
+                    const queueItems: QueueItem[] = albumData.tracks.map((track: any, i: number) => {
+                        const trackArtist = (track.artist && track.artist !== 'Unknown Artist') ? track.artist : (albumArtist || 'Unknown Artist');
+                        return {
+                            id: `album-${albumData.id}-${Date.now()}-${i}`,
+                            track: { ...track, artist: trackArtist },
+                            source: 'collection'
+                        };
+                    });
 
                     set({
                         queue: {
                             items: queueItems,
                             currentIndex: 0
                         },
-                        currentTrack: albumData.tracks[0],
+                        currentTrack: queueItems[0].track,
                         isPlaying: true,
                         isCollectionLoading: false,
                         collectionError: null
@@ -702,31 +735,88 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
     },
-    addStationToPlaylist: (playlistId, station) => {
+    addStationToPlaylist: async (playlistId, station) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('add-station-to-playlist', { playlistId, station });
         } else {
+            const { mobileScraperService } = require('../services/MobileScraperService');
             const { mobileDatabase } = require('../services/MobileDatabase');
-            const stationTrack: Track = {
-                id: `station-${station.id}`,
-                title: station.name,
-                artist: 'Bandcamp Weekly',
-                artworkUrl: station.imageUrl || '',
-                streamUrl: station.streamUrl,
-                duration: 0,
-                bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
-                album: 'Bandcamp Radio',
-                isCached: false
-            };
-            mobileDatabase.addTrackToPlaylist(playlistId, stationTrack).then(() => get().refreshPlaylists());
+
+            try {
+                // Fetch full details to get duration if not already present
+                let streamUrl = station.streamUrl;
+                let duration = 0;
+
+                if (!streamUrl || streamUrl.includes('bandcamp.com')) {
+                    const details = await mobileScraperService.getStationStreamUrl(station.id);
+                    streamUrl = details.streamUrl;
+                    duration = details.duration;
+                }
+
+                const stationTrack: Track = {
+                    id: `station-${station.id}`,
+                    title: station.name,
+                    artist: 'Bandcamp Weekly',
+                    artworkUrl: station.imageUrl || '',
+                    streamUrl: streamUrl,
+                    duration: duration,
+                    bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
+                    album: 'Bandcamp Radio',
+                    isCached: false
+                };
+                await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
+                get().refreshPlaylists();
+            } catch (err) {
+                console.error('[MobileStore] Failed to add station to playlist:', err);
+                // Fallback to minimal data if fetch fails
+                const stationTrack: Track = {
+                    id: `station-${station.id}`,
+                    title: station.name,
+                    artist: 'Bandcamp Weekly',
+                    artworkUrl: station.imageUrl || '',
+                    streamUrl: station.streamUrl,
+                    duration: 0,
+                    bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
+                    album: 'Bandcamp Radio',
+                    isCached: false
+                };
+                await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
+                get().refreshPlaylists();
+            }
         }
     },
-    addTrackToQueue: (track, playNext) => {
+    addTrackToQueue: async (track, playNext) => {
+        let trackToAdd = track;
+
+        // If artist is 'Unknown Artist', try to fetch full details
+        if (get().mode !== 'remote' && track.artist === 'Unknown Artist' && track.bandcampUrl) {
+            try {
+                const { mobileScraperService } = require('../services/MobileScraperService');
+                const albumDetails = await mobileScraperService.getAlbumDetails(track.bandcampUrl);
+                if (albumDetails) {
+                    const foundTrack = (albumDetails.tracks || []).find((t: { id: any; title: string; }) =>
+                        String(t.id) === String(track.id) || t.title === track.title
+                    );
+                    if (foundTrack) {
+                        trackToAdd = {
+                            ...track,
+                            ...foundTrack,
+                            artist: (foundTrack.artist && foundTrack.artist !== 'Unknown Artist') ? foundTrack.artist : (albumDetails.artist || track.artist)
+                        };
+                    } else if (albumDetails.artist && albumDetails.artist !== 'Unknown Artist') {
+                        trackToAdd = { ...track, artist: albumDetails.artist };
+                    }
+                }
+            } catch (e) {
+                console.warn('[MobileStore] Failed to fetch track details for queue:', e);
+            }
+        }
+
         // Optimistic update
         const { queue } = get();
         const newItem: QueueItem = {
             id: `queue-${Date.now()}`,
-            track: track,
+            track: trackToAdd,
             source: 'collection'
         };
 
@@ -746,10 +836,9 @@ export const useStore = create<AppState>((set, get) => ({
         });
 
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-track-to-queue', { track, playNext });
+            webSocketService.send('add-track-to-queue', { track: trackToAdd, playNext });
         } else {
             get().saveQueue();
-            // mobilePlayerService.addTrackToQueue(track, playNext);
         }
     },
     addAlbumToQueue: (albumUrl, playNext, tracks) => {
@@ -759,9 +848,17 @@ export const useStore = create<AppState>((set, get) => ({
             const { queue } = get();
             console.log('[MobileStore] Current queue length:', queue.items.length);
 
+            // Try to find album artist if tracks might have 'Unknown Artist'
+            // We don't have the album object here directly, but we can check if all tracks have the same artist
+            const artists = tracks.map(t => t.artist).filter(a => a && a !== 'Unknown Artist');
+            const commonArtist = artists.length > 0 ? artists[0] : '';
+
             const newQueueItems: QueueItem[] = tracks.map((track, index) => ({
                 id: `queue-${Date.now()}-${index}`,
-                track: track,
+                track: {
+                    ...track,
+                    artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : commonArtist
+                },
                 source: 'collection'
             }));
 
@@ -793,12 +890,12 @@ export const useStore = create<AppState>((set, get) => ({
                         // Recursive call with tracks
                         get().addAlbumToQueue(albumUrl, playNext, album.tracks);
                     } else {
-                        useStore.setState({ collectionError: 'Failed to load tracks for queue' });
+                        set({ collectionError: 'Failed to load tracks for queue' });
                     }
                 })
                 .catch((err: any) => {
                     console.error('Failed to fetch album for queue:', err);
-                    useStore.setState({ collectionError: 'Failed to fetch album for queue' });
+                    set({ collectionError: 'Failed to fetch album for queue' });
                 });
         }
 
@@ -823,28 +920,63 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
     },
-    addTrackToPlaylist: (playlistId, track) => {
+    addTrackToPlaylist: async (playlistId, track) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('add-track-to-playlist', { playlistId, track });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.addTrackToPlaylist(playlistId, track).then(() => get().refreshPlaylists());
+            const { mobileScraperService } = require('../services/MobileScraperService');
+
+            let trackToSave = track;
+
+            // If track duration is 0 OR artist is 'Unknown Artist', try to fetch full details
+            if ((track.duration === 0 || track.artist === 'Unknown Artist') && track.bandcampUrl) {
+                try {
+                    const albumDetails = await mobileScraperService.getAlbumDetails(track.bandcampUrl);
+                    if (albumDetails && albumDetails.tracks) {
+                        const fullTrack = albumDetails.tracks.find((t: { id: any; title: string; }) => String(t.id) === String(track.id) || t.title === track.title);
+                        if (fullTrack) {
+                            trackToSave = {
+                                ...track,
+                                ...fullTrack,
+                                artist: (fullTrack.artist && fullTrack.artist !== 'Unknown Artist') ? fullTrack.artist : (albumDetails.artist || track.artist)
+                            };
+                        } else if (albumDetails.artist && albumDetails.artist !== 'Unknown Artist') {
+                            trackToSave = { ...track, artist: albumDetails.artist };
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[MobileStore] Failed to fetch track details for playlist:', e);
+                }
+            }
+
+            await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave);
+            get().refreshPlaylists();
         }
     },
-    addAlbumToPlaylist: (playlistId, albumUrl) => {
+    addAlbumToPlaylist: async (playlistId, albumUrl, album) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('add-album-to-playlist', { playlistId, albumUrl });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileScraperService.getAlbumDetails(albumUrl).then(async (album: any) => {
-                if (album && album.tracks) {
-                    for (const track of album.tracks) {
-                        await mobileDatabase.addTrackToPlaylist(playlistId, track);
+            try {
+                const albumData = album || await mobileScraperService.getAlbumDetails(albumUrl);
+                if (albumData && albumData.tracks) {
+                    const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : 'Unknown Artist';
+
+                    for (const track of albumData.tracks) {
+                        const trackToSave = {
+                            ...track,
+                            artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : albumArtist
+                        };
+                        await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave);
                     }
                     get().refreshPlaylists();
                 }
-            });
+            } catch (e) {
+                console.error('[MobileStore] Failed to add album to playlist:', e);
+            }
         }
     },
     playQueueIndex: (index) => {
@@ -951,7 +1083,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     refreshCollection: (reset = false, query = '', forceServerRefresh = false) => {
         if (reset) {
-            useStore.setState({
+            set({
                 collection: forceServerRefresh ? null : get().collection, // Clear collection if forced refresh to show loading screen
                 collectionOffset: 0,
                 hasMoreCollection: true,
@@ -970,13 +1102,14 @@ export const useStore = create<AppState>((set, get) => ({
                 if (forceServerRefresh) {
                     webSocketService.send('get-artists');
                 }
+                return Promise.resolve();
             } else {
                 const { mobileDatabase } = require('../services/MobileDatabase');
                 const { mobileScraperService } = require('../services/MobileScraperService');
 
                 const fetchLogic = async () => {
                     const onProgress = (msg: string) => {
-                        useStore.setState({ collectionLoadingStatus: msg || null });
+                        set({ collectionLoadingStatus: msg || null });
                     };
 
                     onProgress('Connecting...');
@@ -999,7 +1132,7 @@ export const useStore = create<AppState>((set, get) => ({
                         totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
                     }
 
-                    useStore.setState({
+                    set({
                         collection: {
                             items,
                             totalCount,
@@ -1012,17 +1145,11 @@ export const useStore = create<AppState>((set, get) => ({
                     });
 
                     get().refreshArtists();
-
-                    // Stale-while-revalidate check (non-forced)
-                    if (!forceServerRefresh) {
-                        // We still use the old cache for lastUpdated check if available, or just ignore for now
-                        // For simplicity, let's just trigger bg sync if needed
-                    }
                 };
 
-                fetchLogic().catch(err => {
+                return fetchLogic().catch(err => {
                     console.error('Fetch collection error:', err);
-                    useStore.setState({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
+                    set({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
                 });
             }
         } else {
@@ -1036,15 +1163,16 @@ export const useStore = create<AppState>((set, get) => ({
                     offset: get().collectionOffset,
                     limit: 50
                 });
+                return Promise.resolve();
             } else {
-                get().loadMoreCollection();
+                return get().loadMoreCollection();
             }
         }
     },
 
     loadMoreCollection: () => {
         const { collectionOffset, hasMoreCollection, isCollectionLoading, searchQuery, collection } = get();
-        if (!hasMoreCollection || isCollectionLoading) return;
+        if (!hasMoreCollection || isCollectionLoading) return Promise.resolve();
 
         set({ isCollectionLoading: true });
 
@@ -1055,20 +1183,21 @@ export const useStore = create<AppState>((set, get) => ({
                 limit: 50,
                 query: searchQuery
             });
+            return Promise.resolve();
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
             const { user } = get().auth;
             if (!user || !collection) {
                 set({ isCollectionLoading: false });
-                return;
+                return Promise.resolve();
             }
 
-            mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery)
+            return mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery)
                 .then((newItems: CollectionItem[]) => {
                     const updatedItems = [...collection.items, ...newItems];
                     const uniqueItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
 
-                    useStore.setState({
+                    set({
                         collection: {
                             ...collection,
                             items: uniqueItems
