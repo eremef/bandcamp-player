@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useStore } from '../../store';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { CollectionItem } from '../../../src/shared/types';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { InputModal } from '../../components/InputModal';
 import { useTheme } from '../../theme';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -32,7 +33,8 @@ export default function ArtistDetailScreen() {
         addTrackToQueue,
         addAlbumToQueue,
         addTrackToPlaylist,
-        addAlbumToPlaylist
+        addAlbumToPlaylist,
+        createPlaylist
     } = useStore();
 
     React.useEffect(() => {
@@ -46,6 +48,7 @@ export default function ArtistDetailScreen() {
     const artistItems = artistCollection?.items || [];
 
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [actionSheetTitle, setActionSheetTitle] = useState('');
@@ -139,6 +142,29 @@ export default function ArtistDetailScreen() {
         Alert.alert("Success", "Added to playlist");
     };
 
+    const handleCreatePlaylist = (name: string) => {
+        createPlaylist(name);
+        setCreatePlaylistModalVisible(false);
+    };
+
+    const handleViewOnBandcamp = async () => {
+        if (artist.bandcampUrl) {
+            try {
+                const supported = await Linking.canOpenURL(artist.bandcampUrl);
+                if (supported) {
+                    await Linking.openURL(artist.bandcampUrl);
+                } else {
+                    Alert.alert("Error", "Cannot open Bandcamp URL");
+                }
+            } catch (error) {
+                console.error("Failed to open URL:", error);
+                Alert.alert("Error", "Failed to open link");
+            }
+        } else {
+            Alert.alert("Error", "Bandcamp URL not available for this artist");
+        }
+    };
+
     const renderItem = ({ item }: { item: CollectionItem }) => {
         return (
             <CollectionGridItem
@@ -186,7 +212,10 @@ export default function ArtistDetailScreen() {
                         <Text style={[styles.name, { color: colors.text }]}>{artist.name}</Text>
                         <Text style={[styles.stats, { color: colors.textSecondary }]}>{artistItems.length} releases in collection</Text>
 
-                        <TouchableOpacity style={[styles.bandcampButton, { backgroundColor: colors.input }]}>
+                        <TouchableOpacity 
+                            style={[styles.bandcampButton, { backgroundColor: colors.input }]}
+                            onPress={handleViewOnBandcamp}
+                        >
                             <Text style={[styles.bandcampButtonText, { color: colors.textSecondary }]}>View on Bandcamp</Text>
                             <Ionicons name="open-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 5 }} />
                         </TouchableOpacity>
@@ -206,7 +235,16 @@ export default function ArtistDetailScreen() {
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
+            />
+            <InputModal
+                visible={createPlaylistModalVisible}
+                title="Create Playlist"
+                placeholder="Playlist Name"
+                onClose={() => setCreatePlaylistModalVisible(false)}
+                onSubmit={handleCreatePlaylist}
+                submitLabel="Create"
             />
             <ActionSheet
                 visible={actionSheetVisible}

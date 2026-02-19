@@ -73,6 +73,9 @@ describe('PlayerScreen', () => {
         setMode: jest.fn().mockResolvedValue(undefined),
         logoutBandcamp: jest.fn().mockResolvedValue(undefined),
         connectionStatus: 'disconnected',
+        playlists: [],
+        addTrackToPlaylist: jest.fn(),
+        createPlaylist: jest.fn(),
     };
 
     beforeEach(() => {

@@ -217,16 +217,15 @@ class MobilePlayerService {
             }
 
             // Update Store (but don't set isPlaying yet)
-            const artist = track.artist || 'Unknown Artist';
+            const artistName = track.artist || 'Unknown Artist';
             useStore.setState({
-                currentTrack: { ...track, streamUrl, artist },
+                currentTrack: { ...track, streamUrl, artist: artistName },
                 duration: track.duration,
                 currentTime: initialPosition,
                 collectionError: null
             });
 
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
-            const artistName = track.artist || 'Unknown Artist';
 
             const queue = await TrackPlayer.getQueue();
             const nextIndex = queue.length;
