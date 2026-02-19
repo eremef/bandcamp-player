@@ -17,29 +17,38 @@ class WebSocketService {
 
     private initWebSocket() {
         if (!this.url) return;
+
+        // Stop any pending reconnect attempts when starting a fresh connection
+        this.stopReconnect();
+
         if (this.ws) {
+            // We don't null this.ws here because onclose will fire asynchronously
+            // and we need to know NOT to reconnect for this specific instance.
             this.ws.close();
         }
 
         console.log(`Connecting to ${this.url}`);
-        this.ws = new WebSocket(this.url);
+        const socket = new WebSocket(this.url);
+        this.ws = socket;
+        let isThisSocketClosed = false;
 
-        this.ws.onopen = () => {
+        socket.onopen = () => {
+            if (this.ws !== socket) return;
             console.log('Connected to desktop app');
             this.stopReconnect();
             this.emit('connection-status', 'connected');
         };
 
-        this.ws.onmessage = (event) => {
+        socket.onmessage = (event) => {
+            if (this.ws !== socket) return;
             try {
                 const message = JSON.parse(event.data);
                 if (message.type === 'disconnect') {
                     console.log('Received disconnect from host');
                     this.isExplicitlyClosed = true;
+                    isThisSocketClosed = true;
                     this.stopReconnect();
-                    if (this.ws) {
-                        this.ws.close();
-                    }
+                    socket.close();
                     this.emit('connection-status', 'disconnected', true);
                     return;
                 }
@@ -49,17 +58,25 @@ class WebSocketService {
             }
         };
 
-        this.ws.onclose = () => {
-            console.log('Disconnected');
-            this.emit('connection-status', 'disconnected', this.isExplicitlyClosed);
-            if (!this.isExplicitlyClosed) {
-                this.startReconnect();
+        socket.onclose = () => {
+            if (isThisSocketClosed) return;
+            isThisSocketClosed = true;
+
+            // Only proceed if this is still the active socket
+            if (this.ws === socket) {
+                console.log('Disconnected');
+                this.emit('connection-status', 'disconnected', this.isExplicitlyClosed);
+                if (!this.isExplicitlyClosed) {
+                    this.startReconnect();
+                }
             }
         };
 
-        this.ws.onerror = (e) => {
-            if (this.isExplicitlyClosed) return;
-            console.error('WebSocket error', e);
+        socket.onerror = (e) => {
+            if (isThisSocketClosed || this.isExplicitlyClosed) return;
+            if (this.ws === socket) {
+                console.error('WebSocket error', e);
+            }
         };
     }
 
@@ -69,6 +86,10 @@ class WebSocketService {
         } else {
             console.warn('WebSocket not connected, cannot send', type);
         }
+    }
+
+    isConnected() {
+        return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
     }
 
     on(type: string, handler: MessageHandler) {

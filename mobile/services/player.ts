@@ -22,15 +22,24 @@ export async function setupPlayer() {
             android: {
                 appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
             },
-            // capabilities defines the media controls available
             capabilities: [
                 Capability.Play,
                 Capability.Pause,
                 Capability.SkipToNext,
                 Capability.SkipToPrevious,
                 Capability.SeekTo,
+                Capability.Stop,
+                Capability.JumpForward,
+                Capability.JumpBackward,
             ],
-            // compactCapabilities is removed in v4+, Android uses capabilities
+            notificationCapabilities: [
+                Capability.Play,
+                Capability.Pause,
+                Capability.SkipToNext,
+                Capability.SkipToPrevious,
+                Capability.SeekTo,
+                Capability.Stop,
+            ],
             progressUpdateEventInterval: 2,
         });
     }

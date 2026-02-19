@@ -14,8 +14,11 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Collection Caching**: Collections > 100 items are cached in SQLite. Cache is refreshed daily in the background (stale-while-revalidate) to ensure fast startup without sacrificing data freshness.
 - **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.
 - **Artist Collection Fetching**: Mobile app fetches the full artist collection from the server, bypassing local pagination limits to ensure all albums are visible.
-- **Mobile UI**: Unified headerless design with standardized Search Bars clearing the Android camera bar.
+- **Mobile UI**: Unified headerless design with standardized Search Bars clearing the Android camera bar. Added a **Mode Switch Badge** in the Player UI for toggling between Remote and Standalone.
 - **Theme Support**: System/Light/Dark theme support with persistent settings.
+- **Standalone Queue Persistence**: The mobile app saves the current track and playback queue to `AsyncStorage` on modification. Both are restored automatically upon relaunch.
+- **Persistent Remote Connection**: The mobile app attempts to maintain or re-establish its WebSocket connection to the desktop server even when in Standalone mode, allowing seamless switching back to Remote.
+- **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
 
 ## E2E Tests
 
@@ -37,3 +40,5 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
 - **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.
 - **Mobile Tests**: Place all mobile unit tests in `mobile/__tests__/` to avoid bundling errors with Expo Router.
+- Use linter and typecheck every time you make a change to the code.
+- Do not git add automatically after changing something.
