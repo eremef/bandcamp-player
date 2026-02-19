@@ -1,0 +1,161 @@
+  console.log
+    [MobileStore] Refreshing artists from DB...
+
+      at Object.log [as refreshArtists] (store/index.ts:1100:21)
+
+  console.log
+    [MobileStore] Loaded 0 artists from DB
+
+      at log (store/index.ts:1104:29)
+
+  console.log
+    [MobileStore] Refreshing artists from DB...
+
+      at Object.log [as refreshArtists] (store/index.ts:1100:21)
+
+  console.log
+    [MobileStore] Loaded 0 artists from DB
+
+      at log (store/index.ts:1104:29)
+
+  console.log
+    Discovery found IP: 192.168.1.30
+
+      at Object.log (store/index.ts:390:25)
+
+  console.log
+    [MobileStore] addAlbumToQueue called. URL: url, PlayNext: true, Tracks: undefined
+
+      at Object.log [as addAlbumToQueue] (store/index.ts:716:17)
+
+  console.warn
+    [MobileStore] addAlbumToQueue called without tracks! Fetching... url
+
+    [0m [90m 745 |[39m             [36mget[39m()[33m.[39msaveQueue()[33m;[39m
+     [90m 746 |[39m         } [36melse[39m {
+    [31m[1m>[22m[39m[90m 747 |[39m             console[33m.[39mwarn([32m'[MobileStore] addAlbumToQueue called without tracks! Fetching...'[39m[33m,[39m albumUrl)[33m;[39m
+     [90m     |[39m                     [31m[1m^[22m[39m
+     [90m 748 |[39m             [36mconst[39m { mobileScraperService } [33m=[39m require([32m'../services/MobileScraperService'[39m)[33m;[39m
+     [90m 749 |[39m             [90m// Force fetch tracks[39m
+     [90m 750 |[39m             mobileScraperService[33m.[39mgetAlbumDetails(albumUrl)[0m
+
+      at Object.warn [as addAlbumToQueue] (store/index.ts:747:21)
+      at addAlbumToQueue (store/index.test.ts:317:43)
+      at callback (node_modules/@testing-library/react-native/src/act.ts:31:24)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:789:22)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at Object.<anonymous> (store/index.test.ts:317:16)
+
+FAIL store/index.test.ts
+  Mobile useStore
+    ÔłÜ should restore volume when switching to standalone mode (72 ms)
+    ÔłÜ should set connectionStatus to disconnected when switching to remote mode if not connected (2 ms)
+    ÔłÜ should connect to a host (2 ms)
+    ÔłÜ should disconnect (1 ms)
+    ├Ś should autoConnect with saved IP (1 ms)
+    ÔłÜ should remove recent IP (1 ms)
+    ÔłÜ should start scan and connect if found (1 ms)
+    Playback Controls
+      ÔłÜ should send play command
+      ÔłÜ should send pause command (1 ms)
+      ÔłÜ should send next command
+      ÔłÜ should send previous command (1 ms)
+      ÔłÜ should send seek command
+      ÔłÜ should send setVolume command (1 ms)
+      ÔłÜ should send toggleShuffle command
+      ÔłÜ should send setRepeat command (1 ms)
+    Content Actions
+      ÔłÜ should play track
+      ÔłÜ should play album (1 ms)
+      ÔłÜ should play playlist
+      ÔłÜ should play station (1 ms)
+      ÔłÜ should add station to queue
+      ÔłÜ should add track to queue (1 ms)
+      ÔłÜ should add album to queue (13 ms)
+      ÔłÜ should add track to playlist
+      ÔłÜ should add album to playlist (1 ms)
+      ÔłÜ should add station to playlist
+      ÔłÜ should play queue index (1 ms)
+      ÔłÜ should remove from queue (1 ms)
+      ÔłÜ should clear queue
+    WebSocket Events
+      ÔłÜ should handle state-changed event and sync TrackPlayer (1 ms)
+      ÔłÜ should handle collection-data event (2 ms)
+      ÔłÜ should handle playlists-data event (1 ms)
+      ÔłÜ should handle radio-data event
+      ÔłÜ should handle time-update and sync TrackPlayer (2 ms)
+      ÔłÜ should handle connection-status event (1 ms)
+      ÔłÜ should handle errors in state-changed sync (1 ms)
+      ÔłÜ refresh collection with force server refresh (1 ms)
+
+  ÔŚĆ Mobile useStore ÔÇ║ should autoConnect with saved IP
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "192.168.1.20"
+    Received: ""
+
+      211 |
+      212 |         // hostIp should be set by connect()
+    > 213 |         expect(useStore.getState().hostIp).toBe('192.168.1.20');
+          |                                            ^
+      214 |         expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
+      215 |         expect(useStore.getState().recentIps).toEqual(['192.168.1.20']);
+      216 |     });
+
+      at Object.toBe (store/index.test.ts:213:44)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+-----------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                                                                                                                                                                                                                                                                         
+-----------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                    |   11.32 |    12.12 |   10.22 |   11.97 |                                                                                                                                                                                                                                                                                                                                                                           
+ app                         |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  +not-found.tsx             |       0 |      100 |       0 |       0 | 7-28                                                                                                                                                                                                                                                                                                                                                                      
+  _layout.tsx                |       0 |        0 |       0 |       0 | 12-85                                                                                                                                                                                                                                                                                                                                                                     
+  about.tsx                  |       0 |        0 |       0 |       0 | 10-65                                                                                                                                                                                                                                                                                                                                                                     
+  album_detail.tsx           |       0 |        0 |       0 |       0 | 14-282                                                                                                                                                                                                                                                                                                                                                                    
+  bandcamp_login.tsx         |       0 |        0 |       0 |       0 | 12-230                                                                                                                                                                                                                                                                                                                                                                    
+  index.tsx                  |       0 |        0 |       0 |       0 | 11-263                                                                                                                                                                                                                                                                                                                                                                    
+  license.tsx                |       0 |        0 |       0 |       0 | 11-61                                                                                                                                                                                                                                                                                                                                                                     
+  settings.tsx               |       0 |      100 |       0 |       0 | 9-27                                                                                                                                                                                                                                                                                                                                                                      
+ app/(tabs)                  |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  _layout.tsx                |       0 |        0 |       0 |       0 | 12-82                                                                                                                                                                                                                                                                                                                                                                     
+  artists.tsx                |       0 |        0 |       0 |       0 | 10-135                                                                                                                                                                                                                                                                                                                                                                    
+  collection.tsx             |       0 |        0 |       0 |       0 | 15-258                                                                                                                                                                                                                                                                                                                                                                    
+  player.tsx                 |       0 |        0 |       0 |       0 | 14-319                                                                                                                                                                                                                                                                                                                                                                    
+  playlists.tsx              |       0 |        0 |       0 |       0 | 14-214                                                                                                                                                                                                                                                                                                                                                                    
+  queue.tsx                  |       0 |        0 |       0 |       0 | 10-115                                                                                                                                                                                                                                                                                                                                                                    
+  radio.tsx                  |       0 |        0 |       0 |       0 | 14-183                                                                                                                                                                                                                                                                                                                                                                    
+ app/artist                  |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  artist_detail.tsx          |       0 |        0 |       0 |       0 | 13-221                                                                                                                                                                                                                                                                                                                                                                    
+ components                  |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  ActionSheet.tsx            |       0 |        0 |       0 |       0 | 18-62                                                                                                                                                                                                                                                                                                                                                                     
+  CollectionGridItem.tsx     |       0 |        0 |       0 |       0 | 14-61                                                                                                                                                                                                                                                                                                                                                                     
+  InputModal.tsx             |       0 |        0 |       0 |       0 | 23-82                                                                                                                                                                                                                                                                                                                                                                     
+  PlaylistSelectionModal.tsx |       0 |        0 |       0 |       0 | 14-54                                                                                                                                                                                                                                                                                                                                                                     
+  SearchBar.tsx              |       0 |        0 |       0 |       0 | 13-47                                                                                                                                                                                                                                                                                                                                                                     
+  StandardHeader.tsx         |       0 |      100 |       0 |       0 | 12-31                                                                                                                                                                                                                                                                                                                                                                     
+ services                    |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  MobileAuthService.ts       |       0 |        0 |       0 |       0 | 5-136                                                                                                                                                                                                                                                                                                                                                                     
+  MobileDatabase.ts          |       0 |        0 |       0 |       0 | 4-265                                                                                                                                                                                                                                                                                                                                                                     
+  MobilePlayerService.ts     |       0 |        0 |       0 |       0 | 13-318                                                                                                                                                                                                                                                                                                                                                                    
+  MobileScraperService.ts    |       0 |        0 |       0 |       0 | 11-790                                                                                                                                                                                                                                                                                                                                                                    
+  TrackPlayerService.ts      |       0 |        0 |       0 |       0 | 5-52                                                                                                                                                                                                                                                                                                                                                                      
+  WebSocketService.ts        |       0 |        0 |       0 |       0 | 6-144                                                                                                                                                                                                                                                                                                                                                                     
+  discovery.service.ts       |       0 |        0 |       0 |       0 | 4-70                                                                                                                                                                                                                                                                                                                                                                      
+  player.ts                  |       0 |        0 |       0 |       0 | 8-72                                                                                                                                                                                                                                                                                                                                                                      
+  useVolumeButtons.ts        |       0 |        0 |       0 |       0 | 12-49                                                                                                                                                                                                                                                                                                                                                                     
+ store                       |   48.67 |    46.82 |   53.19 |   50.76 |                                                                                                                                                                                                                                                                                                                                                                           
+  index.ts                   |   48.67 |    46.82 |   53.19 |   50.76 | 136-143,154-162,190,197,262-267,279-288,317-319,340-368,386,409-410,417-418,425-426,433-434,441-442,449-450,457-458,465-466,479-497,504-539,547-567,574-614,644,658-661,669-681,696,711,719-745,754,760-761,768-781,790-791,798-805,814-816,829,834,851-856,883-908,929-976,992,1009-1010,1028-1069,1075,1083,1090-1091,1098,1113-1140,1153,1191,1209,1243-1244,1248-1249 
+ theme                       |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  index.ts                   |       0 |        0 |       0 |       0 | 4-39                                                                                                                                                                                                                                                                                                                                                                      
+ types                       |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+  safe-area-context.d.ts     |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                           
+-----------------------------|---------|----------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 35 passed, 36 total
+Snapshots:   0 total
+Time:        3.237 s
+Ran all test suites matching /store\\index.test.ts/i.

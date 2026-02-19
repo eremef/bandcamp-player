@@ -310,7 +310,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     disconnect: async () => {
         const { mode } = get();
-        
+
         if (mode === 'remote') {
             webSocketService.disconnect();
             await AsyncStorage.removeItem('last_ip'); // Clear last IP to prevent auto-connect loop
@@ -321,7 +321,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         mobilePlayerService.stop();
-        
+
         set({
             connectionStatus: 'disconnected',
             hostIp: mode === 'standalone' ? get().hostIp : '',
@@ -352,12 +352,12 @@ export const useStore = create<AppState>((set, get) => ({
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.
         if (lastIp && !get().skipAutoLogin) {
-            get().connect(lastIp);
+            await get().connect(lastIp);
         }
 
         if (savedMode === 'standalone' && !get().skipAutoLogin) {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
-            
+
             // Set listener for queue changes (automatic track advancement)
             if (!mobilePlayerService.onQueueChange) {
                 mobilePlayerService.onQueueChange = () => {

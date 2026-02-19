@@ -128,6 +128,7 @@ describe('Mobile useStore', () => {
             hasMoreCollection: true,
             isCollectionLoading: false,
             mode: 'remote',
+            skipAutoLogin: false,
         });
         jest.clearAllMocks();
         AsyncStorage.clear();
@@ -140,7 +141,7 @@ describe('Mobile useStore', () => {
 
     it('should restore volume when switching to standalone mode', async () => {
         const { mobilePlayerService } = require('../services/MobilePlayerService');
-        
+
         await act(async () => {
             await useStore.getState().setMode('standalone');
         });
@@ -148,7 +149,7 @@ describe('Mobile useStore', () => {
         expect(useStore.getState().mode).toBe('standalone');
         expect(useStore.getState().volume).toBe(0.8);
         expect(mobilePlayerService.setVolume).toHaveBeenCalledWith(0.8);
-        
+
         // Fast-forward timers for refresh actions
         act(() => {
             jest.advanceTimersByTime(200);
@@ -193,6 +194,7 @@ describe('Mobile useStore', () => {
     });
 
     it('should autoConnect with saved IP', async () => {
+        useStore.setState({ connectionStatus: 'disconnected' });
         (AsyncStorage.getItem as jest.Mock).mockImplementation((key) => {
             if (key === 'last_ip') return Promise.resolve('192.168.1.20');
             if (key === 'recent_ips') return Promise.resolve('["192.168.1.20"]');

@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.bandcamp.remote",
-  "version": "1.7.2-beta",
+  "version": "1.7.3-alpha",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
