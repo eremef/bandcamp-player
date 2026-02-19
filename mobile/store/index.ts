@@ -639,7 +639,7 @@ export const useStore = create<AppState>((set, get) => ({
             artworkUrl: station.imageUrl || '',
             streamUrl: station.streamUrl,
             duration: 0,
-            bandcampUrl: '',
+            bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
             album: 'Bandcamp Radio',
             isCached: false
         };
@@ -687,7 +687,7 @@ export const useStore = create<AppState>((set, get) => ({
                 artworkUrl: station.imageUrl || '',
                 streamUrl: station.streamUrl,
                 duration: 0,
-                bandcampUrl: '',
+                bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
                 album: 'Bandcamp Radio',
                 isCached: false
             };

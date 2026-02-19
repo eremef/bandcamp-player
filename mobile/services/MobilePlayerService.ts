@@ -175,20 +175,36 @@ class MobilePlayerService {
 
                 const urlToFetch = track.bandcampUrl;
                 if (urlToFetch) {
-                    const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
-                    if (albumDetails) {
-                        // Find matching track
-                        const foundTrack = albumDetails.tracks.find(t =>
-                            t.title.toLowerCase() === track.title.toLowerCase() ||
-                            t.id === track.id
-                        );
+                    if (urlToFetch.includes('show=')) {
+                        // Radio show branch
+                        const showId = urlToFetch.split('show=').pop()?.split('&')[0];
+                        if (showId) {
+                            console.log(`[MobilePlayer] fetching radio stream URL for show ${showId}`);
+                            const result = await mobileScraperService.getStationStreamUrl(showId);
+                            if (result && result.streamUrl) {
+                                streamUrl = result.streamUrl;
+                                if (result.duration) {
+                                    track.duration = result.duration;
+                                }
+                            }
+                        }
+                    } else {
+                        // Album/Track branch
+                        const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                        if (albumDetails) {
+                            // Find matching track
+                            const foundTrack = albumDetails.tracks.find(t =>
+                                t.title.toLowerCase() === track.title.toLowerCase() ||
+                                t.id === track.id
+                            );
 
-                        if (foundTrack && foundTrack.streamUrl) {
-                            streamUrl = foundTrack.streamUrl;
-                            console.log(`[MobilePlayer] Found stream URL: ${streamUrl}`);
-                        } else if (albumDetails.tracks.length === 1) {
-                            // Single track fallback
-                            streamUrl = albumDetails.tracks[0].streamUrl;
+                            if (foundTrack && foundTrack.streamUrl) {
+                                streamUrl = foundTrack.streamUrl;
+                                console.log(`[MobilePlayer] Found stream URL: ${streamUrl}`);
+                            } else if (albumDetails.tracks.length === 1) {
+                                // Single track fallback
+                                streamUrl = albumDetails.tracks[0].streamUrl;
+                            }
                         }
                     }
                 }

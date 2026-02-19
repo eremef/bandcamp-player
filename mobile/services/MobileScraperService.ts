@@ -768,17 +768,28 @@ export class MobileScraperService {
 
                 const appData = JSON.parse(decoded);
                 const shows = appData.appData?.shows || appData.shows || [];
-                const show = shows.find((s: any) => String(s.showId || s.id) === showId);
+                let show = shows.find((s: any) => String(s.showId || s.id) === showId);
 
-                if (!show || !show.audioTrackId) {
+                // Fallback to current_show if not found in archive list
+                if (!show && (appData.appData?.current_show || appData.current_show)) {
+                    const currentShow = appData.appData?.current_show || appData.current_show;
+                    if (String(currentShow.showId || currentShow.id) === showId) {
+                        show = currentShow;
+                    }
+                }
+
+                if (!show || (!show.audioTrackId && !show.track_id)) {
                     console.error('[MobileScraper] Show or audioTrackId not found in data blob', {
+                        showId,
                         foundShow: !!show,
-                        hasTrackId: !!show?.audioTrackId
+                        availableShows: shows.length,
+                        hasAudioTrackId: !!show?.audioTrackId,
+                        hasTrackIdFallback: !!show?.track_id
                     });
                     return { streamUrl: '', duration: 0 };
                 }
 
-                const audioTrackId = show.audioTrackId;
+                const audioTrackId = show.audioTrackId || show.track_id;
 
                 // 3. Fetch track details from mobile API
                 const apiRes = await fetch(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`, {
