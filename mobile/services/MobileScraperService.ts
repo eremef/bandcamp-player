@@ -831,6 +831,7 @@ export class MobileScraperService {
 
                 // Fallback: if data contains audioTrackId directly at root
                 let audioTrackId = show?.audioTrackId || show?.track_id || appData.audioTrackId || appData.track_id;
+                const bandId = show?.bandId || show?.band_id || appData.bandId || appData.band_id || 1;
 
                 if (!audioTrackId) {
                     console.log('[MobileScraper] Track ID not found in standard paths. Performing recursive search...');
@@ -862,36 +863,59 @@ export class MobileScraperService {
                         showId,
                         foundShow: !!show,
                         availableShows: shows.length,
-                        hasRootId: !!(appData.audioTrackId || appData.track_id)
+                        hasRootId: !!(appData.audioTrackId || appData.track_id),
+                        dataKeys: Object.keys(appData).slice(0, 10)
                     });
                     return { streamUrl: '', duration: 0 };
                 }
 
                 console.log(`[MobileScraper] Found track ID: ${audioTrackId}`);
 
-                console.log(`[MobileScraper] Fetching track details for ID: ${audioTrackId}`);
+                // Fallback: Check if appData already contains the stream URL for this track
+                const findStream = (obj: any): any => {
+                    if (!obj || typeof obj !== 'object') return null;
+                    if (obj.track_id === audioTrackId || obj.id === audioTrackId) {
+                        const url = obj.file?.['mp3-128'] || obj.streaming_url?.['mp3-128'];
+                        if (url) return { streamUrl: url, duration: obj.duration || 0 };
+                    }
+                    for (const key in obj) {
+                        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                            const found = findStream(obj[key]);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+
+                const directStream = findStream(appData);
+                if (directStream && directStream.streamUrl) {
+                    console.log('[MobileScraper] Found stream URL directly in page data');
+                    return directStream;
+                }
+
+                console.log(`[MobileScraper] Fetching track details from API for ID: ${audioTrackId} (Band: ${bandId})`);
 
                 // 3. Fetch track details from mobile API
-                const apiRes = await fetch(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`, {
+                const apiRes = await fetch(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${bandId}&tralbum_type=t&tralbum_id=${audioTrackId}`, {
                     headers: {
                         'Cookie': cookies,
-                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                        'User-Agent': 'Bandcamp/2.3.0 (iPhone; iOS 15.5; Scale/3.00)'
                     }
                 });
 
+                const rawBody = await apiRes.text();
+
                 if (!apiRes.ok) {
-                    const errorText = await apiRes.text().catch(() => 'No error text');
-                    console.error(`[MobileScraper] API request failed with status ${apiRes.status}:`, errorText.substring(0, 200));
+                    console.error(`[MobileScraper] API request failed with status ${apiRes.status}:`, rawBody.substring(0, 200));
                     return { streamUrl: '', duration: 0 };
                 }
 
                 let trackData;
                 try {
-                    trackData = await apiRes.json();
+                    trackData = JSON.parse(rawBody);
                 } catch (jsonErr) {
-                    const rawBody = await apiRes.text().catch(() => 'Could not read body');
                     console.error('[MobileScraper] Failed to parse API response as JSON. Body starts with:', rawBody.substring(0, 100));
-                    throw jsonErr;
+                    return { streamUrl: '', duration: 0 };
                 }
 
                 if (trackData && trackData.tracks && trackData.tracks.length > 0) {
