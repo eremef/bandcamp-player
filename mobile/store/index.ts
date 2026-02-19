@@ -297,6 +297,7 @@ export const useStore = create<AppState>((set, get) => ({
         const ip = manualIp || get().hostIp;
         if (!ip) return;
 
+
         // Add to recent IPs if not exists or move to top
         const currentRecents = get().recentIps;
         const newRecents = [ip, ...currentRecents.filter(i => i !== ip)].slice(0, 3);
@@ -352,8 +353,11 @@ export const useStore = create<AppState>((set, get) => ({
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.
         if (lastIp && !get().skipAutoLogin) {
-            get().connect(lastIp);
+            await get().connect(lastIp);
         }
+
+
+
 
         if (savedMode === 'standalone' && !get().skipAutoLogin) {
             const { mobilePlayerService } = require('../services/MobilePlayerService');

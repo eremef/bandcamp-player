@@ -8,8 +8,11 @@ description: Prepare release with version {newVersion}
 
 - do not merge any branches!
 - do not prepare implementation plan - just proceed instantly
+
+## Steps
+
 - update docs
-- running npm install, run `npm run release` and analyse the output for possible errors, fix them and run the release script again
+- run `npm run release` and analyse the output for possible errors, fix them and run the release script again
 
 ## Agent Constraints (Covered by `npm run release`)
 
