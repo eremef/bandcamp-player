@@ -64,6 +64,50 @@ jest.mock('expo-network', () => ({
     getIpAddressAsync: jest.fn(),
 }));
 
+jest.mock('expo-secure-store', () => ({
+    getItemAsync: jest.fn(),
+    setItemAsync: jest.fn(),
+    deleteItemAsync: jest.fn(),
+    WHEN_UNLOCKED: 1,
+    WHEN_UNLOCKED_THIS_DEVICE_ONLY: 2,
+    ALWAYS: 3,
+    WHEN_PASSCODE_SET_THIS_DEVICE_ONLY: 4,
+    ALWAYS_THIS_DEVICE_ONLY: 5,
+}));
+
+jest.mock('expo-sqlite', () => ({
+    openDatabaseAsync: jest.fn(() => ({
+        execAsync: jest.fn(),
+        runAsync: jest.fn(),
+        getFirstAsync: jest.fn(),
+        getAllAsync: jest.fn(),
+    })),
+}));
+
+jest.mock('expo-file-system', () => ({
+    documentDirectory: 'file:///mock/',
+    cacheDirectory: 'file:///mock-cache/',
+    makeDirectoryAsync: jest.fn(),
+    readDirectoryAsync: jest.fn(),
+    deleteAsync: jest.fn(),
+    downloadAsync: jest.fn(),
+    readAsStringAsync: jest.fn(),
+    writeAsStringAsync: jest.fn(),
+}));
+
+jest.mock('expo-constants', () => ({
+    expoConfig: {
+        extra: {
+            // Add any extra config if needed
+        }
+    }
+}));
+
+jest.mock('expo-web-browser', () => ({
+    openBrowserAsync: jest.fn(),
+    dismissBrowser: jest.fn(),
+}));
+
 jest.mock('@expo/vector-icons', () => ({
     Ionicons: 'Ionicons',
     MaterialIcons: 'MaterialIcons',

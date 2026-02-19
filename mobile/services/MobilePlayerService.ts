@@ -1,0 +1,318 @@
+import TrackPlayer, {
+    State,
+    Event,
+    AppKilledPlaybackBehavior,
+    Capability
+} from 'react-native-track-player';
+import { useStore } from '../store';
+import { mobileScraperService } from './MobileScraperService';
+import { mobileDatabase } from './MobileDatabase';
+import { Track, RepeatMode } from '@shared/types';
+
+class MobilePlayerService {
+    private isInitialized = false;
+    public onQueueChange?: () => void;
+
+    async setupPlayer() {
+        if (this.isInitialized) return;
+
+        try {
+            await TrackPlayer.setupPlayer();
+        } catch (e: unknown) {
+            const error = e as Error;
+            if (!error?.message?.includes('already been initialized')) {
+                console.error('[MobilePlayer] Error setting up player:', error);
+                return; // Don't continue if real error
+            }
+        }
+
+        await TrackPlayer.updateOptions({
+            android: {
+                appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
+            },
+            capabilities: [
+                Capability.Play,
+                Capability.Pause,
+                Capability.SkipToNext,
+                Capability.SkipToPrevious,
+                Capability.SeekTo,
+                Capability.Stop,
+                Capability.JumpForward,
+                Capability.JumpBackward,
+            ],
+            notificationCapabilities: [
+                Capability.Play,
+                Capability.Pause,
+                Capability.SkipToNext,
+                Capability.SkipToPrevious,
+                Capability.SeekTo,
+                Capability.Stop,
+            ],
+            progressUpdateEventInterval: 1,
+        });
+
+        // Set initial volume from store
+        const { volume } = useStore.getState();
+        await TrackPlayer.setVolume(volume);
+
+        TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
+            // Only update store from TrackPlayer in standalone mode
+            // In remote mode, the server provides these values via state-changed/time-update
+            if (useStore.getState().mode !== 'standalone') return;
+            useStore.setState({
+                currentTime: event.position,
+                duration: event.duration
+            });
+        });
+
+        TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
+            if (useStore.getState().mode !== 'standalone') return;
+            const isPlaying = event.state === State.Playing;
+            useStore.setState({ isPlaying });
+        });
+
+        this.isInitialized = true;
+    }
+
+    async play(track?: Track) {
+        if (!this.isInitialized) await this.setupPlayer();
+
+        const store = useStore.getState();
+
+        // If a track is provided, play it directly
+        if (track) {
+            await this.playTrack(track);
+            return;
+        }
+
+        // If no track provided, resume current or play from queue
+        // If we are already paused on a track, resume
+        const playbackState = await TrackPlayer.getPlaybackState();
+        if (playbackState.state === State.Paused || playbackState.state === State.Ready) {
+            await TrackPlayer.play();
+            useStore.setState({ isPlaying: true });
+        } else if (store.currentTrack) {
+            // If we have a track but player state is stopped/none, re-load it?
+            // Maybe.
+            await this.playTrack(store.currentTrack);
+        } else if (store.queue.items.length > 0) {
+            // If queue has items but no current track, play first/current index
+            const index = Math.max(0, store.queue.currentIndex);
+            this.playQueueIndex(index);
+        }
+    }
+
+    async pause() {
+        await TrackPlayer.pause();
+        useStore.setState({ isPlaying: false });
+    }
+
+    async stop() {
+        await TrackPlayer.reset();
+        useStore.setState({ isPlaying: false, currentTrack: null, currentTime: 0 });
+    }
+
+    async next() {
+        const store = useStore.getState();
+        const { queue, repeatMode, isShuffled } = store;
+
+        if (queue.items.length === 0) return;
+
+        let nextIndex = queue.currentIndex + 1;
+
+        if (isShuffled) {
+            // Simple random next
+            nextIndex = Math.floor(Math.random() * queue.items.length);
+        }
+
+        if (nextIndex >= queue.items.length) {
+            if (repeatMode === 'all') {
+                nextIndex = 0;
+            } else {
+                // End of queue
+                await this.stop();
+                return;
+            }
+        }
+
+        console.log('[MobilePlayer] Next track index:', nextIndex);
+        await this.playQueueIndex(nextIndex);
+    }
+
+    async previous() {
+        const store = useStore.getState();
+        const { queue, currentTime } = store;
+
+        // If played more than 3 sec, restart track
+        if (currentTime > 3) {
+            await this.seek(0);
+            return;
+        }
+
+        if (queue.items.length === 0) return;
+
+        let prevIndex = queue.currentIndex - 1;
+        if (prevIndex < 0) {
+            if (store.repeatMode === 'all') {
+                prevIndex = queue.items.length - 1;
+            } else {
+                prevIndex = 0;
+            }
+        }
+
+        await this.playQueueIndex(prevIndex);
+    }
+
+    async seek(position: number) {
+        await TrackPlayer.seekTo(position);
+        useStore.setState({ currentTime: position });
+    }
+
+    async setVolume(level: number) {
+        await TrackPlayer.setVolume(level);
+        useStore.setState({ volume: level });
+        await mobileDatabase.setSetting('standalone_volume', level);
+    }
+
+    async toggleShuffle() {
+        const store = useStore.getState();
+        const isShuffled = !store.isShuffled;
+        useStore.setState({ isShuffled });
+        this.onQueueChange?.();
+    }
+
+    async setRepeat(mode: RepeatMode) {
+        useStore.setState({ repeatMode: mode });
+        this.onQueueChange?.();
+    }
+
+    /**
+     * Called when track finishes (via Event.PlaybackQueueEnded)
+     */
+    async handleTrackEnd() {
+        const store = useStore.getState();
+        const { repeatMode, currentTrack } = store;
+
+        console.log('[MobilePlayer] Track ended. Repeat mode:', repeatMode);
+
+        if (repeatMode === 'one' && currentTrack) {
+            await this.seek(0);
+            await TrackPlayer.play();
+        } else {
+            // Delay slightly to prevent race conditions?
+            await this.next();
+        }
+    }
+
+    /**
+     * Prepare the player with a track (resolve URL, add to player) without playing
+     */
+    public async loadTrack(track: Track): Promise<boolean> {
+        try {
+            if (!this.isInitialized) await this.setupPlayer();
+
+            // Check if we need to fetch a valid stream URL
+            let streamUrl = track.streamUrl;
+
+            if (!streamUrl) {
+                console.log(`[MobilePlayer] fetching stream URL for ${track.title}`);
+                // Try to get album details using bandcampUrl
+                // If bandcampUrl is missing, try to construct it or fail
+
+                const urlToFetch = track.bandcampUrl;
+                if (urlToFetch) {
+                    const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                    if (albumDetails) {
+                        // Find matching track
+                        const foundTrack = albumDetails.tracks.find(t =>
+                            t.title.toLowerCase() === track.title.toLowerCase() ||
+                            t.id === track.id
+                        );
+
+                        if (foundTrack && foundTrack.streamUrl) {
+                            streamUrl = foundTrack.streamUrl;
+                            console.log(`[MobilePlayer] Found stream URL: ${streamUrl}`);
+                        } else if (albumDetails.tracks.length === 1) {
+                            // Single track fallback
+                            streamUrl = albumDetails.tracks[0].streamUrl;
+                        }
+                    }
+                }
+            }
+
+            if (!streamUrl) {
+                console.error('[MobilePlayer] No stream URL found for playTrack');
+                useStore.setState({ collectionError: 'Could not find stream URL for this track.' });
+                return false;
+            }
+
+            // Update Store (but don't set isPlaying yet)
+            useStore.setState({
+                currentTrack: { ...track, streamUrl },
+                duration: track.duration,
+                currentTime: 0,
+                collectionError: null
+            });
+
+            console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
+            await TrackPlayer.reset();
+            await TrackPlayer.add({
+                id: track.id,
+                url: streamUrl,
+                title: track.title,
+                artist: track.artist || 'Unknown Artist',
+                artwork: track.artworkUrl,
+                duration: track.duration,
+            });
+
+            return true;
+        } catch (e) {
+            console.error('[MobilePlayer] Load failed:', e);
+            useStore.setState({ collectionError: 'Failed to load track.' });
+            return false;
+        }
+    }
+
+    /**
+     * Load and play a specific track
+     */
+    public async playTrack(track: Track) {
+        const success = await this.loadTrack(track);
+        if (success) {
+            // Restore volume from store to be safe (might have been 0 from remote mode)
+            const { volume } = useStore.getState();
+            await TrackPlayer.setVolume(volume);
+
+            useStore.setState({ isPlaying: true });
+            console.log('[MobilePlayer] Calling TrackPlayer.play()');
+            await TrackPlayer.play();
+            console.log('[MobilePlayer] Playback started');
+        } else {
+            useStore.setState({ isPlaying: false });
+        }
+    }
+
+    async playQueueIndex(index: number) {
+        const store = useStore.getState();
+        const { queue } = store;
+
+        if (index >= 0 && index < queue.items.length) {
+            const item = queue.items[index];
+
+            // Update index
+            useStore.setState({
+                queue: { ...queue, currentIndex: index }
+            });
+
+            await this.playTrack(item.track);
+            this.onQueueChange?.();
+        }
+    }
+
+    async addTrackToQueue(_track: Track, _playNext: boolean) {
+        // This hook is just for any side effects of adding to queue
+        // e.g. logging or analytics
+    }
+}
+
+export const mobilePlayerService = new MobilePlayerService();

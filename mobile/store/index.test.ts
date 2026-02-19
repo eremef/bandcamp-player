@@ -8,14 +8,31 @@ import { addTrack } from '../services/player';
 
 // Mock TrackPlayer
 jest.mock('react-native-track-player', () => ({
-    play: jest.fn(),
-    pause: jest.fn(),
-    seekTo: jest.fn(),
-    getProgress: jest.fn(),
+    setupPlayer: jest.fn().mockResolvedValue(undefined),
+    updateOptions: jest.fn().mockResolvedValue(undefined),
+    add: jest.fn().mockResolvedValue(undefined),
+    play: jest.fn().mockResolvedValue(undefined),
+    pause: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
+    reset: jest.fn().mockResolvedValue(undefined),
+    seekTo: jest.fn().mockResolvedValue(undefined),
+    setVolume: jest.fn().mockResolvedValue(undefined),
+    getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
+    getPlaybackState: jest.fn().mockResolvedValue({ state: 'none' }),
+    addEventListener: jest.fn(),
     State: {
+        None: 'none',
+        Ready: 'ready',
         Playing: 'playing',
         Paused: 'paused',
-    }
+        Stopped: 'stopped',
+        Buffering: 'buffering',
+        Connecting: 'connecting',
+    },
+    Capability: {},
+    Event: {},
+    RepeatMode: {},
+    AppKilledPlaybackBehavior: {},
 }));
 
 // Mock WebSocketService
@@ -31,6 +48,7 @@ jest.mock('../services/WebSocketService', () => ({
             socketListeners[event] = callback;
         }),
         off: jest.fn(),
+        isConnected: jest.fn().mockReturnValue(false),
     },
 }));
 
@@ -46,11 +64,58 @@ jest.mock('../services/player', () => ({
     addTrack: jest.fn(),
 }));
 
+jest.mock('../services/MobilePlayerService', () => ({
+    mobilePlayerService: {
+        setVolume: jest.fn().mockResolvedValue(undefined),
+        play: jest.fn().mockResolvedValue(undefined),
+        pause: jest.fn().mockResolvedValue(undefined),
+        next: jest.fn().mockResolvedValue(undefined),
+        previous: jest.fn().mockResolvedValue(undefined),
+        seek: jest.fn().mockResolvedValue(undefined),
+        toggleShuffle: jest.fn().mockResolvedValue(undefined),
+        setRepeat: jest.fn().mockResolvedValue(undefined),
+        playQueueIndex: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn().mockResolvedValue(undefined),
+        loadTrack: jest.fn().mockResolvedValue(true),
+    },
+}));
+
+jest.mock('../services/MobileDatabase', () => ({
+    mobileDatabase: {
+        getSettings: jest.fn().mockResolvedValue({ standalone_volume: 0.8 }),
+        setSetting: jest.fn().mockResolvedValue(undefined),
+        getArtists: jest.fn().mockResolvedValue([]),
+        getAllPlaylists: jest.fn().mockResolvedValue([]),
+        addTrackToPlaylist: jest.fn().mockResolvedValue(undefined),
+        createPlaylist: jest.fn().mockResolvedValue(undefined),
+        renamePlaylist: jest.fn().mockResolvedValue(undefined),
+        deletePlaylist: jest.fn().mockResolvedValue(undefined),
+    },
+}));
+
+jest.mock('../services/MobileAuthService', () => ({
+    mobileAuthService: {
+        checkSession: jest.fn().mockResolvedValue({ isAuthenticated: false, user: null }),
+        logout: jest.fn().mockResolvedValue(undefined),
+    },
+}));
+
+jest.mock('../services/MobileScraperService', () => ({
+    mobileScraperService: {
+        fetchCollection: jest.fn().mockResolvedValue({ items: [], totalCount: 0 }),
+        searchCollection: jest.fn().mockReturnValue({ items: [], totalCount: 0 }),
+        getAlbumDetails: jest.fn().mockResolvedValue({ id: 'a1', tracks: [] }),
+        getRadioStations: jest.fn().mockResolvedValue([]),
+        getStationStreamUrl: jest.fn().mockResolvedValue({ streamUrl: 'url', duration: 100 }),
+    },
+}));
+
 describe('Mobile useStore', () => {
     beforeEach(() => {
+        jest.useFakeTimers();
         useStore.setState({
             hostIp: '',
-            connectionStatus: 'disconnected',
+            connectionStatus: 'connected', // Set to connected by default for WebSocket tests
             recentIps: [],
             isScanning: false,
             isPlaying: false,
@@ -62,9 +127,45 @@ describe('Mobile useStore', () => {
             collectionOffset: 0,
             hasMoreCollection: true,
             isCollectionLoading: false,
+            mode: 'remote',
         });
         jest.clearAllMocks();
         AsyncStorage.clear();
+    });
+
+    afterEach(() => {
+        jest.runOnlyPendingTimers();
+        jest.useRealTimers();
+    });
+
+    it('should restore volume when switching to standalone mode', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        
+        await act(async () => {
+            await useStore.getState().setMode('standalone');
+        });
+
+        expect(useStore.getState().mode).toBe('standalone');
+        expect(useStore.getState().volume).toBe(0.8);
+        expect(mobilePlayerService.setVolume).toHaveBeenCalledWith(0.8);
+        
+        // Fast-forward timers for refresh actions
+        act(() => {
+            jest.advanceTimersByTime(200);
+        });
+    });
+
+    it('should set connectionStatus to disconnected when switching to remote mode if not connected', async () => {
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        useStore.setState({ mode: 'standalone', connectionStatus: 'connected' });
+
+        await act(async () => {
+            await useStore.getState().setMode('remote');
+        });
+
+        expect(useStore.getState().mode).toBe('remote');
+        expect(useStore.getState().connectionStatus).toBe('disconnected');
+        expect(useStore.getState().skipAutoLogin).toBe(true);
     });
 
     it('should connect to a host', async () => {
@@ -80,9 +181,10 @@ describe('Mobile useStore', () => {
         expect(AsyncStorage.setItem).toHaveBeenCalledWith('last_ip', ip);
     });
 
-    it('should disconnect', () => {
-        act(() => {
-            useStore.getState().disconnect();
+    it('should disconnect', async () => {
+        useStore.setState({ mode: 'remote' }); // Ensure we are in remote mode for full disconnect
+        await act(async () => {
+            await useStore.getState().disconnect();
         });
 
         expect(useStore.getState().connectionStatus).toBe('disconnected');
@@ -94,6 +196,7 @@ describe('Mobile useStore', () => {
         (AsyncStorage.getItem as jest.Mock).mockImplementation((key) => {
             if (key === 'last_ip') return Promise.resolve('192.168.1.20');
             if (key === 'recent_ips') return Promise.resolve('["192.168.1.20"]');
+            if (key === 'app_mode') return Promise.resolve('remote');
             return Promise.resolve(null);
         });
 
@@ -101,6 +204,12 @@ describe('Mobile useStore', () => {
             await useStore.getState().autoConnect();
         });
 
+        // Fast-forward timers for any internal effects
+        act(() => {
+            jest.advanceTimersByTime(1000);
+        });
+
+        // hostIp should be set by connect()
         expect(useStore.getState().hostIp).toBe('192.168.1.20');
         expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
         expect(useStore.getState().recentIps).toEqual(['192.168.1.20']);
@@ -381,18 +490,20 @@ describe('Mobile useStore', () => {
             consoleSpy.mockRestore();
         });
 
-        it('should refresh collection with force server refresh', () => {
-            // Default refresh
+        it('refresh collection with force server refresh', () => {
+            // Default refresh (reset=false)
             act(() => useStore.getState().refreshCollection());
             expect(useStore.getState().isCollectionLoading).toBe(true);
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: false,
-                query: ''
+                query: '',
+                offset: 0,
+                limit: 50
             });
 
             jest.clearAllMocks();
 
-            // Force refresh (pull-to-refresh)
+            // Force refresh (pull-to-refresh, reset=true)
             act(() => useStore.getState().refreshCollection(true, '', true));
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: true,
@@ -403,7 +514,7 @@ describe('Mobile useStore', () => {
 
             jest.clearAllMocks();
 
-            // Search refresh (use cache)
+            // Search refresh (use cache, reset=true)
             act(() => useStore.getState().refreshCollection(true, 'test', false));
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: false,

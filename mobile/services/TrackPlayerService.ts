@@ -10,6 +10,14 @@ export async function PlaybackService() {
         useStore.getState().pause();
     });
 
+    TrackPlayer.addEventListener(Event.RemotePlayPause, () => {
+        if (useStore.getState().isPlaying) {
+            useStore.getState().pause();
+        } else {
+            useStore.getState().play();
+        }
+    });
+
     TrackPlayer.addEventListener(Event.RemoteNext, () => {
         useStore.getState().next();
     });
@@ -34,5 +42,13 @@ export async function PlaybackService() {
 
     TrackPlayer.addEventListener(Event.RemoteStop, () => {
         TrackPlayer.reset();
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (event) => {
+        // Only handle track end in standalone mode
+        // In remote mode, TrackPlayer.reset() in addTrack() fires this event spuriously
+        if (useStore.getState().mode !== 'standalone') return;
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        await mobilePlayerService.handleTrackEnd();
     });
 }
