@@ -247,20 +247,23 @@ class MobilePlayerService {
             }
 
             // Update Store (but don't set isPlaying yet)
+            const artist = track.artist || 'Unknown Artist';
             useStore.setState({
-                currentTrack: { ...track, streamUrl },
+                currentTrack: { ...track, streamUrl, artist },
                 duration: track.duration,
                 currentTime: 0,
                 collectionError: null
             });
 
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
+            const artistName = track.artist || 'Unknown Artist';
+
             await TrackPlayer.reset();
             await TrackPlayer.add({
                 id: track.id,
                 url: streamUrl,
-                title: track.title,
-                artist: track.artist || 'Unknown Artist',
+                title: track.title || 'Untitled',
+                artist: artistName,
                 artwork: track.artworkUrl,
                 duration: track.duration,
             });

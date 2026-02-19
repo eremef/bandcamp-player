@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, ArrowLeftRight } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
@@ -128,7 +128,7 @@ export default function PlayerScreen() {
                         {currentTrack?.title || 'Not Playing'}
                     </Text>
                     <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
-                        {currentTrack?.artist || ''}
+                        {currentTrack?.artist || 'Unknown Artist'}
                     </Text>
                     <Text style={[styles.album, { color: colors.textSecondary }]} numberOfLines={1}>
                         {currentTrack?.album || ''}
@@ -138,25 +138,29 @@ export default function PlayerScreen() {
                 <View style={{ flex: 1 }} />
 
                 {/* Mode Switch Button */}
-                <TouchableOpacity
-                    style={[styles.modeBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    onPress={async () => {
-                        if (mode === 'remote') {
-                            await setMode('standalone');
-                        } else {
-                            await setMode('remote');
-                        }
-                    }}
-                >
-                    {mode === 'remote' ? (
-                        <Wifi size={16} color={colors.accent} />
-                    ) : (
-                        <Globe size={16} color={colors.accent} />
-                    )}
-                    <Text style={[styles.modeBadgeText, { color: colors.text }]}>
-                        {mode === 'remote' ? 'Remote' : 'Standalone'}
-                    </Text>
-                </TouchableOpacity>
+                <View style={styles.modeContainer}>
+                    <TouchableOpacity
+                        style={[styles.modeBadge, { backgroundColor: colors.card, borderColor: colors.border }]}
+                        onPress={async () => {
+                            if (mode === 'remote') {
+                                await setMode('standalone');
+                            } else {
+                                await setMode('remote');
+                            }
+                        }}
+                    >
+                        {mode === 'remote' ? (
+                            <Wifi size={16} color={colors.accent} />
+                        ) : (
+                            <Globe size={16} color={colors.accent} />
+                        )}
+                        <Text style={[styles.modeBadgeText, { color: colors.text }]}>
+                            {mode === 'remote' ? 'Remote' : 'Standalone'}
+                        </Text>
+                        <ArrowLeftRight size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
+                    </TouchableOpacity>
+                    <Text style={[styles.modeHintText, { color: colors.textSecondary }]}>Tap to switch</Text>
+                </View>
 
                 {/* Progress */}
                 <View style={styles.progressContainer}>
@@ -312,7 +316,7 @@ export default function PlayerScreen() {
                     </Pressable>
                 </Modal>
             </View>
-        </View>
+        </View >
     );
 }
 
@@ -399,7 +403,6 @@ const styles = StyleSheet.create({
     },
     progressContainer: {
         width: '100%',
-        marginTop: 15,
     },
     slider: {
         width: '100%',
@@ -587,5 +590,15 @@ const styles = StyleSheet.create({
     modeBadgeText: {
         fontSize: 12,
         fontWeight: '600',
+    },
+    modeContainer: {
+        alignItems: 'center',
+        marginBottom: 8,
+        marginTop: 12,
+    },
+    modeHintText: {
+        fontSize: 10,
+        opacity: 0.7,
+        marginTop: -4,
     }
 });

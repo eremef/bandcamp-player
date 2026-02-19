@@ -15,9 +15,13 @@ export class MobileScraperService {
      */
     private cleanArtistName(name: string | undefined | null): string {
         if (!name) return '';
+        // Special case: if it's literally "Unknown Artist", return it as is if it bypasses cleaning
+        if (name === 'Unknown Artist') return name;
         let cleaned = name.replace(/\s*by\s+.+$/i, '').trim();
         cleaned = cleaned.replace(/^by\s+/i, '').trim();
-        return cleaned;
+        // Remove duplicate spaces or control characters if any
+        cleaned = cleaned.replace(/\s+/g, ' ');
+        return cleaned.trim();
     }
 
     /**
@@ -108,10 +112,12 @@ export class MobileScraperService {
                                 .replace(/'/g, '"');
                             return JSON.parse(sanitized);
                         } catch (e2) {
-                            // ignore
+                            // Desktop uses new Function fallback. We'll try to be robust with the sanitized JSON first.
+                            // If we really need to match desktop, we can use new Function, but usually sanitized JSON handles unquoted keys.
                         }
                     }
                 }
+
             }
         }
         return null;
@@ -325,8 +331,12 @@ export class MobileScraperService {
         try {
             const isAlbum = item.item_type === 'album' || item.tralbum_type === 'a';
             const id = String(item.item_id || item.tralbum_id);
-            const artist = this.cleanArtistName(item.band_name);
-            const title = this.cleanTitle(item.album_title || item.item_title || '', artist);
+            // Aligned with desktop: use band_name, with fallbacks for mobile API variations
+            const artist = this.cleanArtistName(item.band_name || item.artist || item.artist_name) || 'Unknown Artist';
+
+            // Aligned with desktop: for tracks use item_title or track_title
+            const rawTitle = isAlbum ? (item.album_title || item.item_title || '') : (item.item_title || item.track_title || item.title || '');
+            const title = this.cleanTitle(rawTitle, artist);
 
             if (isAlbum) {
                 return {
@@ -374,8 +384,8 @@ export class MobileScraperService {
 
     private parseCollectionItemFromDOM($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): CollectionItem | null {
         try {
-            const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', ''));
-            const title = this.cleanTitle($item.find('.collection-item-title').text(), artist);
+            const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', '')) || 'Unknown Artist';
+            const title = this.cleanTitle($item.find('.collection-item-title').text(), artist) || 'Untitled';
             const url = $item.find('a.item-link').attr('href') || '';
             const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
@@ -543,6 +553,15 @@ export class MobileScraperService {
                 return null;
             }
 
+            // Enhance tralbumData with DOM fallbacks if missing
+            const domArtist = $('span[itemprop="byArtist"]').text().trim() ||
+                $('#name-section h3').text().trim().replace(/^by\s+/i, '') ||
+                $('h3.album-artist').text().trim() ||
+                $('header h2').text().trim().split('by ')[1];
+
+            // Aligned with desktop: prioritize tralbumData.artist
+            const albumArtist = this.cleanArtistName(tralbumData.artist || tralbumData.artist_name || tralbumData.band_name || domArtist || 'Unknown Artist');
+
             const tracks: Track[] = await Promise.all((tralbumData.trackinfo || []).map(async (trackInfo: any, index: number) => {
                 let streamUrl = trackInfo.file?.['mp3-128'] || trackInfo.file?.['mp3-v0'] || '';
 
@@ -570,7 +589,7 @@ export class MobileScraperService {
                 return {
                     id: String(trackInfo.track_id || `${tralbumData.id}-${index}`),
                     title: trackInfo.title,
-                    artist: this.cleanArtistName(tralbumData.artist),
+                    artist: albumArtist,
                     artistId: String(tralbumData.band_id),
                     album: tralbumData.current?.title || tralbumData.album_title,
                     albumId: String(tralbumData.id),
@@ -586,7 +605,7 @@ export class MobileScraperService {
             return {
                 id: String(tralbumData.id),
                 title: tralbumData.current?.title || tralbumData.album_title,
-                artist: this.cleanArtistName(tralbumData.artist),
+                artist: albumArtist,
                 artistId: String(tralbumData.band_id),
                 artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
                 bandcampUrl: albumUrl,
@@ -618,7 +637,7 @@ export class MobileScraperService {
         let tralbumData = null;
         const scriptContent = $('script').map((_, el) => $(el).html()).get().join('\n');
 
-        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData', 'tralbum_data']);
+        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData', 'tralbum_data', 'BandData', 'EmbedData']);
 
         return tralbumData;
     }

@@ -12,9 +12,17 @@ import { useTheme } from '../theme';
 
 export default function AlbumDetailScreen() {
     const colors = useTheme();
-    const { url } = useLocalSearchParams<{ url: string }>();
+    const { url, artist, title, artworkUrl } = useLocalSearchParams<{ url: string, artist?: string, title?: string, artworkUrl?: string }>();
     const router = useRouter();
-    const [album, setAlbum] = useState<Album | null>(null);
+    const [album, setAlbum] = useState<Album | null>(artist ? {
+        id: '',
+        title: title || '',
+        artist: artist || '',
+        artworkUrl: artworkUrl || '',
+        tracks: [],
+        trackCount: 0,
+        bandcampUrl: url || ''
+    } : null);
     const [isLoading, setIsLoading] = useState(true);
     const [lastUrl, setLastUrl] = useState(url);
 
@@ -22,7 +30,15 @@ export default function AlbumDetailScreen() {
     if (url !== lastUrl) {
         setLastUrl(url);
         setIsLoading(true);
-        setAlbum(null);
+        setAlbum(artist ? {
+            id: '',
+            title: title || '',
+            artist: artist || '',
+            artworkUrl: artworkUrl || '',
+            tracks: [],
+            trackCount: 0,
+            bandcampUrl: url || ''
+        } : null);
     }
 
     // Store actions
@@ -55,7 +71,17 @@ export default function AlbumDetailScreen() {
             mobileScraperService.getAlbumDetails(url)
                 .then((details: Album | null) => {
                     if (details) {
-                        setAlbum(details);
+                        const finalArtist = (details.artist === 'Unknown Artist' && artist) ? artist : details.artist;
+                        const updatedTracks = (details.tracks || []).map(t => ({
+                            ...t,
+                            artist: (t.artist === 'Unknown Artist' || !t.artist) ? finalArtist : t.artist
+                        }));
+
+                        setAlbum({
+                            ...details,
+                            artist: finalArtist,
+                            tracks: updatedTracks
+                        });
                     } else {
                         Alert.alert('Error', 'Failed to load album details');
                     }
@@ -74,7 +100,17 @@ export default function AlbumDetailScreen() {
         const handleAlbumDetails = (details: Album) => {
             // Check if this details match the requested URL (or close enough)
             if (details.bandcampUrl === url) {
-                setAlbum(details);
+                const finalArtist = (details.artist === 'Unknown Artist' && artist) ? artist : details.artist;
+                const updatedTracks = (details.tracks || []).map(t => ({
+                    ...t,
+                    artist: (t.artist === 'Unknown Artist' || !t.artist) ? finalArtist : t.artist
+                }));
+
+                setAlbum({
+                    ...details,
+                    artist: finalArtist,
+                    tracks: updatedTracks
+                });
                 setIsLoading(false);
             }
         };
@@ -91,8 +127,8 @@ export default function AlbumDetailScreen() {
     }, [url]);
 
     const handlePlayAll = () => {
-        if (url) {
-            useStore.getState().playAlbum(url);
+        if (url && album) {
+            useStore.getState().playAlbum(url, album);
         }
     };
 
