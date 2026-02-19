@@ -599,7 +599,7 @@ export const useStore = create<AppState>((set, get) => ({
                         streamUrl,
                         duration,
                         bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
-                        album: 'Radio',
+                        album: 'Bandcamp Radio',
                         isCached: false
                     };
 
@@ -635,12 +635,12 @@ export const useStore = create<AppState>((set, get) => ({
         const stationTrack: Track = {
             id: `station-${station.id || Date.now()}`,
             title: station.name,
-            artist: 'Radio Station',
+            artist: 'Bandcamp Weekly',
             artworkUrl: station.imageUrl || '',
             streamUrl: station.streamUrl,
             duration: 0,
             bandcampUrl: '',
-            album: 'Radio',
+            album: 'Bandcamp Radio',
             isCached: false
         };
 
@@ -683,12 +683,12 @@ export const useStore = create<AppState>((set, get) => ({
             const stationTrack: Track = {
                 id: `station-${station.id}`,
                 title: station.name,
-                artist: 'Bandcamp Radio',
+                artist: 'Bandcamp Weekly',
                 artworkUrl: station.imageUrl || '',
                 streamUrl: station.streamUrl,
                 duration: 0,
                 bandcampUrl: '',
-                album: 'Radio',
+                album: 'Bandcamp Radio',
                 isCached: false
             };
             mobileDatabase.addTrackToPlaylist(playlistId, stationTrack).then(() => get().refreshPlaylists());
