@@ -8,12 +8,15 @@ import { Theme } from '@shared/types';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
-import { webSocketService } from '../../services/WebSocketService';
+import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { InputModal } from '../../components/InputModal';
 
 export default function PlayerScreen() {
     const colors = useTheme();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
+    const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const insets = useSafeAreaInsets();
     const {
         currentTrack,
@@ -38,7 +41,9 @@ export default function PlayerScreen() {
         mode,
         setMode,
         logoutBandcamp,
-        connectionStatus
+        playlists,
+        addTrackToPlaylist,
+        createPlaylist
     } = useStore();
 
     const handleDisconnect = () => {
@@ -67,6 +72,19 @@ export default function PlayerScreen() {
                 ]
             );
         }, 300);
+    };
+
+    const handleSelectPlaylist = (playlistId: string) => {
+        if (currentTrack) {
+            addTrackToPlaylist(playlistId, currentTrack);
+            Alert.alert("Success", "Added to playlist");
+        }
+        setPlaylistModalVisible(false);
+    };
+
+    const handleCreatePlaylist = (name: string) => {
+        createPlaylist(name);
+        setCreatePlaylistModalVisible(false);
     };
 
     const formatTime = (seconds: number) => {
@@ -260,6 +278,18 @@ export default function PlayerScreen() {
 
                             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
+                            {currentTrack && (
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={() => {
+                                        setIsMenuVisible(false);
+                                        setPlaylistModalVisible(true);
+                                    }}
+                                >
+                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Add to Playlist</Text>
+                                </TouchableOpacity>
+                            )}
+
                             {__DEV__ && (
                                 <TouchableOpacity
                                     style={styles.menuItem}
@@ -336,6 +366,23 @@ export default function PlayerScreen() {
                     </Pressable>
                 </Modal>
             </View>
+
+            <PlaylistSelectionModal
+                visible={playlistModalVisible}
+                onClose={() => setPlaylistModalVisible(false)}
+                onSelect={handleSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
+            />
+
+            <InputModal
+                visible={createPlaylistModalVisible}
+                title="Create Playlist"
+                placeholder="Playlist Name"
+                onClose={() => setCreatePlaylistModalVisible(false)}
+                onSubmit={handleCreatePlaylist}
+                submitLabel="Create"
+            />
         </View >
     );
 }

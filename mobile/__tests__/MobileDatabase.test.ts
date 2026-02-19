@@ -48,7 +48,7 @@ describe('MobileDatabase Granular Storage', () => {
         // 2. Insert item
         expect(mockDb.runAsync).toHaveBeenCalledWith(
             expect.stringContaining('INSERT INTO collection_items'),
-            ['item1', 'album', 'token1', '2024-01-01', 'user1']
+            ['item1', 'album', 'token1', '2024-01-01', 'user1', 0]
         );
 
         // 3. Insert album

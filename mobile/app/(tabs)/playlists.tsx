@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { Playlist } from '@shared/types';
-import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MoreVertical, Plus } from 'lucide-react-native';
 import { ActionSheet } from '../../components/ActionSheet';
 import { InputModal } from '../../components/InputModal';
 
@@ -15,7 +12,6 @@ export default function PlaylistsScreen() {
     const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
     const playPlaylist = useStore((state) => state.playPlaylist);
-    const disconnect = useStore((state) => state.disconnect);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const renamePlaylist = useStore((state) => state.renamePlaylist);
     const deletePlaylist = useStore((state) => state.deletePlaylist);
@@ -65,24 +61,6 @@ export default function PlaylistsScreen() {
     const handleLongPress = (playlist: Playlist) => {
         setSelectedPlaylist(playlist);
         setActionSheetVisible(true);
-    };
-
-    const handleDisconnect = () => {
-        Alert.alert(
-            "Disconnect",
-            "Are you sure you want to disconnect?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Disconnect",
-                    style: "destructive",
-                    onPress: () => {
-                        disconnect();
-                        router.replace('/');
-                    }
-                }
-            ]
-        );
     };
 
     const formatDuration = (seconds?: number) => {

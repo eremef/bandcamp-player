@@ -344,7 +344,7 @@ export class MobileDatabase {
 
     async createPlaylist(name: string): Promise<Playlist> {
         if (!this.db) await this.init();
-        const id = crypto.randomUUID();
+        const id = this.generateUUID();
         const now = new Date().toISOString();
 
         await this.db!.runAsync(
@@ -386,7 +386,7 @@ export class MobileDatabase {
             [playlistId]
         );
         const position = (result?.max_pos ?? -1) + 1;
-        const id = crypto.randomUUID();
+        const id = this.generateUUID();
         const now = new Date().toISOString();
 
         await this.db!.runAsync(
@@ -399,6 +399,14 @@ export class MobileDatabase {
             'UPDATE playlists SET updated_at = ? WHERE id = ?',
             [now, playlistId]
         );
+    }
+
+    private generateUUID() {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
     }
 
     async removeTrackFromPlaylist(playlistId: string, trackId: string) { // Note: this removes logically by track content ID if needed, 
