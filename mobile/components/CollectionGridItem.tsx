@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { CollectionItem } from '@shared/types';
 import { useTheme } from '../theme';
 
@@ -11,7 +11,7 @@ interface CollectionGridItemProps {
     testID?: string;
 }
 
-export const CollectionGridItem: React.FC<CollectionGridItemProps> = ({
+export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(({
     item,
     onPress,
     onLongPress,
@@ -19,6 +19,7 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = ({
     testID
 }) => {
     const colors = useTheme();
+    // ... logic remains same ...
     let artworkUrl, title, artist;
 
     if (item.type === 'album' && item.album) {
@@ -56,7 +57,9 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = ({
             </View>
         </TouchableOpacity>
     );
-};
+});
+
+CollectionGridItem.displayName = 'CollectionGridItem';
 
 const styles = StyleSheet.create({
     container: {

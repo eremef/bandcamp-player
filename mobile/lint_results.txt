@@ -1,0 +1,53 @@
+
+D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\(tabs)\artists.tsx
+   1:17  warning  'useEffect' is defined but never used                  @typescript-eslint/no-unused-vars
+   2:72  warning  'TextInput' is defined but never used                  @typescript-eslint/no-unused-vars
+  17:38  warning  'connectionStatus' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  75:60  warning  Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+
+D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\(tabs)\collection.tsx
+    2:32  warning  'Image' is defined but never used                                                                                                                                                                                                   @typescript-eslint/no-unused-vars
+    2:95  warning  'TextInput' is defined but never used                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+    6:10  warning  'RefreshCw' is defined but never used                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+    6:21  warning  'MoreVertical' is defined but never used                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  106:11  warning  'handleRefresh' is assigned a value but never used                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  133:8   warning  React Hook useCallback has an unnecessary dependency: 'router'. Either exclude it or remove the dependency array. Outer scope values like 'router' aren't valid dependencies because mutating them doesn't re-render the component  react-hooks/exhaustive-deps
+  135:11  warning  'handleDisconnect' is assigned a value but never used                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  167:47  warning  Unexpected any. Specify a different type                                                                                                                                                                                            @typescript-eslint/no-explicit-any
+  211:8   warning  React Hook useEffect has a missing dependency: 'collection'. Either include it or remove the dependency array                                                                                                                       react-hooks/exhaustive-deps
+
+D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\components\CollectionGridItem.tsx
+   2:59  warning  'Dimensions' is defined but never used                  @typescript-eslint/no-unused-vars
+  14:70  error    Component definition is missing display name            react/display-name
+  15:5   error    'item' is missing in props validation                   react/prop-types
+  16:5   error    'onPress' is missing in props validation                react/prop-types
+  17:5   error    'onLongPress' is missing in props validation            react/prop-types
+  18:5   error    'width' is missing in props validation                  react/prop-types
+  19:5   error    'testID' is missing in props validation                 react/prop-types
+  25:14  error    'item.type' is missing in props validation              react/prop-types
+  25:39  error    'item.album' is missing in props validation             react/prop-types
+  26:27  error    'item.album' is missing in props validation             react/prop-types
+  26:33  error    'item.album.artworkUrl' is missing in props validation  react/prop-types
+  27:22  error    'item.album' is missing in props validation             react/prop-types
+  27:28  error    'item.album.title' is missing in props validation       react/prop-types
+  28:23  error    'item.album' is missing in props validation             react/prop-types
+  28:29  error    'item.album.artist' is missing in props validation      react/prop-types
+  29:21  error    'item.type' is missing in props validation              react/prop-types
+  29:46  error    'item.track' is missing in props validation             react/prop-types
+  30:27  error    'item.track' is missing in props validation             react/prop-types
+  30:33  error    'item.track.artworkUrl' is missing in props validation  react/prop-types
+  31:22  error    'item.track' is missing in props validation             react/prop-types
+  31:28  error    'item.track.title' is missing in props validation       react/prop-types
+  32:23  error    'item.track' is missing in props validation             react/prop-types
+  32:29  error    'item.track.artist' is missing in props validation      react/prop-types
+
+D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\components\SearchBar.tsx
+  13:52  error  Component definition is missing display name   react/display-name
+  14:5   error  'value' is missing in props validation         react/prop-types
+  15:5   error  'onChangeText' is missing in props validation  react/prop-types
+  16:5   error  'placeholder' is missing in props validation   react/prop-types
+  17:5   error  'onClear' is missing in props validation       react/prop-types
+  38:20  error  'value.length' is missing in props validation  react/prop-types
+
+Ôťľ 42 problems (28 errors, 14 warnings)
+

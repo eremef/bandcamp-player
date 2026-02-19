@@ -10,7 +10,7 @@ interface SearchBarProps {
     onClear?: () => void;
 }
 
-export const SearchBar: React.FC<SearchBarProps> = ({
+export const SearchBar: React.FC<SearchBarProps> = React.memo(({
     value,
     onChangeText,
     placeholder = "Search...",
@@ -46,7 +46,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             )}
         </View>
     );
-};
+});
+
+SearchBar.displayName = 'SearchBar';
 
 const styles = StyleSheet.create({
     searchContainer: {

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, Image, TextInput, Dimensions } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, Image, Dimensions } from 'react-native';
 import { useStore } from '../../store';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +14,7 @@ const ITEM_WIDTH = (SCREEN_WIDTH - 40) / COLUMN_COUNT; // 20 padding on each sid
 import { useFocusEffect } from 'expo-router';
 
 export default function ArtistsScreen() {
-    const { artists, refreshArtists, connectionStatus } = useStore();
+    const { artists, refreshArtists } = useStore();
     const colors = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
@@ -71,11 +71,15 @@ export default function ArtistsScreen() {
         });
     }, [filteredArtists]);
 
-    const renderArtistItem = (item: Artist) => (
+    const handleArtistPress = useCallback((id: string) => {
+        router.push({ pathname: '/artist/artist_detail' as any, params: { id } });
+    }, [router]);
+
+    const renderArtistItem = useCallback((item: Artist) => (
         <TouchableOpacity
             key={item.id}
             style={styles.artistItem}
-            onPress={() => router.push({ pathname: '/artist/artist_detail' as any, params: { id: item.id } })}
+            onPress={() => handleArtistPress(item.id)}
         >
             <View style={[styles.avatarContainer, { backgroundColor: colors.input }]}>
                 {item.imageUrl ? (
@@ -92,9 +96,9 @@ export default function ArtistsScreen() {
                 {item.name}
             </Text>
         </TouchableOpacity>
-    );
+    ), [colors, handleArtistPress]);
 
-    const renderRow = ({ item: row }: { item: Artist[] }) => (
+    const renderRow = useCallback(({ item: row }: { item: Artist[] }) => (
         <View style={styles.row}>
             {row.map(artist => renderArtistItem(artist))}
             {/* Fill empty spots to maintain alignment */}
@@ -102,13 +106,13 @@ export default function ArtistsScreen() {
                 <View key={`empty-${i}`} style={styles.artistItem} /> // Invisible spacer
             ))}
         </View>
-    );
+    ), [renderArtistItem]);
 
-    const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
+    const renderSectionHeader = useCallback(({ section: { title } }: { section: { title: string } }) => (
         <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
             <Text style={[styles.sectionHeaderText, { color: colors.accent }]}>{title}</Text>
         </View>
-    );
+    ), [colors]);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
@@ -126,6 +130,9 @@ export default function ArtistsScreen() {
                 keyExtractor={(item, index) => `row-${index}-${item[0].id}`}
                 contentContainerStyle={styles.listContent}
                 stickySectionHeadersEnabled={false}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={10}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No artists found</Text>
