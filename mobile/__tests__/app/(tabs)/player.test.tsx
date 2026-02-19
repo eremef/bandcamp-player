@@ -8,7 +8,9 @@ import { useStore } from '../../../store';
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
     router: { replace: mockReplace, push: jest.fn() },
+    useFocusEffect: jest.fn(),
 }));
+
 
 
 jest.mock('@react-native-community/slider', () => 'Slider');
@@ -30,7 +32,9 @@ jest.mock('lucide-react-native', () => {
         Check: () => <Text>Check</Text>,
         Globe: () => <Text>Globe</Text>,
         Wifi: () => <Text>Wifi</Text>,
+        ArrowLeftRight: () => <Text>ArrowLeftRight</Text>,
     };
+
 });
 
 // Mock Store

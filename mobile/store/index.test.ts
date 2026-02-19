@@ -2,7 +2,7 @@ import { useStore } from './index';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { act } from '@testing-library/react-native';
+import { act, waitFor } from '@testing-library/react-native';
 import TrackPlayer from 'react-native-track-player';
 import { addTrack } from '../services/player';
 
@@ -128,7 +128,9 @@ describe('Mobile useStore', () => {
             hasMoreCollection: true,
             isCollectionLoading: false,
             mode: 'remote',
+            skipAutoLogin: false,
         });
+
         jest.clearAllMocks();
         AsyncStorage.clear();
     });
@@ -140,7 +142,7 @@ describe('Mobile useStore', () => {
 
     it('should restore volume when switching to standalone mode', async () => {
         const { mobilePlayerService } = require('../services/MobilePlayerService');
-        
+
         await act(async () => {
             await useStore.getState().setMode('standalone');
         });
@@ -148,7 +150,7 @@ describe('Mobile useStore', () => {
         expect(useStore.getState().mode).toBe('standalone');
         expect(useStore.getState().volume).toBe(0.8);
         expect(mobilePlayerService.setVolume).toHaveBeenCalledWith(0.8);
-        
+
         // Fast-forward timers for refresh actions
         act(() => {
             jest.advanceTimersByTime(200);
@@ -193,6 +195,8 @@ describe('Mobile useStore', () => {
     });
 
     it('should autoConnect with saved IP', async () => {
+        useStore.setState({ connectionStatus: 'disconnected', hostIp: '', skipAutoLogin: false });
+
         (AsyncStorage.getItem as jest.Mock).mockImplementation((key) => {
             if (key === 'last_ip') return Promise.resolve('192.168.1.20');
             if (key === 'recent_ips') return Promise.resolve('["192.168.1.20"]');
@@ -201,18 +205,18 @@ describe('Mobile useStore', () => {
         });
 
         await act(async () => {
+
             await useStore.getState().autoConnect();
         });
 
-        // Fast-forward timers for any internal effects
-        act(() => {
-            jest.advanceTimersByTime(1000);
-        });
-
         // hostIp should be set by connect()
-        expect(useStore.getState().hostIp).toBe('192.168.1.20');
+        await waitFor(() => {
+            expect(useStore.getState().hostIp).toBe('192.168.1.20');
+        }, { timeout: 2000 });
+
         expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
         expect(useStore.getState().recentIps).toEqual(['192.168.1.20']);
+
     });
 
     it('should remove recent IP', async () => {

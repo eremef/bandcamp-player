@@ -1,0 +1,500 @@
+
+> xyz.eremef.bandcamp.remote@v1.7.3-alpha-2 test
+> jest
+
+PASS __tests__/app/album_detail.test.tsx
+PASS __tests__/app/artist_detail.test.tsx
+PASS __tests__/app/(tabs)/artists.test.tsx
+PASS __tests__/app/(tabs)/player.test.tsx
+PASS __tests__/MobilePlayerService.test.ts
+  ÔŚĆ Console
+
+    console.log
+      [MobilePlayer] Final stream URL: http://test.com/stream.mp3
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:258:21)
+
+    console.log
+      [MobilePlayer] Calling TrackPlayer.play()
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:290:21)
+
+    console.log
+      [MobilePlayer] Playback started
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:292:21)
+
+    console.log
+      [MobilePlayer] Track ended. Repeat mode: one
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:196:17)
+
+    console.log
+      [MobilePlayer] Track ended. Repeat mode: off
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:196:17)
+
+    console.log
+      [MobilePlayer] Next track index: 1
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:138:17)
+
+    console.log
+      [MobilePlayer] Final stream URL: url2
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:258:21)
+
+    console.log
+      [MobilePlayer] Calling TrackPlayer.play()
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:290:21)
+
+    console.log
+      [MobilePlayer] Playback started
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:292:21)
+
+    console.log
+      [MobilePlayer] Final stream URL: http://test.com/load.mp3
+
+      at MobilePlayerService.log (services/MobilePlayerService.ts:258:21)
+
+PASS __tests__/app/(tabs)/collection.test.tsx
+  ÔŚĆ Console
+
+    console.error
+      An update to VirtualizedList inside a test was not wrapped in act(...).
+      
+      When testing, code that causes React state updates should be wrapped into act(...):
+      
+      act(() => {
+        /* fire events that update state */
+      });
+      /* assert on the output */
+      
+      This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+      at node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11801:19
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:1574:13)
+      at warnIfUpdatesNotWrappedWithActDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11800:9)
+      at scheduleUpdateOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:10326:9)
+      at Object.enqueueSetState (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14179:14)
+      at VirtualizedList.Object.<anonymous>.process.env.NODE_ENV.Component.setState (node_modules/react/cjs/react.development.js:632:20)
+      at node_modules/@babel/runtime/helpers/superPropGet.js:6:14
+      at VirtualizedList.setState (node_modules/react-native/node_modules/@react-native/virtualized-lists/Lists/StateSafePureComponent.js:39:7)
+      at VirtualizedList.setState [as _updateCellsToRender] (node_modules/react-native/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js:1907:10)
+      at Timeout._updateCellsToRender [as _onTimeout] (node_modules/react-native/node_modules/@react-native/virtualized-lists/Lists/VirtualizedList.js:1804:16)
+
+PASS __tests__/app/(tabs)/queue.test.tsx
+PASS services/TrackPlayerService.test.ts
+PASS services/WebSocketService.test.ts
+  ÔŚĆ Console
+
+    console.log
+      Connecting to ws://127.0.0.1:8080
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Disconnected
+
+      at MockWebSocket.log [as onclose] (services/WebSocketService.ts:67:25)
+
+    console.log
+      Starting reconnect loop...
+
+      at WebSocketService.log [as startReconnect] (services/WebSocketService.ts:116:17)
+
+    console.log
+      Attempting reconnect...
+
+      at log (services/WebSocketService.ts:118:21)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Disconnected
+
+      at MockWebSocket.log [as onclose] (services/WebSocketService.ts:67:25)
+
+    console.log
+      Starting reconnect loop...
+
+      at WebSocketService.log [as startReconnect] (services/WebSocketService.ts:116:17)
+
+    console.log
+      Connecting to ws://127.0.0.1:9999
+
+      at WebSocketService.log [as initWebSocket] (services/WebSocketService.ts:30:17)
+
+    console.log
+      Connected to desktop app
+
+      at MockWebSocket.log [as onopen] (services/WebSocketService.ts:37:21)
+
+    console.log
+      Received disconnect from host
+
+      at MockWebSocket.log [as onmessage] (services/WebSocketService.ts:47:29)
+
+    console.log
+      Received disconnect from host
+
+      at MockWebSocket.log [as onmessage] (services/WebSocketService.ts:47:29)
+
+PASS services/discovery.service.test.ts
+PASS services/player.test.ts
+PASS __tests__/app/license.test.tsx
+  ÔŚĆ Console
+
+    console.error
+      Failed to load license: Error: Load failed
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\__tests__\app\license.test.tsx:61:19)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:397:39
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:404:13)
+          at Object.mockConstructor [as fromModule] (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:148:19)
+          at fromModule (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:19:37)
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:3:17)
+          at _next (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:17:9)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:14:12
+          at apply (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:33:10)
+          at apply (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:16:35)
+          at loadLicense (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:35:9)
+          at Object.react-stack-bottom-frame (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:14062:20)
+          at runWithFiberInDEV (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:1574:13)
+          at commitHookEffectListMount (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:8376:29)
+          at commitHookPassiveMountEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:8465:11)
+          at commitPassiveMountOnFiber (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9782:13)
+          at recursivelyTraversePassiveMountEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9756:11)
+          at commitPassiveMountOnFiber (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9794:11)
+          at flushPendingEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:11528:11)
+          at performWorkOnRootViaSchedulerTask (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:2082:11)
+          at flushActQueue (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react\cjs\react.development.js:566:34)
+          at Object.<anonymous>.process.env.NODE_ENV.exports.act (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react\cjs\react.development.js:859:10)
+          at actImplementation (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\act.ts:30:25)
+          at renderWithAct (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render-act.ts:13:11)
+          at renderInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render.tsx:69:33)
+          at renderInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render.tsx:44:10)
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\__tests__\app\license.test.tsx:64:37)
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:3:17)
+          at _next (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:17:9)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:14:12)
+          at Promise.then.completed (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\utils.js:231:10)
+          at _callCircusTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:316:40)
+          at _runTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:252:3)
+          at _runTestsForDescribeBlock (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:126:9)
+          at _runTestsForDescribeBlock (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:121:9)
+          at run (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:71:3)
+          at runAndTransformResultsToJestFormat (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapterInit.js:122:21)
+          at jestAdapter (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapter.js:79:19)
+          at runTestInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\runTest.js:367:16)
+          at runTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\runTest.js:444:34)
+          at Object.worker (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\testWorker.js:106:12)
+
+      26 |                 }
+      27 |             } catch (error) {
+    > 28 |                 console.error('Failed to load license:', error);
+         |                         ^
+      29 |                 setContent('Failed to load license text.');
+      30 |             } finally {
+      31 |                 setLoading(false);
+
+      at error (app/license.tsx:28:25)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at apply (app/license.tsx:33:10)
+      at apply (app/license.tsx:16:35)
+      at loadLicense (app/license.tsx:35:9)
+      at Object.react-stack-bottom-frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14062:20)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:1574:13)
+      at commitHookEffectListMount (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8376:29)
+      at commitHookPassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8465:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9782:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9756:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9794:11)
+      at flushPendingEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11528:11)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2082:11)
+      at flushActQueue (node_modules/react/cjs/react.development.js:566:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:859:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:13:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:69:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (__tests__/app/license.test.tsx:64:37)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at Object.<anonymous> (node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12)
+
+    console.error
+      Failed to load license: Error: Load failed
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\__tests__\app\license.test.tsx:61:19)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:397:39
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:404:13)
+          at Object.mockConstructor [as fromModule] (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-mock\build\index.js:148:19)
+          at fromModule (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:19:37)
+          at Generator.next (<anonymous>)
+          at asyncGeneratorStep (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:3:17)
+          at _next (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:17:9)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:22:7
+          at new Promise (<anonymous>)
+          at D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@babel\runtime\helpers\asyncToGenerator.js:14:12
+          at apply (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:33:10)
+          at apply (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:16:35)
+          at loadLicense (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\app\license.tsx:35:9)
+          at Object.react-stack-bottom-frame (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:14062:20)
+          at runWithFiberInDEV (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:1574:13)
+          at commitHookEffectListMount (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:8376:29)
+          at commitHookPassiveMountEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:8465:11)
+          at commitPassiveMountOnFiber (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9782:13)
+          at recursivelyTraversePassiveMountEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9756:11)
+          at commitPassiveMountOnFiber (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:9794:11)
+          at flushPendingEffects (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:11528:11)
+          at performWorkOnRootViaSchedulerTask (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react-test-renderer\cjs\react-test-renderer.development.js:2082:11)
+          at flushActQueue (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react\cjs\react.development.js:566:34)
+          at Object.<anonymous>.process.env.NODE_ENV.exports.act (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\react\cjs\react.development.js:859:10)
+          at actImplementation (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\act.ts:30:25)
+          at renderWithAct (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render-act.ts:13:11)
+          at renderInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render.tsx:69:33)
+          at renderInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\@testing-library\react-native\src\render.tsx:44:10)
+          at Object.<anonymous> (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\__tests__\app\license.test.tsx:73:39)
+          at Promise.then.completed (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\utils.js:298:28)
+          at new Promise (<anonymous>)
+          at callAsyncCircusFn (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\utils.js:231:10)
+          at _callCircusTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:316:40)
+          at _runTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:252:3)
+          at _runTestsForDescribeBlock (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:126:9)
+          at _runTestsForDescribeBlock (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:121:9)
+          at run (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\run.js:71:3)
+          at runAndTransformResultsToJestFormat (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapterInit.js:122:21)
+          at jestAdapter (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-circus\build\legacy-code-todo-rewrite\jestAdapter.js:79:19)
+          at runTestInternal (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\runTest.js:367:16)
+          at runTest (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\runTest.js:444:34)
+          at Object.worker (D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\node_modules\jest-runner\build\testWorker.js:106:12)
+
+      26 |                 }
+      27 |             } catch (error) {
+    > 28 |                 console.error('Failed to load license:', error);
+         |                         ^
+      29 |                 setContent('Failed to load license text.');
+      30 |             } finally {
+      31 |                 setLoading(false);
+
+      at error (app/license.tsx:28:25)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:22:7
+      at node_modules/@babel/runtime/helpers/asyncToGenerator.js:14:12
+      at apply (app/license.tsx:33:10)
+      at apply (app/license.tsx:16:35)
+      at loadLicense (app/license.tsx:35:9)
+      at Object.react-stack-bottom-frame (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:14062:20)
+      at runWithFiberInDEV (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:1574:13)
+      at commitHookEffectListMount (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8376:29)
+      at commitHookPassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:8465:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9782:13)
+      at recursivelyTraversePassiveMountEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9756:11)
+      at commitPassiveMountOnFiber (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:9794:11)
+      at flushPendingEffects (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:11528:11)
+      at performWorkOnRootViaSchedulerTask (node_modules/react-test-renderer/cjs/react-test-renderer.development.js:2082:11)
+      at flushActQueue (node_modules/react/cjs/react.development.js:566:34)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:859:10)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at renderWithAct (node_modules/@testing-library/react-native/src/render-act.ts:13:11)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:69:33)
+      at renderInternal (node_modules/@testing-library/react-native/src/render.tsx:44:10)
+      at Object.<anonymous> (__tests__/app/license.test.tsx:73:39)
+
+PASS __tests__/app/about.test.tsx
+FAIL store/index.test.ts
+  ÔŚĆ Console
+
+    console.log
+      [MobileStore] Refreshing artists from DB...
+
+      at Object.log [as refreshArtists] (store/index.ts:1124:21)
+
+    console.log
+      [MobileStore] Loaded 0 artists from DB
+
+      at log (store/index.ts:1128:29)
+
+    console.log
+      [MobileStore] Refreshing artists from DB...
+
+      at Object.log [as refreshArtists] (store/index.ts:1124:21)
+
+    console.log
+      [MobileStore] Loaded 0 artists from DB
+
+      at log (store/index.ts:1128:29)
+
+    console.log
+      [TestDebug] connect: ip= 192.168.1.10 manualIp= 192.168.1.10
+
+      at Object.log (store/index.ts:298:17)
+
+    console.log
+      Discovery found IP: 192.168.1.30
+
+      at Object.log (store/index.ts:399:25)
+
+    console.log
+      [TestDebug] connect: ip= 192.168.1.30 manualIp= 192.168.1.30
+
+      at Object.log (store/index.ts:298:17)
+
+    console.log
+      [MobileStore] addAlbumToQueue called. URL: url, PlayNext: true, Tracks: undefined
+
+      at Object.log [as addAlbumToQueue] (store/index.ts:733:17)
+
+    console.warn
+      [MobileStore] addAlbumToQueue called without tracks! Fetching... url
+
+      762 |             get().saveQueue();
+      763 |         } else {
+    > 764 |             console.warn('[MobileStore] addAlbumToQueue called without tracks! Fetching...', albumUrl);
+          |                     ^
+      765 |             const { mobileScraperService } = require('../services/MobileScraperService');
+      766 |             // Force fetch tracks
+      767 |             mobileScraperService.getAlbumDetails(albumUrl)
+
+      at Object.warn [as addAlbumToQueue] (store/index.ts:764:21)
+      at addAlbumToQueue (store/index.test.ts:317:43)
+      at callback (node_modules/@testing-library/react-native/src/act.ts:31:24)
+      at Object.<anonymous>.process.env.NODE_ENV.exports.act (node_modules/react/cjs/react.development.js:789:22)
+      at actImplementation (node_modules/@testing-library/react-native/src/act.ts:30:25)
+      at Object.<anonymous> (store/index.test.ts:317:16)
+
+  ÔŚĆ Mobile useStore ÔÇ║ should autoConnect with saved IP
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "192.168.1.20"
+    Received: ""
+
+      208 |
+      209 |         // hostIp should be set by connect()
+    > 210 |         await waitFor(() => {
+          |                      ^
+      211 |             expect(useStore.getState().hostIp).toBe('192.168.1.20');
+      212 |         });
+      213 |         expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
+
+      at Object.<anonymous> (store/index.test.ts:210:22)
+      at asyncGeneratorStep (node_modules/@babel/runtime/helpers/asyncToGenerator.js:3:17)
+      at _next (node_modules/@babel/runtime/helpers/asyncToGenerator.js:17:9)
+
+PASS components/PlaylistSelectionModal.test.tsx (5.596 s)
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                                                                                                                                                                                                                                                                                   
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                    |   37.27 |    26.59 |   40.24 |   38.23 |                                                                                                                                                                                                                                                                                                                                                                                     
+ app                         |   28.94 |      9.9 |   30.33 |   28.12 |                                                                                                                                                                                                                                                                                                                                                                                     
+  +not-found.tsx             |       0 |      100 |       0 |       0 | 7-28                                                                                                                                                                                                                                                                                                                                                                                
+  _layout.tsx                |       0 |        0 |       0 |       0 | 12-85                                                                                                                                                                                                                                                                                                                                                                               
+  about.tsx                  |     100 |       50 |     100 |     100 | 11                                                                                                                                                                                                                                                                                                                                                                                  
+  album_detail.tsx           |   53.09 |    24.32 |   47.36 |   51.45 | 31-33,68-96,140-174,178-206,210-220,227,240-243,270,303-310                                                                                                                                                                                                                                                                                                                         
+  bandcamp_login.tsx         |       0 |        0 |       0 |       0 | 12-230                                                                                                                                                                                                                                                                                                                                                                              
+  index.tsx                  |       0 |        0 |       0 |       0 | 11-263                                                                                                                                                                                                                                                                                                                                                                              
+  license.tsx                |     100 |       75 |     100 |     100 | 22                                                                                                                                                                                                                                                                                                                                                                                  
+  settings.tsx               |       0 |      100 |       0 |       0 | 9-27                                                                                                                                                                                                                                                                                                                                                                                
+ app/(tabs)                  |    43.6 |    44.31 |   35.62 |   43.83 |                                                                                                                                                                                                                                                                                                                                                                                     
+  _layout.tsx                |       0 |        0 |       0 |       0 | 12-82                                                                                                                                                                                                                                                                                                                                                                               
+  artists.tsx                |   88.67 |     62.5 |    87.5 |   95.83 | 26,84                                                                                                                                                                                                                                                                                                                                                                               
+  collection.tsx             |   69.36 |    33.92 |   61.53 |   66.66 | 58-77,90-100,107-108,130,136-152,174,188-193,221,239,252-258                                                                                                                                                                                                                                                                                                                        
+  player.tsx                 |   55.26 |    69.64 |   35.29 |   55.26 | 45-47,51-64,86,102,146,235-298                                                                                                                                                                                                                                                                                                                                                      
+  playlists.tsx              |       0 |        0 |       0 |       0 | 14-214                                                                                                                                                                                                                                                                                                                                                                              
+  queue.tsx                  |   87.87 |     90.9 |   86.66 |   85.71 | 83-86                                                                                                                                                                                                                                                                                                                                                                               
+  radio.tsx                  |       0 |        0 |       0 |       0 | 14-183                                                                                                                                                                                                                                                                                                                                                                              
+ app/artist                  |   65.67 |     37.5 |      60 |   68.25 |                                                                                                                                                                                                                                                                                                                                                                                     
+  artist_detail.tsx          |   65.67 |     37.5 |      60 |   68.25 | 55-58,63,85,97-100,109-116,129-139,207                                                                                                                                                                                                                                                                                                                                              
+ components                  |   73.46 |    55.88 |      75 |      75 |                                                                                                                                                                                                                                                                                                                                                                                     
+  ActionSheet.tsx            |     100 |     87.5 |     100 |     100 | 47                                                                                                                                                                                                                                                                                                                                                                                  
+  CollectionGridItem.tsx     |   93.33 |       80 |     100 |   93.33 | 33                                                                                                                                                                                                                                                                                                                                                                                  
+  InputModal.tsx             |       0 |        0 |       0 |       0 | 23-82                                                                                                                                                                                                                                                                                                                                                                               
+  PlaylistSelectionModal.tsx |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                                                                                                                                                                     
+  SearchBar.tsx              |    62.5 |       40 |      50 |   71.42 | 22-23                                                                                                                                                                                                                                                                                                                                                                               
+  StandardHeader.tsx         |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                                                                                                                                                                     
+ services                    |   25.34 |    11.63 |   35.34 |   26.54 |                                                                                                                                                                                                                                                                                                                                                                                     
+  MobileAuthService.ts       |    7.84 |        0 |       0 |       8 | 20-131                                                                                                                                                                                                                                                                                                                                                                              
+  MobileDatabase.ts          |    5.61 |        0 |       0 |    6.75 | 11-198,205-258                                                                                                                                                                                                                                                                                                                                                                      
+  MobilePlayerService.ts     |   41.04 |       30 |   38.88 |    43.3 | 22-25,61-62,69-71,78-112,125,129-134,143-163,172-186,218-237,244-246,273-275,294                                                                                                                                                                                                                                                                                                    
+  MobileScraperService.ts    |    0.57 |        0 |       0 |    0.61 | 17-809                                                                                                                                                                                                                                                                                                                                                                              
+  TrackPlayerService.ts      |   74.07 |        0 |   81.81 |   76.92 | 14-17,50-52                                                                                                                                                                                                                                                                                                                                                                         
+  WebSocketService.ts        |   84.33 |    56.09 |   88.88 |   91.78 | 57,76-78,87-92                                                                                                                                                                                                                                                                                                                                                                      
+  discovery.service.ts       |   86.84 |       75 |    87.5 |   90.62 | 11-12,66                                                                                                                                                                                                                                                                                                                                                                            
+  player.ts                  |   93.75 |    69.23 |     100 |   93.75 | 16                                                                                                                                                                                                                                                                                                                                                                                  
+  useVolumeButtons.ts        |       0 |        0 |       0 |       0 | 12-49                                                                                                                                                                                                                                                                                                                                                                               
+ store                       |   48.29 |    46.44 |   53.19 |   50.21 |                                                                                                                                                                                                                                                                                                                                                                                     
+  index.ts                   |   48.29 |    46.44 |   53.19 |   50.21 | 136-143,154-162,190,197,262-267,279-288,300-301,322-324,345-377,395,418-419,426-427,434-435,442-443,450-451,458-459,466-467,474-475,488-506,513-555,564-584,591-631,661,675-678,686-698,713,728,736-762,771,777-778,785-798,807-808,815-822,831-833,846,851,868-873,900-925,949-1000,1016,1033-1034,1052-1093,1099,1107,1114-1115,1122,1137-1164,1177,1215,1233,1267-1268,1272-1273 
+ theme                       |     100 |    66.66 |     100 |     100 |                                                                                                                                                                                                                                                                                                                                                                                     
+  index.ts                   |     100 |    66.66 |     100 |     100 | 36-39                                                                                                                                                                                                                                                                                                                                                                               
+ types                       |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                                     
+  safe-area-context.d.ts     |       0 |        0 |       0 |       0 |                                                                                                                                                                                                                                                                                                                                                                                     
+-----------------------------|---------|----------|---------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Test Suites: 1 failed, 14 passed, 15 total
+Tests:       1 failed, 112 passed, 113 total
+Snapshots:   0 total
+Time:        9.138 s
+Ran all test suites.

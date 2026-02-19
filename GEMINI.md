@@ -33,9 +33,13 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Checkbox Ordering**: Settings checkboxes by `getByRole('checkbox').nth(n)`: 0=Enable Caching, 1=Minimize to Tray, 2=Start Minimized, 3=Show Notifications, 4=Enable Remote Control.
 - **Back Button Navigation**: The Back button in album detail view needs an explicit visibility wait before clicking — it's not immediately available after navigation.
 - **Audio Streaming**: Real Bandcamp audio streaming doesn't work in the E2E test environment. Tests should verify UI state (station cards, track info) rather than actual playback.
-- **App Relaunch (Persistence Tests)**: When relaunching the app, reuse the same `--user-data-dir`, `NODE_ENV`, `E2E_TEST`, and `REMOTE_PORT`. Always handle potential login flow again after relaunch.
 
-## User Rules
+## Mobile Test Learnings (v1.7.3-alpha)
+
+- **State Isolation**: Zustand stores and `AsyncStorage` can leak state between tests. Always use `useStore.setState()` to reset critical connection flags (`connectionStatus`, `hostIp`, `skipAutoLogin`) in `beforeEach` or before specific tests.
+- **`act()` with `RefreshControl`**: Triggering pull-to-refresh on `VirtualizedList` via `props.onRefresh()` requires an explicit `act(async () => ...)` block, even if using `waitFor` for assertions, to avoid VirtualizedList state update warnings.
+- **`expo-router` Mock Extension**: The default mock in `jest.setup.js` must include `useFocusEffect` (as a no-op or implementation-caller) to support screens that refresh data on focus (e.g., Artists screen).
+- **Asynchronous Synchronization**: `connect()` calls that update the store should be `await`ed within the store logic, and tests should use `waitFor()` for assertions on state values that are updated asynchronously (like `hostIp`).
 
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
 - **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.

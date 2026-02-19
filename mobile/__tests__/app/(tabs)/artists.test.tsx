@@ -13,7 +13,9 @@ jest.mock('expo-router', () => ({
     useRouter: () => ({
         push: jest.fn(),
     }),
+    useFocusEffect: jest.fn(),
 }));
+
 
 
 
