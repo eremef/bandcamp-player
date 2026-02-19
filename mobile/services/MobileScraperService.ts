@@ -713,39 +713,56 @@ export class MobileScraperService {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
             // 1. Fetch the show page
             const cookies = await mobileAuthService.getCookies();
-            // Try both root with show param and weekly path
-            // The weekly path is often more reliable for specific shows
-            const urls = [
-                `https://bandcamp.com/weekly?show=${showId}`,
-                `https://bandcamp.com/?show=${showId}`
-            ];
-
-            let html = '';
-            for (const url of urls) {
-                console.log(`[MobileScraper] Trying URL: ${url}`);
-                const response = await fetch(url, {
-                    headers: {
-                        'Cookie': cookies,
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                });
-                if (!response.ok) continue;
-                html = await response.text();
-                if (html && (html.includes('id="ArchiveApp"') || html.includes('data-blob'))) break;
-            }
-
-            if (!html) {
-                console.error('[MobileScraper] Failed to fetch radio page content');
-                return { streamUrl: '', duration: 0 };
-            }
-
-            const $ = cheerio.load(html);
-
-                        // 2. Extract data blob from standard elements
-                        let dataBlob = $('#ArchiveApp').attr('data-blob') || 
+                        // Try root with show param first, then weekly path
+                        const urls = [
+                            `https://bandcamp.com/?show=${showId}`,
+                            `https://bandcamp.com/weekly?show=${showId}`
+                        ];
+            
+                        let html = '';
+                        for (const url of urls) {
+                            console.log(`[MobileScraper] Trying URL: ${url}`);
+                            const response = await fetch(url, {
+                                headers: {
+                                    'Cookie': cookies,
+                                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                                }
+                            });
+                            if (!response.ok) continue;
+                            const text = await response.text();
+                            // Check if this page contains the expected show data or at least a player
+                            if (text && (text.includes('audioTrackId') || text.includes('track_id') || text.includes('ArchiveApp'))) {
+                                html = text;
+                                break;
+                            }
+                        }
+            
+                        if (!html) {
+                            console.error('[MobileScraper] Failed to fetch radio page with valid show data');
+                            return { streamUrl: '', duration: 0 };
+                        }
+            
+                        const $ = cheerio.load(html);
+            
+                        // 2. Extract data blob from standard elements or any element containing it
+                        // We search for elements with data-blob and pick the one that looks like player data
+                        let dataBlob: string | undefined;
+                        
+                        $('[data-blob]').each((_, el) => {
+                            const blob = $(el).attr('data-blob');
+                            if (blob && (blob.includes('audioTrackId') || blob.includes('showId') || blob.includes('shows'))) {
+                                dataBlob = blob;
+                                return false; // found it
+                            }
+                        });
+            
+                        if (!dataBlob) {
+                            // Fallback to specific IDs just in case
+                            dataBlob = $('#ArchiveApp').attr('data-blob') || 
                                        $('#p-show-player').attr('data-blob') || 
-                                       $('#pagedata').attr('data-blob') ||
                                        $('.bcweekly-player').attr('data-blob');
+                        }
+            
                         if (!dataBlob) {
                 console.log('[MobileScraper] No data-blob found in standard elements. Searching scripts...');
                 // Fallback 1: Search scripts for data-blob attribute in a string
@@ -821,10 +838,17 @@ export class MobileScraperService {
                     // Recursive search helper
                     const findId = (obj: any): any => {
                         if (!obj || typeof obj !== 'object') return null;
-                        if (obj.audioTrackId || obj.track_id) return obj.audioTrackId || obj.track_id;
+                        
+                        // Prefer specific radio track fields
+                        if (obj.audioTrackId) return obj.audioTrackId;
+                        if (obj.track_id && typeof obj.track_id === 'number') return obj.track_id;
+                        
                         for (const key in obj) {
-                            const found = findId(obj[key]);
-                            if (found) return found;
+                            // Avoid searching very deep or recursive references if any
+                            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                                const found = findId(obj[key]);
+                                if (found) return found;
+                            }
                         }
                         return null;
                     };
