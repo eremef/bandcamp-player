@@ -1,1 +1,12 @@
-export { };
+export type Theme = 'light' | 'dark' | 'system';
+export type RepeatMode = 'off' | 'one' | 'all';
+export type Track = any;
+export type Collection = any;
+export type Playlist = any;
+export type RadioStation = any;
+export type Artist = any;
+export type BandcampUser = any;
+export type Album = any;
+export type QueueItem = any;
+export type Queue = any;
+export type PlayerState = any;

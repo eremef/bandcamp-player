@@ -30,6 +30,7 @@ export default function ArtistsScreen() {
 
     const filteredArtists = useMemo(() =>
         artists.filter(artist =>
+            artist.name && artist.name.trim().length > 0 &&
             artist.name.toLowerCase().includes(searchQuery.toLowerCase())
         ), [artists, searchQuery]
     );
@@ -38,9 +39,7 @@ export default function ArtistsScreen() {
         const groups: { [key: string]: Artist[] } = {};
 
         filteredArtists.forEach(artist => {
-            if (!artist.name) return;
             const cleanName = artist.name.trim();
-            if (!cleanName) return;
 
             const firstLetter = cleanName.charAt(0).toUpperCase();
             const key = /[A-Z]/.test(firstLetter) ? firstLetter : '#';

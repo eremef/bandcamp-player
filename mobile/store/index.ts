@@ -487,20 +487,20 @@ export const useStore = create<AppState>((set, get) => ({
             mobilePlayerService.setVolume(vol);
         }
     },
-    toggleShuffle: () => {
+    toggleShuffle: async () => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('toggle-shuffle');
         } else {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.toggleShuffle();
+            await mobilePlayerService.toggleShuffle();
         }
     },
-    setRepeat: (mode) => {
+    setRepeat: async (mode) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('set-repeat', mode);
         } else {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.setRepeat(mode);
+            await mobilePlayerService.setRepeat(mode);
         }
     },
 
