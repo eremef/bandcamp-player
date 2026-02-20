@@ -52,7 +52,8 @@ export interface RemoteConfig {
         rateLimitJitter: number;
     };
     radioData: {
-        dataBlobKeys: string[];
+        showIdKeys: string[];
+        trackIdKeys: string[];
     };
 }
 
@@ -142,7 +143,7 @@ export class RemoteConfigService {
             if (!data.userAgents || !data.userAgents.desktop || !data.userAgents.mobile) return false;
             if (!data.cleaning || !data.cleaning.artistCleanRegex) return false;
             if (!data.scraping || typeof data.scraping.batchSize !== 'number') return false;
-            if (!data.radioData || !Array.isArray(data.radioData.dataBlobKeys)) return false;
+            if (!data.radioData || !Array.isArray(data.radioData.showIdKeys)) return false;
 
             return true;
         } catch (e) {

@@ -863,7 +863,7 @@ export class ScraperService extends EventEmitter {
                 const appData = JSON.parse(dataBlob);
                 // Find the show in the shows list using configurable keys
                 const show = appData.appData?.shows?.find((s: any) => {
-                    const id = String(config.radioData.dataBlobKeys.reduce((acc, key) => acc || s[key], null as any) || '');
+                    const id = String(config.radioData.showIdKeys.reduce((acc: any, key: string) => acc || s[key], null as any) || '');
                     return id === showId;
                 });
 
