@@ -14,7 +14,7 @@ async function validate() {
     let config;
     let content;
     try {
-        content = fs.readFileSync(selectorsPath, 'utf8');
+        content = fs.readFileSync(selectorsPath, 'utf8').replace(/\r\n/g, '\n');
         config = JSON.parse(content);
         console.log('✅ JSON is valid.');
     } catch (e) {
