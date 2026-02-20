@@ -26,9 +26,73 @@ jest.mock('../../../services/WebSocketService', () => ({
 
 // Mock ActionSheet
 jest.mock('../../../components/ActionSheet', () => ({
-    ActionSheet: ({ visible, title }: any) => {
-        const { Text } = jest.requireActual('react-native');
-        return visible ? <Text>{`ActionSheet: ${title}`}</Text> : null;
+    ActionSheet: ({ visible, title, actions }: any) => {
+        const { View, Text, TouchableOpacity } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>{`ActionSheet: ${title}`}</Text>
+                {actions.map((a: any) => (
+                    <TouchableOpacity key={a.text} onPress={a.onPress}>
+                        <Text>{a.text}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        ) : null;
+    },
+}));
+
+// Mock PlaylistSelectionModal
+jest.mock('../../../components/PlaylistSelectionModal', () => ({
+    PlaylistSelectionModal: ({ visible, onSelect, onCreateNew, playlists }: any) => {
+        const { View, Text, TouchableOpacity } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>PlaylistSelectionModal</Text>
+                {playlists.map((p: any) => (
+                    <TouchableOpacity key={p.id} onPress={() => onSelect(p.id)}>
+                        <Text>{p.name}</Text>
+                    </TouchableOpacity>
+                ))}
+                <TouchableOpacity onPress={onCreateNew}>
+                    <Text>Create New</Text>
+                </TouchableOpacity>
+            </View>
+        ) : null;
+    },
+}));
+
+// Mock InputModal
+jest.mock('../../../components/InputModal', () => ({
+    InputModal: ({ visible, onSubmit, title }: any) => {
+        const { View, Text, TouchableOpacity, TextInput } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>{title}</Text>
+                <TextInput placeholder="Playlist Name" />
+                <TouchableOpacity onPress={() => onSubmit('Super Hits')}>
+                    <Text>Create</Text>
+                </TouchableOpacity>
+            </View>
+        ) : null;
+    },
+}));
+
+// Mock CollectionGridItem
+jest.mock('../../../components/CollectionGridItem', () => ({
+    CollectionGridItem: ({ item, onPress, onLongPress, testID }: any) => {
+        const { TouchableOpacity, Text } = jest.requireActual('react-native');
+        const title = item.type === 'album' ? item.album.title : item.track.title;
+        const artist = item.type === 'album' ? item.album.artist : item.track.artist;
+        return (
+            <TouchableOpacity
+                testID={testID}
+                onPress={() => onPress(item)}
+                onLongPress={() => onLongPress(item)}
+            >
+                <Text>{title}</Text>
+                <Text>{artist}</Text>
+            </TouchableOpacity>
+        );
     },
 }));
 
@@ -43,7 +107,7 @@ describe('CollectionScreen', () => {
             {
                 id: '1',
                 type: 'album',
-                album: { title: 'Album One', artist: 'Artist A', artworkUrl: 'url1', bandcampUrl: 'burl1', trackCount: 1 },
+                album: { title: 'Album One', artist: 'Artist A', artworkUrl: 'url1', bandcampUrl: 'burl1', trackCount: 1, tracks: [] },
             },
             {
                 id: '2',
@@ -175,8 +239,140 @@ describe('CollectionScreen', () => {
         // Should not be called immediately due to debounce
         expect(mockStore.refreshCollection).not.toHaveBeenCalledWith(true, 'New Search', false);
 
-        await new Promise((r) => setTimeout(r, 600)); // Wait for debounce
+        await act(async () => {
+            await new Promise((r) => setTimeout(r, 600)); // Wait for debounce
+        });
 
         expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, 'New Search', false);
+    });
+
+    it('renders error state and handles retry', () => {
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            const state = { ...mockStore, collection: null, collectionError: 'Network Error' };
+            return selector(state);
+        });
+
+        const { getByText } = render(<CollectionScreen />);
+        expect(getByText('Error: Network Error')).toBeTruthy();
+
+        fireEvent.press(getByText('Retry'));
+        expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);
+    });
+
+    it('renders loading status if available', () => {
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            const state = { ...mockStore, collection: null, collectionLoadingStatus: 'Fetching items...' };
+            return selector(state);
+        });
+
+        const { getByText } = render(<CollectionScreen />);
+        expect(getByText('Fetching items...')).toBeTruthy();
+    });
+
+    it('prompts before refresh if collection is large', () => {
+        const largeCollection = { ...mockCollection, totalCount: 2000 };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            const state = { ...mockStore, collection: largeCollection };
+            return selector(state);
+        });
+
+        const { getByTestId } = render(<CollectionScreen />);
+        const list = getByTestId('collection-list');
+
+        const { Alert } = require('react-native');
+        const alertSpy = jest.spyOn(Alert, 'alert');
+
+        act(() => {
+            list.props.refreshControl.props.onRefresh();
+        });
+
+        expect(alertSpy).toHaveBeenCalledWith(
+            "Large Collection Sync",
+            expect.stringContaining("2000 items"),
+            expect.any(Array)
+        );
+
+        // Trigger Proceed
+        const proceedButton = (alertSpy.mock.calls[0][2] as any[])?.[1];
+        act(() => {
+            proceedButton?.onPress?.();
+        });
+        expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);
+        alertSpy.mockRestore();
+    });
+
+    it('calls loadMoreCollection on end reached', () => {
+        const { getByTestId } = render(<CollectionScreen />);
+        const list = getByTestId('collection-list');
+
+        fireEvent(list, 'onEndReached');
+        expect(mockStore.loadMoreCollection).toHaveBeenCalled();
+    });
+
+    it('handles "Play Next" from context menu', async () => {
+        const { getByTestId, getByText } = render(<CollectionScreen />);
+
+        // Long press first item (Album One)
+        fireEvent(getByTestId('item-1'), 'longPress');
+
+        await waitFor(() => expect(getByText('Play Next')).toBeTruthy());
+
+        fireEvent.press(getByText('Play Next'));
+        expect(mockStore.addAlbumToQueue).toHaveBeenCalledWith('burl1', true, expect.any(Array));
+    });
+
+    it('handles "Add to Playlist" and selection', async () => {
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            const state = { ...mockStore, playlists: [{ id: 'p1', name: 'My Playlist' }] };
+            return selector(state);
+        });
+
+        const { getByTestId, getByText } = render(<CollectionScreen />);
+
+        // Long press first item
+        fireEvent(getByTestId('item-1'), 'longPress');
+
+        await waitFor(() => expect(getByText('Add to Playlist')).toBeTruthy());
+        fireEvent.press(getByText('Add to Playlist'));
+
+        // Modal should appear (we mock PlaylistSelectionModal or check its content)
+        await waitFor(() => expect(getByText('My Playlist')).toBeTruthy());
+
+        fireEvent.press(getByText('My Playlist'));
+        expect(mockStore.addAlbumToPlaylist).toHaveBeenCalledWith('p1', 'burl1');
+    });
+
+    it('handles track context menu actions', async () => {
+        const { getByTestId, getByText } = render(<CollectionScreen />);
+
+        // Long press second item (Track Two)
+        fireEvent(getByTestId('item-2'), 'longPress');
+
+        await waitFor(() => expect(getByText('Play Next')).toBeTruthy());
+        fireEvent.press(getByText('Play Next'));
+        expect(mockStore.addTrackToQueue).toHaveBeenCalledWith(mockCollection.items[1].track, true);
+
+        // Re-open for Add to Queue
+        fireEvent(getByTestId('item-2'), 'longPress');
+        await waitFor(() => expect(getByText('Add to Queue')).toBeTruthy());
+        fireEvent.press(getByText('Add to Queue'));
+        expect(mockStore.addTrackToQueue).toHaveBeenCalledWith(mockCollection.items[1].track, false);
+    });
+
+    it('handles create playlist from modal', async () => {
+        const { getByTestId, getByText, getByPlaceholderText } = render(<CollectionScreen />);
+
+        fireEvent(getByTestId('item-1'), 'longPress');
+        await waitFor(() => expect(getByText('Add to Playlist')).toBeTruthy());
+        fireEvent.press(getByText('Add to Playlist'));
+
+        await waitFor(() => expect(getByText('Create New')).toBeTruthy());
+        fireEvent.press(getByText('Create New'));
+
+        const input = getByPlaceholderText('Playlist Name');
+        fireEvent.changeText(input, 'Super Hits');
+        fireEvent.press(getByText('Create'));
+
+        expect(mockStore.createPlaylist).toHaveBeenCalledWith('Super Hits');
     });
 });

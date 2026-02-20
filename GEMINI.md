@@ -45,9 +45,13 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Mock Implementation Leakage**: When methods (e.g., `play()`) fetch data multiple times (like calling `useStore.getState()` or `TrackPlayer.getQueue()`), using `mockReturnValueOnce()` or `mockResolvedValueOnce()` restricts the mock to the first invocation only, causing subsequent internal calls to return default/undefined states and failing the test. Only use `*Once` mock modifiers when specifically testing sequential behavior differences; use `mockReturnValue()` and `mockResolvedValue()` by default.
 - **Mock Cleanup Isolation**: Use `jest.clearAllMocks()` alongside `jest.restoreAllMocks()` inside `beforeEach()` to fully reset mocked implementations (like `jest.spyOn`) and prevent test bleeding.
 - **Partial Type Mocking**: When partial objects are supplied as mocks to complex type parameters (e.g., passing `{ id, streamUrl }` to a `Track` parameter), you can safely cast it using `track as any` or `as unknown as Track` in unit tests, provided the inner logic only interacts with those specific properties.
-
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
 - **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.
 - **Mobile Tests**: Place all mobile unit tests in `mobile/__tests__/` to avoid bundling errors with Expo Router.
-- Use linter and typecheck every time you make a change to the code.
+- After implementing new features, always ensure that the lints and tests pass or are updated to reflect the new behavior
+- After implementing new features, judge if they need tests, and if so - create them
+- **No Preamble for Safe Commands**: Do not ask for permission or explain that you are about to run read-only/safe commands e.g. `git status`, `ls`, `npm test`, `npx vitest`, `npm run lint`, `npx tsc`, `eslint src`, `eslint mobile`, `npx jest`, `jest`, `npx vitest`, `npx vitest run`, and similar, or starting with the provided. Execute them immediately and only report the output.
+- Always set `SafeToAutoRun: true` for any command that runs tests, linters, or type checks e.g. `npm test`, `npx vitest`, `npm run lint`, `npx tsc`, `eslint src`, `eslint mobile`, `npx jest`, `npx vitest`, `npx vitest run`, `jest`, and similar.
+- Always set `SafeToAutoRun: true` for read-only/informational commands like `ls`, `dir`, `cat`, `type`, `pwd`, `git diff`, and similar.
 - Do not git add automatically after changing something.
+- To check coverage run: `npx jest --coverage --coverageReporters="json-summary" ; cat coverage/coverage-summary.json`

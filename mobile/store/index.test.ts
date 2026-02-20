@@ -65,14 +65,24 @@ jest.mock('../services/player', () => ({
 
 jest.mock('../services/MobilePlayerService', () => ({
     mobilePlayerService: {
-        setVolume: jest.fn().mockResolvedValue(undefined),
+        setVolume: jest.fn().mockImplementation(async (vol) => {
+            const { useStore } = require('./index');
+            useStore.setState({ volume: vol });
+        }),
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn().mockResolvedValue(undefined),
         next: jest.fn().mockResolvedValue(undefined),
         previous: jest.fn().mockResolvedValue(undefined),
         seek: jest.fn().mockResolvedValue(undefined),
-        toggleShuffle: jest.fn().mockResolvedValue(undefined),
-        setRepeat: jest.fn().mockResolvedValue(undefined),
+        toggleShuffle: jest.fn().mockImplementation(async () => {
+            const { useStore } = require('./index');
+            const isShuffled = !useStore.getState().isShuffled;
+            useStore.setState({ isShuffled });
+        }),
+        setRepeat: jest.fn().mockImplementation(async (mode) => {
+            const { useStore } = require('./index');
+            useStore.setState({ repeatMode: mode });
+        }),
         playQueueIndex: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn().mockResolvedValue(undefined),
         loadTrack: jest.fn().mockResolvedValue(true),
@@ -130,6 +140,9 @@ describe('Mobile useStore', () => {
             isCollectionLoading: false,
             mode: 'remote',
             skipAutoLogin: false,
+            queue: { items: [], currentIndex: -1 },
+            auth: { isAuthenticated: false, user: null },
+            collectionError: null,
         });
 
         jest.clearAllMocks();
@@ -571,6 +584,352 @@ describe('Mobile useStore', () => {
             expect(mobileScraperService.fetchCollection).not.toHaveBeenCalled();
             expect(useStore.getState().isCollectionLoading).toBe(false);
             expect(useStore.getState().collectionError).toBeNull();
+        });
+    });
+
+    describe('Additional Actions & State Management', () => {
+        it('should handle toggleSimulationMode', async () => {
+            useStore.setState({ isSimulationMode: false });
+            // Mock refreshCollection explicitly
+            const originalRefresh = useStore.getState().refreshCollection;
+            useStore.setState({ refreshCollection: jest.fn() });
+
+            await act(async () => {
+                await useStore.getState().toggleSimulationMode();
+            });
+
+            expect(useStore.getState().isSimulationMode).toBe(true);
+            expect(AsyncStorage.setItem).toHaveBeenCalledWith('is_simulation_mode', 'true');
+            expect(useStore.getState().refreshCollection).toHaveBeenCalledWith(true, '', true);
+
+            // Restore
+            useStore.setState({ refreshCollection: originalRefresh });
+        });
+
+        it('should handle logoutBandcamp', async () => {
+            const { mobileAuthService } = require('../services/MobileAuthService');
+            const { mobilePlayerService } = require('../services/MobilePlayerService');
+
+            useStore.setState({
+                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any },
+                connectionStatus: 'connected',
+                queue: { items: [{ id: '1', track: {} as any, source: 'collection' }], currentIndex: 0 }
+            });
+
+            await act(async () => {
+                await useStore.getState().logoutBandcamp();
+            });
+
+            expect(mobileAuthService.logout).toHaveBeenCalled();
+            expect(mobilePlayerService.stop).toHaveBeenCalled();
+            expect(AsyncStorage.removeItem).toHaveBeenCalledWith('standalone_queue');
+
+            const state = useStore.getState();
+            expect(state.auth.isAuthenticated).toBe(false);
+            expect(state.connectionStatus).toBe('disconnected');
+            expect(state.queue.items.length).toBe(0);
+        });
+
+        it('should saveQueue in standalone mode', async () => {
+            const mockQueue = { items: [{ id: 'q1', track: { id: 't1' } as any, source: 'radio' as const }], currentIndex: 0 };
+            useStore.setState({ mode: 'standalone', queue: mockQueue, currentTime: 45 });
+
+            await act(async () => {
+                await useStore.getState().saveQueue();
+            });
+
+            expect(AsyncStorage.setItem).toHaveBeenCalledWith('standalone_queue', JSON.stringify({ ...mockQueue, currentTime: 45 }));
+        });
+
+        it('should NOT saveQueue in remote mode', async () => {
+            useStore.setState({ mode: 'remote' });
+            (AsyncStorage.setItem as jest.Mock).mockClear();
+
+            await act(async () => {
+                await useStore.getState().saveQueue();
+            });
+
+            expect(AsyncStorage.setItem).not.toHaveBeenCalledWith('standalone_queue', expect.any(String));
+        });
+    });
+
+    describe('Standalone Error Handlers for Play Actions', () => {
+        it('playAlbum standalone logs error if fetch fails', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockRejectedValueOnce(new Error('Network error'));
+
+            await act(async () => {
+                await useStore.getState().playAlbum('bad-url');
+            });
+
+            expect(useStore.getState().isCollectionLoading).toBe(false);
+            expect(useStore.getState().collectionError).toBe('Failed to load album details.');
+        });
+
+        it('playAlbum standalone errors when no tracks returned', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockResolvedValueOnce({ id: 'a1', tracks: [] });
+
+            await act(async () => {
+                await useStore.getState().playAlbum('empty-url');
+            });
+
+            expect(useStore.getState().collectionError).toBe('No tracks found in this album.');
+        });
+
+        it('playStation standalone logs error if stream fetch fails', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getStationStreamUrl.mockRejectedValueOnce(new Error('Network error'));
+
+            const station = { id: 10, name: 'Err Radio' } as any;
+
+            act(() => {
+                useStore.getState().playStation(station);
+            });
+
+            await waitFor(() => {
+                expect(useStore.getState().collectionError).toBe('Failed to load station stream.');
+            });
+            expect(useStore.getState().isCollectionLoading).toBe(false);
+        });
+    });
+
+    describe('Local Refresh Actions', () => {
+        it('should call loadMoreCollection', () => {
+            useStore.setState({ mode: 'remote' });
+            act(() => useStore.getState().loadMoreCollection());
+            expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
+                forceRefresh: false,
+                offset: 0,
+                limit: 50,
+                query: ''
+            });
+        });
+
+        it('should refreshPlaylists remotely and locally', () => {
+            // Remote
+            useStore.setState({ mode: 'remote' });
+            act(() => useStore.getState().refreshPlaylists());
+            expect(webSocketService.send).toHaveBeenCalledWith('get-playlists');
+
+            jest.clearAllMocks();
+
+            // Local
+            useStore.setState({ mode: 'standalone' });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            mobileDatabase.getAllPlaylists.mockResolvedValueOnce([{ id: 'p1' }]);
+            act(() => useStore.getState().refreshPlaylists());
+            expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
+        });
+
+        it('should refreshRadio remotely and locally', () => {
+            useStore.setState({ mode: 'remote' });
+            act(() => useStore.getState().refreshRadio());
+            expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
+
+            jest.clearAllMocks();
+
+            useStore.setState({ mode: 'standalone' });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getRadioStations.mockResolvedValueOnce([{ id: 1 }]);
+            act(() => useStore.getState().refreshRadio());
+            expect(mobileScraperService.getRadioStations).toHaveBeenCalled();
+        });
+
+        it('should refreshArtists remotely and locally', () => {
+            useStore.setState({ mode: 'remote' });
+            act(() => useStore.getState().refreshArtists());
+            expect(webSocketService.send).toHaveBeenCalledWith('get-artists');
+
+            jest.clearAllMocks();
+
+            useStore.setState({ mode: 'standalone' });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            act(() => useStore.getState().refreshArtists());
+            expect(mobileDatabase.getArtists).toHaveBeenCalled();
+        });
+    });
+
+    describe('Enhanced Queue & Playlist Logic (Standalone)', () => {
+        it('addTrackToQueue should fetch details for Unknown Artist', async () => {
+            useStore.setState({ mode: 'standalone', auth: { isAuthenticated: true, user: { id: 'u1' } as any } });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockResolvedValueOnce({
+                id: 'a1',
+                artist: 'Real Artist',
+                tracks: [{ id: 't1', title: 'Track 1', artist: 'Real Artist', bandcampUrl: 'url' }]
+            });
+
+            const track = { id: 't1', title: 'Track 1', artist: 'Unknown Artist', bandcampUrl: 'url' } as any;
+
+            await act(async () => {
+                await useStore.getState().addTrackToQueue(track, false);
+            });
+
+            expect(mobileScraperService.getAlbumDetails).toHaveBeenCalledWith('url');
+            const queue = useStore.getState().queue;
+            // The added item will be at index 0 because we reset the queue in beforeEach
+            expect(queue.items[0].track.artist).toBe('Real Artist');
+        });
+
+        it('addAlbumToQueue should fetch if tracks not provided', async () => {
+            useStore.setState({ mode: 'standalone', queue: { items: [], currentIndex: -1 } });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockResolvedValueOnce({
+                id: 'a1',
+                tracks: [{ id: 't1', title: 'T1' }, { id: 't2', title: 'T2' }]
+            });
+
+            act(() => {
+                useStore.getState().addAlbumToQueue('album-url', false);
+            });
+
+            await waitFor(() => {
+                expect(useStore.getState().queue.items.length).toBe(2);
+            });
+            expect(mobileScraperService.getAlbumDetails).toHaveBeenCalledWith('album-url');
+        });
+
+        it('removeFromQueue should adjust currentIndex', () => {
+            useStore.setState({
+                queue: {
+                    items: [
+                        { id: '1', track: {} as any, source: 'collection' },
+                        { id: '2', track: {} as any, source: 'collection' },
+                        { id: '3', track: {} as any, source: 'collection' }
+                    ],
+                    currentIndex: 2
+                }
+            });
+
+            act(() => useStore.getState().removeFromQueue('1'));
+            expect(useStore.getState().queue.currentIndex).toBe(1);
+            expect(useStore.getState().queue.items.length).toBe(2);
+
+            act(() => useStore.getState().removeFromQueue('3'));
+            expect(useStore.getState().queue.currentIndex).toBe(0);
+        });
+
+        it('addTrackToPlaylist with details fetch', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockResolvedValueOnce({
+                tracks: [{ id: 't1', title: 'T1', artist: 'Real Artist', duration: 120 }]
+            });
+
+            const track = { id: 't1', title: 'T1', artist: 'Unknown Artist', duration: 0, bandcampUrl: 'u' } as any;
+            await act(async () => {
+                await useStore.getState().addTrackToPlaylist('p1', track);
+            });
+
+            expect(mobileDatabase.addTrackToPlaylist).toHaveBeenCalledWith('p1', expect.objectContaining({
+                artist: 'Real Artist',
+                duration: 120
+            }));
+        });
+
+        it('addAlbumToPlaylist should fetch and loop add tracks', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.getAlbumDetails.mockResolvedValueOnce({
+                artist: 'The Band',
+                tracks: [{ id: 't1' }, { id: 't2' }]
+            });
+
+            await act(async () => {
+                await useStore.getState().addAlbumToPlaylist('p1', 'url');
+            });
+
+            expect(mobileDatabase.addTrackToPlaylist).toHaveBeenCalledTimes(2);
+        });
+
+        it('handle local create/rename/delete playlist', async () => {
+            useStore.setState({ mode: 'standalone' });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+
+            await act(async () => {
+                useStore.getState().createPlaylist('New', 'Desc');
+            });
+            expect(mobileDatabase.createPlaylist).toHaveBeenCalledWith('New');
+
+            await act(async () => {
+                useStore.getState().renamePlaylist('p1', 'Renamed');
+            });
+            expect(mobileDatabase.renamePlaylist).toHaveBeenCalledWith('p1', 'Renamed');
+
+            await act(async () => {
+                useStore.getState().deletePlaylist('p1');
+            });
+            expect(mobileDatabase.deletePlaylist).toHaveBeenCalledWith('p1');
+        });
+
+        it('loadMoreCollection standalone', async () => {
+            useStore.setState({
+                mode: 'standalone',
+                auth: { isAuthenticated: true, user: { id: 'u1' } as any },
+                collection: { items: [{ id: '1' }], totalCount: 2 } as any,
+                collectionOffset: 1,
+                hasMoreCollection: true
+            });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            mobileDatabase.getCollectionGranular.mockResolvedValueOnce([{ id: '2' }]);
+
+            await act(async () => {
+                await useStore.getState().loadMoreCollection();
+            });
+
+            const state = useStore.getState();
+            expect(state.collection!.items.length).toBe(2);
+            expect(state.collectionOffset).toBe(2);
+            expect(state.hasMoreCollection).toBe(false);
+        });
+
+        it('refreshArtistCollection standalone', async () => {
+            useStore.setState({ mode: 'standalone', auth: { isAuthenticated: true } as any });
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            mobileScraperService.fetchCollection.mockResolvedValueOnce({
+                items: [
+                    { id: '1', type: 'album', album: { artistId: 'a1', artist: 'A1' } },
+                    { id: '2', type: 'album', album: { artistId: 'a2', artist: 'A2' } }
+                ]
+            });
+
+            await act(async () => {
+                await useStore.getState().refreshArtistCollection('a1');
+            });
+
+            expect(useStore.getState().artistCollection!.items.length).toBe(1);
+            expect(useStore.getState().isArtistCollectionLoading).toBe(false);
+        });
+
+        it('additional coverage cases: themes, simulation, search query', async () => {
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+            await act(async () => {
+                await useStore.getState().setTheme('light');
+            });
+            expect(useStore.getState().theme).toBe('light');
+
+            useStore.setState({ isSimulationMode: false });
+            await act(async () => {
+                await useStore.getState().toggleSimulationMode();
+            });
+            expect(useStore.getState().isSimulationMode).toBe(true);
+
+            useStore.setState({ mode: 'standalone', isShuffled: false, repeatMode: 'off' });
+            await act(async () => {
+                useStore.getState().setRadioSearchQuery('test');
+                await useStore.getState().toggleShuffle();
+                await useStore.getState().setRepeat('one');
+            });
+            expect(useStore.getState().radioSearchQuery).toBe('test');
+            expect(useStore.getState().isShuffled).toBe(true);
+            expect(useStore.getState().repeatMode).toBe('one');
         });
     });
 });
