@@ -10,8 +10,9 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Updates**: Desktop auto-updates handled by `UpdaterService` using `electron-updater` and GitHub Releases. The app checks for updates 15 seconds after startup and every 24 hours thereafter.
 - **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
 - **Simulation Mode**: Run with `npm run dev:large` to simulate a large collection (5000 items) with network errors for testing scalability and resilience.
-- **Mobile Lazy Loading**: Mobile app uses infinite scroll and paginated fetching to handle large collections efficiently.
-- **Collection Caching**: Collections > 100 items are cached in SQLite. Cache is refreshed daily in the background (stale-while-revalidate) to ensure fast startup without sacrificing data freshness.
+- **Mobile Standalone Mode**: Dedicated native audio engine allows the mobile app to function as an independent Bandcamp player. Supports track navigation, volume control, and background playback.
+- **Hybrid Connectivity**: Mobile app maintains a background WebSocket connection to the desktop server even in Standalone mode, enabling seamless switching between Remote and local playback.
+- **Scalable Collection Caching**: Large collections are persisted in SQLite with FTS5 for instant, high-performance searching. Cache refreshes daily in the background.
 - **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.
 - **Artist Collection Fetching**: Mobile app fetches the full artist collection from the server, bypassing local pagination limits to ensure all albums are visible.
 - **Mobile UI**: Unified headerless design with standardized Search Bars clearing the Android camera bar. Added a **Mode Switch Badge** in the Player UI for toggling between Remote and Standalone.
@@ -19,6 +20,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Standalone Queue Persistence**: The mobile app saves the current track and playback queue to `AsyncStorage` on modification. Both are restored automatically upon relaunch.
 - **Persistent Remote Connection**: The mobile app attempts to maintain or re-establish its WebSocket connection to the desktop server even when in Standalone mode, allowing seamless switching back to Remote.
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
+- **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
 
 ## E2E Tests
 
@@ -40,6 +42,9 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **`act()` with `RefreshControl`**: Triggering pull-to-refresh on `VirtualizedList` via `props.onRefresh()` requires an explicit `act(async () => ...)` block, even if using `waitFor` for assertions, to avoid VirtualizedList state update warnings.
 - **`expo-router` Mock Extension**: The default mock in `jest.setup.js` must include `useFocusEffect` (as a no-op or implementation-caller) to support screens that refresh data on focus (e.g., Artists screen).
 - **Asynchronous Synchronization**: `connect()` calls that update the store should be `await`ed within the store logic, and tests should use `waitFor()` for assertions on state values that are updated asynchronously (like `hostIp`).
+- **Mock Implementation Leakage**: When methods (e.g., `play()`) fetch data multiple times (like calling `useStore.getState()` or `TrackPlayer.getQueue()`), using `mockReturnValueOnce()` or `mockResolvedValueOnce()` restricts the mock to the first invocation only, causing subsequent internal calls to return default/undefined states and failing the test. Only use `*Once` mock modifiers when specifically testing sequential behavior differences; use `mockReturnValue()` and `mockResolvedValue()` by default.
+- **Mock Cleanup Isolation**: Use `jest.clearAllMocks()` alongside `jest.restoreAllMocks()` inside `beforeEach()` to fully reset mocked implementations (like `jest.spyOn`) and prevent test bleeding.
+- **Partial Type Mocking**: When partial objects are supplied as mocks to complex type parameters (e.g., passing `{ id, streamUrl }` to a `Track` parameter), you can safely cast it using `track as any` or `as unknown as Track` in unit tests, provided the inner logic only interacts with those specific properties.
 
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
 - **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.

@@ -54,3 +54,4 @@ test_*.txt
 debug_*.json
 .gemini/
 gha-creds-*.json
+test-results/.last-run.json

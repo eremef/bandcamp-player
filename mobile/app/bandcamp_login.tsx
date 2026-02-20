@@ -197,9 +197,6 @@ export default function BandcampLoginScreen() {
                     <X color={colors.text} size={24} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>Login to Bandcamp</Text>
-                <TouchableOpacity onPress={checkNativeSession} style={styles.checkButton}>
-                    <Text style={{ color: colors.accent, fontWeight: 'bold' }}>Native Check</Text>
-                </TouchableOpacity>
             </View>
 
             <WebView
@@ -244,9 +241,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     closeButton: {
-        padding: 8,
-    },
-    checkButton: {
         padding: 8,
     },
     webview: {
