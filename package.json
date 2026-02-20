@@ -23,7 +23,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:mobile": "npm run test --prefix mobile",
-    "lint": "eslint src scripts",
+    "lint": "eslint src",
     "lint:mobile": "npm run lint --prefix mobile",
     "typecheck": "tsc --build",
     "release": "node scripts/release.js",
