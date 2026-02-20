@@ -14,6 +14,7 @@ module.exports = {
     ],
     moduleNameMapper: {
         '^@shared/types$': '<rootDir>/__mocks__/shared-types.ts',
+        '^@shared/remote-config.service$': '<rootDir>/__mocks__/remote-config.service.ts',
         '\\.(png|jpg|jpeg|gif|webp|svg|txt)$': '<rootDir>/__mocks__/fileMock.js'
     }
 };

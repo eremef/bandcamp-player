@@ -296,17 +296,17 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
 6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
-7. **Hybrid Persistence**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
+7. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
 
-### Chromecast Integration
+### Hybrid Remote/Standalone Architecture (Mobile)
 
-1. **Discovery**: Casting is initiated by user action. The `CastService` scans for devices on the local network (MDNS) only while the Cast menu is open to save resources.
-2. **Connection**: When a device is selected, the app connects and launches the default media receiver.
-3. **Playback**:
-    - The `PlayerService` refreshes the track's stream URL using `ScraperService.getTrackStreamUrl` to ensure it's valid (Bandcamp URLs expire).
-    - The new URL is sent to the Chromecast device.
-    - Local playback stops or mutes, but the player state (`currentTime`, `isPlaying`) remains synced with the cast device.
-4. **Error Handling**: Connection drops or playback errors are caught by `CastService`, propagated to `PlayerService`, and displayed to the user via Toasts.
+The mobile application operates in two distinct modes, managed via a unified `MobileStore`:
+
+1. **Remote Mode**: Commands are sent via WebSocket to the Desktop Host. Playback state is pushed from the Host to the mobile client. Local audio engine (`TrackPlayer`) is used only as a proxy for System Media Controls.
+2. **Standalone Mode**: The app fetches stream URLs directly from Bandcamp (via `MobileScraperService`) and plays them using the local `TrackPlayer`.
+3. **Seamless Switching**: When switching modes:
+    - **Standalone → Remote**: Local audio stops, and the store resets to Remote mode. If a background WebSocket connection exists, the Remote state is restored instantly.
+    - **Remote → Standalone**: Remote playback (if any) is paused on the server, and the mobile app restores its last saved Standalone queue and track position.
 
 ### Standalone Mode Persistence (Mobile)
 
@@ -318,17 +318,27 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
     - The `MobilePlayerService.loadTrack` method is called to initialize `TrackPlayer` with the restored track details and stream URL, but in a **paused** state.
     - UI is populated immediately, allowing the user to resume playback instantly without re-searching their collection.
 
+### Chromecast Integration
+
+1. **Discovery**: Casting is initiated by user action. The `CastService` scans for devices on the local network (MDNS) only while the Cast menu is open to save resources.
+2. **Connection**: When a device is selected, the app connects and launches the default media receiver.
+3. **Playback**:
+    - The `PlayerService` refreshes the track's stream URL using `ScraperService.getTrackStreamUrl` to ensure it's valid (Bandcamp URLs expire).
+    - The new URL is sent to the Chromecast device.
+    - Local playback stops or mutes, but the player state (`currentTime`, `isPlaying`) remains synced with the cast device.
+4. **Error Handling**: Connection drops or playback errors are caught by `CastService`, propagated to `PlayerService`, and displayed to the user via Toasts.
+
 ### Collection Search & Loading
 
 1. **Desktop & Web**: For performance and offline capability, the full collection is loaded into memory on the Desktop Renderer and Web Remote.
 2. **Mobile App**:
     - **Lazy Loading**: Uses infinite scroll and pagination (offset/limit) to handle thousands of items with minimal memory overhead.
     - **Server-Side Search**: Search queries are sent to the Desktop Main process. The Main process filters its cached collection and returns paginated results to the mobile client.
-    - **Optimization**: Search requests use `forceRefresh: false` by default, filtering the existing cache instantly. Only a manual "Pull-to-Refresh" triggers a full re-scrape from Bandcamp.
-3. **Database Caching**:
-    - **Persistence**: Collections with >100 items are saved to the `collection_cache` SQLite table.
-    - **Stale-While-Revalidate**: On app start, the cached collection is returned immediately for near-instant UI availability.
-    - **Daily Refresh**: If the cache is older than 24 hours (based on `cached_at`), a background fetch is automatically triggered in the Main process to update the database without interrupting playback or user interaction.
+    - **Offline Persistence**: In Standalone mode, searched and browsed collection data is stored in a local SQLite database using FTS5 for high-performance indexing.
+3. **Database Caching (Scalability)**:
+    - **Persistence**: Collections (Desktop) and browsed Artists/Albums (Mobile) are saved to SQLite.
+    - **Stale-While-Revalidate**: On app start, cached data is returned immediately for near-instant UI availability.
+    - **Daily Refresh**: If the cache is older than 24 hours, a background fetch is automatically triggered to update the database.
 4. **Smart Buffering**:
     - **Initial Load**: Deduplicates concurrent fetch requests in `ScraperService` using a shared promise, preventing "empty" state flashes on startup.
     - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
