@@ -112,6 +112,7 @@ jobs:
           name: desktop-macos
           path: |
             release/*.dmg
+            release/*.zip
             release/*.yml
             release/*.blockmap
 
@@ -243,6 +244,7 @@ jobs:
             release/*.exe
             release/*.msi
             release/*.dmg
+            release/*.zip
             release/*.AppImage
             release/*.deb
             release/*.rpm
