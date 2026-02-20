@@ -864,7 +864,7 @@ export class MobileScraperService {
 
                 const shows = appData.appData?.shows || appData.shows || [];
                 let show = shows.find((s: any) => {
-                    const id = String(config.radioData.dataBlobKeys.reduce((acc, key) => acc || s[key], null as any) || '');
+                    const id = String(config.radioData.showIdKeys.reduce((acc: any, key: string) => acc || s[key], null as any) || '');
                     return id === showId;
                 });
 

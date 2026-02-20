@@ -71,12 +71,14 @@
         "rateLimitJitter": 200
     },
     "radioData": {
-        "dataBlobKeys": [
-            "audioTrackId",
+        "showIdKeys": [
             "showId",
-            "shows",
             "show_id",
             "itemId",
+            "id"
+        ],
+        "trackIdKeys": [
+            "audioTrackId",
             "track_id",
             "trackId"
         ]
