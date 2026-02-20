@@ -137,6 +137,10 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
 
       - name: Install dependencies
         run: |
@@ -182,6 +186,7 @@ jobs:
         with:
           node-version: 24
           cache: 'npm'
+          cache-dependency-path: 'mobile/package-lock.json'
 
       - name: Install dependencies
         run: |
