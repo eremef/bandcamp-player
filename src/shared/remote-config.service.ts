@@ -62,10 +62,12 @@ let DefaultConfig: any;
 try {
     // 1. Try mobile-specific path first if likely in React Native
     // Metro will resolve this relative to the shared file
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     DefaultConfig = require('../../mobile/assets/remote-config.json');
 } catch (e) {
     try {
         // 2. Desktop production (app root) and Desktop/Mobile dev (project root)
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         DefaultConfig = require('../../remote-config.json');
     } catch (e2) {
         console.error('[RemoteConfig] Failed to load bundled config from all locations:', e2);
