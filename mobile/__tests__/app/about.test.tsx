@@ -29,7 +29,7 @@ describe('AboutScreen', () => {
     it('renders correctly', () => {
         const { getByText } = render(<AboutScreen />);
         expect(getByText('Bandcamp Remote')).toBeTruthy();
-        expect(getByText('Version 1.0.0-test')).toBeTruthy();
+        expect(getByText(/Version 1\.0\.0-test/)).toBeTruthy();
         expect(getByText('View on GitHub')).toBeTruthy();
     });
 

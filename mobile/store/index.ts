@@ -220,11 +220,16 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isSimulationMode: simMode === 'true' });
 
         // Data refresh — stagger to avoid SQLite "database is locked" errors
-        get().refreshCollection(true);
-        setTimeout(() => {
-            get().refreshPlaylists();
+        if (authState.isAuthenticated) {
+            get().refreshCollection(true);
+            setTimeout(() => {
+                get().refreshPlaylists();
+                get().refreshRadio();
+            }, 200);
+        } else {
+            // Even if not authenticated, we can refresh radio as it doesn't require session
             get().refreshRadio();
-        }, 200);
+        }
     },
 
     setMode: async (mode) => {
@@ -1124,12 +1129,16 @@ export const useStore = create<AppState>((set, get) => ({
 
                     onProgress('Connecting...');
 
+                    const { user } = get().auth;
+                    if (!user) {
+                        console.log('[MobileStore] Skipping collection fetch: user not authenticated');
+                        set({ isCollectionLoading: false });
+                        return;
+                    }
+
                     if (forceServerRefresh) {
                         await mobileScraperService.fetchCollection(true, get().isSimulationMode, onProgress);
                     }
-
-                    const { user } = get().auth;
-                    if (!user) throw new Error('User not authenticated');
 
                     let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
                     let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
@@ -1268,6 +1277,10 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     refreshArtistCollection: (artistId: string) => {
+        if (!get().auth.isAuthenticated) {
+            console.log('[MobileStore] Skipping artist collection fetch: user not authenticated');
+            return;
+        }
         set({ isArtistCollectionLoading: true });
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-artist-collection', artistId);

@@ -1,0 +1,236 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   .gitignore
+	modified:   mobile/__tests__/app/about.test.tsx
+	modified:   mobile/app.json
+	modified:   mobile/package-lock.json
+	modified:   mobile/package.json
+	modified:   mobile/store/index.test.ts
+	modified:   mobile/store/index.ts
+	deleted:    mobile/test_output.txt
+	modified:   package-lock.json
+	modified:   package.json
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.git_status_tmp.txt
+	mobile/jest_report.json
+
+no changes added to commit (use "git add" and/or "git commit -a")
+diff --git a/.gitignore b/.gitignore
+index edf11a3..bdfbcad 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -55,3 +55,4 @@ debug_*.json
+ .gemini/
+ gha-creds-*.json
+ test-results/.last-run.json
++mobile/*test_*.txt
+diff --git a/mobile/__tests__/app/about.test.tsx b/mobile/__tests__/app/about.test.tsx
+index b0d2cf3..8b25886 100644
+--- a/mobile/__tests__/app/about.test.tsx
++++ b/mobile/__tests__/app/about.test.tsx
+@@ -29,7 +29,7 @@ describe('AboutScreen', () => {
+     it('renders correctly', () => {
+         const { getByText } = render(<AboutScreen />);
+         expect(getByText('Bandcamp Remote')).toBeTruthy();
+-        expect(getByText('Version 1.0.0-test')).toBeTruthy();
++        expect(getByText(/Version 1\.0\.0-test/)).toBeTruthy();
+         expect(getByText('View on GitHub')).toBeTruthy();
+     });
+ 
+diff --git a/mobile/app.json b/mobile/app.json
+index cf755ab..d2e2ab5 100644
+--- a/mobile/app.json
++++ b/mobile/app.json
+@@ -2,7 +2,7 @@
+   "expo": {
+     "name": "Bandcamp Remote",
+     "slug": "bandcamp-remote",
+-    "version": "1.7.5-alpha",
++    "version": "1.7.5-beta",
+     "orientation": "portrait",
+     "icon": "./assets/icon.png",
+     "scheme": "bandcamp-remote",
+diff --git a/mobile/package-lock.json b/mobile/package-lock.json
+index 785d6aa..bc64baf 100644
+--- a/mobile/package-lock.json
++++ b/mobile/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "xyz.eremef.bandcampremote",
+-  "version": "1.7.5-alpha",
++  "version": "1.7.5-beta",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "xyz.eremef.bandcampremote",
+-      "version": "1.7.5-alpha",
++      "version": "1.7.5-beta",
+       "dependencies": {
+         "@react-native-async-storage/async-storage": "^2.2.0",
+         "@react-native-community/slider": "5.0.1",
+diff --git a/mobile/package.json b/mobile/package.json
+index 9ac31f8..d324ae3 100644
+--- a/mobile/package.json
++++ b/mobile/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "xyz.eremef.bandcampremote",
+-  "version": "1.7.5-alpha",
++  "version": "1.7.5-beta",
+   "main": "index.js",
+   "scripts": {
+     "start": "expo start",
+diff --git a/mobile/store/index.test.ts b/mobile/store/index.test.ts
+index 0e3a8b9..7adedad 100644
+--- a/mobile/store/index.test.ts
++++ b/mobile/store/index.test.ts
+@@ -535,7 +535,8 @@ describe('Mobile useStore', () => {
+ 
+             useStore.setState({
+                 mode: 'standalone',
+-                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any }
++                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any },
++                connectionStatus: 'connected'
+             });
+ 
+             // Mock DB to return empty
+@@ -554,5 +555,22 @@ describe('Mobile useStore', () => {
+             expect(useStore.getState().collection?.items).toHaveLength(1);
+             expect(mobileDatabase.getArtists).toHaveBeenCalled(); // via refreshArtists
+         });
++
++        it('should NOT fetch collection if not authenticated (standalone)', async () => {
++            const { mobileScraperService } = require('../services/MobileScraperService');
++
++            useStore.setState({
++                mode: 'standalone',
++                auth: { isAuthenticated: false, user: null }
++            });
++
++            await act(async () => {
++                await useStore.getState().refreshCollection(true);
++            });
++
++            expect(mobileScraperService.fetchCollection).not.toHaveBeenCalled();
++            expect(useStore.getState().isCollectionLoading).toBe(false);
++            expect(useStore.getState().collectionError).toBeNull();
++        });
+     });
+ });
+\ No newline at end of file
+diff --git a/mobile/store/index.ts b/mobile/store/index.ts
+index 21c7e49..8bb1adb 100644
+--- a/mobile/store/index.ts
++++ b/mobile/store/index.ts
+@@ -220,11 +220,16 @@ export const useStore = create<AppState>((set, get) => ({
+         set({ isSimulationMode: simMode === 'true' });
+ 
+         // Data refresh — stagger to avoid SQLite "database is locked" errors
+-        get().refreshCollection(true);
+-        setTimeout(() => {
+-            get().refreshPlaylists();
++        if (authState.isAuthenticated) {
++            get().refreshCollection(true);
++            setTimeout(() => {
++                get().refreshPlaylists();
++                get().refreshRadio();
++            }, 200);
++        } else {
++            // Even if not authenticated, we can refresh radio as it doesn't require session
+             get().refreshRadio();
+-        }, 200);
++        }
+     },
+ 
+     setMode: async (mode) => {
+@@ -1124,13 +1129,17 @@ export const useStore = create<AppState>((set, get) => ({
+ 
+                     onProgress('Connecting...');
+ 
++                    const { user } = get().auth;
++                    if (!user) {
++                        console.log('[MobileStore] Skipping collection fetch: user not authenticated');
++                        set({ isCollectionLoading: false });
++                        return;
++                    }
++
+                     if (forceServerRefresh) {
+                         await mobileScraperService.fetchCollection(true, get().isSimulationMode, onProgress);
+                     }
+ 
+-                    const { user } = get().auth;
+-                    if (!user) throw new Error('User not authenticated');
+-
+                     let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
+                     let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+ 
+@@ -1268,6 +1277,10 @@ export const useStore = create<AppState>((set, get) => ({
+         }
+     },
+     refreshArtistCollection: (artistId: string) => {
++        if (!get().auth.isAuthenticated) {
++            console.log('[MobileStore] Skipping artist collection fetch: user not authenticated');
++            return;
++        }
+         set({ isArtistCollectionLoading: true });
+         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+             webSocketService.send('get-artist-collection', artistId);
+diff --git a/mobile/test_output.txt b/mobile/test_output.txt
+deleted file mode 100644
+index a117615..0000000
+--- a/mobile/test_output.txt
++++ /dev/null
+@@ -1,8 +0,0 @@
+-npm error code ENOENT
+-npm error syscall open
+-npm error path D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\mobile\package.json
+-npm error errno -4058
+-npm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 'D:\eremef\Documents\AI\antigravity\Bandcamp-player\mobile\mobile\package.json'
+-npm error enoent This is related to npm not being able to find a file.
+-npm error enoent
+-npm error A complete log of this run can be found in: C:\Users\eremef\AppData\Local\npm-cache\_logs\2026-02-19T12_48_16_286Z-debug-0.log
+diff --git a/package-lock.json b/package-lock.json
+index 3442a30..1b19702 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "bandcamp-desktop-player",
+-  "version": "1.7.5-alpha",
++  "version": "1.7.5-beta",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "bandcamp-desktop-player",
+-      "version": "1.7.5-alpha",
++      "version": "1.7.5-beta",
+       "hasInstallScript": true,
+       "license": "MIT",
+       "dependencies": {
+diff --git a/package.json b/package.json
+index 5179780..e3452ab 100644
+--- a/package.json
++++ b/package.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "bandcamp-desktop-player",
+-  "version": "1.7.5-alpha",
++  "version": "1.7.5-beta",
+   "productName": "Bandcamp Desktop Player",
+   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
+   "main": "dist/main/main.js",
+@@ -172,4 +172,4 @@
+       "tar": "6.2.1"
+     }
+   }
+-}
+\ No newline at end of file
++}
