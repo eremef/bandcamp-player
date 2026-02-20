@@ -1,5 +1,5 @@
 
-# Unofficial Bandcamp Desktop Player
+# Unofficial Bandcamp Desktop & Mobile Player
 
 <p align="center">
  <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
