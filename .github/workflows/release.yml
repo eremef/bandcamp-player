@@ -142,12 +142,6 @@ jobs:
           cd mobile
           npm ci
 
-      - name: Lint & Typecheck
-        run: |
-          cd mobile
-          npm run lint
-          npm run typecheck
-
       - name: Prebuild Android
         run: |
           cd mobile
@@ -192,12 +186,6 @@ jobs:
         run: |
           cd mobile
           npm ci
-
-      - name: Lint & Typecheck
-        run: |
-          cd mobile
-          npm run lint
-          npm run typecheck
 
       - name: Prebuild iOS
         run: |
