@@ -8,6 +8,11 @@ const destDir = path.join(__dirname, '../dist/assets');
 const licenseSrc = path.join(__dirname, '../LICENSE.txt');
 const licenseDest = path.join(__dirname, '../mobile/assets/license.txt');
 
+const configSrc = path.join(__dirname, '../remote-config.json');
+const configDest = path.join(__dirname, '../mobile/assets/remote-config.json');
+const hashSrc = path.join(__dirname, '../remote-config.json.hash');
+const hashDest = path.join(__dirname, '../mobile/assets/remote-config.json.hash');
+
 console.log('Copying assets...');
 
 if (fs.existsSync(licenseSrc)) {
@@ -17,6 +22,16 @@ if (fs.existsSync(licenseSrc)) {
     }
     console.log(`Copying ${licenseSrc} to ${licenseDest}`);
     fs.copyFileSync(licenseSrc, licenseDest);
+}
+
+if (fs.existsSync(configSrc)) {
+    console.log(`Copying ${configSrc} to ${configDest}`);
+    fs.copyFileSync(configSrc, configDest);
+}
+
+if (fs.existsSync(hashSrc)) {
+    console.log(`Copying ${hashSrc} to ${hashDest}`);
+    fs.copyFileSync(hashSrc, hashDest);
 }
 
 function copyDir(src, dest) {

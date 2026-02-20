@@ -6,7 +6,7 @@ const selectorsPath = path.join(__dirname, '..', 'remote-config.json');
 const hashPath = path.join(__dirname, '..', 'remote-config.json.hash');
 
 try {
-    const content = fs.readFileSync(selectorsPath, 'utf8');
+    const content = fs.readFileSync(selectorsPath, 'utf8').replace(/\r\n/g, '\n');
     const hash = crypto.createHash('sha256').update(content).digest('hex');
     fs.writeFileSync(hashPath, hash);
     console.log(`Generated hash for remote-config.json: ${hash}`);
