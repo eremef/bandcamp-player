@@ -876,8 +876,8 @@ export class MobileScraperService {
                     }
                 }
 
-                // Fallback: if data contains audioTrackId directly at root
-                let audioTrackId = show?.audioTrackId || show?.track_id || appData.audioTrackId || appData.track_id;
+                // Extract track ID dynamically from config keys
+                let audioTrackId = config.radioData.trackIdKeys.reduce((acc: any, key: string) => acc || show?.[key] || appData[key], null as any);
                 const bandId = show?.bandId || show?.band_id || appData.bandId || appData.band_id || 1;
 
                 if (!audioTrackId) {
@@ -887,9 +887,10 @@ export class MobileScraperService {
                     const findId = (obj: any): any => {
                         if (!obj || typeof obj !== 'object') return null;
 
-                        // Prefer specific radio track fields
-                        if (obj.audioTrackId) return obj.audioTrackId;
-                        if (obj.track_id && typeof obj.track_id === 'number') return obj.track_id;
+                        // Prefer specific radio track fields from config
+                        for (const key of config.radioData.trackIdKeys) {
+                            if (obj[key] && (typeof obj[key] === 'number' || typeof obj[key] === 'string')) return obj[key];
+                        }
 
                         for (const key in obj) {
                             // Avoid searching very deep or recursive references if any
