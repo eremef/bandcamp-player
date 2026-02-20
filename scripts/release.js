@@ -5,9 +5,10 @@ const path = require('path');
 const args = process.argv.slice(2);
 const newVersion = args.find(arg => !arg.startsWith('--'));
 const ignoreErrors = args.includes('--ignore-errors');
+const forceTag = args.includes('--force-tag');
 
 if (!newVersion) {
-    console.error('Usage: node scripts/release.js <newVersion> [--ignore-errors]');
+    console.error('Usage: node scripts/release.js <newVersion> [--ignore-errors] [--force-tag]');
     process.exit(1);
 }
 
@@ -56,16 +57,29 @@ log('Step 3: Installing dependencies...');
 run('npm install');
 run('npm install', mobileDir);
 
-// 4. Run Tests
-log('Step 4: Running tests...');
+// 4. Remote Config and Assets
+log('Step 4: Syncing Remote Config and Assets...');
+run('node scripts/generate-config-hash.js');
+run('node scripts/copy-assets.js');
+run('node scripts/validate-config.js');
+
+// 5. Run Tests
+log('Step 5: Running tests...');
 run('npm test');
 run('npm test', mobileDir);
 
-// 5. Git Operations
-log('Step 5: Git operations (commit, tag, push)...');
+// 6. Git Operations
+log('Step 6: Git operations (commit, tag, push)...');
 run('git add .');
 run(`git commit -m "chore: release v${newVersion}"`, rootDir, { canFail: true });
 run('git push');
+
+if (forceTag) {
+    log(`Force tag enabled. Deleting existing tag v${newVersion}...`);
+    run(`git tag -d v${newVersion}`, rootDir, { canFail: true });
+    run(`git push origin --delete v${newVersion}`, rootDir, { canFail: true });
+}
+
 run(`git tag v${newVersion}`);
 run(`git push origin v${newVersion}`);
 
