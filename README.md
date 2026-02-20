@@ -11,7 +11,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 >
 >However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
 
-\*not with one prompt, but hundreds of them, a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not that eco-friendly.
+\*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
 ## Features
 
@@ -172,15 +172,16 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 
 ### Mobile Features
 
-- 📱 **Remote Control** - Play, Pause, Next, Previous, Volume, and Seek from your phone
-- 🎵 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
-- 🎤 **Artists Tab** - Browse your collection by Artist with detailed views
+- 📱 **Hybrid Mode** - Seamlessly switch between Remote Control and Standalone playback
+- 🎵 **Standalone Player** - Use the mobile app as an independent Bandcamp player with background audio
+- 📂 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
+- 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
 - 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
-- 📜 **Infinite Scroll** - efficiently browses large collections with lazy loading
+- 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery** - Automatic local network discovery
-- 🔊 **Volume Sync** - Uses the device's native volume steps for hardware synchronization
+- 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Mobile Tech Stack
@@ -243,13 +244,6 @@ mobile/
 ├── android/                   # Android native project
 └── ios/                       # iOS native project
 ```
-
-## Roadmap
-
-| Feature                        | Size | Status      |
-| :----------------------------- | ---- | ----------- |
-| Independent mobile app player  | XL   | ✅ Done      |
-| Deeper Bandcamp integration    | L    | In Progress |
 
 ## License
 

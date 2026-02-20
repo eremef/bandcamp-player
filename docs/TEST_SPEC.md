@@ -200,6 +200,21 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 
 **Total:** 348 tests across all platforms (167 Desktop unit + 38 E2E + 108 Mobile + 35 Android).
 
+## Specialized Testing
+
+### Mobile Standalone Persistence
+
+Testing Standalone mode requires verifying state persistence across app restarts:
+
+1. **State Snapshotting**: Tests in `mobile/store/index.test.ts` verify that `saveQueue` is called correctly on queue changes.
+2. **Restoration**: `restoreStandaloneState` is tested by mocking `AsyncStorage.getItem('standalone_queue')` and verifying that the store and `TrackPlayer` are initialized with the correct track and position.
+3. **Volume Persistence**: Tests verify that `standalone_volume` is correctly saved to and loaded from `MobileDatabase`.
+
+### SQLite Scalability (Mobile)
+
+1. **Concurrent Access**: Staggered data refreshes in `restoreStandaloneState` are used to prevent `database is locked` errors during startup.
+2. **Large Collection Simulation**: Testing with `isSimulationMode: true` generates thousands of items to verify FTS5 search performance and scrolling smoothness.
+
 ## Best Practices
 
 1. **Co-location**: Keep test files next to the implementation.

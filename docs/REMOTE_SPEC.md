@@ -29,6 +29,14 @@ This document specifies the WebSocket protocol used to remote control the Bandca
 - Clients should handle reconnection logic (Exponential Backoff recommended).
 - There is currently no authentication beyond being on the same local network.
 
+### Hybrid Connectivity (Mobile App)
+
+The mobile companion application implements a **Hybrid Connectivity** model to ensure seamless transition between Remote and Standalone modes:
+
+1. **Persistent Connection**: The mobile app attempts to maintain its WebSocket connection to the desktop server even when it is in **Standalone Mode**.
+2. **Background Sync**: While in Standalone mode, the mobile app continues to receive `state-changed` and `time-update` messages from the desktop. This ensures the Remote state is always current when the user switches modes.
+3. **Instant Transition**: Because the connection is kept alive, switching from Standalone back to Remote mode happens instantly without requiring a new WebSocket handshake or discovery scan.
+
 ## Message Format
 
 All messages are exchanged as JSON strings.
