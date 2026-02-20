@@ -29,19 +29,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package x64
-        run: npm run package -- --win --x64 -p never
+      - name: Package Windows
+        run: npm run package -- --win --x64 --arm64 -p never
 
-      - name: Package ARM64
-        run: npm run package -- --win --arm64 -p never
-
-      - name: Rename Artifacts
-        shell: bash
-        run: |
-          cd release
-          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
-          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
-          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -78,13 +68,6 @@ jobs:
       - name: Package
         run: npm run package -- -p never
 
-      - name: Rename Artifacts
-        shell: bash
-        run: |
-          cd release
-          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
-          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
-          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -119,19 +102,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package x64
-        run: npm run package -- --mac --x64 -p never
+      - name: Package MacOS
+        run: npm run package -- --mac --x64 --arm64 -p never
 
-      - name: Package ARM64
-        run: npm run package -- --mac --arm64 -p never
-
-      - name: Rename Artifacts
-        shell: bash
-        run: |
-          cd release
-          for f in *x86_64*; do [ -f "$f" ] && mv "$f" "${f//x86_64/x64}"; done || true
-          for f in *amd64*; do [ -f "$f" ] && mv "$f" "${f//amd64/x64}"; done || true
-          for f in *aarch64*; do [ -f "$f" ] && mv "$f" "${f//aarch64/arm64}"; done || true
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

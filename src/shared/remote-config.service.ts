@@ -58,7 +58,21 @@ export interface RemoteConfig {
 }
 
 // Fallback baked-in config
-import DefaultConfig from '../../remote-config.json';
+let DefaultConfig: any;
+try {
+    // 1. Desktop production (app root) and Desktop/Mobile dev (project root)
+    DefaultConfig = require('../../remote-config.json');
+} catch (e) {
+    try {
+        // 2. Mobile production fallback (if bundled via mobile/assets)
+        // From /src/shared/ to /mobile/assets/
+        DefaultConfig = require('../../mobile/assets/remote-config.json');
+    } catch (e2) {
+        console.error('[RemoteConfig] Failed to load bundled config from all locations:', e2);
+        // Minimal emergency fallback
+        DefaultConfig = { version: "0.0.0", selectors: { collection: { itemContainer: "" }, album: { artistDOM: [] }, radio: { dataBlobElements: [], scriptRegexes: [] } }, endpoints: { collectionItemsApi: "" }, userAgents: { desktop: "", mobile: "", mobileApi: "" }, cleaning: { artistCleanRegex: "" }, scraping: { batchSize: 100 }, radioData: { showIdKeys: [] } };
+    }
+}
 
 const CONFIG_URL = 'https://raw.githubusercontent.com/eremef/bandcamp-player/main/remote-config.json';
 const HASH_URL = `${CONFIG_URL}.hash`;
@@ -106,7 +120,7 @@ export class RemoteConfigService {
                 return;
             }
 
-            const configText = await configRes.text();
+            const configText = (await configRes.text()).replace(/\r\n/g, '\n');
             const expectedHash = (await hashRes.text()).trim();
             const actualHash = sha256(configText);
 
