@@ -19,6 +19,7 @@ import type {
     CastStatus,
     Artist,
 } from '../../shared/types';
+import { RemoteConfig } from '../../shared/remote-config.service';
 
 // ============================================================================
 // Store Types
@@ -165,6 +166,12 @@ interface UISlice {
     hideToast: () => void;
 }
 
+interface RemoteConfigSlice {
+    remoteConfig: RemoteConfig | null;
+    fetchRemoteConfig: () => Promise<void>;
+    refreshRemoteConfig: () => Promise<void>;
+}
+
 type StoreState = AuthSlice &
     PlayerSlice &
     QueueSlice &
@@ -178,6 +185,7 @@ type StoreState = AuthSlice &
     UpdateSlice &
     CastSlice &
     ArtistSlice &
+    RemoteConfigSlice &
     UISlice;
 
 interface ArtistSlice {
@@ -562,6 +570,18 @@ export const useStore = create<StoreState>((set, get) => ({
         }
     },
     selectArtist: (artistId) => set({ selectedArtistId: artistId }),
+
+    // ---- Remote Config Slice ----
+    remoteConfig: null,
+    fetchRemoteConfig: async () => {
+        const config = await window.electron.system.getRemoteConfig();
+        set({ remoteConfig: config });
+    },
+    refreshRemoteConfig: async () => {
+        await window.electron.system.refreshRemoteConfig();
+        const config = await window.electron.system.getRemoteConfig();
+        set({ remoteConfig: config });
+    },
 }));
 
 // ============================================================================

@@ -1,6 +1,7 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto'); // Added crypto for hash generation
 
 const args = process.argv.slice(2);
 const newVersion = args.find(arg => !arg.startsWith('--'));
@@ -14,6 +15,14 @@ if (!newVersion) {
 
 const rootDir = path.resolve(__dirname, '..');
 const mobileDir = path.join(rootDir, 'mobile');
+
+const licenseSrc = path.join(__dirname, '../LICENSE.txt');
+const licenseDest = path.join(__dirname, '../mobile/assets/license.txt');
+
+const configSrc = path.join(__dirname, '../remote-config.json');
+const configDest = path.join(__dirname, '../mobile/assets/remote-config.json');
+const hashSrc = path.join(__dirname, '../remote-config.json.hash');
+const hashDest = path.join(__dirname, '../mobile/assets/remote-config.json.hash');
 
 function log(message) {
     console.log(`\x1b[36m[Release]\x1b[0m ${message}`);
@@ -41,6 +50,17 @@ function updateJson(filePath, updateFn) {
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
 }
 
+// Helper function to copy and normalize text files
+function copyAndNormalizeTextFile(srcPath, destPath) {
+    if (fs.existsSync(srcPath)) {
+        log(`Copying and normalizing ${srcPath} to ${destPath}`);
+        const content = fs.readFileSync(srcPath, 'utf8').replace(/\r\n/g, '\n'); // Normalize line endings to LF
+        fs.writeFileSync(destPath, content, 'utf8');
+    } else {
+        log(`Warn: Source file not found: ${srcPath}`);
+    }
+}
+
 // 1. Update Versions
 log('Step 1: Updating version numbers...');
 updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVersion; });
@@ -60,11 +80,19 @@ run('npm install', mobileDir);
 // 4. Remote Config and Assets
 log('Step 4: Syncing Remote Config and Assets...');
 run('node scripts/generate-config-hash.js');
+
+// Copy and normalize remote-config.json and its hash
+copyAndNormalizeTextFile(configSrc, configDest);
+copyAndNormalizeTextFile(hashSrc, hashDest);
+
+// Copy license file
+copyAndNormalizeTextFile(licenseSrc, licenseDest);
+
 run('node scripts/copy-assets.js');
 run('node scripts/validate-config.js');
 
-// 5. Run Tests
-log('Step 5: Running tests...');
+// 5. Run Quality Checks (Tests, Typecheck, Lint)
+log('Step 5: Running quality checks...');
 run('npm test');
 run('npm test', mobileDir);
 run('npm run typecheck');

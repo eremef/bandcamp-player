@@ -27,6 +27,7 @@ import { UpdaterService } from './services/updater.service';
 import { CastService } from './services/cast.service';
 import { Database } from './database/database';
 import { simulationService } from './services/simulation.service';
+import { remoteConfigService } from '../shared/remote-config.service';
 
 // ============================================================================
 // IPC Handlers Registration
@@ -313,6 +314,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(SYSTEM_CHANNELS.SHOW_ITEM_IN_FOLDER, (_, path: string) =>
         shell.showItemInFolder(path)
     );
+    ipcMain.handle(SYSTEM_CHANNELS.GET_REMOTE_CONFIG, () => remoteConfigService.get());
+    ipcMain.handle(SYSTEM_CHANNELS.REFRESH_REMOTE_CONFIG, () => remoteConfigService.fetchLatestConfig());
 
     // ---- Updates ----
     ipcMain.handle(UPDATE_CHANNELS.CHECK, () => updaterService.checkForUpdates());

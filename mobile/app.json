@@ -28,6 +28,9 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "web": {
       "favicon": "./assets/favicon.png"
     },

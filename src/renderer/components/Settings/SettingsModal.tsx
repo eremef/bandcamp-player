@@ -26,15 +26,31 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         updateStatus,
         checkForUpdates,
         installUpdate,
+        remoteConfig,
+        fetchRemoteConfig,
+        refreshRemoteConfig,
     } = useStore();
 
     const [appVersion, setAppVersion] = useState<string>('1.0.0');
+    const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
     const [copied, setCopied] = useState(false);
     const [showDevicesModal, setShowDevicesModal] = useState(false);
 
     useEffect(() => {
         window.electron.system.getAppVersion().then(setAppVersion);
+        if (!remoteConfig) {
+            fetchRemoteConfig();
+        }
     }, []);
+
+    const handleRefreshConfig = async () => {
+        setIsRefreshingConfig(true);
+        try {
+            await refreshRemoteConfig();
+        } finally {
+            setIsRefreshingConfig(false);
+        }
+    };
 
     // Fetch cache stats on mount
     if (!cacheStats) {
@@ -452,6 +468,19 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.about}>
                             <p><strong>Bandcamp Desktop Player</strong></p>
                             <p className={styles.version}>Version {appVersion}</p>
+                            {remoteConfig && (
+                                <p className={styles.version}>
+                                    Config {remoteConfig.version}
+                                    <button
+                                        className={styles.inlineRefreshBtn}
+                                        onClick={handleRefreshConfig}
+                                        disabled={isRefreshingConfig}
+                                        title="Refresh remote configuration"
+                                    >
+                                        <RefreshCw size={12} className={isRefreshingConfig ? styles.spin : ''} />
+                                    </button>
+                                </p>
+                            )}
                             <div className={styles.updateContainer}>
                                 {renderUpdateSection()}
                             </div>

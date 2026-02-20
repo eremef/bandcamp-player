@@ -599,6 +599,30 @@
     background: var(--bg-hover);
 }
 
+.inlineRefreshBtn {
+    background: none;
+    border: none;
+    color: var(--accent-primary);
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+.inlineRefreshBtn:hover:not(:disabled) {
+    background-color: var(--bg-hover);
+}
+
+.inlineRefreshBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
 .installBtn {
     background: var(--accent-primary);
     color: var(--text-on-accent);

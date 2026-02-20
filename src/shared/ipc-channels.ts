@@ -177,6 +177,8 @@ export const SYSTEM_CHANNELS = {
     GET_APP_VERSION: 'system:get-app-version',
     OPEN_EXTERNAL: 'system:open-external',
     SHOW_ITEM_IN_FOLDER: 'system:show-item-in-folder',
+    GET_REMOTE_CONFIG: 'system:get-remote-config',
+    REFRESH_REMOTE_CONFIG: 'system:refresh-remote-config',
 } as const;
 
 // ============================================================================
