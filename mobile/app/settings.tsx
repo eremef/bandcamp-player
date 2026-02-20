@@ -1,20 +1,27 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
+import { remoteConfigService } from '@shared/remote-config.service';
 
 export default function SettingsScreen() {
     const router = useRouter();
     const colors = useTheme();
     const { isSimulationMode, toggleSimulationMode } = useStore();
+    const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
-    if (!__DEV__) {
-        return null;
-    }
+    const handleRefreshConfig = async () => {
+        setIsRefreshingConfig(true);
+        try {
+            await remoteConfigService.fetchLatestConfig();
+        } finally {
+            setIsRefreshingConfig(false);
+        }
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -26,32 +33,62 @@ export default function SettingsScreen() {
             </View>
             <ScrollView style={styles.content}>
                 <View style={styles.section}>
-                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Debug & Simulation</Text>
-
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Remote Configuration</Text>
                     <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
                         <View style={styles.settingLabelContainer}>
-                            <TestTubeDiagonal color={colors.text} size={20} style={styles.settingIcon} />
+                            <Info color={colors.text} size={20} style={styles.settingIcon} />
                             <View>
-                                <Text style={[styles.settingTitle, { color: colors.text }]}>Simulation Mode</Text>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Config Version</Text>
                                 <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                                    Mock 5000 items in Standalone collection
+                                    v{remoteConfigService.get().version}
                                 </Text>
                             </View>
                         </View>
-                        <Switch
-                            value={isSimulationMode}
-                            onValueChange={toggleSimulationMode}
-                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
-                        />
+                        <TouchableOpacity
+                            onPress={handleRefreshConfig}
+                            disabled={isRefreshingConfig}
+                            style={styles.refreshButton}
+                        >
+                            {isRefreshingConfig ? (
+                                <ActivityIndicator size="small" color={colors.accent} />
+                            ) : (
+                                <RefreshCcw color={colors.accent} size={20} />
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </View>
 
-                <View style={styles.infoBox}>
-                    <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-                        Note: Enabling simulation mode will clear the current collection display.
-                        Perform a manual refresh in the Collection tab to load simulated data.
-                    </Text>
-                </View>
+                {__DEV__ && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Debug & Simulation</Text>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <TestTubeDiagonal color={colors.text} size={20} style={styles.settingIcon} />
+                                <View>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Simulation Mode</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Mock 5000 items in Standalone collection
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={isSimulationMode}
+                                onValueChange={toggleSimulationMode}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+                    </View>
+                )}
+
+                {__DEV__ && (
+                    <View style={styles.infoBox}>
+                        <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                            Note: Enabling simulation mode will clear the current collection display.
+                            Perform a manual refresh in the Collection tab to load simulated data.
+                        </Text>
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -110,6 +147,9 @@ const styles = StyleSheet.create({
     settingDescription: {
         fontSize: 12,
         marginTop: 2,
+    },
+    refreshButton: {
+        padding: 10,
     },
     infoBox: {
         padding: 16,

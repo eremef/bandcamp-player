@@ -22,9 +22,12 @@ config.resolver.extraNodeModules = {
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
 };
 
-// 4. Handle txt files
+// 4. Handle txt and hash files
 if (!config.resolver.assetExts.includes('txt')) {
     config.resolver.assetExts.push('txt');
+}
+if (!config.resolver.assetExts.includes('hash')) {
+    config.resolver.assetExts.push('hash');
 }
 
 // 5. BlockList to prevent resolving root cheerio

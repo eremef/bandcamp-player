@@ -12,7 +12,10 @@
     "test": "jest",
     "lint": "cd .. && eslint mobile",
     "typecheck": "tsc --noEmit",
-    "android:build": "expo run:android"
+    "android:build": "npm run sync-assets && expo run:android",
+    "sync-assets": "node ../scripts/generate-config-hash.js && node ../scripts/copy-assets.js",
+    "prebuild": "npm run sync-assets",
+    "prestart": "npm run sync-assets"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",

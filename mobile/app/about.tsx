@@ -5,10 +5,12 @@ import { Github, ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { useTheme } from '../theme';
+import { remoteConfigService } from '@shared/remote-config.service';
 
 export default function AboutScreen() {
     const colors = useTheme();
     const version = Constants.expoConfig?.version || '1.5.0-beta';
+    const configVersion = remoteConfigService.get().version;
 
     const handleGithubPress = () => {
         Linking.openURL('https://github.com/eremef/Bandcamp-player');
@@ -34,7 +36,7 @@ export default function AboutScreen() {
                 </View>
 
                 <Text style={[styles.appName, { color: colors.text }]}>Bandcamp Remote</Text>
-                <Text style={[styles.version, { color: colors.textSecondary }]}>Version {version}</Text>
+                <Text style={[styles.version, { color: colors.textSecondary }]}>Version {version} (Config {configVersion})</Text>
 
                 <Text style={[styles.description, { color: colors.textSecondary }]}>
                     A remote control companion for the Bandcamp Desktop Player.

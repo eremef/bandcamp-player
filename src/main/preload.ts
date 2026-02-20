@@ -224,6 +224,8 @@ const electronAPI = {
             ipcRenderer.invoke(SYSTEM_CHANNELS.OPEN_EXTERNAL, url),
         showItemInFolder: (path: string): Promise<void> =>
             ipcRenderer.invoke(SYSTEM_CHANNELS.SHOW_ITEM_IN_FOLDER, path),
+        getRemoteConfig: (): Promise<any> => ipcRenderer.invoke(SYSTEM_CHANNELS.GET_REMOTE_CONFIG),
+        refreshRemoteConfig: (): Promise<void> => ipcRenderer.invoke(SYSTEM_CHANNELS.REFRESH_REMOTE_CONFIG),
     },
 
     // ---- Updates ----

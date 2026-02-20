@@ -60,13 +60,13 @@ export interface RemoteConfig {
 // Fallback baked-in config
 let DefaultConfig: any;
 try {
-    // 1. Desktop production (app root) and Desktop/Mobile dev (project root)
-    DefaultConfig = require('../../remote-config.json');
+    // 1. Try mobile-specific path first if likely in React Native
+    // Metro will resolve this relative to the shared file
+    DefaultConfig = require('../../mobile/assets/remote-config.json');
 } catch (e) {
     try {
-        // 2. Mobile production fallback (if bundled via mobile/assets)
-        // From /src/shared/ to /mobile/assets/
-        DefaultConfig = require('../../mobile/assets/remote-config.json');
+        // 2. Desktop production (app root) and Desktop/Mobile dev (project root)
+        DefaultConfig = require('../../remote-config.json');
     } catch (e2) {
         console.error('[RemoteConfig] Failed to load bundled config from all locations:', e2);
         // Minimal emergency fallback

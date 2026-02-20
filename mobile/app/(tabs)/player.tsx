@@ -290,20 +290,18 @@ export default function PlayerScreen() {
                                 </TouchableOpacity>
                             )}
 
-                            {__DEV__ && (
-                                <TouchableOpacity
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setIsMenuVisible(false);
-                                        router.push('/settings' as any);
-                                    }}
-                                >
-                                    <View style={styles.menuItemWithIcon}>
-                                        <Settings size={18} color={colors.text} style={{ marginRight: 12 }} />
-                                        <Text style={[styles.menuItemText, { color: colors.text }]}>Settings</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setIsMenuVisible(false);
+                                    router.push('/settings' as any);
+                                }}
+                            >
+                                <View style={styles.menuItemWithIcon}>
+                                    <Settings size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Settings</Text>
+                                </View>
+                            </TouchableOpacity>
 
                             <TouchableOpacity
                                 style={styles.menuItem}
