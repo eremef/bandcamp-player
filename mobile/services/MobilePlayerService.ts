@@ -51,7 +51,7 @@ class MobilePlayerService {
         } else if (store.queue.items.length > 0) {
             // If queue has items but no current track, play first/current index
             const index = Math.max(0, store.queue.currentIndex);
-            this.playQueueIndex(index);
+            await this.playQueueIndex(index);
         }
     }
 

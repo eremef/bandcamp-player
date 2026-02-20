@@ -103,11 +103,8 @@ export class PlayerService extends EventEmitter {
         this.castService.on('device-status', (status) => {
             if (this.isCasting && status.currentTime !== undefined) {
                 // Synchronize time from cast device
-                this.currentTime = status.currentTime;
-                if (status.duration !== undefined) {
-                    this.duration = status.duration;
-                }
-                this.emitTimeUpdate();
+                const duration = status.duration !== undefined ? status.duration : this.duration;
+                this.internalUpdateTime(status.currentTime, duration);
             }
         });
 
@@ -248,30 +245,13 @@ export class PlayerService extends EventEmitter {
     }
 
     async playStation(station: RadioStation): Promise<void> {
-        // Clear queue and reset state
-        this.stop();
-
         this.isRadioActive = true;
         this.currentStation = station;
 
         const radioTrack = await this.stationToTrack(station);
+        await this.play(radioTrack, true);
 
-        // Add to queue as the only item
-        this.queue = [{
-            id: `radio-${Date.now()}`,
-            track: radioTrack,
-            source: 'radio',
-        }];
-        this.currentIndex = 0;
-
-        this.currentTrack = radioTrack;
-        console.log('Playing radio station track:', JSON.stringify(radioTrack, null, 2));
-        this.isPlaying = true;
-
-        this.emitStateChange();
-        this.emitTrackChange();
         this.emitRadioStateChange();
-        this.emitQueueUpdate();
     }
 
     /**
@@ -579,6 +559,10 @@ export class PlayerService extends EventEmitter {
         // because the cast device is the source of truth for progress.
         if (this.isCasting) return;
 
+        this.internalUpdateTime(currentTime, duration);
+    }
+
+    private internalUpdateTime(currentTime: number, duration: number): void {
         this.currentTime = currentTime;
         this.duration = duration;
         this.emitTimeUpdate();

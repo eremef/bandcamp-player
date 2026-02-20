@@ -5,6 +5,7 @@ import { simulationService } from './simulation.service';
 import { Database } from '../database/database';
 import type { Track, Album, Collection, CollectionItem, RadioStation } from '../../shared/types';
 import { EventEmitter } from 'events';
+import { remoteConfigService } from '../../shared/remote-config.service';
 // ============================================================================
 // Bandcamp Scraper Service
 // ============================================================================
@@ -21,10 +22,11 @@ export class ScraperService extends EventEmitter {
         super();
         this.authService = authService;
         this.database = database;
+        const config = remoteConfigService.get();
         this.http = axios.create({
             timeout: 30000,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': config.userAgents.desktop,
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
             },
@@ -37,10 +39,11 @@ export class ScraperService extends EventEmitter {
      */
     private cleanArtistName(name: string | undefined | null): string {
         if (!name) return '';
+        const config = remoteConfigService.get().cleaning;
         // Remove " by Artist" or "by Artist" suffix
-        let cleaned = name.replace(/\s*by\s+.+$/i, '').trim();
+        let cleaned = name.replace(new RegExp(config.artistCleanRegex, 'i'), '').trim();
         // Also strip leading "by " if present
-        cleaned = cleaned.replace(/^by\s+/i, '').trim();
+        cleaned = cleaned.replace(new RegExp(config.artistPrefixCleanRegex, 'i'), '').trim();
         return cleaned;
     }
 
@@ -51,6 +54,7 @@ export class ScraperService extends EventEmitter {
         if (!rawTitle) return 'Untitled';
 
         let title = rawTitle.trim();
+        const config = remoteConfigService.get().cleaning;
 
         // 1. Remove " by Artist" suffix if present
         if (artist && title.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
@@ -60,13 +64,13 @@ export class ScraperService extends EventEmitter {
         // 2. Remove "(gift given)" infix/suffix
         // Enhanced regex to capture the part before " (gift given)" for deduplication
         // Matches: "Title (gift given) Title" -> captures "Title"
-        const dedupeMatch = title.match(/^(.*?)\s*\(gift given\)\s*\1$/i);
+        const dedupeMatch = title.match(new RegExp(config.dedupeRegex, 'i'));
         if (dedupeMatch) {
             return dedupeMatch[1].trim() || 'Untitled';
         }
 
         // Fallback: just remove "(gift given)" from anywhere
-        title = title.replace(/\s*\(gift given\)\s*/gi, ' ').trim();
+        title = title.replace(new RegExp(config.titleCleanRegex, 'gi'), ' ').trim();
 
         // 3. General deduplication check (e.g. "Title Title")
         if (title.length > 0) {
@@ -143,27 +147,26 @@ export class ScraperService extends EventEmitter {
 
                 if (closeBraceIndex !== -1) {
                     const jsonString = content.substring(openBraceIndex, closeBraceIndex + 1);
+                    let parsedObject: any | null = null;
                     try {
                         // Try standard parse
-                        return JSON.parse(jsonString);
+                        parsedObject = JSON.parse(jsonString);
                     } catch {
                         // Try relax parse (e.g. key: value instead of "key": "value")
                         try {
-                            // Simple sanitization for keys
-                            const sanitized = jsonString
-                                .replace(/(\w+)\s*:/g, '"$1":')
-                                .replace(/'/g, '"');
-                            return JSON.parse(sanitized);
-                        } catch (e2) {
-                            // Last resort: eval (if safe context? Using Function is safer than eval, but still risky if remote content)
-                            // For a desktop app scraping specific trusted site sections, it's a trade-off.
-                            // We used eval-like approach in extractTralbumData before.
-                            try {
-                                return new Function(`return ${jsonString}`)();
-                            } catch (e3) {
-                                console.error(`[Scraper] Failed to parse extracted object for ${key}:`, e3);
-                            }
+                            // Simplified JSON5-like parsing attempt for keys and quotes
+                            const sanitizedValue = jsonString
+                                .replace(/([{,])\s*([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":') // Quote keys
+                                .replace(/'/g, '"'); // Replace single quotes
+                            parsedObject = JSON.parse(sanitizedValue);
+                        } catch (e3) {
+                            console.error(`[Scraper] Failed to parse extracted object for ${key}:`, e3);
                         }
+                    }
+
+                    // Basic validation: ensure it's an object and not null
+                    if (parsedObject && typeof parsedObject === 'object') {
+                        return parsedObject;
                     }
                 }
             }
@@ -246,13 +249,14 @@ export class ScraperService extends EventEmitter {
                     const $ = cheerio.load(response.data);
 
                     // Parse initial page items
+                    const config = remoteConfigService.get();
                     const collectionScript = $('script').filter((_, el) => {
                         const text = $(el).html() || '';
-                        return text.includes('CollectionData') || text.includes('collection_data');
+                        return config.scriptKeys.collection.some(k => text.includes(k));
                     }).first().html();
 
                     if (collectionScript) {
-                        const collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
+                        const collectionData = this.extractJsonObject(collectionScript, config.scriptKeys.collection);
                         if (collectionData?.items) {
                             for (const item of collectionData.items) {
                                 const parsed = this.parseCollectionItem(item);
@@ -262,7 +266,8 @@ export class ScraperService extends EventEmitter {
                     }
 
                     if (items.length === 0) {
-                        $('.collection-item-container').each((_, el) => {
+                        const config = remoteConfigService.get();
+                        $(config.selectors.collection.itemContainer).each((_, el) => {
                             const parsed = this.parseCollectionItemFromDOM($, $(el));
                             if (parsed) items.push(parsed);
                         });
@@ -283,8 +288,9 @@ export class ScraperService extends EventEmitter {
                     let batchCount = 0;
                     let retryCount = 0;
                     const MAX_RETRIES = 3;
+                    const scrapingConfig = remoteConfigService.get().scraping;
 
-                    while (hasMore && batchCount < 1000) {
+                    while (hasMore && batchCount < scrapingConfig.maxBatches) {
                         const lastItem = items[items.length - 1];
                         if (!lastItem?.token) break;
 
@@ -447,8 +453,9 @@ export class ScraperService extends EventEmitter {
             return simulationService.fetchBatch(lastToken);
         }
 
+        const config = remoteConfigService.get();
         const items: CollectionItem[] = [];
-        const batchSize = 100;
+        const batchSize = config.scraping.batchSize;
 
         const requestBody: any = {
             fan_id: parseInt(fanId, 10),
@@ -457,9 +464,8 @@ export class ScraperService extends EventEmitter {
         if (lastToken) {
             requestBody.older_than_token = lastToken;
         }
-
         const response = await this.http.post(
-            'https://bandcamp.com/api/fancollection/1/collection_items',
+            config.endpoints.collectionItemsApi,
             requestBody,
             {
                 headers: {
@@ -478,10 +484,9 @@ export class ScraperService extends EventEmitter {
             }
         }
 
-        // Rate limiting - slightly increased from 200ms to 300ms + jitter
-        // to be nicer to the API and avoid rate limits
-        const jitter = Math.floor(Math.random() * 200);
-        await new Promise(resolve => setTimeout(resolve, 100 + jitter));
+        // Rate limiting logic from config
+        const jitter = Math.floor(Math.random() * config.scraping.rateLimitJitter);
+        await new Promise(resolve => setTimeout(resolve, config.scraping.rateLimitDelay + jitter));
 
         return items;
     }
@@ -491,6 +496,7 @@ export class ScraperService extends EventEmitter {
      */
     private parseCollectionItem(item: any): CollectionItem | null {
         try {
+            const config = remoteConfigService.get();
             const isAlbum = item.item_type === 'album' || item.tralbum_type === 'a';
             const id = String(item.item_id || item.tralbum_id);
             const artist = this.cleanArtistName(item.band_name);
@@ -508,7 +514,7 @@ export class ScraperService extends EventEmitter {
                         title,
                         artist,
                         artistId: String(item.band_id),
-                        artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
+                        artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
                         bandcampUrl: item.item_url || item.bandcamp_url,
                         tracks: [],
                         trackCount: item.num_tracks || 0,
@@ -530,7 +536,7 @@ export class ScraperService extends EventEmitter {
                         artistId: item.band_id ? String(item.band_id) : undefined,
                         album: item.album_title || '',
                         duration: item.duration || 0,
-                        artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
+                        artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
                         streamUrl: '', // Will be fetched separately
                         bandcampUrl: item.item_url || '',
                         isCached: false,
@@ -549,10 +555,13 @@ export class ScraperService extends EventEmitter {
      */
     private parseCollectionItemFromDOM($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): CollectionItem | null {
         try {
-            const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', ''));
-            const title = this.cleanTitle($item.find('.collection-item-title').text(), artist);
-            const url = $item.find('a.item-link').attr('href') || '';
-            const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
+            const config = remoteConfigService.get().selectors.collection;
+            const artistDOM = $item.find(config.artist).text().replace('by ', '');
+            const artist = this.cleanArtistName(artistDOM || config.fallbackArtist);
+            const titleDOM = $item.find(config.title).text();
+            const title = this.cleanTitle(titleDOM || config.fallbackTitle, artist);
+            const url = $item.find(config.link).attr('href') || '';
+            const artworkUrl = $item.find(config.artwork).attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
             const artistId = $item.attr('data-bandid');
             const type = ($item.attr('data-itemtype') === 'track') ? 'track' : 'album';
@@ -606,6 +615,7 @@ export class ScraperService extends EventEmitter {
      */
     async getAlbumDetails(albumUrl: string): Promise<Album | null> {
         try {
+            const config = remoteConfigService.get();
             const cookies = await this.authService.getSessionCookies();
             const response = await this.http.get(albumUrl, {
                 headers: { Cookie: cookies },
@@ -627,7 +637,9 @@ export class ScraperService extends EventEmitter {
                 if (!streamUrl && tralbumData.band_id && trackInfo.track_id) {
                     try {
                         console.log(`[ScraperService] Fetching fallback stream for ${trackInfo.title} via Mobile API...`);
-                        const mobileUrl = `https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${tralbumData.band_id}&tralbum_type=t&tralbum_id=${trackInfo.track_id}`;
+                        const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                            .replace('{band_id}', tralbumData.band_id.toString())
+                            .replace('{track_id}', trackInfo.track_id.toString());
                         const response = await this.http.get(mobileUrl, { headers: { Cookie: cookies } });
 
                         if (response.data && response.data.tracks && response.data.tracks.length > 0) {
@@ -652,7 +664,7 @@ export class ScraperService extends EventEmitter {
                     albumId: String(tralbumData.id),
                     duration: trackInfo.duration || 0,
                     trackNumber: trackInfo.track_num || index + 1,
-                    artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
+                    artworkUrl: tralbumData.art_id ? config.endpoints.artworkFormat.replace('{art_id}', tralbumData.art_id.toString()) : '',
                     streamUrl,
                     bandcampUrl: trackInfo.title_link ? `${tralbumData.url}${trackInfo.title_link}` : albumUrl,
                     isCached: false,
@@ -664,7 +676,7 @@ export class ScraperService extends EventEmitter {
                 title: tralbumData.current?.title || tralbumData.album_title,
                 artist: this.cleanArtistName(tralbumData.artist),
                 artistId: String(tralbumData.band_id),
-                artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
+                artworkUrl: tralbumData.art_id ? config.endpoints.artworkFormat.replace('{art_id}', tralbumData.art_id.toString()) : '',
                 bandcampUrl: albumUrl,
                 releaseDate: tralbumData.current?.release_date,
                 tracks,
@@ -694,7 +706,14 @@ export class ScraperService extends EventEmitter {
         let tralbumData = null;
         const scriptContent = $('script').map((_, el) => $(el).html()).get().join('\n');
 
-        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData']);
+        const config = remoteConfigService.get();
+        tralbumData = this.extractJsonObject(scriptContent, config.scriptKeys.album);
+
+        // Validation for tralbumData
+        if (tralbumData && (!tralbumData.trackinfo || !tralbumData.id)) {
+            console.warn('[Scraper] Extracted album data failed validation (missing tracks or id)');
+            return null;
+        }
 
         return tralbumData;
     }
@@ -703,8 +722,9 @@ export class ScraperService extends EventEmitter {
      * Get Bandcamp Radio stations
      */
     async getRadioStations(): Promise<RadioStation[]> {
+        const config = remoteConfigService.get();
         try {
-            const response = await this.http.get('https://bandcamp.com/api/bcweekly/3/list');
+            const response = await this.http.get(config.endpoints.radioListApi);
             const stations: RadioStation[] = [];
 
             if (response.data.results) {
@@ -714,7 +734,7 @@ export class ScraperService extends EventEmitter {
                         id: String(episode.show_id || episode.id),
                         name: episode.title || `Bandcamp Weekly ${episode.id}`,
                         description: episode.subtitle || episode.desc,
-                        imageUrl: episode.image_id ? `https://f4.bcbits.com/img/${episode.image_id}_16.jpg` : undefined,
+                        imageUrl: episode.image_id ? config.endpoints.radioImageFormat.replace('{image_id}', episode.image_id.toString()) : undefined,
                         streamUrl: '', // Will be fetched on demand
                         date: episode.published_date ? new Date(episode.published_date).toLocaleDateString('en-US', {
                             month: 'long',
@@ -735,7 +755,7 @@ export class ScraperService extends EventEmitter {
                     id: 'weekly',
                     name: 'Bandcamp Weekly',
                     description: 'The best new music on Bandcamp',
-                    streamUrl: 'https://bandcamp.com/bcweekly',
+                    streamUrl: config.endpoints.radioFallbackStream,
                 },
             ];
         }
@@ -828,7 +848,8 @@ export class ScraperService extends EventEmitter {
     async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
         try {
             // 1. Fetch the show page
-            const response = await this.http.get(`https://bandcamp.com/?show=${showId}`);
+            const config = remoteConfigService.get();
+            const response = await this.http.get(config.endpoints.radioShowWeb.replace('{showId}', showId));
             const $ = cheerio.load(response.data);
 
             // 2. Extract data blob from ArchiveApp div
@@ -840,31 +861,36 @@ export class ScraperService extends EventEmitter {
 
             try {
                 const appData = JSON.parse(dataBlob);
-                // Find the show in the shows list
-                const show = appData.appData?.shows?.find((s: any) => String(s.showId) === showId);
+                // Find the show in the shows list using configurable keys
+                const show = appData.appData?.shows?.find((s: any) => {
+                    const id = String(config.radioData.dataBlobKeys.reduce((acc, key) => acc || s[key], null as any) || '');
+                    return id === showId;
+                });
 
-                if (!show || !show.audioTrackId) {
+                const audioTrackId = show?.trackId || show?.audioTrackId;
+
+                if (!show || !audioTrackId) {
                     console.error('Show or audioTrackId not found in data blob');
                     return { streamUrl: '', duration: 0 };
                 }
 
-                const audioTrackId = show.audioTrackId;
-
                 // 3. Fetch track details from mobile API
                 // Using band_id=1 as generic system ID often works for radio
-                const trackResponse = await this.http.get(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=1&tralbum_type=t&tralbum_id=${audioTrackId}`);
+                const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                    .replace('{band_id}', '1') // Radio tracks often use generic band_id 1
+                    .replace('{track_id}', audioTrackId.toString());
+                const trackResponse = await this.http.get(mobileUrl);
 
                 if (trackResponse.data && trackResponse.data.tracks && trackResponse.data.tracks.length > 0) {
                     const track = trackResponse.data.tracks[0];
                     const streamUrl = track.streaming_url?.['mp3-128'];
                     const duration = track.duration || 0;
+
                     if (streamUrl) {
                         return { streamUrl, duration };
                     }
-                } else {
-                    // No tracks found
                 }
-                console.error('Stream URL not found in API response');
+                console.error('[Scraper] Stream URL not found or invalid response for radio track');
                 return { streamUrl: '', duration: 0 };
             } catch (e) {
                 console.error('Error parsing radio page data:', e);
@@ -880,10 +906,12 @@ export class ScraperService extends EventEmitter {
      * Get fresh stream URL for a track
      */
     async getTrackStreamUrl(track: Track): Promise<string> {
+        const config = remoteConfigService.get();
+
         // Radio tracks
         if (track.id.startsWith('radio-')) {
             const { streamUrl } = await this.getStationStreamUrl(track.id.replace('radio-', ''));
-            return streamUrl || track.streamUrl;
+            return await this.resolveRedirect(streamUrl || track.streamUrl);
         }
 
         // Normal tracks
@@ -891,7 +919,9 @@ export class ScraperService extends EventEmitter {
 
         try {
             console.log(`[ScraperService] Refreshing stream URL for ${track.title} (ID: ${track.id})...`);
-            const mobileUrl = `https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${track.artistId}&tralbum_type=t&tralbum_id=${track.id}`;
+            const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                .replace('{band_id}', track.artistId)
+                .replace('{track_id}', track.id);
             const cookies = await this.authService.getSessionCookies();
             const response = await this.http.get(mobileUrl, { headers: { Cookie: cookies } });
 
@@ -900,13 +930,30 @@ export class ScraperService extends EventEmitter {
                 const freshUrl = mobileTrack.streaming_url?.['mp3-128'] || mobileTrack.streaming_url?.['mp3-v0'];
                 if (freshUrl) {
                     console.log('[ScraperService] Successfully refreshed stream URL');
-                    return freshUrl;
+                    return await this.resolveRedirect(freshUrl);
                 }
             }
         } catch (e) {
             console.error('[ScraperService] Error refreshing track stream URL:', e);
         }
 
-        return track.streamUrl;
+        return await this.resolveRedirect(track.streamUrl);
+    }
+
+    /**
+     * Resolve Bandcamp stream redirects to get direct media URLs
+     */
+    private async resolveRedirect(url: string): Promise<string> {
+        if (!url || !url.includes('stream_redirect')) return url;
+        try {
+            const response = await this.http.get(url, {
+                maxRedirects: 0,
+                validateStatus: (status) => status >= 300 && status < 400
+            });
+            return response.headers.location || url;
+        } catch (e) {
+            console.warn('[ScraperService] Failed to resolve redirect, using original URL:', e);
+            return url;
+        }
     }
 }

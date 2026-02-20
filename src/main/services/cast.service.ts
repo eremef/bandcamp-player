@@ -1,13 +1,19 @@
 import { EventEmitter } from 'events';
-import Client from 'chromecast-api';
+import { connect, PersistentClient, DefaultMediaApp, MediaController, createPlatform } from '@foxxmd/chromecast-client';
+import { Bonjour, Browser } from 'bonjour-service';
 import { CastDevice, Track } from '../../shared/types';
 
 export class CastService extends EventEmitter {
-    private client: any;
+    private bonjour: Bonjour | null = null;
+    private mdnsBrowser: Browser | null = null;
     private devices: Map<string, any> = new Map();
-    private connectedDevice: any = null;
+
+    private client: PersistentClient | null = null;
+    private mediaController: MediaController.MediaController | null = null;
+    private connectedDeviceName: string | null = null;
     private isScanning: boolean = false;
     private hasActiveSession: boolean = false;
+    private statusInterval: NodeJS.Timeout | null = null;
 
     private handleDeviceError = (err: any) => {
         console.error('[CastService] Device error:', err);
@@ -15,75 +21,89 @@ export class CastService extends EventEmitter {
     };
 
     private handleDeviceStatus = (status: any) => {
+        // The new library wraps media status in Result objects, but if we wire up event listeners...
+        // We'll manage state internally via polling or relying on the library's heartbeat.
         this.emit('device-status', status);
 
-        if (status.playerState === 'IDLE' && status.idleReason === 'FINISHED') {
+        if (status?.playerState === 'IDLE' && status?.idleReason === 'FINISHED') {
             this.emit('finished');
         }
 
-        // Update session state based on player state
-        if (status.playerState && status.playerState !== 'IDLE') {
+        if (status?.playerState && status.playerState !== 'IDLE') {
             this.hasActiveSession = true;
-        } else if (status.playerState === 'IDLE') {
-            // Any IDLE state means the session is effectively gone or finished
+        } else if (status?.playerState === 'IDLE') {
             this.hasActiveSession = false;
         }
     };
 
-    private setupDeviceListeners(device: any) {
-        // Remove existing listeners if any to avoid duplicates
-        this.cleanupDeviceListeners(device);
-
-        device.on('error', this.handleDeviceError);
-        device.on('status', this.handleDeviceStatus);
-    }
-
-    private cleanupDeviceListeners(device: any) {
-        if (!device) return;
-        device.removeListener('error', this.handleDeviceError);
-        device.removeListener('status', this.handleDeviceStatus);
-    }
-
     constructor() {
         super();
-        // Client initialized on demand
+        this.bonjour = new Bonjour();
+    }
+
+    private startStatusPolling() {
+        this.stopStatusPolling();
+        this.statusInterval = setInterval(async () => {
+            if (this.mediaController && this.hasActiveSession) {
+                try {
+                    const statusResult = await this.mediaController.getStatus();
+                    const unwrapped = statusResult.unwrapWithErr();
+                    if (unwrapped.isOk) {
+                        this.handleDeviceStatus(unwrapped.value);
+                    }
+                } catch (err) {
+                    console.error('[CastService] Error polling status:', err);
+                }
+            }
+        }, 1000);
+    }
+
+    private stopStatusPolling() {
+        if (this.statusInterval) {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
+        }
     }
 
     startDiscovery() {
         if (this.isScanning) return;
 
-        if (!this.client) {
-            try {
-                this.client = new Client();
-                this.client.on('device', (device: any) => {
-                    const existing = this.devices.get(device.friendlyName);
-                    const isIP = (h: string) => /^(\d{1,3}\.){3}\d{1,3}$/.test(h);
-
-                    if (existing) {
-                        // If we already have a numeric IP, and the new discovery is a .local hostname, ignore the update
-                        // because numeric IPs are generally more stable and don't rely on MDNS resolution.
-                        if (isIP(existing.host) && !isIP(device.host)) {
-                            return;
-                        }
-                    }
-
-                    console.log(`[CastService] Discovered/Updated device: ${device.friendlyName} at ${device.host}`);
-                    // Use friendlyName as unique identifier to avoid duplicates from IP vs MDNS
-                    this.devices.set(device.friendlyName, device);
-                    this.emit('devices-updated', this.getDevices());
-                });
-
-                // Forward errors from the client if possible (chromecast-api might not emit error on client itself, but on devices)
-            } catch (err) {
-                console.error('[CastService] Failed to initialize Chromecast client:', err);
-                this.emit('error', err);
-                return;
-            }
-        }
-
         this.isScanning = true;
         console.log('[CastService] Starting discovery...');
-        this.client?.update(); // trigger search
+
+        if (!this.mdnsBrowser && this.bonjour) {
+            this.mdnsBrowser = this.bonjour.find({ type: 'googlecast' });
+
+            this.mdnsBrowser.on('up', (service) => {
+                const name = service.txt?.fn || service.name;
+                const existing = this.devices.get(name);
+
+                // IPv4 addresses are preferred.
+                const ipv4 = service.addresses?.find((ip: string) => ip.includes('.'));
+                const host = ipv4 || service.addresses?.[0] || service.host;
+
+                // Only update if it's new or we found a better IP.
+                if (!existing || (ipv4 && !existing.host.includes('.'))) {
+                    console.log(`[CastService] Discovered/Updated device: ${name} at ${host}`);
+                    this.devices.set(name, {
+                        friendlyName: name,
+                        host: host,
+                        port: service.port,
+                    });
+                    this.emit('devices-updated', this.getDevices());
+                }
+            });
+
+            this.mdnsBrowser.on('down', (service) => {
+                const name = service.txt?.fn || service.name;
+                if (this.devices.has(name) && name !== this.connectedDeviceName) {
+                    this.devices.delete(name);
+                    this.emit('devices-updated', this.getDevices());
+                }
+            });
+        }
+
+        this.mdnsBrowser?.start();
     }
 
     stopDiscovery() {
@@ -91,16 +111,13 @@ export class CastService extends EventEmitter {
         this.isScanning = false;
         console.log('[CastService] Stopping discovery...');
 
-        // If we are not connected to any device, we can destroy the client to save resources
-        if (!this.connectedDevice && this.client) {
-            try {
-                this.client.destroy();
-                this.client = null;
-                this.devices.clear();
-                this.emit('devices-updated', []);
-            } catch (error) {
-                console.error('[CastService] Error destroying client:', error);
-            }
+        if (this.mdnsBrowser) {
+            this.mdnsBrowser.stop();
+        }
+
+        if (!this.client) {
+            this.devices.clear();
+            this.emit('devices-updated', []);
         }
     }
 
@@ -111,7 +128,7 @@ export class CastService extends EventEmitter {
             host: device.host,
             friendlyName: device.friendlyName,
             type: 'chromecast',
-            status: this.connectedDevice?.friendlyName === device.friendlyName ? 'connected' : 'disconnected'
+            status: this.connectedDeviceName === device.friendlyName ? 'connected' : 'disconnected'
         }));
     }
 
@@ -119,128 +136,186 @@ export class CastService extends EventEmitter {
         const device = this.devices.get(id);
         if (!device) throw new Error('Device not found');
 
-        console.log(`[CastService] Connecting to ${device.friendlyName}...`);
+        console.log(`[CastService] Connecting to ${device.friendlyName} at ${device.host}...`);
 
-        // Cleanup old device if different
-        if (this.connectedDevice && this.connectedDevice !== device) {
-            this.cleanupDeviceListeners(this.connectedDevice);
+        try {
+            if (this.client) {
+                this.client.close();
+                this.client = null;
+                this.mediaController = null;
+            }
+
+            this.client = await connect({ host: device.host });
+
+            this.client.on('error', this.handleDeviceError);
+
+            this.connectedDeviceName = device.friendlyName;
+            this.hasActiveSession = false;
+
+            this.emit('status-changed', {
+                status: 'connected',
+                device: this.getDevices().find(d => d.id === id)
+            });
+        } catch (error) {
+            console.error('[CastService] Connection failed:', error);
+            this.connectedDeviceName = null;
+            this.client = null;
+            throw error;
         }
-
-        this.connectedDevice = device;
-        this.hasActiveSession = false;
-        this.setupDeviceListeners(this.connectedDevice);
-
-        // The library connects on play, but we want to track status
-        this.emit('status-changed', {
-            status: 'connected',
-            device: this.getDevices().find(d => d.id === id)
-        });
     }
 
     disconnect() {
-        if (this.connectedDevice) {
-            console.log(`[CastService] Disconnecting from ${this.connectedDevice.friendlyName}...`);
+        if (this.client) {
+            console.log(`[CastService] Disconnecting from ${this.connectedDeviceName}...`);
             try {
-                this.cleanupDeviceListeners(this.connectedDevice);
-                this.connectedDevice.stop();
-            } catch (e) {
+                if (this.mediaController) {
+                    this.mediaController.stop().catch(() => { });
+                    this.mediaController.dispose();
+                }
+                this.client.close();
+            } catch {
                 // Ignore stop errors on disconnect
             }
-            this.connectedDevice = null;
+            this.client = null;
+            this.mediaController = null;
+            this.connectedDeviceName = null;
             this.hasActiveSession = false;
+            this.stopStatusPolling();
             this.emit('status-changed', { status: 'disconnected' });
         }
     }
 
-    play(track: Track, startTime: number = 0) {
-        if (!this.connectedDevice) {
+    async play(track: Track, startTime: number = 0) {
+        if (!this.client) {
             console.warn('[CastService] Play called but no device connected');
             return;
         }
 
-        console.log(`[CastService] Playing ${track.title} on ${this.connectedDevice.friendlyName}`);
-        const media = {
-            url: track.streamUrl,
-            contentType: 'audio/mpeg',
-            metadata: {
-                title: track.title,
-                artist: track.artist,
-                albumName: track.album,
-                images: track.artworkUrl ? [{ url: track.artworkUrl }] : []
-            }
-        };
+        console.log(`[CastService] Playing ${track.title} on ${this.connectedDeviceName}`);
 
-        this.hasActiveSession = false; // Reset until confirmed
-        this.connectedDevice.play(media, { startTime }, (err: any) => {
-            if (err) {
-                console.error('[CastService] Play error:', err);
-                this.emit('error', err);
-            } else {
-                this.hasActiveSession = true;
-            }
-        });
-    }
+        try {
+            // Re-launch media app to ensure clean state
+            const launchResult = await DefaultMediaApp.launchAndJoin({ client: this.client });
+            const unwrappedLaunch = launchResult.unwrapWithErr();
 
-    pause() {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.pause((err: any) => {
-            if (err) {
-                console.error('[CastService] Pause error:', err);
-                if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) {
-                    this.hasActiveSession = false;
-                }
+            if (!unwrappedLaunch.isOk) {
+                throw unwrappedLaunch.value;
             }
-        });
-    }
 
-    resume() {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.resume((err: any) => {
-            if (err) {
-                console.error('[CastService] Resume error:', err);
-                if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) {
-                    this.hasActiveSession = false;
-                }
+            if (this.mediaController) {
+                this.mediaController.dispose();
             }
-        });
-    }
+            this.mediaController = unwrappedLaunch.value;
 
-    stop() {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.stop((err: any) => {
-            if (err) {
-                console.error('[CastService] Stop error:', err);
-                if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) {
-                    this.hasActiveSession = false;
-                }
-            }
             this.hasActiveSession = false;
-        });
+
+            const loadResult = await this.mediaController.load({
+                media: {
+                    contentId: track.streamUrl,
+                    streamType: 'BUFFERED',
+                    contentType: 'audio/mpeg',
+                    metadata: {
+                        metadataType: 3, // MUSIC_TRACK
+                        title: track.title,
+                        artist: track.artist,
+                        albumName: track.album,
+                        images: track.artworkUrl ? [{ url: track.artworkUrl }] : []
+                    }
+                },
+                currentTime: startTime,
+                autoplay: true
+            });
+
+            const unwrappedLoad = loadResult.unwrapWithErr();
+
+            if (unwrappedLoad.isOk) {
+                this.hasActiveSession = true;
+                this.handleDeviceStatus(unwrappedLoad.value);
+                this.startStatusPolling();
+            } else {
+                throw unwrappedLoad.value;
+            }
+        } catch (err: any) {
+            console.error('[CastService] Play error:', err);
+            this.emit('error', err);
+        }
     }
 
-    seek(time: number) {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.seekTo(time, (err: any) => {
-            if (err) console.error('[CastService] Seek error:', err);
-        });
+    async pause() {
+        if (!this.mediaController || !this.hasActiveSession) return;
+        try {
+            const res = await this.mediaController.pause();
+            const unwrapped = res.unwrapWithErr();
+            if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
+        } catch (err: any) {
+            console.error('[CastService] Pause error:', err);
+            if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
+        }
     }
 
-    setVolume(volume: number) {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.setVolume(volume, (err: any) => {
-            if (err) console.error('[CastService] Set volume error:', err);
-        });
+    async resume() {
+        if (!this.mediaController || !this.hasActiveSession) return;
+        try {
+            const res = await this.mediaController.play();
+            const unwrapped = res.unwrapWithErr();
+            if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
+        } catch (err: any) {
+            console.error('[CastService] Resume error:', err);
+            if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
+        }
     }
 
-    setMuted(muted: boolean) {
-        if (!this.connectedDevice || !this.hasActiveSession) return;
-        this.connectedDevice.setVolumeMuted(muted, (err: any) => {
-            if (err) console.error('[CastService] Set muted error:', err);
-        });
+    async stop() {
+        if (!this.mediaController || !this.hasActiveSession) return;
+        try {
+            const res = await this.mediaController.stop();
+            const unwrapped = res.unwrapWithErr();
+            if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
+            this.hasActiveSession = false;
+            this.stopStatusPolling();
+        } catch (err: any) {
+            console.error('[CastService] Stop error:', err);
+            if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
+            this.hasActiveSession = false;
+            this.stopStatusPolling();
+        }
+    }
+
+    async seek(time: number) {
+        if (!this.mediaController || !this.hasActiveSession) return;
+        try {
+            const res = await this.mediaController.seek({ currentTime: time });
+            const unwrapped = res.unwrapWithErr();
+            if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
+        } catch (err: any) {
+            console.error('[CastService] Seek error:', err);
+        }
+    }
+
+    async setVolume(volume: number) {
+        // volume parameter is traditionally 0-1 or 0-100? chromecast usually uses 0-1.
+        // I will assume it is passed correctly without needing translation, per original method.
+        try {
+            if (!this.client) return;
+            const platform = createPlatform(this.client);
+            await platform.setVolume({ level: volume });
+        } catch (err) {
+            console.error('[CastService] Set volume error:', err);
+        }
+    }
+
+    async setMuted(muted: boolean) {
+        try {
+            if (!this.client) return;
+            const platform = createPlatform(this.client);
+            await platform.setVolume({ mute: muted });
+        } catch (err) {
+            console.error('[CastService] Set muted error:', err);
+        }
     }
 
     getConnectedDevice(): CastDevice | null {
-        if (!this.connectedDevice) return null;
-        return this.getDevices().find(d => d.id === this.connectedDevice.friendlyName) || null;
+        if (!this.connectedDeviceName) return null;
+        return this.getDevices().find(d => d.id === this.connectedDeviceName) || null;
     }
 }

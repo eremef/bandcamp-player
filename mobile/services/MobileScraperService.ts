@@ -3,6 +3,7 @@ import { Collection, CollectionItem, Album, Track, RadioStation } from '@shared/
 import { mobileAuthService } from './MobileAuthService';
 import { mobileDatabase } from './MobileDatabase';
 import { mobileSimulationService } from './MobileSimulationService';
+import { remoteConfigService } from '@shared/remote-config.service';
 
 // ============================================================================
 // Mobile Bandcamp Scraper Service
@@ -18,8 +19,9 @@ export class MobileScraperService {
         if (!name) return '';
         // Special case: if it's literally "Unknown Artist", return it as is if it bypasses cleaning
         if (name === 'Unknown Artist') return name;
-        let cleaned = name.replace(/\s*by\s+.+$/i, '').trim();
-        cleaned = cleaned.replace(/^by\s+/i, '').trim();
+        const config = remoteConfigService.get().cleaning;
+        let cleaned = name.replace(new RegExp(config.artistCleanRegex, 'i'), '').trim();
+        cleaned = cleaned.replace(new RegExp(config.artistPrefixCleanRegex, 'i'), '').trim();
         // Remove duplicate spaces or control characters if any
         cleaned = cleaned.replace(/\s+/g, ' ');
         return cleaned.trim();
@@ -36,12 +38,13 @@ export class MobileScraperService {
             title = title.slice(0, -` by ${artist}`.length);
         }
 
-        const dedupeMatch = title.match(/^(.*?)\s*\(gift given\)\s*\1$/i);
+        const config = remoteConfigService.get().cleaning;
+        const dedupeMatch = title.match(new RegExp(config.dedupeRegex, 'i'));
         if (dedupeMatch) {
             return dedupeMatch[1].trim() || 'Untitled';
         }
 
-        title = title.replace(/\s*\(gift given\)\s*/gi, ' ').trim();
+        title = title.replace(new RegExp(config.titleCleanRegex, 'gi'), ' ').trim();
 
         if (title.length > 0) {
             const parts = title.split(/\s+/);
@@ -104,18 +107,23 @@ export class MobileScraperService {
 
                 if (closeBraceIndex !== -1) {
                     const jsonString = content.substring(openBraceIndex, closeBraceIndex + 1);
+                    let parsedObject: any | null = null;
                     try {
-                        return JSON.parse(jsonString);
+                        parsedObject = JSON.parse(jsonString);
                     } catch {
                         try {
-                            const sanitized = jsonString
-                                .replace(/(\w+)\s*:/g, '"$1":')
-                                .replace(/'/g, '"');
-                            return JSON.parse(sanitized);
-                        } catch (e2) {
-                            // Desktop uses new Function fallback. We'll try to be robust with the sanitized JSON first.
-                            // If we really need to match desktop, we can use new Function, but usually sanitized JSON handles unquoted keys.
+                            // Simplified JSON5-like parsing attempt for keys and quotes
+                            const sanitizedValue = jsonString
+                                .replace(/([{,])\s*([a-zA-Z0-9_$]+)\s*:/g, '$1"$2":') // Quote keys
+                                .replace(/'/g, '"'); // Replace single quotes
+                            parsedObject = JSON.parse(sanitizedValue);
+                        } catch (e) {
+                            console.error(`[MobileScraper] Failed to parse extracted object for ${key}:`, e);
                         }
+                    }
+
+                    if (parsedObject && typeof parsedObject === 'object') {
+                        return parsedObject;
                     }
                 }
 
@@ -205,10 +213,11 @@ export class MobileScraperService {
                 const cookies = await mobileAuthService.getCookies();
                 const profileUrl = authState.user.profileUrl;
 
+                const config = remoteConfigService.get();
                 const response = await fetch(profileUrl, {
                     headers: {
                         'Cookie': cookies,
-                        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                        'User-Agent': config.userAgents.mobile
                     }
                 });
 
@@ -218,11 +227,11 @@ export class MobileScraperService {
                 // Parse initial page items using collection_data var
                 const collectionScript = $('script').filter((_, el) => {
                     const text = $(el).html() || '';
-                    return text.includes('CollectionData') || text.includes('collection_data');
+                    return config.scriptKeys.collection.some(k => text.includes(k));
                 }).first().html();
 
                 if (collectionScript) {
-                    const collectionData = this.extractJsonObject(collectionScript, ['collection_data', 'CollectionData']);
+                    const collectionData = this.extractJsonObject(collectionScript, config.scriptKeys.collection);
                     if (collectionData?.items) {
                         for (const item of collectionData.items) {
                             const parsed = this.parseCollectionItem(item);
@@ -233,7 +242,7 @@ export class MobileScraperService {
 
                 // Fallback to DOM parsing if script failed
                 if (items.length === 0) {
-                    $('#collection-grid .collection-item-container').each((_, el) => {
+                    $(`#collection-grid ${config.selectors.collection.itemContainer}`).each((_, el) => {
                         const parsed = this.parseCollectionItemFromDOM($, $(el));
                         if (parsed) items.push(parsed);
                     });
@@ -255,7 +264,8 @@ export class MobileScraperService {
 
                 onProgress?.(`Loading collection...`);
 
-                while (hasMore && batchCount < 200) {
+                const scrapingConfig = remoteConfigService.get().scraping;
+                while (hasMore && batchCount < scrapingConfig.maxBatches) {
                     if (!lastToken) break;
                     try {
                         const batch = await this.fetchMoreCollectionItems(activeFanId, lastToken, cookies);
@@ -306,16 +316,17 @@ export class MobileScraperService {
     }
 
     private async fetchMoreCollectionItems(fanId: string, lastToken: string | undefined, cookies: string): Promise<CollectionItem[]> {
+        const config = remoteConfigService.get();
         const items: CollectionItem[] = [];
         const requestBody: any = {
             fan_id: parseInt(fanId, 10),
-            count: 100, // Match desktop batch size
+            count: config.scraping.batchSize,
         };
         if (lastToken) {
             requestBody.older_than_token = lastToken;
         }
 
-        const response = await fetch('https://bandcamp.com/api/fancollection/1/collection_items', {
+        const response = await fetch(config.endpoints.collectionItemsApi, {
             method: 'POST',
             headers: {
                 'Cookie': cookies,
@@ -333,12 +344,14 @@ export class MobileScraperService {
         }
 
         // slight delay
-        await new Promise(r => setTimeout(r, 100));
+        const jitter = Math.floor(Math.random() * config.scraping.rateLimitJitter);
+        await new Promise(r => setTimeout(r, config.scraping.rateLimitDelay + jitter));
         return items;
     }
 
     private parseCollectionItem(item: any): CollectionItem | null {
         try {
+            const config = remoteConfigService.get();
             // Skip wishlist items if they accidentally appeared 
             if (item.is_wishlist || item.why === 'wishlist') {
                 return null;
@@ -363,7 +376,7 @@ export class MobileScraperService {
                         title,
                         artist,
                         artistId: String(item.band_id),
-                        artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
+                        artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
                         bandcampUrl: item.item_url || item.bandcamp_url,
                         tracks: [],
                         trackCount: item.num_tracks || 0,
@@ -383,7 +396,7 @@ export class MobileScraperService {
                         artistId: item.band_id ? String(item.band_id) : undefined,
                         album: item.album_title || '',
                         duration: typeof item.duration === 'number' ? item.duration : parseFloat(item.duration || '0'),
-                        artworkUrl: item.item_art_url || (item.art_id ? `https://f4.bcbits.com/img/a${item.art_id}_10.jpg` : ''),
+                        artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
                         streamUrl: '',
                         bandcampUrl: item.item_url || '',
                         isCached: false,
@@ -399,10 +412,13 @@ export class MobileScraperService {
 
     private parseCollectionItemFromDOM($: cheerio.CheerioAPI, $item: cheerio.Cheerio<any>): CollectionItem | null {
         try {
-            const artist = this.cleanArtistName($item.find('.collection-item-artist').text().replace('by ', '')) || 'Unknown Artist';
-            const title = this.cleanTitle($item.find('.collection-item-title').text(), artist) || 'Untitled';
-            const url = $item.find('a.item-link').attr('href') || '';
-            const artworkUrl = $item.find('img.collection-item-art').attr('src') || '';
+            const config = remoteConfigService.get().selectors.collection;
+            const artistDOM = $item.find(config.artist).text().replace('by ', '');
+            const artist = this.cleanArtistName(artistDOM || config.fallbackArtist) || config.fallbackArtist;
+            const titleDOM = $item.find(config.title).text();
+            const title = this.cleanTitle(titleDOM || config.fallbackTitle, artist) || config.fallbackTitle;
+            const url = $item.find(config.link).attr('href') || '';
+            const artworkUrl = $item.find(config.artwork).attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
             const artistId = $item.attr('data-bandid');
             const type = ($item.attr('data-itemtype') === 'track') ? 'track' : 'album';
@@ -550,10 +566,11 @@ export class MobileScraperService {
     async getAlbumDetails(albumUrl: string): Promise<Album | null> {
         try {
             const cookies = await mobileAuthService.getCookies();
+            const config = remoteConfigService.get();
             const response = await fetch(albumUrl, {
                 headers: {
                     'Cookie': cookies,
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                    'User-Agent': config.userAgents.mobile
                 }
             });
 
@@ -568,18 +585,21 @@ export class MobileScraperService {
             }
 
             // Enhance tralbumData with DOM fallbacks if missing or generic
-            const domArtist = $('span[itemprop="byArtist"]').text().trim() ||
-                $('#name-section h3').text().trim().replace(/^by\s+/i, '') ||
-                $('h3.album-artist').text().trim() ||
-                $('header h2').text().trim().split('by ')[1] ||
-                $('.albumArtist').text().trim();
+            let domArtist = '';
+            for (const selector of config.selectors.album.artistDOM) {
+                const text = $(selector).text().trim();
+                if (text) {
+                    domArtist = text.replace(/^by\s+/i, '');
+                    break;
+                }
+            }
 
             // Aligned with desktop: prioritize tralbumData.artist but fallback to DOM if it's 'Unknown Artist'
             let rawArtist = tralbumData.artist || tralbumData.artist_name || tralbumData.band_name;
             if (!rawArtist || rawArtist === 'Unknown Artist') {
                 rawArtist = domArtist;
             }
-            
+
             const albumArtist = this.cleanArtistName(rawArtist || 'Unknown Artist');
 
             const tracks: Track[] = await Promise.all((tralbumData.trackinfo || []).map(async (trackInfo: any, index: number) => {
@@ -588,11 +608,13 @@ export class MobileScraperService {
                 // Fallback to Mobile API if stream URL is missing
                 if (!streamUrl && tralbumData.band_id && trackInfo.track_id) {
                     try {
-                        const mobileUrl = `https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${tralbumData.band_id}&tralbum_type=t&tralbum_id=${trackInfo.track_id}`;
+                        const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                            .replace('{band_id}', tralbumData.band_id.toString())
+                            .replace('{track_id}', trackInfo.track_id.toString());
                         const apiRes = await fetch(mobileUrl, {
                             headers: {
                                 'Cookie': cookies,
-                                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                                'User-Agent': config.userAgents.mobile
                             }
                         });
                         const data = await apiRes.json();
@@ -615,7 +637,7 @@ export class MobileScraperService {
                     albumId: String(tralbumData.id),
                     duration: trackInfo.duration || 0,
                     trackNumber: trackInfo.track_num || index + 1,
-                    artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
+                    artworkUrl: tralbumData.art_id ? config.endpoints.artworkFormat.replace('{art_id}', tralbumData.art_id.toString()) : '',
                     streamUrl,
                     bandcampUrl: trackInfo.title_link ? `${tralbumData.url}${trackInfo.title_link}` : albumUrl,
                     isCached: false,
@@ -627,7 +649,7 @@ export class MobileScraperService {
                 title: tralbumData.current?.title || tralbumData.album_title,
                 artist: albumArtist,
                 artistId: String(tralbumData.band_id),
-                artworkUrl: tralbumData.art_id ? `https://f4.bcbits.com/img/a${tralbumData.art_id}_10.jpg` : '',
+                artworkUrl: tralbumData.art_id ? config.endpoints.artworkFormat.replace('{art_id}', tralbumData.art_id.toString()) : '',
                 bandcampUrl: albumUrl,
                 releaseDate: tralbumData.current?.release_date,
                 tracks,
@@ -657,7 +679,14 @@ export class MobileScraperService {
         let tralbumData = null;
         const scriptContent = $('script').map((_, el) => $(el).html()).get().join('\n');
 
-        tralbumData = this.extractJsonObject(scriptContent, ['TralbumData', 'tralbum_data', 'BandData', 'EmbedData']);
+        const config = remoteConfigService.get();
+        tralbumData = this.extractJsonObject(scriptContent, config.scriptKeys.album);
+
+        // Validation for tralbumData
+        if (tralbumData && (!tralbumData.trackinfo || !tralbumData.id)) {
+            console.warn('[MobileScraper] Extracted album data failed validation (missing tracks or id)');
+            return null;
+        }
 
         return tralbumData;
     }
@@ -666,10 +695,11 @@ export class MobileScraperService {
      * Get Bandcamp Radio stations
      */
     async getRadioStations(): Promise<RadioStation[]> {
+        const config = remoteConfigService.get();
         try {
-            const response = await fetch('https://bandcamp.com/api/bcweekly/3/list', {
+            const response = await fetch(config.endpoints.radioListApi, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                    'User-Agent': config.userAgents.mobile
                 }
             });
             const data = await response.json();
@@ -700,7 +730,7 @@ export class MobileScraperService {
                         id: String(episode.show_id || episode.id),
                         name: episode.title || `Bandcamp Weekly ${episode.id}`,
                         description: episode.subtitle || episode.desc,
-                        imageUrl: episode.image_id ? `https://f4.bcbits.com/img/${episode.image_id}_16.jpg` : undefined,
+                        imageUrl: episode.image_id ? config.endpoints.radioImageFormat.replace('{image_id}', episode.image_id.toString()) : undefined,
                         streamUrl: '', // Will be fetched on demand
                         date: formattedDate,
                     });
@@ -715,7 +745,7 @@ export class MobileScraperService {
                     id: 'weekly',
                     name: 'Bandcamp Weekly',
                     description: 'The best new music on Bandcamp',
-                    streamUrl: 'https://bandcamp.com/bcweekly',
+                    streamUrl: config.endpoints.radioFallbackStream,
                 },
             ];
         }
@@ -725,14 +755,15 @@ export class MobileScraperService {
      * Get fresh stream URL for a radio station show
      */
     async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
+        const config = remoteConfigService.get();
         try {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
             // 1. Fetch the show page
             const cookies = await mobileAuthService.getCookies();
             // Try root with show param first, then weekly path
             const urls = [
-                `https://bandcamp.com/?show=${showId}`,
-                `https://bandcamp.com/weekly?show=${showId}`
+                config.endpoints.radioShowWeb.replace('{showId}', showId),
+                config.endpoints.radioWeeklyWeb.replace('{showId}', showId)
             ];
 
             let html = '';
@@ -741,7 +772,7 @@ export class MobileScraperService {
                 const response = await fetch(url, {
                     headers: {
                         'Cookie': cookies,
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                        'User-Agent': config.userAgents.desktop
                     }
                 });
                 if (!response.ok) continue;
@@ -774,9 +805,13 @@ export class MobileScraperService {
 
             if (!dataBlob) {
                 // Fallback to specific IDs just in case
-                dataBlob = $('#ArchiveApp').attr('data-blob') ||
-                    $('#p-show-player').attr('data-blob') ||
-                    $('.bcweekly-player').attr('data-blob');
+                for (const selector of config.selectors.radio.dataBlobElements) {
+                    const blob = $(selector).attr('data-blob');
+                    if (blob) {
+                        dataBlob = blob;
+                        break;
+                    }
+                }
             }
 
             if (!dataBlob) {
@@ -785,21 +820,16 @@ export class MobileScraperService {
                 const scripts = $('script').map((_, el) => $(el).html()).get();
                 for (const script of scripts) {
                     if (script) {
-                        // Look for data-blob="..."
-                        const blobMatch = script.match(/data-blob="([^"]+)"/);
-                        if (blobMatch) {
-                            dataBlob = blobMatch[1];
-                            console.log('[MobileScraper] Found data-blob in script via regex');
-                            break;
+                        for (const regexStr of config.selectors.radio.scriptRegexes) {
+                            const regex = new RegExp(regexStr);
+                            const match = script.match(regex);
+                            if (match) {
+                                dataBlob = match[1];
+                                console.log(`[MobileScraper] Found data-blob in script via regex: ${regexStr}`);
+                                break;
+                            }
                         }
-
-                        // Look for window.PlayerData = {...} or similar
-                        const playerMatch = script.match(/PlayerData\s*=\s*({.+?});/);
-                        if (playerMatch) {
-                            dataBlob = playerMatch[1];
-                            console.log('[MobileScraper] Found PlayerData in script via regex');
-                            break;
-                        }
+                        if (dataBlob) break;
                     }
                 }
             }
@@ -833,9 +863,10 @@ export class MobileScraperService {
                 }
 
                 const shows = appData.appData?.shows || appData.shows || [];
-                let show = shows.find((s: any) =>
-                    String(s.showId || s.id || s.show_id) === showId
-                );
+                let show = shows.find((s: any) => {
+                    const id = String(config.radioData.dataBlobKeys.reduce((acc, key) => acc || s[key], null as any) || '');
+                    return id === showId;
+                });
 
                 // Fallback to current_show
                 if (!show && (appData.appData?.current_show || appData.current_show)) {
@@ -912,10 +943,13 @@ export class MobileScraperService {
                 console.log(`[MobileScraper] Fetching track details from API for ID: ${audioTrackId} (Band: ${bandId})`);
 
                 // 3. Fetch track details from mobile API
-                const apiRes = await fetch(`https://bandcamp.com/api/mobile/24/tralbum_details?band_id=${bandId}&tralbum_type=t&tralbum_id=${audioTrackId}`, {
+                const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                    .replace('{band_id}', bandId.toString())
+                    .replace('{track_id}', audioTrackId.toString());
+                const apiRes = await fetch(mobileUrl, {
                     headers: {
                         'Cookie': cookies,
-                        'User-Agent': 'Bandcamp/2.3.0 (iPhone; iOS 15.5; Scale/3.00)'
+                        'User-Agent': config.userAgents.mobileApi
                     }
                 });
 
@@ -936,13 +970,14 @@ export class MobileScraperService {
 
                 if (trackData && trackData.tracks && trackData.tracks.length > 0) {
                     const track = trackData.tracks[0];
-                    const streamUrl = track.streaming_url?.['mp3-128'];
+                    const streamUrl = track.streaming_url?.['mp3-128'] || track.streaming_url?.['mp3-v0'];
                     const duration = track.duration || 0;
                     if (streamUrl) {
+                        console.log('[MobileScraper] Successfully found stream URL via API');
                         return { streamUrl, duration };
                     }
                 }
-                console.error('[MobileScraper] Stream URL not found in API response');
+                console.error('[MobileScraper] No valid tracks or stream URLs found in API response');
                 return { streamUrl: '', duration: 0 };
             } catch (e) {
                 console.error('[MobileScraper] Error parsing radio page data:', e);

@@ -747,7 +747,17 @@ export const useStore = create<AppState>((set, get) => ({
                 let streamUrl = station.streamUrl;
                 let duration = 0;
 
-                if (!streamUrl || streamUrl.includes('bandcamp.com')) {
+                let isUnresolvedUrl = false;
+                if (streamUrl) {
+                    try {
+                        const urlObj = new URL(streamUrl);
+                        isUnresolvedUrl = urlObj.hostname === 'bandcamp.com' || urlObj.hostname.endsWith('.bandcamp.com');
+                    } catch (e) {
+                        isUnresolvedUrl = false;
+                    }
+                }
+
+                if (!streamUrl || isUnresolvedUrl) {
                     const details = await mobileScraperService.getStationStreamUrl(station.id);
                     streamUrl = details.streamUrl;
                     duration = details.duration;
