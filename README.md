@@ -245,6 +245,14 @@ mobile/
 └── ios/                       # iOS native project
 ```
 
+## Roadmap
+
+| What                                 | Size | Status |
+| :----------------------------------- | ---- | :----: |
+| Add all searched items to playlist   | S    | 🔴    |
+| Bug finding and fixing               | XL   | 🟡    |
+| Chromecast for standalone mobile app | L    | 🔴    |
+
 ## License
 
 [MIT](LICENSE.txt)
