@@ -535,7 +535,8 @@ describe('Mobile useStore', () => {
 
             useStore.setState({
                 mode: 'standalone',
-                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any }
+                auth: { isAuthenticated: true, user: { id: 'u1', profileUrl: 'url' } as any },
+                connectionStatus: 'connected'
             });
 
             // Mock DB to return empty
@@ -553,6 +554,23 @@ describe('Mobile useStore', () => {
             expect(mobileScraperService.fetchCollection).toHaveBeenCalledWith(false, false, expect.any(Function));
             expect(useStore.getState().collection?.items).toHaveLength(1);
             expect(mobileDatabase.getArtists).toHaveBeenCalled(); // via refreshArtists
+        });
+
+        it('should NOT fetch collection if not authenticated (standalone)', async () => {
+            const { mobileScraperService } = require('../services/MobileScraperService');
+
+            useStore.setState({
+                mode: 'standalone',
+                auth: { isAuthenticated: false, user: null }
+            });
+
+            await act(async () => {
+                await useStore.getState().refreshCollection(true);
+            });
+
+            expect(mobileScraperService.fetchCollection).not.toHaveBeenCalled();
+            expect(useStore.getState().isCollectionLoading).toBe(false);
+            expect(useStore.getState().collectionError).toBeNull();
         });
     });
 });
