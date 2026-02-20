@@ -67,6 +67,10 @@ run('node scripts/validate-config.js');
 log('Step 5: Running tests...');
 run('npm test');
 run('npm test', mobileDir);
+run('npm run typecheck');
+run('npm run typecheck', mobileDir);
+run('npm run lint');
+run('npm run lint', mobileDir);
 
 // 6. Git Operations
 log('Step 6: Git operations (commit, tag, push)...');
