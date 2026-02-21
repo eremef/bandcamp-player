@@ -318,7 +318,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(SYSTEM_CHANNELS.REFRESH_REMOTE_CONFIG, () => remoteConfigService.fetchLatestConfig());
 
     // ---- Updates ----
-    ipcMain.handle(UPDATE_CHANNELS.CHECK, () => updaterService.checkForUpdates());
+    ipcMain.handle(UPDATE_CHANNELS.CHECK, (_, isManual: boolean) => updaterService.checkForUpdates(isManual));
     ipcMain.handle(UPDATE_CHANNELS.INSTALL, () => updaterService.quitAndInstall());
 
     updaterService.on(UPDATE_CHANNELS.ON_CHECKING, () => broadcast(UPDATE_CHANNELS.ON_CHECKING, null));

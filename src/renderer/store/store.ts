@@ -132,7 +132,7 @@ interface UpdateSlice {
         progress?: any;
         error?: string;
     };
-    checkForUpdates: () => Promise<void>;
+    checkForUpdates: (isManual?: boolean) => Promise<void>;
     installUpdate: () => Promise<void>;
 }
 
@@ -508,9 +508,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
     // ---- Update Slice ----
     updateStatus: { status: 'idle' },
-    checkForUpdates: async () => {
+    checkForUpdates: async (isManual = false) => {
         set({ updateStatus: { status: 'checking' } });
-        await window.electron.update.check();
+        await window.electron.update.check(isManual);
     },
     installUpdate: async () => {
         await window.electron.update.install();

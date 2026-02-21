@@ -6,6 +6,7 @@ export class UpdaterService extends EventEmitter {
     private isChecking = false;
     private notifiedOnce = false;
     private lastNotifiedVersion = '';
+    private isManualCheck = false;
     private checkInterval: NodeJS.Timeout | null = null;
     private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -16,9 +17,10 @@ export class UpdaterService extends EventEmitter {
         // Disable auto-download - we want to notify first (optional, but better UX)
         autoUpdater.autoDownload = true;
 
-        // In dev mode, we can't really check for updates easily unless configured
+        // Enable logging in production too to help with debugging
+        autoUpdater.logger = console;
+
         if (this.isDev) {
-            autoUpdater.logger = console;
             // autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
         }
 
@@ -62,7 +64,19 @@ export class UpdaterService extends EventEmitter {
 
         autoUpdater.on('error', (err) => {
             this.isChecking = false;
-            this.emit(UPDATE_CHANNELS.ON_ERROR, err.message);
+            const message = err.message || String(err);
+
+            // Silence 404/NotFound errors during background checks.
+            // These often happen when a tag exists on GitHub but no release/latest.yml is associated with it yet (or it was deleted).
+            if (!this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
+                console.log('[Updater] Background check: Update metadata not found on GitHub (404). Silencing error.');
+                this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
+                return;
+            }
+
+            // Map technical errors to user-friendly messages for manual checks
+            const friendlyMessage = this.getFriendlyErrorMessage(message);
+            this.emit(UPDATE_CHANNELS.ON_ERROR, friendlyMessage);
         });
 
         autoUpdater.on('download-progress', (progressObj) => {
@@ -74,14 +88,34 @@ export class UpdaterService extends EventEmitter {
         });
     }
 
-    public async checkForUpdates() {
+    private getFriendlyErrorMessage(message: string): string {
+        if (message.includes('404') || message.includes('NotFound') || message.includes('not found')) {
+            return 'The update information was not found on GitHub. This can happen if a release was recently modified or deleted.';
+        }
+        if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED') || message.includes('ETIMEDOUT') || message.includes('internet')) {
+            return 'Could not connect to the update server. Please check your internet connection.';
+        }
+        if (message.includes('rate limit')) {
+            return 'GitHub is currently rate-limiting requests. Please try again in a few minutes.';
+        }
+        return `Failed to check for updates: ${message}`;
+    }
+
+    public async checkForUpdates(isManual = false) {
         if (this.isChecking) return;
 
+        this.isManualCheck = isManual;
         try {
             return await autoUpdater.checkForUpdates();
         } catch (error) {
             console.error('Error checking for updates:', error);
-            this.emit(UPDATE_CHANNELS.ON_ERROR, error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+
+            if (!this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
+                return;
+            }
+
+            this.emit(UPDATE_CHANNELS.ON_ERROR, this.getFriendlyErrorMessage(message));
         }
     }
 
