@@ -13,7 +13,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 >
 >Use at your own risk.
 >
->It's designed for personal use, allowing user aka fan listen to and cache only the tracks he has collected, as well as listen to freely available BC radio shows.
+>Aop is designed for personal use, allowing users aka fans listen to and cache only the tracks they have collected, as well as listen to freely available BC radio shows.
 
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
