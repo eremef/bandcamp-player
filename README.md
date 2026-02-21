@@ -7,11 +7,13 @@
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
->⚠️May violate Bandcamp terms and policies.
+>⚠️ **Attention** ⚠️
+>
+>May violate Bandcamp terms and policies.
 >
 >Use at your own risk.
 >
->However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as freely available radio shows.
+>It's designed for personal use, allowing user aka fan listen to and cache only the tracks he has collected, as well as listen to freely available BC radio shows.
 
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
@@ -21,23 +23,23 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
 - 📥 **Offline Caching** - Download tracks for offline playback
-- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with broadcast dates
-- 🔍 **Smart Search** - Filter your collection instantly on all platforms (Desktop, Mobile, Web)
+- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
+- 🔍 **Smart Search** - Filter your collection instantly
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history
+- 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API tokeen)
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
-- 📡 **Connection Management** - View host IP, disconnect, and manage sessions
+- 📡 **Connection Management** - manage remote sessions
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
-- 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
+- 🔄 **Auto-Updates** - Stay updated with the latest versions
 
-> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
+> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 
 ## Tech Stack
 
