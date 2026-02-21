@@ -124,7 +124,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <div className={styles.updateStatus}>
                         <AlertCircle size={16} color="#ff4444" />
                         <span className={styles.errorText}>Error: {error}</span>
-                        <button className={styles.checkBtn} onClick={checkForUpdates}>
+                        <button className={styles.checkBtn} onClick={() => checkForUpdates(true)}>
                             Retry
                         </button>
                     </div>
@@ -134,14 +134,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <div className={styles.updateStatus}>
                         <CheckCircle size={16} color="var(--accent-primary)" />
                         <span>You&apos;re up to date!</span>
-                        <button className={styles.checkBtn} onClick={checkForUpdates}>
+                        <button className={styles.checkBtn} onClick={() => checkForUpdates(true)}>
                             Check Again
                         </button>
                     </div>
                 );
             default:
                 return (
-                    <button className={styles.checkBtn} onClick={checkForUpdates}>
+                    <button className={styles.checkBtn} onClick={() => checkForUpdates(true)}>
                         <RefreshCw size={16} />
                         <span>Check for Updates</span>
                     </button>

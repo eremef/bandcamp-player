@@ -230,7 +230,7 @@ const electronAPI = {
 
     // ---- Updates ----
     update: {
-        check: (): Promise<void> => ipcRenderer.invoke(UPDATE_CHANNELS.CHECK),
+        check: (isManual: boolean): Promise<void> => ipcRenderer.invoke(UPDATE_CHANNELS.CHECK, isManual),
         install: (): Promise<void> => ipcRenderer.invoke(UPDATE_CHANNELS.INSTALL),
         onChecking: createEventSubscriber<void>(UPDATE_CHANNELS.ON_CHECKING),
         onAvailable: createEventSubscriber<any>(UPDATE_CHANNELS.ON_AVAILABLE),
