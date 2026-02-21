@@ -180,7 +180,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🎵 **Standalone Player** - Use the mobile app as an independent Bandcamp player with background audio
 - 📂 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
 - 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
-- 📋 **Queue Management** - View and manage the playback queue with drag-to-reorder support
+- 📋 **Queue Management** - View and manage the playback queue 
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
@@ -256,6 +256,7 @@ mobile/
 | Add all searched items to playlist   | S    | 🔴    |
 | Bug finding and fixing               | XL   | 🟡    |
 | Chromecast for standalone mobile app | L    | 🔴    |
+| Drag-to-reorder Playlist & Queue     | S    | 🔴    |
 
 ## License
 
