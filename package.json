@@ -22,6 +22,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:coverage": "rimraf coverage-v8 && playwright test && node scripts/generate-e2e-coverage.mjs",
+    "coverage:e2e": "node scripts/generate-e2e-coverage.mjs",
     "test:mobile": "npm run test --prefix mobile",
     "lint": "eslint src",
     "lint:mobile": "npm run lint --prefix mobile",
