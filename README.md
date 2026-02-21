@@ -7,9 +7,11 @@
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
 
->⚠️ May violate Bandcamp terms and policies. Use at your own risk.
+>⚠️May violate Bandcamp terms and policies.⚠️
 >
->However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as radio shows.
+>Use at your own risk.
+>
+>However, it is designed for personal use, allowing you to listen to and cache only the tracks you have collected, as well as freely available radio shows.
 
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
@@ -34,6 +36,8 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions via GitHub
+
+> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
 
 ## Tech Stack
 
@@ -83,8 +87,6 @@ npm run package
 # Create a new release (bumps version, runs tests, commits, and tags)
 npm run release <newVersion>
 ```
-
-> **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux (AppImage, deb), MacOS (dmg), and iOS (IPA) builds are available but experimental.
 
 ## Settings & Configuration
 
