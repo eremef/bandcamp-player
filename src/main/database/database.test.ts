@@ -250,4 +250,96 @@ describe('Database', () => {
             // Just verify no error is thrown
         });
     });
+
+    describe('Cache - Additional', () => {
+        it('should get all cache entries', () => {
+            mockAll.mockReturnValue([{ track_id: '1', file_path: 'f1', file_size: 1, cached_at: '2024', last_accessed_at: '2024' }]);
+            const result = database.getAllCacheEntries();
+            expect(result).toHaveLength(1);
+            expect(result[0].trackId).toBe('1');
+        });
+
+        it('should get oldest cache entries', () => {
+            mockAll.mockReturnValue([{ track_id: '1', file_path: 'f1', file_size: 1, cached_at: '2024', last_accessed_at: '2024' }]);
+            const result = database.getOldestCacheEntries(5);
+            expect(result).toHaveLength(1);
+        });
+
+        it('should clear cache', () => {
+            database.clearCache();
+            expect(mockRun).toHaveBeenCalled();
+        });
+
+        it('should update cache access', () => {
+            database.updateCacheAccess('track-1');
+            expect(mockRun).toHaveBeenCalled();
+        });
+    });
+
+    describe('Collection Cache', () => {
+        it('should get collection cache', () => {
+            mockGet.mockReturnValue({ data: '{"test":"data"}', cached_at: '2024-01-01' });
+            const result = database.getCollectionCache('test-id');
+            expect(result?.data.test).toBe('data');
+
+            mockGet.mockReturnValue(undefined);
+            expect(database.getCollectionCache('none')).toBeNull();
+        });
+
+        it('should save collection cache', () => {
+            database.saveCollectionCache('test-id', 'album', { some: 'data' });
+            expect(mockRun).toHaveBeenCalled();
+        });
+
+        it('should clear collection cache', () => {
+            database.clearCollectionCache('test-id');
+            expect(mockRun).toHaveBeenCalled();
+        });
+    });
+
+    describe('Artists', () => {
+        const mockArtists = [
+            { id: '1', name: 'Artist 1', url: 'url1', imageUrl: 'img1' }
+        ];
+
+        it('should save artists', () => {
+            database.saveArtists(mockArtists, false);
+            expect(mockRun).toHaveBeenCalled();
+        });
+
+        it('should save artists without image', () => {
+            database.saveArtists([{ id: '2', name: 'No Img', url: 'url2' }], false);
+            expect(mockRun).toHaveBeenCalled();
+        });
+
+        it('should replace artists', () => {
+            database.replaceArtists(mockArtists, true);
+            expect(mockRun).toHaveBeenCalled(); // delete and insert
+        });
+
+        it('should replace artists without image', () => {
+            database.replaceArtists([{ id: '2', name: 'No Img', url: 'url2' }], true);
+            expect(mockRun).toHaveBeenCalled();
+        });
+
+        it('should get artists', () => {
+            mockAll.mockReturnValue([{ id: '1', name: 'Artist 1', url: 'url1', image_url: 'img1' }]);
+            const result = database.getArtists(false);
+            expect(result).toHaveLength(1);
+            expect(result[0].name).toBe('Artist 1');
+            expect(result[0].bandcampUrl).toBe('url1');
+        });
+
+        it('should get artists without image', () => {
+            mockAll.mockReturnValue([{ id: '2', name: 'Artist 2', url: 'url2', image_url: null }]);
+            const result = database.getArtists(true);
+            expect(result[0].imageUrl).toBeUndefined();
+        });
+
+        it('should clear simulated data', () => {
+            database.clearSimulatedData();
+            expect(mockRun).toHaveBeenCalled(); // artists and cache_collection delete
+        });
+    });
+
 });

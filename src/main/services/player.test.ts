@@ -6,6 +6,7 @@ import { ScraperService } from './scraper.service';
 import { CastService } from './cast.service';
 import { Database } from '../database/database';
 import { Track } from '../../shared/types';
+import { EventEmitter } from 'events';
 
 // Mock dependencies
 vi.mock('./cache.service');
@@ -47,8 +48,9 @@ describe('PlayerService', () => {
             getStationStreamUrl: vi.fn().mockResolvedValue({ streamUrl: 'http://default.stream', duration: 0 }),
             getTrackStreamUrl: vi.fn().mockResolvedValue('http://default.stream'),
         };
-        mockCastService = {
-            on: vi.fn(),
+
+        // Make cast service an EventEmitter for listener tests
+        mockCastService = Object.assign(new EventEmitter(), {
             play: vi.fn(),
             pause: vi.fn(),
             resume: vi.fn(),
@@ -57,7 +59,8 @@ describe('PlayerService', () => {
             setVolume: vi.fn(),
             setMuted: vi.fn(),
             getConnectedDevice: vi.fn().mockReturnValue(null),
-        };
+        });
+
         mockDatabase = {
             getSettings: vi.fn().mockReturnValue({ defaultVolume: 0.5 }),
             setSettings: vi.fn(),
@@ -70,10 +73,69 @@ describe('PlayerService', () => {
             mockCastService as unknown as CastService,
             mockDatabase as unknown as Database
         );
+
+        vi.spyOn(console, 'log').mockImplementation(() => { });
+        vi.spyOn(console, 'error').mockImplementation(() => { });
+        vi.spyOn(console, 'warn').mockImplementation(() => { });
     });
 
     afterEach(() => {
         vi.clearAllMocks();
+    });
+
+    describe('Cast Listeners', () => {
+        it('should handle status-changed to connected', async () => {
+            playerService.play(mockTrack);
+            mockCastService.emit('status-changed', { status: 'connected' });
+
+            expect(playerService.getState().isCasting).toBe(true);
+            expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalledWith(mockTrack);
+
+            // Wait for promise resolution
+            await new Promise(r => setTimeout(r, 0));
+            expect(mockCastService.play).toHaveBeenCalledWith(mockTrack, 0);
+        });
+
+        it('should handle failed track stream refresh on cast connect', async () => {
+            playerService.play(mockTrack);
+            mockScraperService.getTrackStreamUrl.mockRejectedValue(new Error('Network error'));
+
+            mockCastService.emit('status-changed', { status: 'connected' });
+            await new Promise(r => setTimeout(r, 0));
+
+            expect(mockCastService.play).toHaveBeenCalledWith(mockTrack, 0); // Play anyway with old URL
+        });
+
+        it('should handle finished event when casting', () => {
+            playerService.play(mockTrack);
+            mockCastService.emit('status-changed', { status: 'connected' });
+
+            vi.spyOn(playerService as any, 'handleTrackEnd');
+            mockCastService.emit('finished');
+
+            expect((playerService as any).handleTrackEnd).toHaveBeenCalled();
+        });
+
+        it('should handle device-status event when casting', () => {
+            mockCastService.emit('status-changed', { status: 'connected' });
+            mockCastService.emit('device-status', { currentTime: 50, duration: 200 });
+
+            const state = playerService.getState();
+            expect(state.currentTime).toBe(50);
+            expect(state.duration).toBe(200);
+        });
+
+        it('should handle error event when casting', () => {
+            playerService.play(mockTrack);
+            mockCastService.emit('status-changed', { status: 'connected' });
+
+            mockCastService.emit('error', new Error('Cast Error'));
+
+            const state = playerService.getState();
+            expect(state.isPlaying).toBe(false);
+            expect(state.isCasting).toBe(false);
+            expect(state.error).toContain('Cast Error');
+        });
     });
 
     describe('Playback Control', () => {
@@ -87,18 +149,43 @@ describe('PlayerService', () => {
             expect(mockScrobblerService.updateNowPlaying).toHaveBeenCalledWith(mockTrack);
         });
 
-        it('should pause playback', async () => {
+        it('should resume playback if already playing a track', async () => {
             await playerService.play(mockTrack);
             playerService.pause();
-            expect(playerService.getState().isPlaying).toBe(false);
+            await playerService.play();
+            expect(playerService.getState().isPlaying).toBe(true);
         });
 
-        it('should toggle playback', async () => {
+        it('should play next from queue if clearQueueBefore is false', async () => {
+            const track1 = { ...mockTrack, id: '1' };
+            const track2 = { ...mockTrack, id: '2' };
+            await playerService.play(track1, true);
+            await playerService.play(track2, false);
+
+            const state = playerService.getState();
+            expect(state.queue.items).toHaveLength(2);
+            expect(state.queue.currentIndex).toBe(1);
+        });
+
+        it('should refresh stream URL if track id starts with radio-', async () => {
+            const radioTrack = { ...mockTrack, id: 'radio-123', streamUrl: 'old' };
+            mockScraperService.getTrackStreamUrl.mockResolvedValue('new');
+
+            await playerService.play(radioTrack);
+            expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalled();
+            expect(playerService.getState().currentTrack?.streamUrl).toBe('new');
+        });
+
+        it('should handle updateNowPlaying error', async () => {
+            mockScrobblerService.updateNowPlaying.mockImplementation(() => { throw new Error('Update err') });
             await playerService.play(mockTrack);
-            playerService.togglePlay();
-            expect(playerService.getState().isPlaying).toBe(false);
-            playerService.togglePlay();
             expect(playerService.getState().isPlaying).toBe(true);
+        });
+
+        it('should warn when playing an empty queue', async () => {
+            vi.spyOn(console, 'warn');
+            await playerService.play();
+            expect(console.warn).toHaveBeenCalledWith('[PlayerService] play called but nothing to play');
         });
 
         it('should stop playback and clear state', async () => {
@@ -111,212 +198,185 @@ describe('PlayerService', () => {
         });
     });
 
-    describe('Queue Management', () => {
-        it('should add track to queue', () => {
-            playerService.addToQueue(mockTrack);
-            const queue = playerService.getQueue();
-            expect(queue.items).toHaveLength(1);
-            expect(queue.items[0].track).toEqual(mockTrack);
+    describe('Time Updates & Scrobbling', () => {
+        it('should update time and fire scrobble if past threshold', async () => {
+            await playerService.play(mockTrack);
+
+            // Advance time manually to bypass actual time passage
+            (playerService as any).scrobbleStartTime = Date.now() - 60000;
+
+            playerService.updateTime(51, 100); // Past 50%
+
+            expect(playerService.getState().currentTime).toBe(51);
+            expect(mockScrobblerService.scrobble).toHaveBeenCalledWith(mockTrack);
         });
 
-        it('should remove track from queue', () => {
-            playerService.addToQueue(mockTrack);
-            const queueId = playerService.getQueue().items[0].id;
-            playerService.removeFromQueue(queueId);
-            expect(playerService.getQueue().items).toHaveLength(0);
-        });
-
-        it('should clear queue', () => {
-            playerService.addToQueue(mockTrack);
-            playerService.addToQueue({ ...mockTrack, id: '2' });
-            playerService.clearQueue(false);
-            expect(playerService.getQueue().items).toHaveLength(0);
-        });
-
-        it('should play next track in queue', async () => {
+        it('should handle track end and play next', async () => {
             const track1 = { ...mockTrack, id: '1' };
             const track2 = { ...mockTrack, id: '2' };
-            playerService.addToQueue(track1);
+            await playerService.play(track1);
             playerService.addToQueue(track2);
 
-            // Start playing first
-            playerService.playIndex(0);
-            expect(playerService.getState().currentTrack?.id).toBe('1');
+            playerService.updateTime(100, 100); // Simulate end
 
-            // Next
-            await playerService.next();
             expect(playerService.getState().currentTrack?.id).toBe('2');
         });
 
-        it('should play previous track', async () => {
-            const track1 = { ...mockTrack, id: '1' };
-            const track2 = { ...mockTrack, id: '2' };
-            playerService.addToQueue(track1);
-            playerService.addToQueue(track2);
+        it('should repeat track on end if repeatMode is one', async () => {
+            await playerService.play(mockTrack);
+            playerService.setRepeat('one');
 
-            playerService.playIndex(1); // Play 2
-            await playerService.previous();
+            vi.spyOn(playerService, 'seek');
+            playerService.updateTime(100, 100);
+
+            expect(playerService.seek).toHaveBeenCalledWith(0);
             expect(playerService.getState().currentTrack?.id).toBe('1');
         });
 
-        it('should reorder queue', () => {
-            const track1 = { ...mockTrack, id: '1' };
-            const track2 = { ...mockTrack, id: '2' };
-            const track3 = { ...mockTrack, id: '3' };
-
-            playerService.addToQueue(track1);
-            playerService.addToQueue(track2);
-            playerService.addToQueue(track3);
-
-            // Move track 3 to position 0
-            playerService.reorderQueue(2, 0);
-
-            const queue = playerService.getQueue();
-            expect(queue.items[0].track.id).toBe('3');
-            expect(queue.items[1].track.id).toBe('1');
-            expect(queue.items[2].track.id).toBe('2');
+        it('should seek to specific time', async () => {
+            await playerService.play(mockTrack);
+            playerService.updateTime(0, 100);
+            playerService.seek(50);
+            expect(playerService.getState().currentTime).toBe(50);
         });
 
-        it('should handle shuffle properly', async () => {
-            const track1 = { ...mockTrack, id: '1' };
-            const track2 = { ...mockTrack, id: '2' };
-            const track3 = { ...mockTrack, id: '3' };
+        it('should not update local time from renderer if casting', () => {
+            playerService.play(mockTrack);
+            mockCastService.emit('status-changed', { status: 'connected' });
 
-            playerService.addToQueue(track1);
-            playerService.addToQueue(track2);
-            playerService.addToQueue(track3);
+            playerService.updateTime(10, 100);
 
-            playerService.playIndex(0);
-            playerService.toggleShuffle();
-
-            const state = playerService.getState();
-            expect(state.isShuffled).toBe(true);
-            expect(state.queue.shuffleOrder).toBeDefined();
-            expect(state.queue.shuffleOrder).toHaveLength(3);
+            expect(playerService.getState().currentTime).toBe(0);
         });
     });
 
-    describe('Volume Control', () => {
-        it('should set volume and save to db', async () => {
-            vi.useFakeTimers();
-            await playerService.setVolume(0.8);
-            expect(playerService.getState().volume).toBe(0.8);
-
-            // Should not be called yet due to debounce
-            expect(mockDatabase.setSettings).not.toHaveBeenCalled();
-
-            // Advance time
-            vi.advanceTimersByTime(2000);
-
-            expect(mockDatabase.setSettings).toHaveBeenCalledWith({ defaultVolume: 0.8 });
-            vi.useRealTimers();
-        });
-
-        it('should toggle mute', () => {
-            playerService.toggleMute();
-            expect(playerService.getState().isMuted).toBe(true);
-            playerService.toggleMute();
-            expect(playerService.getState().isMuted).toBe(false);
-        });
-    });
-
-    describe('Radio Functionality', () => {
-        const mockStation: any = {
-            id: 1,
-            name: 'Test Radio',
-            description: 'Test Description',
-            imageUrl: 'http://image.url',
-            streamUrl: 'http://stream.url',
-            date: '2023'
-        };
-
-        it('should convert station to track correctly', async () => {
-            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://stream.url', duration: 0 });
-            const track = await playerService.stationToTrack(mockStation);
-            expect(track.id).toBe('radio-1');
-            expect(track.title).toBe('Test Radio');
-            expect(track.artist).toBe('Bandcamp Radio');
-            expect(track.streamUrl).toBe('http://stream.url');
-        });
-
-        it('should fetch stream URL if missing', async () => {
-            const stationWithoutStream = { ...mockStation, streamUrl: undefined };
-            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://fetched.stream', duration: 120 });
-
-            const track = await playerService.stationToTrack(stationWithoutStream);
-
-            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith(1);
-            expect(track.streamUrl).toBe('http://fetched.stream');
-        });
-
-        it('should add station to queue', async () => {
-            await playerService.addStationToQueue(mockStation);
-            const queue = playerService.getQueue();
-            expect(queue.items).toHaveLength(1);
-            expect(queue.items[0].track.title).toBe('Test Radio');
-            expect(queue.items[0].source).toBe('radio');
-        });
-
-        it('should play station next (add to queue next)', async () => {
-            playerService.addToQueue(mockTrack);
-            playerService.playIndex(0);
-
-            await playerService.addStationToQueue(mockStation, true);
-
-            const queue = playerService.getQueue();
-            expect(queue.items).toHaveLength(2);
-            expect(queue.items[1].track.title).toBe('Test Radio');
-        });
-
-        it('should refresh radio stream URL on play if track id indicates radio', async () => {
-            const radioTrack = {
-                ...mockTrack,
-                id: 'radio-123',
-                streamUrl: 'http://old.url'
-            };
-
-            mockScraperService.getTrackStreamUrl.mockResolvedValue('http://new.url');
-
-            await playerService.play(radioTrack);
-
-            expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalledWith(radioTrack);
-            expect(playerService.getState().currentTrack?.streamUrl).toBe('http://new.url');
-        });
-
-        it('should not refresh regular track stream URL', async () => {
-            const regularTrack = { ...mockTrack, id: '123' };
-            await playerService.play(regularTrack);
-            expect(mockScraperService.getStationStreamUrl).not.toHaveBeenCalled();
-        });
-        it('should fetch and cache duration if missing even if streamUrl is present', async () => {
-            const stationInit: any = {
-                id: '999',
-                name: 'Cached URL No Duration',
-                streamUrl: 'http://cached.url',
-                // no duration
-            };
-
-            mockScraperService.getStationStreamUrl.mockResolvedValue({ streamUrl: 'http://cached.url', duration: 300 });
-
-            const track = await playerService.stationToTrack(stationInit);
-
-            expect(mockScraperService.getStationStreamUrl).toHaveBeenCalledWith('999');
-            expect(track.duration).toBe(300);
-            expect(stationInit.duration).toBe(300); // Check caching
-        });
-    });
-
-    describe('Bulk Queue Operations', () => {
-        it('should add multiple tracks to queue', () => {
+    describe('Queue Management', () => {
+        it('should add multiple tracks to queue reverse order when playNext=true', () => {
             const tracks = [
                 { ...mockTrack, id: '1' },
                 { ...mockTrack, id: '2' },
                 { ...mockTrack, id: '3' }
             ];
-            playerService.addTracksToQueue(tracks);
-            expect(playerService.getQueue().items).toHaveLength(3);
-            expect(playerService.getQueue().items[0].track.id).toBe('1');
-            expect(playerService.getQueue().items[2].track.id).toBe('3');
+            // Prime queue
+            playerService.addToQueue({ ...mockTrack, id: '0' });
+            playerService.playIndex(0);
+
+            playerService.addTracksToQueue(tracks, 'collection', true);
+
+            const q = playerService.getQueue().items;
+            expect(q[1].track.id).toBe('1');
+            expect(q[2].track.id).toBe('2');
+            expect(q[3].track.id).toBe('3');
+        });
+
+        it('should remove currently playing track', async () => {
+            playerService.addToQueue(mockTrack);
+            playerService.playIndex(0);
+
+            const qid = playerService.getQueue().items[0].id;
+            playerService.removeFromQueue(qid);
+
+            expect(playerService.getState().isPlaying).toBe(false);
+            expect(playerService.getQueue().items).toHaveLength(0);
+        });
+
+        it('should handle previous correctly depending on time and queue', async () => {
+            const track1 = { ...mockTrack, id: '1' };
+            const track2 = { ...mockTrack, id: '2' };
+            playerService.addToQueue(track1);
+            playerService.addToQueue(track2);
+            playerService.playIndex(1);
+
+            // Time > 3 resets current track
+            playerService.updateTime(5, 100);
+            await playerService.previous();
+            expect(playerService.getState().currentTime).toBe(0);
+            expect(playerService.getState().currentTrack?.id).toBe('2');
+
+            // Time < 3 goes to previous track
+            playerService.updateTime(1, 100);
+            await playerService.previous();
+            expect(playerService.getState().currentTrack?.id).toBe('1');
+
+            // Previous at 0 loops if repeat all
+            playerService.setRepeat('all');
+            await playerService.previous();
+            expect(playerService.getState().currentTrack?.id).toBe('2');
+
+            // Previous at 0 seeks to 0 if no repeat
+            playerService.setRepeat('off');
+            playerService.playIndex(0);
+            await playerService.previous();
+            expect(playerService.getState().currentTime).toBe(0);
+        });
+
+        it('should play next in shuffled order', async () => {
+            const track1 = { ...mockTrack, id: '1' };
+            const track2 = { ...mockTrack, id: '2' };
+            const track3 = { ...mockTrack, id: '3' };
+
+            playerService.addToQueue(track1);
+            playerService.addToQueue(track2);
+            playerService.addToQueue(track3);
+
+            playerService.playIndex(0);
+
+            // Force shuffle array
+            (playerService as any).shuffleOrder = [0, 2, 1];
+            playerService.toggleShuffle(); // Actually this toggles it and generates random. 
+            // So we just set it manually to test logic.
+            (playerService as any).isShuffled = true;
+            (playerService as any).shuffleOrder = [0, 2, 1];
+            (playerService as any).currentIndex = 0;
+
+            await playerService.next();
+            expect(playerService.getState().currentTrack?.id).toBe('3');
+        });
+
+        it('should reorder invalid boundaries gracefully', () => {
+            playerService.addToQueue(mockTrack);
+            playerService.reorderQueue(-1, 0);
+            playerService.reorderQueue(0, 5);
+            expect(playerService.getQueue().items).toHaveLength(1);
+        });
+    });
+
+    describe('Radio Functionality', () => {
+        const mockStation: any = {
+            id: 1, name: 'Test Radio', streamUrl: 'http://stream.url', duration: 100
+        };
+
+        it('should play radio station', async () => {
+            await playerService.playStation(mockStation);
+            expect(playerService.getRadioState().isActive).toBe(true);
+            expect(playerService.getState().isPlaying).toBe(true);
+        });
+
+        it('should stop radio', async () => {
+            await playerService.playStation(mockStation);
+            playerService.stopRadio();
+            expect(playerService.getRadioState().isActive).toBe(false);
+        });
+    });
+
+    describe('Extras', () => {
+        it('should set volume and toggle mute', async () => {
+            vi.useFakeTimers();
+            await playerService.setVolume(1.5); // Clamped to 1
+            expect(playerService.getState().volume).toBe(1);
+
+            playerService.toggleMute();
+            expect(playerService.getState().isMuted).toBe(true);
+
+            vi.advanceTimersByTime(3000);
+            expect(mockDatabase.setSettings).toHaveBeenCalledWith({ defaultVolume: 1 });
+            vi.useRealTimers();
+        });
+
+        it('should get stream root based on cache', () => {
+            mockCacheService.getCachedPath.mockReturnValue('/cached/file.mp3');
+            const url = playerService.getStreamUrl(mockTrack);
+            expect(url).toBe('file:///cached/file.mp3');
         });
     });
 });

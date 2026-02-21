@@ -1,200 +1,258 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { PlayerBar } from './PlayerBar';
 import { useStore } from '../../store/store';
+import React from 'react';
 
-// Mock the store
+// Mock Lucide icons
+vi.mock('lucide-react', () => ({
+    Play: () => <div data-testid="play-icon" />,
+    Pause: () => <div data-testid="pause-icon" />,
+    SkipBack: () => <div data-testid="skip-back-icon" />,
+    SkipForward: () => <div data-testid="skip-forward-icon" />,
+    Volume2: () => <div data-testid="volume-2-icon" />,
+    Volume1: () => <div data-testid="volume-1-icon" />,
+    VolumeX: () => <div data-testid="volume-x-icon" />,
+    Repeat: () => <div data-testid="repeat-icon" />,
+    Repeat1: () => <div data-testid="repeat-1-icon" />,
+    Shuffle: () => <div data-testid="shuffle-icon" />,
+    Cast: () => <div data-testid="cast-icon" />,
+    Maximize2: () => <div data-testid="maximize-icon" />,
+    Minimize2: () => <div data-testid="minimize-icon" />,
+    MoreVertical: () => <div data-testid="more-icon" />,
+    List: () => <div data-testid="list-icon" />,
+}));
+
+// Mock Zustand store
 vi.mock('../../store/store', () => ({
     useStore: vi.fn(),
 }));
 
-// Mock Lucide icons
-vi.mock('lucide-react', () => ({
-    Shuffle: () => <span data-testid="icon-shuffle" />,
-    SkipBack: () => <span data-testid="icon-skip-back" />,
-    Play: () => <span data-testid="icon-play" />,
-    Pause: () => <span data-testid="icon-pause" />,
-    SkipForward: () => <span data-testid="icon-skip-forward" />,
-    Repeat: () => <span data-testid="icon-repeat" />,
-    Repeat1: () => <span data-testid="icon-repeat-1" />,
-    VolumeX: () => <span data-testid="icon-volume-x" />,
-    Volume1: () => <span data-testid="icon-volume-1" />,
-    Volume2: () => <span data-testid="icon-volume-2" />,
-    List: () => <span data-testid="icon-list" />,
-    Minimize2: () => <span data-testid="icon-minimize-2" />,
-    Cast: () => <span data-testid="icon-cast" />,
-}));
-
-// Mock electron
-const mockUpdatePlayerTime = vi.fn();
-const mockOnSeek = vi.fn(() => () => { });
-
-Object.defineProperty(window, 'electron', {
-    value: {
-        player: {
-            updateTime: mockUpdatePlayerTime,
-            onSeek: mockOnSeek,
-        },
-        cast: {
-            startDiscovery: vi.fn(),
-            stopDiscovery: vi.fn(),
-            getDevices: vi.fn(),
-            connect: vi.fn(),
-            disconnect: vi.fn(),
-            onDevicesUpdated: vi.fn(() => () => { }),
-            onStatusChanged: vi.fn(() => () => { }),
-        },
-    },
-    writable: true,
-});
-
 describe('PlayerBar', () => {
-    const mockStore = {
-        player: {
-            isPlaying: false,
-            currentTrack: null,
-            currentTime: 0,
-            duration: 0,
-            volume: 0.8,
-            isMuted: false,
-            repeatMode: 'off',
-            isShuffled: false,
-            isCasting: false,
-            castDevice: undefined,
-        },
-        togglePlay: vi.fn(),
-        next: vi.fn(),
-        previous: vi.fn(),
-        seek: vi.fn(),
-        setVolume: vi.fn(),
-        toggleMute: vi.fn(),
-        toggleShuffle: vi.fn(),
-        setRepeat: vi.fn(),
-        toggleQueue: vi.fn(),
-        toggleMiniPlayer: vi.fn(),
-        isQueueVisible: false,
-        castDevices: [],
-        castStatus: { status: 'disconnected' },
-        startCastDiscovery: vi.fn(),
-        stopCastDiscovery: vi.fn(),
-        connectCast: vi.fn(),
-        disconnectCast: vi.fn(),
-    };
+    let mockStore: any;
 
     beforeEach(() => {
-        (useStore as any).mockReturnValue(mockStore);
+        mockStore = {
+            player: {
+                currentTrack: { title: 'Test Track', artist: 'Test Artist', duration: 100, streamUrl: 'http://example.com' },
+                isPlaying: false,
+                currentTime: 0,
+                duration: 100,
+                volume: 0.8,
+                isShuffled: false,
+                repeatMode: 'off',
+                isMuted: false,
+                isCasting: false,
+                castDevice: null,
+            },
+            castDevices: [],
+            isQueueVisible: false,
+            togglePlay: vi.fn(),
+            next: vi.fn(),
+            previous: vi.fn(),
+            seek: vi.fn(),
+            setVolume: vi.fn(),
+            toggleMute: vi.fn(),
+            toggleShuffle: vi.fn(),
+            setRepeat: vi.fn(),
+            toggleQueue: vi.fn(),
+            toggleMiniPlayer: vi.fn(),
+            startCastDiscovery: vi.fn(),
+            stopCastDiscovery: vi.fn(),
+            connectCast: vi.fn(),
+            disconnectCast: vi.fn(),
+        };
+        (useStore as any).mockImplementation((selector?: any) => selector ? selector(mockStore) : mockStore);
+
+        // Mock MediaSession
+        (global.window as any).MediaMetadata = class MediaMetadata {
+            constructor(metadata: any) { Object.assign(this, metadata); }
+        };
+        (global.navigator as any).mediaSession = {
+            setActionHandler: vi.fn(),
+            metadata: null,
+            setPositionState: vi.fn(),
+        };
+
+        // Mock HTMLAudioElement
+        window.HTMLAudioElement.prototype.play = vi.fn().mockResolvedValue(undefined);
+        window.HTMLAudioElement.prototype.pause = vi.fn();
+        window.HTMLAudioElement.prototype.load = vi.fn();
+
+        // Mock electron bridge
+        (window as any).electron = {
+            player: {
+                updateTime: vi.fn(),
+                onSeek: vi.fn(() => () => { }),
+            }
+        };
+    });
+
+    afterEach(() => {
         vi.clearAllMocks();
     });
 
-    it('renders without crashing', () => {
+    it('renders track info', () => {
         render(<PlayerBar />);
-        expect(screen.getByText('No track playing')).toBeInTheDocument();
-    });
-
-    it('displays track info when track is playing', () => {
-        const trackStore = {
-            ...mockStore,
-            player: {
-                ...mockStore.player,
-                currentTrack: {
-                    title: 'Test Song',
-                    artist: 'Test Artist',
-                    artworkUrl: 'http://test.com/art.jpg',
-                },
-            },
-        };
-        (useStore as any).mockReturnValue(trackStore);
-
-        render(<PlayerBar />);
-        expect(screen.getByText('Test Song')).toBeInTheDocument();
+        expect(screen.getByText('Test Track')).toBeInTheDocument();
         expect(screen.getByText('Test Artist')).toBeInTheDocument();
     });
 
-    it('calls togglePlay when play button is clicked', () => {
+    it('toggles playback', () => {
         render(<PlayerBar />);
         const playBtn = screen.getByTitle('Play');
         fireEvent.click(playBtn);
         expect(mockStore.togglePlay).toHaveBeenCalled();
     });
 
-    it('calls next/previous when buttons are clicked', () => {
-        render(<PlayerBar />);
-        const nextBtn = screen.getByTitle('Next');
-        const prevBtn = screen.getByTitle('Previous');
+    it('handles volume wheel', () => {
+        const { container } = render(<PlayerBar />);
+        const volumeArea = container.querySelector('div[class*="volumeSlider"]');
+        fireEvent.wheel(volumeArea!, { deltaY: -100 }); // Scroll up
+        expect(mockStore.setVolume).toHaveBeenCalledWith(expect.closeTo(0.85, 5));
+    });
 
-        fireEvent.click(nextBtn);
+    it('handles progress bar interaction', () => {
+        const { container } = render(<PlayerBar />);
+        const progressBar = container.querySelector('div[class*="progressBar"]');
+
+        vi.spyOn(progressBar!, 'getBoundingClientRect').mockReturnValue({
+            left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
+        } as DOMRect);
+
+        // Click to seek
+        fireEvent.click(progressBar!, { clientX: 50 });
+        expect(mockStore.seek).toHaveBeenCalledWith(50);
+
+        // Hover for tooltip
+        fireEvent.mouseMove(progressBar!, { clientX: 30 });
+        expect(screen.getByText('0:30')).toBeInTheDocument();
+
+        // Mouse leave
+        fireEvent.mouseLeave(progressBar!);
+        expect(screen.queryByText('0:30')).not.toBeInTheDocument();
+    });
+
+    it('handles volume dragging', () => {
+        const { container } = render(<PlayerBar />);
+        const volumeSlider = container.querySelector('div[class*="volumeSlider"]');
+
+        vi.spyOn(volumeSlider!, 'getBoundingClientRect').mockReturnValue({
+            left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
+        } as DOMRect);
+
+        // Mouse down starts dragging
+        fireEvent.mouseDown(volumeSlider!, { clientX: 50 });
+        expect(mockStore.setVolume).toHaveBeenCalledWith(0.5);
+
+        // Global mouse move
+        fireEvent.mouseMove(window, { clientX: 70 });
+        expect(mockStore.setVolume).toHaveBeenCalledWith(0.7);
+
+        // Global mouse up stops dragging
+        fireEvent.mouseUp(window);
+        fireEvent.mouseMove(window, { clientX: 90 });
+        expect(mockStore.setVolume).not.toHaveBeenCalledWith(0.9);
+    });
+
+    it('handles audio element events', () => {
+        const { container } = render(<PlayerBar />);
+        const audio = container.querySelector('audio')!;
+
+        // Time update
+        Object.defineProperty(audio, 'duration', { value: 100, configurable: true });
+        audio.currentTime = 10;
+        fireEvent.timeUpdate(audio);
+        expect(window.electron.player.updateTime).toHaveBeenCalledWith(10, 100);
+
+        // Ended
+        fireEvent.ended(audio);
         expect(mockStore.next).toHaveBeenCalled();
 
-        fireEvent.click(prevBtn);
-        expect(mockStore.previous).toHaveBeenCalled();
+        // Error (non-critical)
+        fireEvent.error(audio); // Should log console.error but not crash
     });
 
-    it('calls toggleShuffle when shuffle button is clicked', () => {
+    it('handles Media Session API actions', () => {
         render(<PlayerBar />);
-        const shuffleBtn = screen.getByTitle('Shuffle');
-        fireEvent.click(shuffleBtn);
-        expect(mockStore.toggleShuffle).toHaveBeenCalled();
+
+        // Find handlers registered in useEffect
+        const handlers: Record<string, Function> = {};
+        (navigator.mediaSession.setActionHandler as any).mock.calls.forEach(([action, handler]: [string, Function]) => {
+            handlers[action] = handler;
+        });
+
+        handlers['play']();
+        expect(mockStore.togglePlay).toHaveBeenCalled();
+
+        handlers['nexttrack']();
+        expect(mockStore.next).toHaveBeenCalled();
+
+        handlers['previoustrack']();
+        expect(mockStore.previous).toHaveBeenCalled();
+
+        handlers['seekto']({ seekTime: 50 });
+        expect(mockStore.seek).toHaveBeenCalledWith(50);
     });
 
-    it('toggles repeat mode when repeat button is clicked', () => {
+    it('rotates repeat modes', () => {
         render(<PlayerBar />);
         const repeatBtn = screen.getByTitle('Repeat: off');
         fireEvent.click(repeatBtn);
-        // Logic inside component handles rotation, but we mock the store function
-        // The component calls setRepeat('all') if current is 'off'
         expect(mockStore.setRepeat).toHaveBeenCalledWith('all');
+
+        mockStore.player.repeatMode = 'all';
+        render(<PlayerBar />); // Rerender to update title
+        const repeatBtnAll = screen.getByTitle('Repeat: all');
+        fireEvent.click(repeatBtnAll);
+        expect(mockStore.setRepeat).toHaveBeenCalledWith('one');
     });
 
-    it('toggles queue visibility', () => {
+    it('handles cast menu and click-outside', async () => {
+        mockStore.castDevices = [{ id: 'd1', friendlyName: 'TV' }];
         render(<PlayerBar />);
-        const queueBtn = screen.getByTitle('Queue');
-        fireEvent.click(queueBtn);
-        expect(mockStore.toggleQueue).toHaveBeenCalled();
+        const castBtn = screen.getByTitle('Cast to Device');
+
+        // Open menu
+        fireEvent.click(castBtn);
+        expect(mockStore.startCastDiscovery).toHaveBeenCalled();
+        expect(await screen.findByText('TV')).toBeInTheDocument();
+
+        // Click outside closes menu
+        fireEvent.mouseDown(document.body);
+        await waitFor(() => expect(screen.queryByText('TV')).not.toBeInTheDocument());
+
+        // Re-open and click device
+        fireEvent.click(castBtn);
+        const deviceBtn = await screen.findByText('TV');
+        fireEvent.click(deviceBtn);
+        expect(mockStore.connectCast).toHaveBeenCalledWith('d1');
     });
 
-    it('seeks when progress bar is clicked', () => {
-        const trackStore = {
-            ...mockStore,
-            player: { ...mockStore.player, duration: 200, currentTime: 50 },
-        };
-        (useStore as any).mockReturnValue(trackStore);
+    it('manages electron IPC seek events', () => {
+        let seekCallback: Function | null = null;
+        (window.electron.player.onSeek as any).mockImplementation((cb: Function) => {
+            seekCallback = cb;
+            return () => { };
+        });
 
+        // Single render
         const { container } = render(<PlayerBar />);
+        const renderedAudio = container.querySelector('audio')!;
 
-        // Find the progress bar container (using class selector as it might not have role)
-        // Note: In a real app we might want to add data-testid to the progress bar
-        const progressBar = container.querySelector('div[class*="progressBar"]');
-        expect(progressBar).toBeInTheDocument();
+        expect(seekCallback).toBeDefined();
 
-        if (progressBar) {
-            // Mock getBoundingClientRect
-            vi.spyOn(progressBar, 'getBoundingClientRect').mockReturnValue({
-                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
-            });
-
-            // Click at 50% width
-            fireEvent.click(progressBar, { clientX: 50 });
-
-            // 50% of 200s = 100s
-            // The component calls audio.currentTime = seekTime AND seek(seekTime)
-            expect(mockStore.seek).toHaveBeenCalledWith(100);
-        }
+        // Simulate seek from main process
+        seekCallback!(50);
+        expect(renderedAudio.currentTime).toBe(50);
     });
 
-    it('changes volume when volume slider is clicked', () => {
-        const { container } = render(<PlayerBar />);
-        const volumeSlider = container.querySelector('div[class*="volumeSlider"]');
-        expect(volumeSlider).toBeInTheDocument();
-
-        if (volumeSlider) {
-            vi.spyOn(volumeSlider, 'getBoundingClientRect').mockReturnValue({
-                left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10, x: 0, y: 0, toJSON: () => { }
-            });
-
-            // Click at 25% width
-            fireEvent.mouseDown(volumeSlider, { clientX: 25 });
-
-            expect(mockStore.setVolume).toHaveBeenCalledWith(0.25);
-        }
+    it('registers/unregisters audio listeners on unmount', () => {
+        const { container, unmount } = render(<PlayerBar />);
+        const audio = container.querySelector('audio')!;
+        const removeSpy = vi.spyOn(audio, 'removeEventListener');
+        unmount();
+        expect(removeSpy).toHaveBeenCalledWith('timeupdate', expect.any(Function));
+        expect(removeSpy).toHaveBeenCalledWith('error', expect.any(Function));
     });
 });

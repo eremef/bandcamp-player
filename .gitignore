@@ -39,6 +39,8 @@ gha-creds-*.json
 
 # test coverage
 /coverage
+coverage-e2e/
+coverage-v8/
 mobile/coverage/
 
 # TypeScript build output (generated from .ts files)
@@ -50,9 +52,14 @@ playwright-report/
 test-results/
 test_*.txt
 
-# Debug
+# Debug and temporary test files
 debug_*.json
+debug_e2e.js
+remote_test_errors.txt
+remote-config.json.hash
 .gemini/
 gha-creds-*.json
 test-results/.last-run.json
 mobile/*test_*.txt
+test_logs/
+mobile/test_logs/

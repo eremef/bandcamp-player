@@ -1,0 +1,200 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.18 [39m[90mD:/eremef/Documents/AI/antigravity/Bandcamp-player[39m
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mLifecycle & Infrastructure[2m > [22m[2mshould start the server
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mLifecycle & Infrastructure[2m > [22m[2mshould stop the server
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle get-collection
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle get-collection
+[22m[39m[RemoteService] Get Collection: offset=0, limit=10, query="", forceRefresh=false
+[RemoteService] Get Collection: offset=0, limit=10, query="", forceRefresh=false
+[RemoteService] Get Collection: offset=0, limit=10, query="", forceRefresh=false
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle get-artist-collection
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle playlist CRUD
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle track/album queueing
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+stderr | src/main/services/remote.test.ts > RemoteControlService > Message Handling > should handle track/album queueing
+[RemoteService] Could not play track, missing stream URL: undefined
+[RemoteService] Could not play track, missing stream URL: undefined
+[RemoteService] Could not play track, missing stream URL: undefined
+[RemoteService] Could not play track, missing stream URL: undefined
+[RemoteService] Could not play track, missing stream URL: undefined
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle track/album queueing
+[22m[39m[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Received add-album-to-queue for http://album.url
+[RemoteService] Album fetched: undefined, tracks: undefined
+[RemoteService] Album fetched: undefined, tracks: undefined
+[RemoteService] Album fetched: undefined, tracks: undefined
+[RemoteService] Album fetched: undefined, tracks: undefined
+[RemoteService] Album fetched: undefined, tracks: undefined
+[RemoteService] Album fetched: undefined, tracks: 1
+[RemoteService] Tracks added to player service
+
+stderr | src/main/services/remote.test.ts > RemoteControlService > Message Handling > should handle track/album queueing
+[RemoteService] Failed to fetch album details or no tracks
+[RemoteService] Failed to fetch album details or no tracks
+[RemoteService] Failed to fetch album details or no tracks
+[RemoteService] Failed to fetch album details or no tracks
+[RemoteService] Failed to fetch album details or no tracks
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle station actions
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mMessage Handling[2m > [22m[2mshould handle secondary controls
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mDevice Management[2m > [22m[2mshould list and disconnect device
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+[RemoteService] New connection
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mHTTP Server[2m > [22m[2mshould serve files
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mHTTP Server[2m > [22m[2mshould handle 500 when index.html read fails
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+stderr | src/main/services/remote.test.ts > RemoteControlService > HTTP Server > should handle 500 when index.html read fails
+[RemoteService] Error reading index.html: Error: Test Error
+    at Module.<anonymous> (D:/eremef/Documents/AI/antigravity/Bandcamp-player/src/main/services/remote.test.ts:328:97)
+    at Module.readFile (file:///D:/eremef/Documents/AI/antigravity/Bandcamp-player/node_modules/@vitest/spy/dist/index.js:285:34)
+    at RemoteControlService.serveIndex (D:/eremef/Documents/AI/antigravity/Bandcamp-player/src/main/services/remote.service.ts:643:12)
+    at D:/eremef/Documents/AI/antigravity/Bandcamp-player/src/main/services/remote.service.ts:96:22
+    at D:/eremef/Documents/AI/antigravity/Bandcamp-player/src/main/services/remote.test.ts:329:13
+    at file:///D:/eremef/Documents/AI/antigravity/Bandcamp-player/node_modules/@vitest/runner/dist/index.js:145:11
+    at file:///D:/eremef/Documents/AI/antigravity/Bandcamp-player/node_modules/@vitest/runner/dist/index.js:915:26
+    at file:///D:/eremef/Documents/AI/antigravity/Bandcamp-player/node_modules/@vitest/runner/dist/index.js:1243:20
+    at new Promise (<anonymous>)
+    at runWithTimeout (file:///D:/eremef/Documents/AI/antigravity/Bandcamp-player/node_modules/@vitest/runner/dist/index.js:1209:10)
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mHTTP Server[2m > [22m[2mshould handle static file read errors
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+stderr | src/main/services/remote.test.ts > RemoteControlService > HTTP Server > should handle static file read errors
+[RemoteService] File not found: styles.css
+
+[90mstdout[2m | src/main/services/remote.test.ts[2m > [22m[2mRemoteControlService[2m > [22m[2mBroadcast Failures[2m > [22m[2mshould log error if broadcast fails
+[22m[39m[RemoteService] Running at http://192.168.1.10:9999
+
+(node:19924) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 connection listeners added to [EventEmitter]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [31mÔŁ»[39m src/main/services/remote.test.ts [2m([22m[2m14 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 249[2mms[22m[39m
+       [32mÔťô[39m should start the server[32m 3[2mms[22m[39m
+       [32mÔťô[39m should stop the server[32m 1[2mms[22m[39m
+       [32mÔťô[39m should handle icon conversion to SVG[32m 1[2mms[22m[39m
+       [32mÔťô[39m should handle get-collection[32m 14[2mms[22m[39m
+       [32mÔťô[39m should handle get-artist-collection[32m 13[2mms[22m[39m
+       [32mÔťô[39m should handle playlist CRUD[32m 61[2mms[22m[39m
+       [32mÔťô[39m should handle track/album queueing[32m 31[2mms[22m[39m
+       [32mÔťô[39m should handle station actions[32m 47[2mms[22m[39m
+       [32mÔťô[39m should handle secondary controls[32m 63[2mms[22m[39m
+       [32mÔťô[39m should list and disconnect device[32m 1[2mms[22m[39m
+[31m       [31m├Ś[31m should serve files[39m[32m 7[2mms[22m[39m
+       [32mÔťô[39m should handle 500 when index.html read fails[32m 2[2mms[22m[39m
+       [32mÔťô[39m should handle static file read errors[32m 1[2mms[22m[39m
+[31m       [31m├Ś[31m should log error if broadcast fails[39m[32m 1[2mms[22m[39m
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ» Failed Tests 2 ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»
+
+ FAIL  src/main/services/remote.test.ts > RemoteControlService > HTTP Server > should serve files
+AssertionError: expected "vi.fn()" to be called with arguments: [ 200, ObjectContaining{ÔÇŽ} ]
+
+Received: 
+
+  1st vi.fn() call:
+
+  [
+-   200,
+-   ObjectContaining {
+-     "Content-Type": "image/png",
+-   },
++   404,
+  ]
+
+
+Number of calls: 1
+
+ ÔŁ» src/main/services/remote.test.ts:310:35
+    308|             res.writeHead.mockClear();
+    309|             handler({ url: '/icon-192.png' }, res);
+    310|             expect(res.writeHead).toHaveBeenCalledWith(200, expect.objÔÇŽ
+       |                                   ^
+    311| 
+    312|             res.writeHead.mockClear();
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[1/2]ÔÄ»
+
+ FAIL  src/main/services/remote.test.ts > RemoteControlService > Broadcast Failures > should log error if broadcast fails
+AssertionError: expected "vi.fn()" to be called at least once
+ ÔŁ» src/main/services/remote.test.ts:358:44
+    356| 
+    357|             remoteService.start();
+    358|             expect(tempMockUdpClient.send).toHaveBeenCalled();
+       |                                            ^
+    359|             expect(consoleSpy).toHaveBeenCalledWith('[RemoteService] HÔÇŽ
+    360|             consoleSpy.mockRestore();
+
+ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»ÔÄ»[2/2]ÔÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m12 passed[39m[22m[90m (14)[39m
+[2m   Start at [22m 18:43:40
+[2m   Duration [22m 910ms[2m (transform 115ms, setup 259ms, import 138ms, tests 249ms, environment 0ms)[22m
+
