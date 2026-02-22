@@ -1,5 +1,7 @@
 # Unofficial Bandcamp Desktop & Mobile Player
 
+## Desktop App
+
 <p align="center">
  <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
 </p>
@@ -16,7 +18,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
-## Features
+### Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
@@ -40,7 +42,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 
-## Tech Stack
+### Tech Stack
 
 - **Electron** - Desktop application framework
 - **React 19** - UI library
@@ -53,14 +55,14 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - **chromecast-api** - Casting support
 - **Electron Updater** - Auto-update support
 
-## Getting Started
+### Getting Started
 
-### Prerequisites
+#### Prerequisites
 
 - Node.js 18+
 - npm or yarn
 
-### Installation
+#### Installation
 
 ```bash
 # Clone the repository
@@ -76,7 +78,7 @@ npm run dev
 npm run dev:large
 ```
 
-### Building
+#### Building
 
 ```bash
 # Build for production
@@ -86,9 +88,9 @@ npm run build
 npm run package
 ```
 
-## Settings & Configuration
+### Settings & Configuration
 
-### Application Settings
+#### Application Settings
 
 Access the settings menu (gear icon) to configure:
 
@@ -106,7 +108,7 @@ Access the settings menu (gear icon) to configure:
   - Minimize to Tray: Keep the app running in the background when closed
   - Show Notifications: Desktop notifications on track change
 
-### Last.fm Integration
+#### Last.fm Integration
 
 To enable scrobbling, you need to register with Last.fm API application:
 
@@ -114,7 +116,7 @@ To enable scrobbling, you need to register with Last.fm API application:
 2. Create a new application
 3. Update `src/main/services/scrobbler.service.ts` with your API key and secret (before building, if building yourself) or provide it in the Settings of the desktop app (when downloading from releases)
 
-## Project Structure
+### Project Structure
 
 ```text
 src/
@@ -151,7 +153,7 @@ src/
     └── remote/            # Web Remote Interface (index.html, client.js, styles.css)
 ```
 
-## Usage
+### Usage
 
 1. **Login** - Click "Login with Bandcamp" to authenticate with your fan account
 2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view. Large collections (>100 items) are automatically cached for instant loading on subsequent launches.
@@ -162,7 +164,7 @@ src/
 7. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 8. **Offline Mode** - Download tracks via the context menu for offline playback
 
-## Mobile Companion App
+## Mobile Remote (Companion App snd Standalone Player)
 
 <p align="center">
  <img width="400" alt="image" src="https://github.com/user-attachments/assets/ce31405d-d8b1-46f6-ae8f-ab6aeeeba576" />
