@@ -172,7 +172,7 @@ src/
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
 
-### Mobile Features
+### Features
 
 - 📱 **Hybrid Mode** - Seamlessly switch between Remote Control and Standalone playback
 - 🎵 **Standalone Player** - Use the mobile app as an independent Bandcamp player with background audio
@@ -186,7 +186,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
-### Mobile Tech Stack
+### Tech Stack
 
 - **React Native** - Cross-platform mobile framework
 - **Expo** - Build and development platform
@@ -195,7 +195,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - **React Native Track Player** - Native audio playback & media controls
 - **React Native Volume Manager** - System volume synchronization
 
-### Building Mobile App
+### Building
 
 **Prerequisites**:
 
