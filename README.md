@@ -84,9 +84,6 @@ npm run build
 
 # Create an installer package (runs tests + build + electron-builder)
 npm run package
-
-# Create a new release (bumps version, runs tests, commits, and tags)
-npm run release <newVersion>
 ```
 
 ## Settings & Configuration
@@ -198,11 +195,11 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 
 ### Building Mobile App
 
-> **Prerequisites**:
->
-> - **Java 17** (Required for Android builds. Java 24+ is currently incompatible).
-> - **Android SDK** with **CMake 3.22.1** installed.
-> - **Android NDK** (Side-by-side versions).
+**Prerequisites**:
+
+- **Java 17** (Required for Android builds. Java 24+ is currently incompatible).
+- **Android SDK** with **CMake 3.22.1** installed.
+- **Android NDK** (Side-by-side versions).
 
 #### **Build Android**:
 
