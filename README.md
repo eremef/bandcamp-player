@@ -204,7 +204,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 > - **Android SDK** with **CMake 3.22.1** installed.
 > - **Android NDK** (Side-by-side versions).
 
-1. **Build Android**:
+#### **Build Android**:
 
 **Configure SDK**
    Create a `local.properties` file in `mobile/android/` pointing to your SDK:
@@ -221,7 +221,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    npm run android:build
    ```
 
-1. **Build iOS** (macOS only):
+#### **Build iOS** (macOS only):
 
    ```bash
    cd mobile
