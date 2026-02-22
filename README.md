@@ -259,7 +259,7 @@ mobile/
 
 ## Star History (just for fun)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Eremef/bandcamp-player&type=date&legend=bottom-right)](https://www.star-history.com/#Eremef/bandcamp-player&type=date&legend=bottom-right)
+[![Star History Chart](https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right)](https://www.star-history.com/#eremef/bandcamp-player&type=date&legend=bottom-right)
 
 ## License
 
