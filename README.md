@@ -164,7 +164,7 @@ src/
 7. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 8. **Offline Mode** - Download tracks via the context menu for offline playback
 
-## Mobile Remote (Companion App snd Standalone Player)
+## Mobile App (Remote control & Standalone Player)
 
 <p align="center">
  <img width="400" alt="image" src="https://github.com/user-attachments/assets/ce31405d-d8b1-46f6-ae8f-ab6aeeeba576" />
