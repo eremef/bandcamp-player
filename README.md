@@ -231,7 +231,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    open ios/BandcampRemote.xcworkspace
    ```
 
-### Mobile Project Structure
+### Project Structure
 
 ```text
 mobile/
