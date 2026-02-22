@@ -258,7 +258,7 @@ mobile/
 | Chromecast for standalone mobile app | L    | 🔴    |
 | Drag-to-reorder Playlist & Queue     | S    | 🔴    |
 
-## Star History (just for fu)n
+## Star History (just for fun)
 
 <a href="https://www.star-history.com/#Eremef/bandcamp-player&type=date&legend=top-left">
  <picture>
