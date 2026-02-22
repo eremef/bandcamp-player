@@ -33,7 +33,6 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API tokeen)
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
-- 📱 **Mobile Companion App** - Remote control via Android/iOS application
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - manage remote sessions
 - 🖥️ **Mini Player** - Compact floating player window
