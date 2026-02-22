@@ -254,6 +254,7 @@ mobile/
 | Bug finding and fixing               | XL   | 🟡    |
 | Chromecast for standalone mobile app | L    | 🔴    |
 | Drag-to-reorder Playlist & Queue     | S    | 🔴    |
+| Refine the design                    | L    | 🔴    |
 
 ## Star History (just for fun)
 
