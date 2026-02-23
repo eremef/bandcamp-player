@@ -41,7 +41,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         if (!remoteConfig) {
             fetchRemoteConfig();
         }
-    }, [fetchRemoteConfig]);
+    }, [fetchRemoteConfig, remoteConfig]);
 
     const handleRefreshConfig = async () => {
         setIsRefreshingConfig(true);

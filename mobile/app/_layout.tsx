@@ -9,6 +9,7 @@ import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
 import { SilentRefreshHandler } from '../components/SilentRefreshHandler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
     const connectionStatus = useStore(state => state.connectionStatus);
@@ -85,7 +86,7 @@ export default function RootLayout() {
     }, [connectionStatus, segments, router, mode, auth, auth.isAuthenticated]);
 
     return (
-        <>
+        <GestureHandlerRootView style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
@@ -96,6 +97,6 @@ export default function RootLayout() {
                 <Stack.Screen name="license" />
             </Stack>
             <SilentRefreshHandler />
-        </>
+        </GestureHandlerRootView>
     );
 }
