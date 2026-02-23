@@ -66,6 +66,7 @@ interface AppState extends PlayerState {
     // Queue Actions
     playQueueIndex: (index: number) => void;
     removeFromQueue: (id: string) => void;
+    reorderQueue: (fromIndex: number, toIndex: number) => void;
     clearQueue: () => void;
 
     // Playlist Actions
@@ -1005,6 +1006,39 @@ export const useStore = create<AppState>((set, get) => ({
             const { mobilePlayerService } = require('../services/MobilePlayerService');
             mobilePlayerService.playQueueIndex(index);
             get().saveQueue();
+        }
+    },
+    reorderQueue: (fromIndex, toIndex) => {
+        const { queue } = get();
+        if (fromIndex < 0 || fromIndex >= queue.items.length) return;
+        if (toIndex < 0 || toIndex >= queue.items.length) return;
+        if (fromIndex === toIndex) return;
+
+        const newItems = [...queue.items];
+        const [movedItem] = newItems.splice(fromIndex, 1);
+        newItems.splice(toIndex, 0, movedItem);
+
+        // Adjust currentIndex (mirrors desktop PlayerService.reorderQueue)
+        let newCurrentIndex = queue.currentIndex;
+        if (fromIndex === queue.currentIndex) {
+            newCurrentIndex = toIndex;
+        } else if (fromIndex < queue.currentIndex && toIndex >= queue.currentIndex) {
+            newCurrentIndex--;
+        } else if (fromIndex > queue.currentIndex && toIndex <= queue.currentIndex) {
+            newCurrentIndex++;
+        }
+
+        set({
+            queue: {
+                ...queue,
+                items: newItems,
+                currentIndex: newCurrentIndex
+            }
+        });
+        get().saveQueue();
+
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('reorder-queue', { from: fromIndex, to: toIndex });
         }
     },
     removeFromQueue: (id) => {

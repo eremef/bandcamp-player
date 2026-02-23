@@ -353,7 +353,7 @@ export function PlayerBar() {
                     >
                         {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                     </button>
-                    <div className={styles.volumeContainer}>
+                    <div className={styles.volumeControls}>
                         <button className={styles.volumeBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
                             {isMuted || volume === 0 ? (
                                 <VolumeX size={20} />

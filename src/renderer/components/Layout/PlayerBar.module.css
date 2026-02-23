@@ -216,7 +216,7 @@
 }
 
 
-.volumeContainer {
+.volumeControls {
     display: flex;
     position: absolute;
     align-items: center;

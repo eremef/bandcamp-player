@@ -9,9 +9,45 @@ jest.mock('lucide-react-native', () => {
     return {
         Play: () => <Text>PlayIcon</Text>,
         Trash2: () => <Text>TrashIcon</Text>,
+        GripVertical: () => <Text>GripIcon</Text>,
     };
 });
 
+// Mock react-native-draggable-flatlist
+const dragEndRef = { current: null as any };
+
+jest.mock('react-native-draggable-flatlist', () => {
+    const { FlatList } = jest.requireActual('react-native');
+    const React = require('react');
+
+    const DraggableFlatList = React.forwardRef(function DraggableFlatList(props: any, ref: any) {
+        React.useEffect(() => {
+            dragEndRef.current = props.onDragEnd;
+        }, [props.onDragEnd]);
+        const { renderItem, data, ...rest } = props;
+        return (
+            <FlatList
+                ref={ref}
+                data={data}
+                renderItem={({ item, index }: any) =>
+                    renderItem({
+                        item,
+                        getIndex: () => index,
+                        drag: jest.fn(),
+                        isActive: false,
+                    })
+                }
+                {...rest}
+            />
+        );
+    });
+
+    return {
+        __esModule: true,
+        default: DraggableFlatList,
+        ScaleDecorator: ({ children }: any) => children,
+    };
+});
 
 // Mock Store
 jest.mock('../../../store', () => ({
@@ -34,15 +70,19 @@ describe('QueueScreen', () => {
         items: [
             { id: 'q1', track: mockTrack, source: 'collection' },
             { id: 'q2', track: { ...mockTrack, id: '2', title: 'Track Two' }, source: 'collection' },
+            { id: 'q3', track: { ...mockTrack, id: '3', title: 'Track Three' }, source: 'collection' },
         ],
         currentIndex: 0,
     };
 
     const mockStore = {
         queue: mockQueue,
+        mode: 'standalone',
         isPlaying: true,
         playQueueIndex: jest.fn(),
         removeFromQueue: jest.fn(),
+        reorderQueue: jest.fn(),
+        refreshQueue: jest.fn(),
     };
 
     beforeEach(() => {
@@ -63,16 +103,12 @@ describe('QueueScreen', () => {
 
     it('renders queue items', () => {
         const { getByText } = render(<QueueScreen />);
-        // Removed header check
         expect(getByText('Track One')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
     });
 
     it('highlights current playing track', () => {
         const { getByText } = render(<QueueScreen />);
-        // Usually we check styles, but RN testing library is better at content.
-        // We can check if the Play icon is present for current item
-        // The PlayIcon is only rendered for current && isPlaying
         expect(getByText('PlayIcon')).toBeTruthy();
     });
 
@@ -84,9 +120,31 @@ describe('QueueScreen', () => {
 
     it('calls removeFromQueue on remove button press', () => {
         const { getAllByText } = render(<QueueScreen />);
-        // There are two TrashIcons
         const removeButtons = getAllByText('TrashIcon');
-        fireEvent.press(removeButtons[0]); // Remove first item
+        fireEvent.press(removeButtons[0]);
         expect(mockStore.removeFromQueue).toHaveBeenCalledWith('q1');
+    });
+
+    it('renders drag handle icons', () => {
+        const { getAllByText } = render(<QueueScreen />);
+        const gripIcons = getAllByText('GripIcon');
+        expect(gripIcons.length).toBe(3);
+    });
+
+    it('calls reorderQueue when drag ends', () => {
+        render(<QueueScreen />);
+
+        expect(dragEndRef.current).toBeDefined();
+        dragEndRef.current({ from: 0, to: 2, data: mockQueue.items });
+
+        expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 2);
+    });
+
+    it('does not call reorderQueue when drag ends at same position', () => {
+        render(<QueueScreen />);
+
+        dragEndRef.current({ from: 1, to: 1, data: mockQueue.items });
+
+        expect(mockStore.reorderQueue).not.toHaveBeenCalled();
     });
 });
