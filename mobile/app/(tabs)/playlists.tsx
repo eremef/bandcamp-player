@@ -11,6 +11,7 @@ export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
     const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
+    const mode = useStore((state) => state.mode);
     const playPlaylist = useStore((state) => state.playPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const renamePlaylist = useStore((state) => state.renamePlaylist);
@@ -129,7 +130,7 @@ export default function PlaylistsScreen() {
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
                 ListEmptyComponent={renderEmptyComponent}
-                refreshControl={
+                refreshControl={mode === 'standalone' ? undefined :
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />

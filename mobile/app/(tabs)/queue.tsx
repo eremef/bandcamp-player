@@ -9,6 +9,7 @@ import { useTheme } from '../../theme';
 export default function QueueScreen() {
     const colors = useTheme();
     const queue = useStore((state) => state.queue);
+    const mode = useStore((state) => state.mode);
     const playQueueIndex = useStore((state) => state.playQueueIndex);
     const removeFromQueue = useStore((state) => state.removeFromQueue);
     const isPlaying = useStore((state) => state.isPlaying);
@@ -104,7 +105,7 @@ export default function QueueScreen() {
                 contentContainerStyle={[styles.listContent, queue.items.length === 0 && { flex: 1 }]}
                 extraData={[queue.items.length, queue.currentIndex]}
                 ListEmptyComponent={renderEmptyComponent}
-                refreshControl={
+                refreshControl={mode === 'standalone' ? undefined :
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />
