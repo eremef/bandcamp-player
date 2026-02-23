@@ -363,7 +363,7 @@ export function PlayerBar() {
                                 <Volume2 size={20} />
                             )}
                         </button>
-                        <div className={styles.volumeSliderContainer}>
+                        <div className={styles.volumeContainer}>
                             <div
                                 className={styles.volumeSlider}
                                 ref={volumeRef}
