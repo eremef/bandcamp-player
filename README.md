@@ -3,7 +3,7 @@
 ## Desktop App
 
 <p align="center">
- <img width="800" alt="image" src="https://github.com/user-attachments/assets/c7fb33a1-1801-4a96-a819-9f4a40150dec" />
+ <img width="800" alt="image" src="https://github.com/user-attachments/assets/7216ad2d-d35e-4538-b84d-549e8f3224af" />
 </p>
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
@@ -255,6 +255,7 @@ mobile/
 | Chromecast for standalone mobile app | L    | 🔴    |
 | Drag-to-reorder Playlist & Queue     | L    | 🔴    |
 | Refine the design                    | L    | 🔴    |
+| Auto-refresh cookie - mobile app     | S    | 🔴    |
 
 ## Star History (just for fun)
 
