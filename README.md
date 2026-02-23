@@ -251,11 +251,11 @@ mobile/
 | What                                 | Size | Status |
 | :----------------------------------- | ---- | :----: |
 | Add all searched items to playlist   | S    | 🔴    |
-| Bug finding and fixing               | XL   | 🟡    |
+| Bug finding and fixing               | XL   | 🟡    | 
 | Chromecast for standalone mobile app | L    | 🔴    |
-| Drag-to-reorder Playlist & Queue     | L    | 🔴    |
-| Refine the design                    | L    | 🔴    |
-| Auto-refresh cookie - mobile app     | S    | 🔴    |
+| Drag-to-reorder Playlist & Queue     | L    | 🟡    |
+| Refine the design                    | L    | 🟡    |
+| Auto-refresh cookie - mobile app     | S    | 🟡    |
 
 ## Star History (just for fun)
 
