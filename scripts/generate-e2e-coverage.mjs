@@ -111,6 +111,7 @@ async function generateCoverage() {
 
     reports.create('html').execute(context);
     reports.create('text-summary').execute(context);
+    reports.create('json-summary', { file: 'coverage-summary.json' }).execute(context);
 
     console.log(`Coverage report generated in ${outputDir}`);
 

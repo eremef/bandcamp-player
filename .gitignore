@@ -63,3 +63,4 @@ test-results/.last-run.json
 mobile/*test_*.txt
 test_logs/
 mobile/test_logs/
+AGENTS.md

@@ -14,7 +14,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    width: 250px;
+    width: 200px;
     min-width: 180px;
 }
 
@@ -62,12 +62,13 @@
 
 /* Controls */
 .controls {
+    position: relative;
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-sm);
-    max-width: 700px;
+    max-width: 100%;
 }
 
 .controlButtons {
@@ -128,7 +129,6 @@
     font-size: var(--font-size-xs);
     color: var(--text-tertiary);
     font-variant-numeric: tabular-nums;
-    min-width: 40px;
 }
 
 .time:first-child {
@@ -211,17 +211,49 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    width: 350px;
     justify-content: flex-end;
+    min-width: 112px;
 }
+
 
 .volumeContainer {
     display: flex;
+    position: absolute;
+    align-items: center;
+    flex: 1;
+    width: 15vw;
+    right: 0;
+}
+
+.volumeSliderContainer {
+    margin-top: 15px;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: var(--spacing-xs);
     flex: 1;
-    max-width: 150px;
+}
+
+.volumeBtn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border-radius: var(--radius-full);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+}
+
+.volumeBtn:hover {
+    color: var(--text-primary);
+    transform: scale(1.1);
+}
+
+.volumeBtn.active {
+    color: var(--accent-primary);
 }
 
 .volumeSlider {
