@@ -225,7 +225,7 @@
     right: 0;
 }
 
-.volumeSliderContainer {
+.volumeContainer {
     margin-top: 15px;
     display: flex;
     flex-direction: column;
