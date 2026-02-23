@@ -248,15 +248,15 @@ mobile/
 
 ## Roadmap
 
-| What                                 | Size | Status |
-| :----------------------------------- | ---- | :----: |
-| Add all searched items to playlist   | S    | 🔴    |
-| Bug finding and fixing               | XL   | 🟡    | 
-| Chromecast for standalone mobile app | L    | 🔴    |
-| Drag-to-reorder Playlist & Queue     | L    | 🟡    |
-| Refine the design                    | L    | 🟡    |
-| Auto-refresh cookie - mobile app     | S    | 🟡    |
-
+| What                                  | Size | Status |
+| :-----------------------------------  | ---- | :----: |
+| Add all searched items to playlist    | S    | 🔴    |
+| Bug finding and fixing                | XL   | 🟡    | 
+| Chromecast for standalone mobile mode | L    | 🔴    |
+| Drag-to-reorder Playlist & Queue      | L    | 🟡    |
+| Refine the design                     | L    | 🟡    |
+| Auto-refresh cookie - mobile app      | M    | 🟡    |
+| Scrobbler for standalone mobile mode   | L    | 🔴    |
 ## Star History (just for fun)
 
 [![Star History Chart](https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right)](https://www.star-history.com/#eremef/bandcamp-player&type=date&legend=bottom-right)
