@@ -201,7 +201,7 @@ describe('AuthService', () => {
             // Wait a tick for handlers to attach
             await new Promise(r => setTimeout(r, 0));
 
-            const closeHandler = mockOn.mock.calls.find(c => c[0] === 'closed')[1];
+            const closeHandler = mockOn.mock.calls.find(c => c[0] === 'closed')![1];
 
             // Setup session check to return false
             mockSession.cookies.get.mockResolvedValue([]);
@@ -218,7 +218,7 @@ describe('AuthService', () => {
 
             await new Promise(r => setTimeout(r, 0));
 
-            const navigateHandler = mockWebContentsOn.mock.calls.find(c => c[0] === 'did-navigate')[1];
+            const navigateHandler = mockWebContentsOn.mock.calls.find(c => c[0] === 'did-navigate')![1];
 
             // Setup session check to return true after navigation
             mockSession.cookies.get.mockResolvedValue([

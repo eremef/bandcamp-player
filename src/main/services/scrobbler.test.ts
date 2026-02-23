@@ -145,7 +145,7 @@ describe('ScrobblerService', () => {
 
         it('should handle authentication window closing', async () => {
             const connectPromise = scrobblerService.connect();
-            const closeCallback = mockBrowserWindowInstance.on.mock.calls.find(c => c[0] === 'closed')[1];
+            const closeCallback = mockBrowserWindowInstance.on.mock.calls.find(c => c[0] === 'closed')![1];
 
             closeCallback(); // Simulate window closed manually
             const state = await connectPromise;
@@ -188,7 +188,7 @@ describe('ScrobblerService', () => {
             });
 
             // Find will-navigate handler
-            const willNavigateEvent = mockWebContentsOn.mock.calls.find(c => c[0] === 'will-navigate')[1];
+            const willNavigateEvent = mockWebContentsOn.mock.calls.find(c => c[0] === 'will-navigate')![1];
             const mockEvent = { preventDefault: vi.fn() };
 
             willNavigateEvent(mockEvent, 'http://localhost:41234/lastfm-callback?token=mock-token');
