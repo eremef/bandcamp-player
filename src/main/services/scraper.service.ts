@@ -10,8 +10,6 @@ import { remoteConfigService } from '../../shared/remote-config.service';
 // Bandcamp Scraper Service
 // ============================================================================
 
-const ONE_YEAR_SECONDS = 31536000; // 1 year
-
 export class ScraperService extends EventEmitter {
     private authService: AuthService;
     private database?: Database;
@@ -308,7 +306,7 @@ export class ScraperService extends EventEmitter {
                                 }
                             }
                             batchCount++;
-                        } catch (error) {
+                        } catch {
                             retryCount++;
                             if (retryCount > MAX_RETRIES) {
                                 console.error(`[Scraper] Max retries reached for batch ${batchCount}, stopping.`);
@@ -336,7 +334,7 @@ export class ScraperService extends EventEmitter {
                                 lastToken = batch[batch.length - 1].token;
                                 retryCount = 0; // Reset on success
                             }
-                        } catch (error) {
+                        } catch {
                             retryCount++;
                             if (retryCount > MAX_RETRIES) {
                                 console.error('[Scraper] Simulation failed repeatedly, stopping.');
@@ -417,7 +415,7 @@ export class ScraperService extends EventEmitter {
                     try {
                         const urlObj = new URL(data.bandcampUrl);
                         artistUrl = `${urlObj.protocol}//${urlObj.host}`;
-                    } catch (e) {
+                    } catch {
                         // ignore invalid urls
                     }
                 }

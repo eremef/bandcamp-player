@@ -90,10 +90,10 @@ jest.mock('expo-router', () => ({
         replace: jest.fn(),
         back: jest.fn(),
     }),
+    useLocalSearchParams: () => ({}),
     useFocusEffect: (callback) => {
         callback();
     },
-
 }));
 
 jest.mock('expo-network', () => ({

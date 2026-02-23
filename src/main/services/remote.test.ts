@@ -1,17 +1,14 @@
 /** @vitest-environment node */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { RemoteControlService } from './remote.service';
-import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
-import { PlaylistService } from './playlist.service';
 import { AuthService } from './auth.service';
 import { Database } from '../database/database';
 import { EventEmitter } from 'events';
 import * as http from 'http';
-import { WebSocketServer, WebSocket } from 'ws';
+import { WebSocketServer } from 'ws';
 import * as fs from 'fs';
 import * as os from 'os';
-import * as dgram from 'dgram';
 
 
 // Mock dependencies
@@ -35,7 +32,7 @@ vi.mock('http', () => {
                 listen: vi.fn((_p, _h, cb) => {
                     // Store the handler on the listen mock so we can find it
                     (http.createServer as any)._lastHandler = handler;
-                    cb && cb();
+                    cb?.();
                 }),
                 close: vi.fn(),
                 on: vi.fn(),
@@ -44,7 +41,7 @@ vi.mock('http', () => {
         createServer: vi.fn().mockImplementation((handler) => ({
             listen: vi.fn((_p, _h, cb) => {
                 (http.createServer as any)._lastHandler = handler;
-                cb && cb();
+                cb?.();
             }),
             close: vi.fn(),
             on: vi.fn(),
@@ -57,8 +54,8 @@ vi.mock('http', () => {
     };
 });
 
-vi.mock('ws', () => {
-    const { EventEmitter } = require('events');
+vi.mock('ws', async () => {
+    const { EventEmitter } = await import('events');
     const wss = new EventEmitter() as any;
     wss.clients = new Set();
     wss.on('connection', (ws: any) => {
@@ -80,7 +77,6 @@ describe('RemoteControlService', () => {
     let mockPlaylistService: any;
     let mockAuthService: any;
     let mockDatabase: any;
-    let mockHttpServer: any;
     let mockWss: any;
 
     beforeEach(() => {
@@ -168,7 +164,7 @@ describe('RemoteControlService', () => {
         });
 
         it('should handle icon conversion to SVG', () => {
-            // @ts-ignore
+            // @ts-expect-error private method
             const svg = remoteService.iconToSvg([['circle', { cx: '12', cy: '12', r: '10' }]]);
             expect(svg).toContain('<circle cx="12" cy="12" r="10"></circle>');
         });

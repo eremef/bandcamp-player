@@ -1,5 +1,4 @@
 import React from 'react';
-import { Text } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import QueueScreen from '../../../app/(tabs)/queue';
 import { useStore } from '../../../store';

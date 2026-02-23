@@ -8,6 +8,7 @@ import { PlaybackService } from '../services/TrackPlayerService';
 import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
+import { SilentRefreshHandler } from '../components/SilentRefreshHandler';
 
 export default function RootLayout() {
     const connectionStatus = useStore(state => state.connectionStatus);
@@ -58,7 +59,7 @@ export default function RootLayout() {
         return () => {
             subscription.remove();
         };
-    }, [saveQueue]);
+    }, [saveQueue, router, segments]);
 
     useEffect(() => {
         const inTabsGroup = segments[0] === '(tabs)';
@@ -84,14 +85,17 @@ export default function RootLayout() {
     }, [connectionStatus, segments, router, mode, auth, auth.isAuthenticated]);
 
     return (
-        <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="album_detail" />
-            <Stack.Screen name="about" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="license" />
-        </Stack>
+        <>
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="album_detail" />
+                <Stack.Screen name="about" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="license" />
+            </Stack>
+            <SilentRefreshHandler />
+        </>
     );
 }

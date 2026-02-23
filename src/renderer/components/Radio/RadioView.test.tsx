@@ -102,7 +102,7 @@ describe('RadioView', () => {
             ]
         });
 
-        const { rerender } = render(<RadioView />);
+        render(<RadioView />);
 
         // Should focus on filtered list logic.
         // The implementation uses useMemo to filter radioStations based on radioSearchQuery.

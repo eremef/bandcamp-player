@@ -461,7 +461,7 @@ export class MobileScraperService {
                     purchaseDate: new Date().toISOString(),
                 };
             }
-        } catch (error) {
+        } catch {
             return null;
         }
     }
@@ -721,7 +721,7 @@ export class MobileScraperService {
                                 // Fallback: try parsing YYYYMMDD or DD MMM YYYY if needed
                                 formattedDate = episode.published_date;
                             }
-                        } catch (e) {
+                        } catch {
                             formattedDate = String(episode.published_date);
                         }
                     }

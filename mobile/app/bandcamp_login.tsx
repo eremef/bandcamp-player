@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { StyleSheet, ActivityIndicator, View, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useStore } from '../store';
 import { mobileAuthService } from '../services/MobileAuthService';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,12 +11,43 @@ import CookieManager from '@react-native-cookies/cookies';
 
 const LOGIN_URL = 'https://bandcamp.com/login';
 
-export default function BandcampLoginScreen() {
+export default function BandcampLoginScreen({ silentProp }: { silentProp?: boolean }) {
     const router = useRouter();
+    const params = useLocalSearchParams<{ silent?: string }>();
+    const isSilent = silentProp || params.silent === 'true';
     const colors = useTheme();
     const [isLoading, setIsLoading] = useState(true);
     const webViewRef = useRef<WebView>(null);
     const setMode = useStore((state) => state.setMode);
+    const [credentialsJS, setCredentialsJS] = useState<string>('');
+    const [isReady, setIsReady] = useState(false);
+
+    React.useEffect(() => {
+        const loadCreds = async () => {
+            const creds = await mobileAuthService.getCredentials();
+            let js = '';
+            // Only auto-fill if not silent (silent doesn't show UI, so auto-fill doesn't matter for user, but we can auto submit?)
+            // Actually, if silent, we just want to grab cookies. If there are no valid cookies in WebView, it will show login page.
+            if (creds && creds.username && creds.password && !isSilent) {
+                js = `
+                    (function() {
+                        try {
+                            var u = document.querySelector('input[name="username"]') || document.querySelector('input[type="text"]');
+                            var p = document.querySelector('input[name="password"]') || document.querySelector('input[type="password"]');
+                            if (u && p) {
+                                u.value = '${creds.username.replace(/'/g, "\\'")}';
+                                p.value = '${creds.password.replace(/'/g, "\\'")}';
+                            }
+                        } catch(e) {}
+                    })();
+                `;
+            }
+            setCredentialsJS(js);
+            setIsReady(true);
+        };
+        loadCreds();
+    }, [isSilent]);
+
 
     // Inject JS to get cookies and user data
     // We try multiple methods:
@@ -105,6 +136,28 @@ export default function BandcampLoginScreen() {
                 
                 checkPageSource();
                 setInterval(checkPageSource, 3000);
+
+                // Add credential capture
+                var captureCreds = function() {
+                    var uInput = document.querySelector('input[name="username"]') || document.querySelector('input[type="text"]');
+                    var pInput = document.querySelector('input[name="password"]') || document.querySelector('input[type="password"]');
+                    var sBtn = document.querySelector('button[type="submit"]');
+                    
+                    if (uInput && pInput && sBtn && !window.__credentialHooked) {
+                        window.__credentialHooked = true;
+                        sBtn.addEventListener('click', function() {
+                            if (uInput.value && pInput.value) {
+                                window.ReactNativeWebView.postMessage(JSON.stringify({
+                                    type: 'save_credentials',
+                                    username: uInput.value,
+                                    password: pInput.value
+                                }));
+                            }
+                        });
+                    }
+                };
+                setInterval(captureCreds, 1000);
+
             } catch (e) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                     type: 'critical',
@@ -138,9 +191,22 @@ export default function BandcampLoginScreen() {
                     useStore.setState({ auth: authState });
                     await setMode('standalone');
                     setIsLoading(false);
-                    router.replace('/(tabs)/player');
+                    if (isSilent) {
+                        useStore.setState({ isSilentRefreshing: false });
+                        useStore.getState().refreshCollection(true); // retry fetch
+                    } else {
+                        router.replace('/(tabs)/player');
+                    }
                     return;
                 }
+            }
+
+            if (message.type === 'save_credentials') {
+                mobileAuthService.saveCredentials({
+                    username: message.username,
+                    password: message.password
+                });
+                return;
             }
 
             // Also trigger native check on interaction/interval
@@ -183,12 +249,48 @@ export default function BandcampLoginScreen() {
             useStore.setState({ auth: authState });
             await setMode('standalone');
             setIsLoading(false);
-            router.replace('/(tabs)/player');
+            if (isSilent) {
+                useStore.setState({ isSilentRefreshing: false });
+                useStore.getState().refreshCollection(true); // Retry fetch
+            } else {
+                router.replace('/(tabs)/player');
+            }
         } catch (e) {
             console.error('Failed to save cookies:', e);
             // Fallback to just proceeding if critical, but scraper might fail
         }
     };
+
+    if (!isReady) {
+        return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+    }
+
+    if (isSilent) {
+        return (
+            <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+                <WebView
+                    ref={webViewRef}
+                    source={{ uri: LOGIN_URL }}
+                    onLoadEnd={() => {
+                        checkNativeSession();
+                        // If silent mode finished loading but hasn't resolved after a few seconds, it failed
+                        setTimeout(() => {
+                            if (useStore.getState().isSilentRefreshing) {
+                                useStore.setState({ isSilentRefreshing: false });
+                                // Navigate to explicit login as fallback
+                                router.replace('/bandcamp_login');
+                            }
+                        }, 10000);
+                    }}
+                    onMessage={handleMessage}
+                    injectedJavaScript={extractCookiesJS + credentialsJS}
+                    sharedCookiesEnabled={true}
+                    domStorageEnabled={true}
+                    javaScriptEnabled={true}
+                />
+            </View>
+        );
+    }
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -209,7 +311,7 @@ export default function BandcampLoginScreen() {
                     checkNativeSession();
                 }}
                 onMessage={handleMessage}
-                injectedJavaScript={extractCookiesJS}
+                injectedJavaScript={extractCookiesJS + credentialsJS}
                 sharedCookiesEnabled={true}
                 domStorageEnabled={true}
                 javaScriptEnabled={true} // Explicitly enable JS

@@ -98,6 +98,9 @@ interface AppState extends PlayerState {
     theme: Theme;
     setTheme: (theme: Theme) => Promise<void>;
 
+    // Silent Refresh
+    isSilentRefreshing: boolean;
+
     // Persistence Helpers
     saveQueue: () => Promise<void>;
 }
@@ -146,6 +149,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     isSimulationMode: false,
+    isSilentRefreshing: false,
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
         await AsyncStorage.setItem('is_simulation_mode', newValue ? 'true' : 'false');
@@ -757,7 +761,7 @@ export const useStore = create<AppState>((set, get) => ({
                     try {
                         const urlObj = new URL(streamUrl);
                         isUnresolvedUrl = urlObj.hostname === 'bandcamp.com' || urlObj.hostname.endsWith('.bandcamp.com');
-                    } catch (e) {
+                    } catch {
                         isUnresolvedUrl = false;
                     }
                 }
@@ -1168,7 +1172,12 @@ export const useStore = create<AppState>((set, get) => ({
 
                 return fetchLogic().catch(err => {
                     console.error('Fetch collection error:', err);
-                    set({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
+                    if (err.message === 'User not authenticated' || (err.response && err.response.status === 401) || String(err).includes('401')) {
+                        console.log('[MobileStore] Authentication error detected, triggering silent refresh');
+                        set({ isSilentRefreshing: true, isCollectionLoading: false });
+                    } else {
+                        set({ isCollectionLoading: false, collectionError: 'Failed to load collection.' });
+                    }
                 });
             }
         } else {

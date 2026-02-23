@@ -96,7 +96,7 @@ export class Database {
         // Migration: Add is_simulated to artists if it doesn't exist
         try {
             this.db.prepare('SELECT is_simulated FROM artists LIMIT 1').get();
-        } catch (e) {
+        } catch {
             console.log('[Database] Migrating artists table to include is_simulated column...');
             this.db.exec(`
                 ALTER TABLE artists RENAME TO artists_old;

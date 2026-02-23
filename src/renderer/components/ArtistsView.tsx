@@ -11,7 +11,7 @@ export const ArtistsView: React.FC = () => {
 
     useEffect(() => {
         fetchArtists();
-    }, []);
+    }, [fetchArtists]);
 
     const filteredArtists = artists.filter(artist =>
         artist.name.toLowerCase().includes(filter.toLowerCase())

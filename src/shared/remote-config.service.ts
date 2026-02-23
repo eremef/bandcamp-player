@@ -64,13 +64,13 @@ try {
     // Metro will resolve this relative to the shared file
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     DefaultConfig = require('../../mobile/assets/remote-config.json');
-} catch (e) {
+} catch {
     try {
         // 2. Desktop production (app root) and Desktop/Mobile dev (project root)
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         DefaultConfig = require('../../remote-config.json');
-    } catch (e2) {
-        console.error('[RemoteConfig] Failed to load bundled config from all locations:', e2);
+    } catch (e) {
+        console.error('[RemoteConfig] Failed to load bundled config from all locations:', e);
         // Minimal emergency fallback
         DefaultConfig = { version: "0.0.0", selectors: { collection: { itemContainer: "" }, album: { artistDOM: [] }, radio: { dataBlobElements: [], scriptRegexes: [] } }, endpoints: { collectionItemsApi: "" }, userAgents: { desktop: "", mobile: "", mobileApi: "" }, cleaning: { artistCleanRegex: "" }, scraping: { batchSize: 100 }, radioData: { showIdKeys: [] } };
     }
@@ -162,7 +162,7 @@ export class RemoteConfigService {
             if (!data.radioData || !Array.isArray(data.radioData.showIdKeys)) return false;
 
             return true;
-        } catch (e) {
+        } catch {
             return false;
         }
     }

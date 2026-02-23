@@ -2,7 +2,6 @@ import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import CollectionScreen from '../../../app/(tabs)/collection';
 import { useStore } from '../../../store';
-import { webSocketService } from '../../../services/WebSocketService';
 import { router } from 'expo-router';
 
 // Mock Dependencies

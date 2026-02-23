@@ -1,4 +1,4 @@
-import { mobileDatabase, MobileDatabase } from '../services/MobileDatabase';
+import { MobileDatabase } from '../services/MobileDatabase';
 import * as SQLite from 'expo-sqlite';
 
 jest.mock('expo-sqlite', () => ({

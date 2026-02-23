@@ -12,7 +12,8 @@ jest.mock('expo-router', () => ({
     useRouter: () => ({
         replace: mockReplace,
         back: mockBack,
-    })
+    }),
+    useLocalSearchParams: () => ({})
 }));
 
 // Mock react-native-webview
@@ -30,6 +31,8 @@ jest.mock('../../services/MobileAuthService', () => ({
     mobileAuthService: {
         setCookies: jest.fn().mockResolvedValue(undefined),
         setUser: jest.fn().mockResolvedValue(undefined),
+        getCredentials: jest.fn().mockResolvedValue(null),
+        saveCredentials: jest.fn().mockResolvedValue(undefined),
     }
 }));
 
@@ -61,17 +64,24 @@ describe('BandcampLoginScreen', () => {
         });
     });
 
-    it('renders correctly and shows loading indicator initally', () => {
-        const { getByText, UNSAFE_getByType } = render(<BandcampLoginScreen />);
-        expect(getByText('Login to Bandcamp')).toBeTruthy();
+    it('renders correctly and shows loading indicator initally', async () => {
+        const { getByText, UNSAFE_queryByType } = render(<BandcampLoginScreen />);
+        await waitFor(() => {
+            expect(getByText('Login to Bandcamp')).toBeTruthy();
+        });
 
-        // It starts with isLoading = true
-        expect(UNSAFE_getByType(require('react-native').ActivityIndicator)).toBeTruthy();
+        // It starts with isLoading = true after it becomes ready
+        expect(UNSAFE_queryByType(require('react-native').ActivityIndicator)).toBeTruthy();
     });
 
     it('handles WebView onLoadEnd and checks native session', async () => {
         const { getByTestId, UNSAFE_queryByType } = render(<BandcampLoginScreen />);
-        const webview = getByTestId('mock-webview');
+
+        let webview;
+        await waitFor(() => {
+            webview = getByTestId('mock-webview');
+            expect(webview).toBeTruthy();
+        });
 
         // Trigger onLoadEnd
         fireEvent(webview, 'onLoadEnd');
@@ -88,12 +98,19 @@ describe('BandcampLoginScreen', () => {
         expect(UNSAFE_queryByType(require('react-native').ActivityIndicator)).toBeNull();
     });
 
-    it('navigates back when close button is pressed', () => {
-        const { UNSAFE_getByType } = render(<BandcampLoginScreen />);
+    it('navigates back when close button is pressed', async () => {
+        const { UNSAFE_queryAllByType } = render(<BandcampLoginScreen />);
 
-        const touchables = UNSAFE_getByType(require('react-native').TouchableOpacity);
+        let touchables: any[] = [];
+        await waitFor(() => {
+            touchables = UNSAFE_queryAllByType(require('react-native').TouchableOpacity);
+            expect(touchables.length).toBeGreaterThan(0);
+        });
+
         // First touchable is the close button
-        fireEvent.press(touchables);
+        if (touchables && touchables.length > 0) {
+            fireEvent.press(touchables[0]);
+        }
 
         expect(mockBack).toHaveBeenCalled();
     });
@@ -109,9 +126,13 @@ describe('BandcampLoginScreen', () => {
             ok: true,
             json: jest.fn().mockResolvedValueOnce({ user: mockUser })
         });
-
         const { getByTestId } = render(<BandcampLoginScreen />);
-        const webview = getByTestId('mock-webview');
+
+        let webview: any;
+        await waitFor(() => {
+            webview = getByTestId('mock-webview');
+            expect(webview).toBeTruthy();
+        });
 
         fireEvent(webview, 'onLoadEnd');
 
@@ -135,7 +156,16 @@ describe('BandcampLoginScreen', () => {
 
     it('handles page_scrape fallback from WebView injected JS', async () => {
         const { getByTestId } = render(<BandcampLoginScreen />);
-        const webview = getByTestId('mock-webview');
+
+        let webview: any;
+        await waitFor(() => {
+            webview = getByTestId('mock-webview');
+            expect(webview).toBeTruthy();
+        });
+        await waitFor(() => {
+            webview = getByTestId('mock-webview');
+            expect(webview).toBeTruthy();
+        });
 
         // Simulate message from WebView
         const mockMessage = {

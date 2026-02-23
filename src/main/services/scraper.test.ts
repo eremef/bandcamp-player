@@ -466,12 +466,6 @@ describe('ScraperService', () => {
             });
             mockAuthService.getSessionCookies.mockResolvedValue('session=123');
 
-            const manyItems = Array.from({ length: 150 }, (_, i) => ({
-                id: String(i),
-                type: 'track',
-                track: { id: String(i), title: `Track ${i}` }
-            }));
-
             // Mock HTML and API response to return many items
             mockAxios.get.mockResolvedValue({ data: '<html></html>' });
             // Mocking parseCollectionItem is hard, so let's mock the whole fetch loop

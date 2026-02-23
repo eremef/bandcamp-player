@@ -4,6 +4,7 @@ import { decode } from 'js-base64';
 
 const COOKIE_KEY = 'bandcamp_cookies';
 const USER_KEY = 'bandcamp_user';
+const CREDENTIALS_KEY = 'bandcamp_credentials';
 
 export interface MobileAuthState {
     isAuthenticated: boolean;
@@ -48,7 +49,32 @@ export class MobileAuthService {
         await SecureStore.deleteItemAsync(COOKIE_KEY);
         try {
             await SecureStore.deleteItemAsync(USER_KEY);
+        } catch {
+            // ignore
+        }
+    }
+
+    async saveCredentials(credentials: { username?: string, password?: string }): Promise<void> {
+        try {
+            await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(credentials));
         } catch (e) {
+            console.error('Failed to save credentials', e);
+        }
+    }
+
+    async getCredentials(): Promise<{ username?: string, password?: string } | null> {
+        try {
+            const stored = await SecureStore.getItemAsync(CREDENTIALS_KEY);
+            return stored ? JSON.parse(stored) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    async clearCredentials(): Promise<void> {
+        try {
+            await SecureStore.deleteItemAsync(CREDENTIALS_KEY);
+        } catch {
             // ignore
         }
     }

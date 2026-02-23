@@ -41,7 +41,7 @@ export default function ArtistDetailScreen() {
         if (connectionStatus === 'connected' && id) {
             refreshArtistCollection(id);
         }
-    }, [connectionStatus, id]);
+    }, [connectionStatus, id, refreshArtistCollection]);
 
     const artist = artists.find(a => a.id === id);
 
@@ -212,7 +212,7 @@ export default function ArtistDetailScreen() {
                         <Text style={[styles.name, { color: colors.text }]}>{artist.name}</Text>
                         <Text style={[styles.stats, { color: colors.textSecondary }]}>{artistItems.length} releases in collection</Text>
 
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.bandcampButton, { backgroundColor: colors.input }]}
                             onPress={handleViewOnBandcamp}
                         >
