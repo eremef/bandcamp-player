@@ -353,6 +353,47 @@ export function PlayerBar() {
                     >
                         {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                     </button>
+                    <div className={styles.volumeContainer}>
+                        <button className={styles.volumeBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
+                            {isMuted || volume === 0 ? (
+                                <VolumeX size={20} />
+                            ) : volume < 0.5 ? (
+                                <Volume1 size={20} />
+                            ) : (
+                                <Volume2 size={20} />
+                            )}
+                        </button>
+                        <div className={styles.volumeSliderContainer}>
+                            <div
+                                className={styles.volumeSlider}
+                                ref={volumeRef}
+                                onMouseDown={handleVolumeMouseDown}
+                                onMouseMove={handleVolumeMouseMove}
+                                onMouseLeave={handleVolumeMouseLeave}
+                                onWheel={handleVolumeScroll}
+                            >
+                                <div className={styles.volumeTrack}>
+                                    <div
+                                        className={styles.volumeFill}
+                                        style={{ width: `${volumePercent}%` }}
+                                    />
+                                    {hoverVolume !== null && (
+                                        <div
+                                            className={styles.volumeHover}
+                                            style={{ left: `${hoverVolume * 100}%` }}
+                                        >
+                                            <span className={styles.volumeHoverText}>{Math.round(hoverVolume * 100)}%</span>
+                                        </div>
+                                    )}
+                                    <div
+                                        className={styles.volumeThumb}
+                                        style={{ left: `${volumePercent}%` }}
+                                    />
+                                </div>
+                            </div>
+                            <span className={styles.volumeText}>{volumePercent}%</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div className={styles.progressContainer}>
@@ -380,48 +421,9 @@ export function PlayerBar() {
                     <span className={styles.time}>{formatTime(duration)}</span>
                 </div>
             </div>
-
-            {/* Volume & extras */}
+            {/* extras */}
             <div className={styles.extras}>
-                <button className={styles.controlBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
-                    {isMuted || volume === 0 ? (
-                        <VolumeX size={20} />
-                    ) : volume < 0.5 ? (
-                        <Volume1 size={20} />
-                    ) : (
-                        <Volume2 size={20} />
-                    )}
-                </button>
-                <div className={styles.volumeContainer}>
-                    <div
-                        className={styles.volumeSlider}
-                        ref={volumeRef}
-                        onMouseDown={handleVolumeMouseDown}
-                        onMouseMove={handleVolumeMouseMove}
-                        onMouseLeave={handleVolumeMouseLeave}
-                        onWheel={handleVolumeScroll}
-                    >
-                        <div className={styles.volumeTrack}>
-                            <div
-                                className={styles.volumeFill}
-                                style={{ width: `${volumePercent}%` }}
-                            />
-                            {hoverVolume !== null && (
-                                <div
-                                    className={styles.volumeHover}
-                                    style={{ left: `${hoverVolume * 100}%` }}
-                                >
-                                    <span className={styles.volumeHoverText}>{Math.round(hoverVolume * 100)}%</span>
-                                </div>
-                            )}
-                            <div
-                                className={styles.volumeThumb}
-                                style={{ left: `${volumePercent}%` }}
-                            />
-                        </div>
-                    </div>
-                    <span className={styles.volumeText}>{volumePercent}%</span>
-                </div>
+
                 <div className={styles.castContainer}>
                     <button
                         className={`${styles.controlBtn} ${player.isCasting ? styles.active : ''}`}

@@ -75,4 +75,5 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - When you are creating txt files for testing purposes, make sure to write them in the `test_logs` folder.
 - Use JSON for test coverage reports, e.g. mobile: `npx jest --coverage --coverageReporters="json-summary"`, desktop: `npx vitest --coverage --coverage.reporter="json-summary"`. For multiple Vitest reporters, pass the flag multiple times: `--coverage.reporter=text --coverage.reporter=json-summary`.
 - To release new version (bump version, copy assets, run tests, commit, and tag)
-npm run release <newVersion>
+npm run release <newVersion>.
+- when running a command in terminal that has `(tabs)` somewhere in the path, remember to use proper quotes to avoid errors.
