@@ -255,6 +255,7 @@ mobile/
 | Chromecast for standalone mobile app | L    | 🔴    |
 | Drag-to-reorder Playlist & Queue     | L    | 🔴    |
 | Refine the design                    | L    | 🔴    |
+| Auto-refresh cookie - mobile app     | S    | 🔴    |
 
 ## Star History (just for fun)
 
