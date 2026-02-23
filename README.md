@@ -14,7 +14,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 >
 >Use at your own risk.
 >
->Application is designed for personal use, allowing users aka fans listen to and cache only the tracks they have collected, as well as listen to freely available BC radio shows.
+>Application is designed for personal use, allowing users, aka fans, to listen to and cache only the tracks they have collected, as well as listen to freely available BC radio shows.
 
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
@@ -30,7 +30,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API tokeen)
+- 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API token)
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
@@ -109,7 +109,7 @@ Access the settings menu (gear icon) to configure:
 
 #### Last.fm Integration
 
-To enable scrobbling, you need to register with Last.fm API application:
+To enable scrobbling, you need to register with Last.FM API application:
 
 1. Go to <https://www.last.fm/api/account/create>
 2. Create a new application
@@ -253,7 +253,7 @@ mobile/
 | Add all searched items to playlist   | S    | 🔴    |
 | Bug finding and fixing               | XL   | 🟡    |
 | Chromecast for standalone mobile app | L    | 🔴    |
-| Drag-to-reorder Playlist & Queue     | S    | 🔴    |
+| Drag-to-reorder Playlist & Queue     | L    | 🔴    |
 | Refine the design                    | L    | 🔴    |
 
 ## Star History (just for fun)
