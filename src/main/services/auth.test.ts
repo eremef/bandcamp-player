@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AuthService } from './auth.service';
-import { Session, BrowserWindow, net } from 'electron';
+import { Session, BrowserWindow } from 'electron';
 
 // Mock Electron modules
 const mockLoadURL = vi.fn();

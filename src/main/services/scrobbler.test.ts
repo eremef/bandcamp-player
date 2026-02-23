@@ -2,9 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ScrobblerService } from './scrobbler.service';
 import { Database } from '../database/database';
 import axios from 'axios';
-import { BrowserWindow } from 'electron';
 import { Track } from '../../shared/types';
-import * as crypto from 'crypto';
 
 // Mock dependencies
 vi.mock('axios');

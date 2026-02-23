@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
 import RadioScreen from '../../app/(tabs)/radio';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
@@ -63,7 +63,7 @@ describe('RadioScreen', () => {
     });
 
     it('renders list of radio stations correctly', () => {
-        const { getByText, getAllByText } = render(<RadioScreen />);
+        const { getByText } = render(<RadioScreen />);
 
         expect(getByText('Cool Station 1')).toBeTruthy();
         expect(getByText('Awesome Station 2')).toBeTruthy();
@@ -152,7 +152,7 @@ describe('RadioScreen', () => {
     });
 
     it('handles pull to refresh', async () => {
-        const { getByTestId, UNSAFE_getByType } = render(<RadioScreen />);
+        const { UNSAFE_getByType } = render(<RadioScreen />);
         const flatList = UNSAFE_getByType(require('react-native').FlatList);
 
         await act(async () => {

@@ -17,9 +17,9 @@ vi.mock('../../shared/ipc-channels', () => ({
 
 // Mock electron-updater
 vi.mock('electron-updater', () => {
-    let handlers: Record<string, Function[]> = {};
+    const handlers: Record<string, ((...args: any[]) => void)[]> = {};
     const mockAutoUpdater = {
-        on: vi.fn((event: string, cb: Function) => {
+        on: vi.fn((event: string, cb: (...args: any[]) => void) => {
             if (!handlers[event]) handlers[event] = [];
             handlers[event].push(cb);
             return mockAutoUpdater;
@@ -84,16 +84,16 @@ describe('UpdaterService', () => {
     describe('checkForUpdates', () => {
         it('should handle manual flag correctly', async () => {
             await updaterService.checkForUpdates(true);
-            // @ts-ignore
+            // @ts-expect-error private property
             expect(updaterService.isManualCheck).toBe(true);
 
             await updaterService.checkForUpdates(false);
-            // @ts-ignore
+            // @ts-expect-error private property
             expect(updaterService.isManualCheck).toBe(false);
         });
 
         it('should not check if already checking', async () => {
-            // @ts-ignore
+            // @ts-expect-error private property    
             updaterService.isChecking = true;
             await updaterService.checkForUpdates();
             expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
@@ -103,9 +103,9 @@ describe('UpdaterService', () => {
             // Use checking-for-update event emission to verify state
             // or just check the internal flag if possible
             const checkPromise = updaterService.checkForUpdates();
-            // @ts-ignore
+
             autoUpdater.emit('checking-for-update');
-            // @ts-ignore
+            // @ts-expect-error private property
             expect(updaterService.isChecking).toBe(true);
             await checkPromise;
         });
@@ -117,7 +117,6 @@ describe('UpdaterService', () => {
 
             await updaterService.checkForUpdates(false);
 
-            // @ts-ignore
             autoUpdater.emit('error', new Error('HttpError: 404 Not Found'));
 
             expect(emitSpy).not.toHaveBeenCalledWith(UPDATE_CHANNELS.ON_ERROR, expect.anything());
@@ -129,7 +128,6 @@ describe('UpdaterService', () => {
 
             await updaterService.checkForUpdates(true);
 
-            // @ts-ignore
             autoUpdater.emit('error', new Error('HttpError: 404 Not Found'));
 
             expect(emitSpy).toHaveBeenCalledWith(
@@ -142,7 +140,6 @@ describe('UpdaterService', () => {
             const emitSpy = vi.spyOn(updaterService, 'emit');
             await updaterService.checkForUpdates(true);
 
-            // @ts-ignore
             autoUpdater.emit('error', new Error('ENOTFOUND github.com'));
 
             expect(emitSpy).toHaveBeenCalledWith(
@@ -155,7 +152,6 @@ describe('UpdaterService', () => {
             const emitSpy = vi.spyOn(updaterService, 'emit');
             await updaterService.checkForUpdates(true);
 
-            // @ts-ignore
             autoUpdater.emit('error', new Error('GitHub API rate limit exceeded'));
 
             expect(emitSpy).toHaveBeenCalledWith(
@@ -168,23 +164,20 @@ describe('UpdaterService', () => {
     describe('Update Available & Debouncing', () => {
         it('should only notify once for the same version', () => {
             const emitSpy = vi.spyOn(updaterService, 'emit');
-            const info = { version: '1.7.6' };
+            const info = { files: [], path: 'path', sha512: 'sha512', version: '1.7.6', releaseDate: '2022-01-01' };
 
             // First notification
-            // @ts-ignore
             autoUpdater.emit('update-available', info);
             expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_AVAILABLE, info);
 
             emitSpy.mockClear();
 
             // Second notification for same version
-            // @ts-ignore
             autoUpdater.emit('update-available', info);
             expect(emitSpy).not.toHaveBeenCalled();
 
             // Notification for NEW version
-            const nextInfo = { version: '1.7.7' };
-            // @ts-ignore
+            const nextInfo = { files: [], path: 'path', sha512: 'sha512', version: '1.7.7', releaseDate: '2023-01-01' };;
             autoUpdater.emit('update-available', nextInfo);
             expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_AVAILABLE, nextInfo);
         });
@@ -193,18 +186,16 @@ describe('UpdaterService', () => {
     describe('Other events', () => {
         it('should forward download progress', () => {
             const emitSpy = vi.spyOn(updaterService, 'emit');
-            const progress = { percent: 10 };
+            const progress = { percent: 10, total: 100, bytesPerSecond: 100, transferred: 10000000, delta: 10000000 };
 
-            // @ts-ignore
             autoUpdater.emit('download-progress', progress);
             expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_PROGRESS, progress);
         });
 
         it('should forward download completion', () => {
             const emitSpy = vi.spyOn(updaterService, 'emit');
-            const info = { version: '1.0.0' };
+            const info = { version: '1.0.0', path: 'path', downloadedFile: 'path', files: [], sha512: 'sha512', releaseDate: '2022-01-01' };
 
-            // @ts-ignore
             autoUpdater.emit('update-downloaded', info);
             expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_DOWNLOADED, info);
         });

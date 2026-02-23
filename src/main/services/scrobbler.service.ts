@@ -170,7 +170,7 @@ export class ScrobblerService extends EventEmitter {
                     if (!authWindow.isDestroyed()) {
                         authWindow.webContents.session.webRequest.onBeforeRequest({ urls: [] }, () => { });
                     }
-                } catch (e) {
+                } catch {
                     // Ignore errors during cleanup
                 }
                 this.authWindow = null;

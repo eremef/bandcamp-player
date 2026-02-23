@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Smartphone, Monitor, Globe, Clock, Trash2 } from 'lucide-react';
 import styles from './ConnectedDevicesModal.module.css';
 import { useStore } from '../../store/store';
@@ -11,8 +11,7 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
     const {
         connectedDevices,
         fetchConnectedDevices,
-        disconnectDevice,
-        remoteStatus
+        disconnectDevice
     } = useStore();
 
     const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +26,7 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
         // Timer to refresh "connected at" times if we wanted relative time, 
         // but for absolute time it's fine. 
         // We rely on store updates for list changes.
-    }, []);
+    }, [fetchConnectedDevices, disconnectDevice]);
 
     const handleDisconnect = async (clientId: string) => {
         try {
@@ -41,7 +40,7 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
         try {
             const date = new Date(isoString);
             return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch (e) {
+        } catch {
             return 'Unknown time';
         }
     };

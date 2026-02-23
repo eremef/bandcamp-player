@@ -113,7 +113,7 @@ describe('MobileAuthService', () => {
             const cookieStr = `dummy=1; identity=${encodeURIComponent('7\t' + jsonStr)}`;
             await authService.setCookies(cookieStr);
 
-            (SecureStore.getItemAsync as jest.Mock).mockImplementation((key) => {
+            (SecureStore.getItemAsync as jest.Mock).mockImplementation(() => {
                 return Promise.resolve(null);
             });
 
@@ -137,7 +137,7 @@ describe('MobileAuthService', () => {
             const cookieStr = `identity=${encodeURIComponent(jsonStr)}`;
             await authService.setCookies(cookieStr);
 
-            (SecureStore.getItemAsync as jest.Mock).mockImplementation((key) => {
+            (SecureStore.getItemAsync as jest.Mock).mockImplementation(() => {
                 return Promise.resolve(null);
             });
 
@@ -151,7 +151,7 @@ describe('MobileAuthService', () => {
             const cookieStr = `identity=NotAJsonAtAll`;
             await authService.setCookies(cookieStr);
 
-            (SecureStore.getItemAsync as jest.Mock).mockImplementation((key) => {
+            (SecureStore.getItemAsync as jest.Mock).mockImplementation(() => {
                 return Promise.resolve(null);
             });
 

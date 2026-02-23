@@ -177,8 +177,8 @@ describe('PlayerBar', () => {
         render(<PlayerBar />);
 
         // Find handlers registered in useEffect
-        const handlers: Record<string, Function> = {};
-        (navigator.mediaSession.setActionHandler as any).mock.calls.forEach(([action, handler]: [string, Function]) => {
+        const handlers: Record<string, (handler?: any) => void> = {};
+        (navigator.mediaSession.setActionHandler as any).mock.calls.forEach(([action, handler]: [string, () => void]) => {
             handlers[action] = handler;
         });
 
@@ -230,8 +230,8 @@ describe('PlayerBar', () => {
     });
 
     it('manages electron IPC seek events', () => {
-        let seekCallback: Function | null = null;
-        (window.electron.player.onSeek as any).mockImplementation((cb: Function) => {
+        let seekCallback: ((value: number) => void) | null = null;
+        (window.electron.player.onSeek as any).mockImplementation((cb: (value: number) => void) => {
             seekCallback = cb;
             return () => { };
         });

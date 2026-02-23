@@ -1,6 +1,6 @@
 import React from 'react';
 import { Alert } from 'react-native';
-import { render, fireEvent, waitFor, cleanup, act } from '@testing-library/react-native';
+import { render, fireEvent, cleanup, act } from '@testing-library/react-native';
 
 // Mock Dependencies
 jest.mock('expo-router', () => ({
@@ -12,7 +12,7 @@ jest.mock('@react-native-community/slider', () => 'Slider');
 
 jest.mock('lucide-react-native', () => {
     const { Text } = jest.requireActual('react-native');
-    const createIcon = (name: string) => () => <Text>{name}</Text>;
+    const createIcon = (name: string) => function Icon() { return <Text>{name}</Text>; };
     return {
         Play: createIcon('PlayIcon'),
         Pause: createIcon('PauseIcon'),
