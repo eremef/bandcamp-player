@@ -250,16 +250,24 @@ mobile/
 
 | What                                  | Size | Status |
 | :-----------------------------------  | ---- | :----: |
-| Add all searched items to playlist    | S    | 🔴    |
-| Bug finding and fixing                | XL   | 🟡    | 
-| Chromecast for standalone mobile mode | L    | 🔴    |
-| Drag-to-reorder Playlist & Queue      | L    | 🟡    |
-| Refine the design                     | L    | 🟡    |
-| Auto-refresh cookie - mobile app      | M    | 🟡    |
-| Scrobbler for standalone mobile mode   | L    | 🔴    |
+| Add all searched items to playlist    | S    | 🔴     |
+| Add all searched items to queue       | S    | 🔴     |
+| Bug finding and fixing                | XL   | 🟡     | 
+| Chromecast for standalone mobile mode | L    | 🔴     |
+| Drag-to-reorder Playlist & Queue      | L    | 🟡     |
+| Refine the design                     | L    | 🟡     |
+| Auto-refresh cookie - mobile app      | M    | 🟡     |
+| Scrobbler for standalone mobile mode  | L    | 🔴     |
+
 ## Star History (just for fun)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right)](https://www.star-history.com/#eremef/bandcamp-player&type=date&legend=bottom-right)
+<a href="https://www.star-history.com/#eremef/bandcamp-player&type=date&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
+ </picture>
+</a>
 
 ## License
 
