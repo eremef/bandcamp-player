@@ -166,6 +166,34 @@
     text-overflow: ellipsis;
 }
 
+.dragHandle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    cursor: grab;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.item:hover .dragHandle {
+    opacity: 1;
+}
+
+.dragHandle:active {
+    cursor: grabbing;
+}
+
+.item.dragOver {
+    border-top: 2px solid var(--accent-primary);
+}
+
+.item.dragging {
+    opacity: 0.4;
+}
+
 .removeBtn {
     width: 24px;
     height: 24px;

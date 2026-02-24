@@ -1,9 +1,37 @@
+import { useState } from 'react';
 import { useStore } from '../../store/store';
-import { X, Play, Trash2 } from 'lucide-react';
+import { X, Play, Trash2, GripVertical } from 'lucide-react';
 import styles from './QueuePanel.module.css';
 
 export function QueuePanel() {
-    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue } = useStore();
+    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue } = useStore();
+
+    const [dragIndex, setDragIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const handleDragStart = (index: number) => {
+        setDragIndex(index);
+    };
+
+    const handleDragOver = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (dragIndex !== index) {
+            setDragOverIndex(index);
+        }
+    };
+
+    const handleDrop = (toIndex: number) => {
+        if (dragIndex !== null && dragIndex !== toIndex) {
+            reorderQueue(dragIndex, toIndex);
+        }
+        setDragIndex(null);
+        setDragOverIndex(null);
+    };
+
+    const handleDragEnd = () => {
+        setDragIndex(null);
+        setDragOverIndex(null);
+    };
 
     return (
         <div className={styles.panel}>
@@ -30,14 +58,23 @@ export function QueuePanel() {
                         {queue.items.map((item, index) => (
                             <li
                                 key={item.id}
-                                className={`${styles.item} ${index === queue.currentIndex
-                                    ? styles.current
-                                    : index < queue.currentIndex
-                                        ? styles.played
-                                        : ''
-                                    }`}
+                                className={[
+                                    styles.item,
+                                    index === queue.currentIndex ? styles.current : '',
+                                    index < queue.currentIndex ? styles.played : '',
+                                    dragOverIndex === index ? styles.dragOver : '',
+                                    dragIndex === index ? styles.dragging : '',
+                                ].filter(Boolean).join(' ')}
+                                draggable
+                                onDragStart={() => handleDragStart(index)}
+                                onDragOver={(e) => handleDragOver(e, index)}
+                                onDrop={() => handleDrop(index)}
+                                onDragEnd={handleDragEnd}
                                 onDoubleClick={() => playQueueIndex(index)}
                             >
+                                <span className={styles.dragHandle} title="Drag to reorder">
+                                    <GripVertical size={14} />
+                                </span>
                                 <button
                                     className={styles.playBtn}
                                     onClick={() => playQueueIndex(index)}
