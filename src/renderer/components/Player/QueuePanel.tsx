@@ -75,6 +75,7 @@ export function QueuePanel() {
                                 <span className={styles.dragHandle} title="Drag to reorder">
                                     <GripVertical size={14} />
                                 </span>
+
                                 <button
                                     className={styles.playBtn}
                                     onClick={() => playQueueIndex(index)}
@@ -83,11 +84,12 @@ export function QueuePanel() {
                                     {index === queue.currentIndex && player.isPlaying ? (
                                         <span className={styles.playing}><Play size={14} fill="currentColor" /></span>
                                     ) : (
-                                        <span className={styles.trackNumber}>{index + 1}</span>
+                                        <span className={styles.trackNumber}>{index + 1}.</span>
                                     )}
                                 </button>
+
                                 <div className={styles.trackInfo}>
-                                    <img src={item.track.artworkUrl} alt="" className={styles.artwork} />
+                                    {/* <img src={item.track.artworkUrl} alt="" className={styles.artwork} /> */}
                                     <div className={styles.details}>
                                         <span className={styles.title}>{item.track.title}</span>
                                         <span className={styles.artist}>{item.track.artist}</span>

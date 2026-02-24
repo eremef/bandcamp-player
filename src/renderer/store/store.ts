@@ -51,12 +51,12 @@ interface PlayerSlice {
 interface QueueSlice {
     queue: Queue;
     addToQueue: (track: Track, playNext?: boolean) => Promise<void>;
-    addAlbumToQueue: (album: Album) => Promise<void>;
+    addAlbumToQueue: (album: Album, playNext?: boolean) => Promise<void>;
     removeFromQueue: (id: string) => Promise<void>;
     clearQueue: (keepCurrent?: boolean) => Promise<void>;
     reorderQueue: (from: number, to: number) => Promise<void>;
     playQueueIndex: (index: number) => Promise<void>;
-    addTracksToQueue: (tracks: Track[]) => Promise<void>;
+    addTracksToQueue: (tracks: Track[], playNext?: boolean) => Promise<void>;
 }
 
 interface CollectionSlice {
@@ -87,7 +87,9 @@ interface PlaylistSlice {
 interface RadioSlice {
     radioStations: RadioStation[];
     radioState: RadioState;
+    isLoadingRadioStations: boolean;
     fetchRadioStations: () => Promise<void>;
+    refreshRadioStations: () => Promise<void>;
     playRadioStation: (station: RadioStation) => Promise<void>;
     stopRadio: () => Promise<void>;
     addRadioToQueue: (station: RadioStation, playNext?: boolean) => Promise<void>;
@@ -284,8 +286,8 @@ export const useStore = create<StoreState>((set, get) => ({
     addToQueue: async (track, playNext) => {
         await window.electron.queue.addTrack(track, playNext);
     },
-    addAlbumToQueue: async (album) => {
-        await window.electron.queue.addAlbum(album);
+    addAlbumToQueue: async (album, playNext) => {
+        await window.electron.queue.addAlbum(album, playNext);
     },
     removeFromQueue: async (id) => {
         await window.electron.queue.remove(id);
@@ -299,8 +301,8 @@ export const useStore = create<StoreState>((set, get) => ({
     playQueueIndex: async (index) => {
         await window.electron.queue.playIndex(index);
     },
-    addTracksToQueue: async (tracks) => {
-        await window.electron.queue.addTracks(tracks);
+    addTracksToQueue: async (tracks, playNext) => {
+        await window.electron.queue.addTracks(tracks, playNext);
     },
 
     // ---- Collection Slice ----
@@ -396,9 +398,19 @@ export const useStore = create<StoreState>((set, get) => ({
     // ---- Radio Slice ----
     radioStations: [],
     radioState: { isActive: false, currentStation: null, currentTrack: null },
+    isLoadingRadioStations: false,
     fetchRadioStations: async () => {
         const stations = await window.electron.radio.getStations();
         set({ radioStations: stations });
+    },
+    refreshRadioStations: async () => {
+        set({ isLoadingRadioStations: true });
+        try {
+            const stations = await window.electron.radio.refreshStations();
+            set({ radioStations: stations });
+        } finally {
+            set({ isLoadingRadioStations: false });
+        }
     },
     playRadioStation: async (station) => {
         await window.electron.radio.playStation(station);

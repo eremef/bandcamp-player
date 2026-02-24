@@ -542,7 +542,18 @@ export class RemoteControlService extends EventEmitter {
                 await this.playerService.addStationToQueue(payload.station, payload.playNext);
                 break;
             case 'add-station-to-playlist': {
-                const radioTrack = await this.playerService.stationToTrack(payload.station);
+                const radioTrack: Track = {
+                    id: `radio-${payload.station.id}`,
+                    title: payload.station.name,
+                    artist: 'Bandcamp Radio',
+                    album: payload.station.description || '',
+                    duration: 0,
+                    artworkUrl: payload.station.imageUrl || '',
+                    streamUrl: '',
+                    bandcampUrl: '',
+                    isCached: false,
+                    radioStationId: payload.station.id,
+                };
                 this.playlistService.addTrack(payload.playlistId, radioTrack);
                 break;
             }

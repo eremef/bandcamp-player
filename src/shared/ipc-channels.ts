@@ -94,6 +94,7 @@ export const PLAYLIST_CHANNELS = {
 
 export const RADIO_CHANNELS = {
     GET_STATIONS: 'radio:get-stations',
+    REFRESH_STATIONS: 'radio:refresh-stations',
     PLAY_STATION: 'radio:play-station',
     STOP: 'radio:stop',
     GET_STATE: 'radio:get-state',
