@@ -250,8 +250,8 @@ mobile/
 
 | What                                  | Size | Status |
 | :-----------------------------------  | ---- | :----: |
-| Add all searched items to playlist    | S    | 🔴     |
-| Add all searched items to queue       | S    | 🔴     |
+| Add all searched items to playlist    | S    | 🟢     |
+| Add all searched items to queue       | S    | 🟢     |
 | Bug finding and fixing                | XL   | 🟡     | 
 | Chromecast for standalone mobile mode | L    | 🔴     |
 | Drag-to-reorder Playlist & Queue      | L    | 🟡     |
