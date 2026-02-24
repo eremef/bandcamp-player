@@ -103,8 +103,8 @@ const electronAPI = {
     queue: {
         addTrack: (track: Track, playNext?: boolean): Promise<void> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.ADD_TRACK, track, playNext),
-        addTracks: (tracks: Track[]): Promise<void> =>
-            ipcRenderer.invoke(QUEUE_CHANNELS.ADD_TRACKS, tracks),
+        addTracks: (tracks: Track[], playNext?: boolean): Promise<void> =>
+            ipcRenderer.invoke(QUEUE_CHANNELS.ADD_TRACKS, tracks, playNext),
         addAlbum: (album: Album, playNext?: boolean): Promise<void> =>
             ipcRenderer.invoke(QUEUE_CHANNELS.ADD_ALBUM, album, playNext),
         addPlaylist: (playlist: Playlist): Promise<void> =>
@@ -146,6 +146,7 @@ const electronAPI = {
     // ---- Radio ----
     radio: {
         getStations: (): Promise<RadioStation[]> => ipcRenderer.invoke(RADIO_CHANNELS.GET_STATIONS),
+        refreshStations: (): Promise<RadioStation[]> => ipcRenderer.invoke(RADIO_CHANNELS.REFRESH_STATIONS),
         playStation: (station: RadioStation): Promise<void> =>
             ipcRenderer.invoke(RADIO_CHANNELS.PLAY_STATION, station),
         stop: (): Promise<void> => ipcRenderer.invoke(RADIO_CHANNELS.STOP),

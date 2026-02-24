@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"contextMenu\\\\|ContextMenu\\\\|context.*menu\")",
+      "Bash(xargs grep -l \"AddToPlaylist\\\\|addToPlaylist.*Modal\\\\|playlistModal\")",
+      "Bash(npm run typecheck)",
+      "Bash(npx vitest run)"
+    ]
+  }
+}

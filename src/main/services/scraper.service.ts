@@ -719,7 +719,16 @@ export class ScraperService extends EventEmitter {
     /**
      * Get Bandcamp Radio stations
      */
-    async getRadioStations(): Promise<RadioStation[]> {
+    async getRadioStations(forceRefresh = false): Promise<RadioStation[]> {
+        // Check cache first
+        if (!forceRefresh && this.database) {
+            const cached = this.database.getRadioCache();
+            if (cached) {
+                this.emit('radio-stations-updated', cached.data);
+                return cached.data;
+            }
+        }
+
         const config = remoteConfigService.get();
         try {
             const response = await this.http.get(config.endpoints.radioListApi);
@@ -727,13 +736,15 @@ export class ScraperService extends EventEmitter {
 
             if (response.data.results) {
                 // Fetch all available episodes
+                // Note: We don't fetch stream URLs upfront to avoid rate limiting (429)
+                // Stream URLs are fetched on-demand when playing a station
                 for (const episode of response.data.results) {
                     stations.push({
                         id: String(episode.show_id || episode.id),
                         name: episode.title || `Bandcamp Weekly ${episode.id}`,
                         description: episode.subtitle || episode.desc,
                         imageUrl: episode.image_id ? config.endpoints.radioImageFormat.replace('{image_id}', episode.image_id.toString()) : undefined,
-                        streamUrl: '', // Will be fetched on demand
+                        streamUrl: '', // Fetched on-demand when playing
                         date: episode.published_date ? new Date(episode.published_date).toLocaleDateString('en-US', {
                             month: 'long',
                             day: 'numeric',
@@ -743,7 +754,12 @@ export class ScraperService extends EventEmitter {
                 }
             }
 
+            // Save to cache
+            if (this.database) {
+                this.database.saveRadioCache(stations);
+            }
             this.emit('radio-stations-updated', stations);
+
             return stations;
         } catch (error) {
             console.error('Error fetching radio stations:', error);

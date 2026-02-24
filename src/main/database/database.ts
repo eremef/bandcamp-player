@@ -1,7 +1,7 @@
 import BetterSqlite3 from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import type { AppSettings, Playlist, Track, CacheEntry } from '../../shared/types';
+import type { AppSettings, Playlist, Track, CacheEntry, RadioStation } from '../../shared/types';
 
 // ============================================================================
 // Database Class
@@ -90,6 +90,13 @@ export class Database {
         is_simulated INTEGER DEFAULT 0,
         cached_at TEXT NOT NULL,
         PRIMARY KEY (id, is_simulated)
+      );
+
+      -- Cached radio shows
+      CREATE TABLE IF NOT EXISTS radio_cache (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        cached_at TEXT NOT NULL
       );
     `);
 
@@ -488,6 +495,21 @@ export class Database {
 
     clearCollectionCache(id: string): void {
         this.db.prepare('DELETE FROM collection_cache WHERE id = ?').run(id);
+    }
+
+    // ---- Radio Cache ----
+
+    getRadioCache(): { data: RadioStation[], cachedAt: string } | null {
+        const row = this.db.prepare('SELECT data, cached_at FROM radio_cache WHERE id = ?').get('main') as { data: string, cached_at: string } | undefined;
+        return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
+    }
+
+    saveRadioCache(stations: RadioStation[]): void {
+        const now = new Date().toISOString();
+        this.db.prepare(`
+            INSERT OR REPLACE INTO radio_cache (id, data, cached_at)
+            VALUES (?, ?, ?)
+        `).run('main', JSON.stringify(stations), now);
     }
 
     // ---- Cleanup ----
