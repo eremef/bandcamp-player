@@ -147,4 +147,36 @@ describe('QueueScreen', () => {
 
         expect(mockStore.reorderQueue).not.toHaveBeenCalled();
     });
+
+    it('renders unique position numbers for all items', () => {
+        const { getAllByText } = render(<QueueScreen />);
+        expect(getAllByText('1.').length).toBe(1);
+        expect(getAllByText('2.').length).toBe(1);
+        expect(getAllByText('3.').length).toBe(1);
+    });
+
+    it('updates position numbers correctly after queue reorder without duplicates', () => {
+        const { rerender, getAllByText } = render(<QueueScreen />);
+
+        // Simulate the store reflecting a reordered queue (q3 moved to front)
+        const reorderedQueue = {
+            items: [
+                { id: 'q3', track: { ...mockTrack, id: '3', title: 'Track Three' }, source: 'collection' },
+                { id: 'q1', track: mockTrack, source: 'collection' },
+                { id: 'q2', track: { ...mockTrack, id: '2', title: 'Track Two' }, source: 'collection' },
+            ],
+            currentIndex: 1,
+        };
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            return selector({ ...mockStore, queue: reorderedQueue });
+        });
+
+        rerender(<QueueScreen />);
+
+        // Each position number must appear exactly once (no doubles)
+        expect(getAllByText('1.').length).toBe(1);
+        expect(getAllByText('2.').length).toBe(1);
+        expect(getAllByText('3.').length).toBe(1);
+    });
 });
