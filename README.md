@@ -248,16 +248,18 @@ mobile/
 
 ## Roadmap
 
-| What                                  | Size | Status |
-| :-----------------------------------  | ---- | :----: |
-| Add all searched items to playlist    | S    | 🟢     |
-| Add all searched items to queue       | S    | 🟢     |
-| Bug finding and fixing                | XL   | 🟡     | 
-| Chromecast for standalone mobile mode | L    | 🔴     |
-| Drag-to-reorder Playlist & Queue      | L    | 🟡     |
-| Refine the design                     | L    | 🟡     |
-| Auto-refresh cookie - mobile app      | M    | 🟡     |
-| Scrobbler for standalone mobile mode  | L    | 🔴     |
+| What                                         | Size | Status |
+| :------------------------------------------- | ---- | :----: |
+| Add all searched items to playlist - mobile  | S    | 🔴     |
+| Add all searched items to queue - mobile     | S    | 🔴     |
+| Bug finding and fixing                       | XL   | 🟡     | 
+| Chromecast for standalone mobile mode        | L    | 🔴     |
+| Drag-to-reorder Playlist & Queue             | L    | 🟡     |
+| Refine the design                            | L    | 🟡     |
+| Auto-refresh cookie - mobile app             | M    | 🟡     |
+| Add all searched items to playlist - desktop | S    | 🟢     |
+| Add all searched items to queue - desktop    | S    | 🟢     |
+| Scrobbler for standalone mobile mode         | L    | 🟢     |
 
 ## Star History (just for fun)
 
