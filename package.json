@@ -164,14 +164,5 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
-  },
-  "overrides": {
-    "tar": "7.5.4",
-    "@electron/rebuild": {
-      "tar": "6.2.1"
-    },
-    "electron-builder": {
-      "tar": "6.2.1"
-    }
   }
 }
