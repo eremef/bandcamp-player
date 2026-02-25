@@ -107,14 +107,6 @@ Access the settings menu (gear icon) to configure:
   - Minimize to Tray: Keep the app running in the background when closed
   - Show Notifications: Desktop notifications on track change
 
-#### Last.fm Integration
-
-To enable scrobbling, you need to register with Last.FM API application:
-
-1. Go to <https://www.last.fm/api/account/create>
-2. Create a new application
-3. Update `src/main/services/scrobbler.service.ts` with your API key and secret (before building, if building yourself) or provide it in the Settings of the desktop app (when downloading from releases)
-
 ### Project Structure
 
 ```text
