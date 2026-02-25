@@ -241,13 +241,23 @@ mobile/
 
 | What                                         | Size | Status |
 | :------------------------------------------- | ---- | :----: |
+| Refine the design                            | L    | 🟡     |
+| Add all searched items to playlist - mobile  | M    | 🟠     |
+| Add all searched items to queue - mobile     | M    | 🟠     |
+| Bug finding and fixing                       | XL   | 🟠     |
 | View/edit playlist - mobile                  | M    | 🔴     |
-| Add all searched items to playlist - mobile  | M    | 🔴     |
-| Add all searched items to queue - mobile     | M    | 🔴     |
 | Chromecast for standalone mobile mode        | L    | 🔴     |
 | Drag-to-reorder Playlist                     | L    | 🔴     |
-| Bug finding and fixing                       | XL   | 🟡     |
-| Refine the design                            | L    | 🟡     |
+
+**Legend**
+
+🔴 - not started
+
+🟠 - just started
+
+🟡 - in the middle
+
+🟢 - finished (waiting for release)
 
 ## Star History (just for fun)
 
