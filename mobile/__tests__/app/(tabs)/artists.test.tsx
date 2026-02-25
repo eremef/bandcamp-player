@@ -22,6 +22,7 @@ jest.mock('expo-router', () => ({
 
 describe('ArtistsScreen', () => {
     const mockRefreshArtists = jest.fn();
+    const mockGetArtistsBulkItems = jest.fn().mockResolvedValue([]);
     const mockArtists = [
         { id: '1', name: 'Abba', imageUrl: 'http://abba.com/img.jpg' },
         { id: '2', name: 'AC/DC', imageUrl: 'http://acdc.com/img.jpg' },
@@ -29,16 +30,28 @@ describe('ArtistsScreen', () => {
         { id: '4', name: 'Zebra' },
     ];
 
+    const mockStore = {
+        artists: mockArtists,
+        refreshArtists: mockRefreshArtists,
+        connectionStatus: 'connected',
+        getArtistsBulkItems: mockGetArtistsBulkItems,
+        playlists: [],
+        addTrackToQueue: jest.fn().mockResolvedValue(undefined),
+        addAlbumToQueue: jest.fn(),
+        addTrackToPlaylist: jest.fn(),
+        addAlbumToPlaylist: jest.fn(),
+        createPlaylist: jest.fn(),
+        clearQueue: jest.fn(),
+        playQueueIndex: jest.fn(),
+        queue: { currentIndex: -1, tracks: [] },
+    };
+
     beforeEach(() => {
-        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
-            const state = {
-                artists: mockArtists,
-                refreshArtists: mockRefreshArtists,
-                connectionStatus: 'connected',
-            };
-            return selector ? selector(state) : state;
-        });
         jest.clearAllMocks();
+        mockGetArtistsBulkItems.mockResolvedValue([]);
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+            return selector ? selector(mockStore) : mockStore;
+        });
     });
 
     it('renders correctly and lists artists', () => {
@@ -69,6 +82,7 @@ describe('ArtistsScreen', () => {
         const mockFn = jest.fn();
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = {
+                ...mockStore,
                 artists: [
                     { id: '5', name: '123 Artist' },
                     { id: '6', name: '  ' }, // Empty name after trim
@@ -103,6 +117,7 @@ describe('ArtistsScreen', () => {
     it('handles sorting of # section to the end and diverse grouping', async () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = {
+                ...mockStore,
                 artists: [
                     { id: '5', name: '123' },
                     { id: '1', name: 'Abba' },

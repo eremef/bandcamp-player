@@ -9,7 +9,7 @@ module.exports = {
   expo: {
     name: 'Bandcamp Remote',
     slug: 'bandcamp-remote',
-    version: '1.7.7-beta',
+    version: '1.7.8-beta',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'bandcamp-remote',

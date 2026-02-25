@@ -57,11 +57,10 @@ export default function ArtistsScreen() {
     // Collection items belonging to any of the filtered artists (for bulk actions)
     const [artistCollectionItems, setArtistCollectionItems] = useState<CollectionItem[]>([]);
     useEffect(() => {
-        if (!searchQuery.trim() || filteredArtists.length === 0) {
-            setArtistCollectionItems([]);
-            return;
-        }
-        getArtistsBulkItems(filteredArtists.map(a => a.name)).then(setArtistCollectionItems);
+        const artistNames = (!searchQuery.trim() || filteredArtists.length === 0)
+            ? []
+            : filteredArtists.map(a => a.name);
+        getArtistsBulkItems(artistNames).then(setArtistCollectionItems);
     }, [searchQuery, filteredArtists, getArtistsBulkItems]);
 
     const sections = useMemo(() => {
