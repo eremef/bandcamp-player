@@ -106,7 +106,7 @@ export class UpdaterService extends EventEmitter {
 
     private getFriendlyErrorMessage(message: string): string {
         if (message.includes('404') || message.includes('NotFound') || message.includes('not found')) {
-            return 'The update information was not found on GitHub. This can happen if a release was recently modified or deleted.';
+            return 'The update information was not found on GitHub. This can happen if a release is ongoing. Please try again in an hour.';
         }
         if (message.includes('ENOTFOUND') || message.includes('ECONNREFUSED') || message.includes('ETIMEDOUT') || message.includes('internet')) {
             return 'Could not connect to the update server. Please check your internet connection.';

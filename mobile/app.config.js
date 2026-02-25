@@ -22,6 +22,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
+      bundleIdentifier: 'xyz.eremef.bandcamp.remote',
     },
     android: {
       package: getPackageName(),
