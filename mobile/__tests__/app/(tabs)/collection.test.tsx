@@ -211,7 +211,7 @@ describe('CollectionScreen', () => {
         fireEvent(getByTestId('item-1'), 'longPress');
 
         await waitFor(() => {
-            expect(getByText('ActionSheet: Album One')).toBeTruthy();
+            expect(getByText('ActionSheet: Album One - Artist A')).toBeTruthy();
         });
     });
 

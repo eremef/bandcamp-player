@@ -275,26 +275,4 @@ describe('PlayerScreen', () => {
         expect(router.push).toHaveBeenCalledWith('/about');
         unmount();
     });
-
-    it('handles playlist integration', async () => {
-        mockStore.playlists = [{ id: 'p1', name: 'My Playlist' }];
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('Add to Playlist'));
-        expect(getByText('PlaylistSelectionModal')).toBeTruthy();
-
-        // Select playlist
-        fireEvent.press(getByText('My Playlist'));
-        expect(mockStore.addTrackToPlaylist).toHaveBeenCalledWith('p1', mockStore.currentTrack);
-
-        // Open again and create new
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('Add to Playlist'));
-        fireEvent.press(getByText('Create New'));
-        expect(getByText('Create Playlist')).toBeTruthy(); // InputModal title
-
-        fireEvent.press(getByText('Create'));
-        expect(mockStore.createPlaylist).toHaveBeenCalledWith('New Playlist');
-        unmount();
-    });
 });

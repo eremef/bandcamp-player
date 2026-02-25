@@ -15,6 +15,22 @@ jest.mock('expo-router', () => ({
     Stack: { Screen: jest.fn(() => null) },
 }));
 
+jest.mock('../../components/ActionSheet', () => ({
+    ActionSheet: ({ visible, title, actions }: any) => {
+        const { View, Text, TouchableOpacity } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>{`ActionSheet: ${title}`}</Text>
+                {actions.map((a: any) => (
+                    <TouchableOpacity key={a.text} onPress={a.onPress}>
+                        <Text>{a.text}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        ) : null;
+    },
+}));
+
 jest.mock('lucide-react-native', () => ({
     X: 'X',
     Play: 'Play',
