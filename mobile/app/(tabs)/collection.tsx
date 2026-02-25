@@ -10,7 +10,7 @@ import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
-import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -23,7 +23,6 @@ export default function CollectionScreen() {
     const colors = useTheme();
     const collection = useStore((state) => state.collection);
     const collectionError = useStore((state) => state.collectionError);
-    const playAlbum = useStore((state) => state.playAlbum);
     const playTrack = useStore((state) => state.playTrack);
     const playlists = useStore((state) => state.playlists);
     const addTrackToQueue = useStore((state) => state.addTrackToQueue);
@@ -35,6 +34,9 @@ export default function CollectionScreen() {
     const isCollectionLoading = useStore((state) => state.isCollectionLoading);
     const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
     const storeSearchQuery = useStore((state) => state.searchQuery);
+    const clearQueue = useStore((state) => state.clearQueue);
+    const playQueueIndex = useStore((state) => state.playQueueIndex);
+    const queue = useStore((state) => state.queue);
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -42,10 +44,14 @@ export default function CollectionScreen() {
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedItem, setSelectedItem] = useState<CollectionItem | null>(null);
 
-    // ActionSheet state
+    // Per-item ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
+    // Bulk ActionSheet state
+    const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
+    const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
 
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
@@ -57,7 +63,7 @@ export default function CollectionScreen() {
                 icon: ListEnd,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
+                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) {
                         await addTrackToQueue(item.track, true);
@@ -69,7 +75,7 @@ export default function CollectionScreen() {
                 icon: ListPlus,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
+                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) {
                         await addTrackToQueue(item.track, false);
@@ -116,6 +122,79 @@ export default function CollectionScreen() {
 
     const collectionItems = useMemo(() => collection?.items || [], [collection?.items]);
 
+    // Bulk action handlers
+    const handleBulkPlayNow = useCallback(async () => {
+        const startIndex = queue.currentIndex >= 0 ? 1 : 0;
+        clearQueue();
+        for (const item of collectionItems) {
+            if (item.type === 'album' && item.album?.bandcampUrl) {
+                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+            } else if (item.type === 'track' && item.track) {
+                await addTrackToQueue(item.track, false);
+            }
+        }
+        playQueueIndex(startIndex);
+    }, [collectionItems, queue.currentIndex, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
+
+    const handleBulkPlayNext = useCallback(async () => {
+        for (const item of collectionItems) {
+            if (item.type === 'album' && item.album?.bandcampUrl) {
+                addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
+            } else if (item.type === 'track' && item.track) {
+                await addTrackToQueue(item.track, true);
+            }
+        }
+    }, [collectionItems, addAlbumToQueue, addTrackToQueue]);
+
+    const handleBulkAddToQueue = useCallback(async () => {
+        for (const item of collectionItems) {
+            if (item.type === 'album' && item.album?.bandcampUrl) {
+                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+            } else if (item.type === 'track' && item.track) {
+                await addTrackToQueue(item.track, false);
+            }
+        }
+    }, [collectionItems, addAlbumToQueue, addTrackToQueue]);
+
+    const handleBulkSelectPlaylist = useCallback((playlistId: string) => {
+        for (const item of collectionItems) {
+            if (item.type === 'album' && item.album?.bandcampUrl) {
+                addAlbumToPlaylist(playlistId, item.album.bandcampUrl);
+            } else if (item.type === 'track' && item.track) {
+                addTrackToPlaylist(playlistId, item.track);
+            }
+        }
+        setBulkPlaylistModalVisible(false);
+        Alert.alert("Success", `Added ${collectionItems.length} items to playlist`);
+    }, [collectionItems, addAlbumToPlaylist, addTrackToPlaylist]);
+
+    const bulkActions: Action[] = useMemo(() => [
+        {
+            text: "Play Now",
+            icon: Play,
+            onPress: handleBulkPlayNow,
+        },
+        {
+            text: "Play Next",
+            icon: ListEnd,
+            onPress: handleBulkPlayNext,
+        },
+        {
+            text: "Add to Queue",
+            icon: ListPlus,
+            onPress: handleBulkAddToQueue,
+        },
+        {
+            text: "Add to Playlist",
+            icon: ListMusic,
+            onPress: () => setBulkPlaylistModalVisible(true),
+        },
+        {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { },
+        },
+    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
 
     const handlePlayItem = useCallback(async (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
@@ -132,7 +211,7 @@ export default function CollectionScreen() {
                 return;
             }
         } else if (item.type === 'track' && item.track) {
-            // For tracks in collection, we already have the artist name. 
+            // For tracks in collection, we already have the artist name.
             // playTrack handles details resolution if needed while preserving the artist.
             await playTrack(item.track);
         }
@@ -229,14 +308,31 @@ export default function CollectionScreen() {
         );
     }
 
+    const showBulkBar = searchQuery.trim().length > 0 && collectionItems.length > 0;
+
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
-            <SearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Search collection..."
-            />
+            <View style={styles.searchRow}>
+                <SearchBar
+                    style={styles.searchBarInRow}
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    placeholder="Search collection..."
+                />
+                {showBulkBar && (
+                    <>
+                        <TouchableOpacity
+                            onPress={() => setBulkActionSheetVisible(true)}
+                            style={[styles.bulkButton, { backgroundColor: colors.card }]}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <MoreHorizontal size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </>
+                )}
+            </View>
+
             {collectionError && (
                 <TouchableOpacity onPress={() => refreshCollection(true, searchQuery, true)} style={{ padding: 8, backgroundColor: '#330000' }}>
                     <Text style={{ color: 'red', textAlign: 'center' }}>Sync Error: {collectionError}. Tap to retry.</Text>
@@ -270,6 +366,8 @@ export default function CollectionScreen() {
                     ) : null
                 )}
             />
+
+            {/* Per-item modals */}
             <PlaylistSelectionModal
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
@@ -290,6 +388,21 @@ export default function CollectionScreen() {
                 onClose={() => setActionSheetVisible(false)}
                 title={actionSheetTitle}
                 actions={actionSheetActions}
+            />
+
+            {/* Bulk search result modals */}
+            <ActionSheet
+                visible={bulkActionSheetVisible}
+                onClose={() => setBulkActionSheetVisible(false)}
+                title={`${collectionItems.length} ${collectionItems.length === 1 ? 'result' : 'results'}`}
+                actions={bulkActions}
+            />
+            <PlaylistSelectionModal
+                visible={bulkPlaylistModalVisible}
+                onClose={() => setBulkPlaylistModalVisible(false)}
+                onSelect={handleBulkSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
             />
         </View>
     );
@@ -349,5 +462,27 @@ const styles = StyleSheet.create({
     },
     columnWrapper: {
         gap: GAP,
+    },
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 15,
+        gap: 6,
+    },
+    searchBarInRow: {
+        flex: 1,
+        marginHorizontal: 0,
+        marginBottom: 0,
+    },
+    bulkCount: {
+        fontSize: 12,
+        fontWeight: '500',
+        flexShrink: 1,
+    },
+    bulkButton: {
+        borderRadius: 12,
+        padding: 15,
+        flexShrink: 0,
     },
 });

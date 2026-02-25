@@ -91,7 +91,7 @@ export function RadioView() {
                 id: station.id,
                 title: station.name,
                 artist: station.description || 'Bandcamp Radio',
-                album: station.name,
+                album: 'Bandcamp Radio',
                 duration: station.duration || 0,
                 streamUrl: station.streamUrl,
                 artworkUrl: station.imageUrl,
@@ -103,7 +103,7 @@ export function RadioView() {
     const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist' | 'download', playlistId?: string) => {
         setShowBulkMenu(false);
         const stations = filteredStations;
-        
+
         switch (action) {
             case 'play':
                 if (stations.length > 0) {
@@ -138,7 +138,7 @@ export function RadioView() {
                             id: station.id,
                             title: station.name,
                             artist: station.description || 'Bandcamp Radio',
-                            album: station.name,
+                            album: 'Bandcamp Radio',
                             duration: station.duration || 0,
                             streamUrl: station.streamUrl,
                             artworkUrl: station.imageUrl,

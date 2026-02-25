@@ -100,7 +100,7 @@ export default function ArtistDetailScreen() {
                 icon: ListEnd,
                 onPress: () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
+                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
                 }
@@ -110,7 +110,7 @@ export default function ArtistDetailScreen() {
                 icon: ListPlus,
                 onPress: () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
+                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
                 }

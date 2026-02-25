@@ -25,7 +25,11 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "Bash(tasklist)",
-      "Read(//c/Program Files/**)"
+      "Read(//c/Program Files/**)",
+      "Bash(npx tsc --build --noEmit)",
+      "Bash(npx tsc -p mobile/tsconfig.json --noEmit)",
+      "Bash(npm install --save-dev cross-env)",
+      "Bash(ls d:/eremef/Documents/AI/antigravity/Bandcamp-player/mobile/*.ts d:/eremef/Documents/AI/antigravity/Bandcamp-player/mobile/*.js)"
     ]
   }
 }

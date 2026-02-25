@@ -59,7 +59,7 @@ interface AppState extends PlayerState {
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
     addStationToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
     addTrackToQueue: (track: Track, playNext?: boolean) => Promise<void>;
-    addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[]) => void;
+    addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[], knownArtist?: string) => void;
     addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
     addAlbumToPlaylist: (playlistId: string, albumUrl: string, album?: Album) => Promise<void>;
 
@@ -82,6 +82,7 @@ interface AppState extends PlayerState {
     refreshQueue: () => void;
     refreshArtists: () => void;
     refreshArtistCollection: (artistId: string) => void;
+    getArtistsBulkItems: (artistNames: string[]) => Promise<CollectionItem[]>;
 
     // Pagination State
     collectionOffset: number;
@@ -691,7 +692,7 @@ export const useStore = create<AppState>((set, get) => ({
                     const stationTrack: Track = {
                         id: `station-${station.id}`,
                         title: station.name,
-                        artist: 'Bandcamp Weekly',
+                        artist: station.description || 'Bandcamp Radio',
                         artworkUrl: station.imageUrl || '',
                         streamUrl,
                         duration,
@@ -701,7 +702,7 @@ export const useStore = create<AppState>((set, get) => ({
                     };
 
                     const queueItem: QueueItem = {
-                        id: `queue-${station.id}-${Date.now()}`,
+                        id: `queue-${station.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
                         track: stationTrack,
                         source: 'radio'
                     };
@@ -732,17 +733,17 @@ export const useStore = create<AppState>((set, get) => ({
         const stationTrack: Track = {
             id: `station-${station.id || Date.now()}`,
             title: station.name,
-            artist: 'Bandcamp Weekly',
+            artist: station.description || 'Bandcamp Radio',
             artworkUrl: station.imageUrl || '',
-            streamUrl: station.streamUrl,
-            duration: 0,
+            streamUrl: '',  // resolved lazily via bandcampUrl when played
+            duration: station.duration || 0,
             bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
             album: 'Bandcamp Radio',
             isCached: false
         };
 
         const newItem: QueueItem = {
-            id: `queue-${Date.now()}`,
+            id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             track: stationTrack,
             source: 'radio'
         };
@@ -766,9 +767,11 @@ export const useStore = create<AppState>((set, get) => ({
         } else {
             // Local state already updated optimistically above.
             get().saveQueue();
-            // Check if we should auto-play
+            // Auto-play when the queue was empty: play the first item directly so that
+            // subsequent addStationToQueue calls in the same tick are not wiped out by
+            // playStation() replacing the entire queue asynchronously.
             if (queue.items.length === 0) {
-                get().playStation(station);
+                get().playQueueIndex(0);
             }
         }
     },
@@ -776,60 +779,22 @@ export const useStore = create<AppState>((set, get) => ({
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('add-station-to-playlist', { playlistId, station });
         } else {
-            const { mobileScraperService } = require('../services/MobileScraperService');
             const { mobileDatabase } = require('../services/MobileDatabase');
 
-            try {
-                // Fetch full details to get duration if not already present
-                let streamUrl = station.streamUrl;
-                let duration = 0;
-
-                let isUnresolvedUrl = false;
-                if (streamUrl) {
-                    try {
-                        const urlObj = new URL(streamUrl);
-                        isUnresolvedUrl = urlObj.hostname === 'bandcamp.com' || urlObj.hostname.endsWith('.bandcamp.com');
-                    } catch {
-                        isUnresolvedUrl = false;
-                    }
-                }
-
-                if (!streamUrl || isUnresolvedUrl) {
-                    const details = await mobileScraperService.getStationStreamUrl(station.id);
-                    streamUrl = details.streamUrl;
-                    duration = details.duration;
-                }
-
-                const stationTrack: Track = {
-                    id: `station-${station.id}`,
-                    title: station.name,
-                    artist: 'Bandcamp Weekly',
-                    artworkUrl: station.imageUrl || '',
-                    streamUrl: streamUrl,
-                    duration: duration,
-                    bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
-                    album: 'Bandcamp Radio',
-                    isCached: false
-                };
-                await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
-                get().refreshPlaylists();
-            } catch (err) {
-                console.error('[MobileStore] Failed to add station to playlist:', err);
-                // Fallback to minimal data if fetch fails
-                const stationTrack: Track = {
-                    id: `station-${station.id}`,
-                    title: station.name,
-                    artist: 'Bandcamp Weekly',
-                    artworkUrl: station.imageUrl || '',
-                    streamUrl: station.streamUrl,
-                    duration: 0,
-                    bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
-                    album: 'Bandcamp Radio',
-                    isCached: false
-                };
-                await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
-                get().refreshPlaylists();
-            }
+            // Store with empty streamUrl; resolved lazily via bandcampUrl by loadTrack when played
+            const stationTrack: Track = {
+                id: `station-${station.id}`,
+                title: station.name,
+                artist: station.description || 'Bandcamp Radio',
+                artworkUrl: station.imageUrl || '',
+                streamUrl: '',
+                duration: station.duration || 0,
+                bandcampUrl: `https://bandcamp.com/?show=${station.id}`,
+                album: 'Bandcamp Radio',
+                isCached: false
+            };
+            await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
+            get().refreshPlaylists();
         }
     },
     addTrackToQueue: async (track, playNext) => {
@@ -862,7 +827,7 @@ export const useStore = create<AppState>((set, get) => ({
         // Optimistic update
         const { queue } = get();
         const newItem: QueueItem = {
-            id: `queue-${Date.now()}`,
+            id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             track: trackToAdd,
             source: 'collection'
         };
@@ -888,20 +853,21 @@ export const useStore = create<AppState>((set, get) => ({
             get().saveQueue();
         }
     },
-    addAlbumToQueue: (albumUrl, playNext, tracks) => {
+    addAlbumToQueue: (albumUrl, playNext, tracks, knownArtist) => {
         console.log(`[MobileStore] addAlbumToQueue called. URL: ${albumUrl}, PlayNext: ${playNext}, Tracks: ${tracks?.length}`);
         // Optimistic update if tracks are provided
         if (tracks && tracks.length > 0) {
             const { queue } = get();
             console.log('[MobileStore] Current queue length:', queue.items.length);
 
-            // Try to find album artist if tracks might have 'Unknown Artist'
-            // We don't have the album object here directly, but we can check if all tracks have the same artist
+            // Try to find album artist if tracks might have 'Unknown Artist' or empty artist.
+            // Fall back to the known album artist passed from the collection/detail view.
             const artists = tracks.map(t => t.artist).filter(a => a && a !== 'Unknown Artist');
-            const commonArtist = artists.length > 0 ? artists[0] : '';
+            const fallbackArtist = knownArtist || 'Unknown Artist';
+            const commonArtist = artists.length > 0 ? artists[0] : fallbackArtist;
 
-            const newQueueItems: QueueItem[] = tracks.map((track, index) => ({
-                id: `queue-${Date.now()}-${index}`,
+            const newQueueItems: QueueItem[] = tracks.map((track) => ({
+                id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
                 track: {
                     ...track,
                     artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : commonArtist
@@ -934,8 +900,17 @@ export const useStore = create<AppState>((set, get) => ({
             mobileScraperService.getAlbumDetails(albumUrl)
                 .then((album: any) => {
                     if (album && album.tracks && album.tracks.length > 0) {
-                        // Recursive call with tracks
-                        get().addAlbumToQueue(albumUrl, playNext, album.tracks);
+                        // Mirror album_detail.tsx: resolve artist with knownArtist as fallback,
+                        // then pre-fill each track's artist before the recursive call.
+                        const finalArtist =
+                            (album.artist && album.artist !== 'Unknown Artist') ? album.artist :
+                            (knownArtist && knownArtist !== 'Unknown Artist') ? knownArtist :
+                            album.artist || knownArtist || 'Unknown Artist';
+                        const resolvedTracks = album.tracks.map((t: Track) => ({
+                            ...t,
+                            artist: (t.artist && t.artist !== 'Unknown Artist') ? t.artist : finalArtist
+                        }));
+                        get().addAlbumToQueue(albumUrl, playNext, resolvedTracks, finalArtist);
                     } else {
                         set({ collectionError: 'Failed to load tracks for queue' });
                     }
@@ -1376,6 +1351,22 @@ export const useStore = create<AppState>((set, get) => ({
                     console.error('[MobileStore] Failed to load artist collection:', err);
                     set({ isArtistCollectionLoading: false });
                 });
+        }
+    },
+    getArtistsBulkItems: async (artistNames: string[]): Promise<CollectionItem[]> => {
+        if (artistNames.length === 0) return [];
+        const { mode, connectionStatus, collection, auth } = get();
+        if (mode === 'remote' && connectionStatus === 'connected') {
+            if (!collection?.items) return [];
+            const nameSet = new Set(artistNames.map(n => n.toLowerCase()));
+            return collection.items.filter(item => {
+                const artist = (item.type === 'album' ? item.album?.artist : item.track?.artist) || '';
+                return nameSet.has(artist.toLowerCase());
+            });
+        } else {
+            if (!auth.user) return [];
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            return mobileDatabase.getCollectionByArtistNames(auth.user.id, artistNames);
         }
     },
 }));

@@ -450,6 +450,71 @@ export class MobileDatabase {
         // Let's assume playlisEntryId logic will be handled at service layer or we just don't support granular delete in this first pass.
     }
 
+    async getCollectionByArtistNames(userId: string, artistNames: string[]): Promise<CollectionItem[]> {
+        if (!this.db) await this.init();
+        if (artistNames.length === 0) return [];
+
+        const lowerNames = artistNames.map(n => n.toLowerCase());
+        const namePlaceholders = lowerNames.map(() => '?').join(',');
+
+        const sql = `
+            SELECT ci.*,
+                   a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                   t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid
+            FROM collection_items ci
+            LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+            LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+            WHERE ci.user_id = ? AND (
+                (ci.type = 'album' AND LOWER(a.artist_name) IN (${namePlaceholders})) OR
+                (ci.type = 'track' AND LOWER(t.artist_name) IN (${namePlaceholders}))
+            )
+            ORDER BY ci.position ASC
+        `;
+
+        const rows = await this.db!.getAllAsync<any>(sql, [userId, ...lowerNames, ...lowerNames]);
+
+        return rows.map(row => {
+            if (row.type === 'album') {
+                return {
+                    id: row.id,
+                    type: 'album',
+                    token: row.token,
+                    purchaseDate: row.purchase_date,
+                    album: {
+                        id: row.id,
+                        title: row.a_title,
+                        artist: row.a_artist,
+                        artistId: row.a_aid,
+                        artworkUrl: row.a_art,
+                        bandcampUrl: row.a_url,
+                        trackCount: row.a_count,
+                        tracks: []
+                    }
+                } as CollectionItem;
+            } else {
+                return {
+                    id: row.id,
+                    type: 'track',
+                    token: row.token,
+                    purchaseDate: row.purchase_date,
+                    track: {
+                        id: row.id,
+                        title: row.t_title,
+                        artist: row.t_artist,
+                        artistId: row.t_aid,
+                        album: row.t_album,
+                        albumId: row.t_alid,
+                        duration: row.t_dur,
+                        artworkUrl: row.t_art,
+                        streamUrl: row.t_stream,
+                        bandcampUrl: row.t_url,
+                        isCached: false
+                    }
+                } as CollectionItem;
+            }
+        });
+    }
+
     // --- Artists ---
 
     async getArtists(): Promise<any[]> {
