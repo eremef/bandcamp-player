@@ -296,4 +296,9 @@ export interface RemoteClient {
     userAgent: string;
     connectedAt: string;
     lastActiveAt: string;
+    deviceInfo?: {
+        platform: string;
+        appVersion: string;
+        device: string;
+    };
 }

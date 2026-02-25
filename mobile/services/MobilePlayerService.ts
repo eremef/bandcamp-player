@@ -164,7 +164,11 @@ class MobilePlayerService {
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
-            // Check if we need to fetch a valid stream URL
+            const store = useStore.getState();
+            if (store.mode === 'standalone') {
+                await TrackPlayer.reset();
+            }
+
             let streamUrl = track.streamUrl;
 
             if (!streamUrl) {

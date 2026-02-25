@@ -135,7 +135,7 @@ export class RemoteControlService extends EventEmitter {
                     }
 
                     const message = JSON.parse(data);
-                    await this.handleMessage(ws, message);
+                    await this.handleMessage(ws, message, clientId);
                 } catch (err) {
                     console.error('[RemoteService] Error handling message:', err);
                 }
@@ -259,10 +259,23 @@ export class RemoteControlService extends EventEmitter {
             class="${className}">${children}</svg>`;
     }
 
-    private async handleMessage(ws: WebSocket, message: { type: string; payload?: any }): Promise<void> {
+    private async handleMessage(ws: WebSocket, message: { type: string; payload?: any }, clientId: string): Promise<void> {
         const { type, payload } = message;
 
         switch (type) {
+            case 'identify': {
+                const client = this.clients.get(clientId);
+                if (client && payload) {
+                    client.deviceInfo = {
+                        platform: payload.platform || 'unknown',
+                        appVersion: payload.appVersion || 'unknown',
+                        device: payload.device || 'unknown'
+                    };
+                    console.log(`[RemoteService] Client ${clientId} identified: ${payload.platform}/${payload.device} v${payload.appVersion}`);
+                    this.emit('connections-changed', this.clients.size);
+                }
+                break;
+            }
             case 'play':
                 await this.playerService.play();
                 break;
