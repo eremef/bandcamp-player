@@ -2,17 +2,17 @@ const getPackageName = () => {
   if (process.env.EXPO_DEV_PACKAGE) {
     return process.env.EXPO_DEV_PACKAGE;
   }
-  return 'xyz.eremef.bandcamp.remote';
+  return 'xyz.eremef.beta';
 };
 
 module.exports = {
   expo: {
-    name: 'Bandcamp Remote',
-    slug: 'bandcamp-remote',
+    name: 'Beta Player',
+    slug: 'beta-app',
     version: '1.7.8-beta',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    scheme: 'bandcamp-remote',
+    scheme: 'beta-app',
     userInterfaceStyle: 'dark',
     newArchEnabled: true,
     splash: {
@@ -22,7 +22,7 @@ module.exports = {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'xyz.eremef.bandcamp.remote',
+      bundleIdentifier: 'xyz.eremef.beta',
     },
     android: {
       package: getPackageName(),

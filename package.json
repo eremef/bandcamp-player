@@ -1,7 +1,7 @@
 {
-  "name": "bandcamp-desktop-player",
+  "name": "xyz.eremef.beta",
   "version": "1.7.8-beta",
-  "productName": "Bandcamp Desktop Player",
+  "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "eremef.xyz",
@@ -86,8 +86,8 @@
   },
   "build": {
     "generateUpdatesFilesForAllChannels": true,
-    "appId": "xyz.eremef.bandcamp.player",
-    "productName": "bandcamp-desktop-player",
+    "appId": "xyz.eremef.beta.app",
+    "productName": "Beta Player",
     "directories": {
       "output": "release"
     },
