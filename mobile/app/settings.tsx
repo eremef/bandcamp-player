@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
 import { remoteConfigService } from '@shared/remote-config.service';
@@ -11,7 +11,7 @@ import { remoteConfigService } from '@shared/remote-config.service';
 export default function SettingsScreen() {
     const router = useRouter();
     const colors = useTheme();
-    const { isSimulationMode, toggleSimulationMode } = useStore();
+    const { isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
     const handleRefreshConfig = async () => {
@@ -56,6 +56,51 @@ export default function SettingsScreen() {
                             )}
                         </TouchableOpacity>
                     </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Last.fm Scrobbling</Text>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <Music color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>
+                                    {lastfmState.isConnected ? lastfmState.user?.name : 'Last.fm Account'}
+                                </Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    {lastfmState.isConnected ? 'Connected' : 'Connect to scrobble tracks in standalone mode'}
+                                </Text>
+                            </View>
+                        </View>
+                        {lastfmState.isConnected ? (
+                            <TouchableOpacity onPress={disconnectLastfm} style={styles.refreshButton}>
+                                <LogOut color={colors.accent} size={20} />
+                            </TouchableOpacity>
+                        ) : (
+                            <TouchableOpacity onPress={() => router.push('/lastfm_login')} style={styles.refreshButton}>
+                                <Text style={{ color: colors.accent, fontWeight: '600' }}>Connect</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {lastfmState.isConnected && (
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <View style={{ marginLeft: 32 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Enable Scrobbling</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Scrobble tracks played in standalone mode
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={scrobblingEnabled}
+                                onValueChange={toggleScrobbling}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+                    )}
                 </View>
 
                 {__DEV__ && (

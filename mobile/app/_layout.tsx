@@ -29,7 +29,9 @@ export default function RootLayout() {
     useEffect(() => {
         setupPlayer();
         registerBackgroundSync();
+    }, []);
 
+    useEffect(() => {
         // Save queue when app goes to background
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (

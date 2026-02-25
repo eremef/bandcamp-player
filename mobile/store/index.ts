@@ -1,4 +1,4 @@
-import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album } from '@shared/types';
+import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
@@ -102,6 +102,12 @@ interface AppState extends PlayerState {
     // Silent Refresh
     isSilentRefreshing: boolean;
 
+    // Scrobbler State
+    lastfmState: LastfmState;
+    scrobblingEnabled: boolean;
+    disconnectLastfm: () => Promise<void>;
+    toggleScrobbling: () => Promise<void>;
+
     // Persistence Helpers
     saveQueue: () => Promise<void>;
 }
@@ -151,6 +157,21 @@ export const useStore = create<AppState>((set, get) => ({
 
     isSimulationMode: false,
     isSilentRefreshing: false,
+    lastfmState: { isConnected: false, user: null },
+    scrobblingEnabled: true,
+
+    disconnectLastfm: async () => {
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        await mobileScrobblerService.disconnect();
+        set({ lastfmState: { isConnected: false, user: null } });
+    },
+
+    toggleScrobbling: async () => {
+        const newValue = !get().scrobblingEnabled;
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('scrobbling_enabled', newValue);
+        set({ scrobblingEnabled: newValue });
+    },
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
         await AsyncStorage.setItem('is_simulation_mode', newValue ? 'true' : 'false');
@@ -389,7 +410,13 @@ export const useStore = create<AppState>((set, get) => ({
         // Check auth status early
         const authStatus = await mobileAuthService.checkSession();
 
-        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus });
+        // Restore scrobbler state
+        const scrobblingEnabled = settings.scrobbling_enabled !== false; // default true
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        await mobileScrobblerService.loadSession();
+        const lastfmState = mobileScrobblerService.getState();
+
+        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus, lastfmState, scrobblingEnabled });
 
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.

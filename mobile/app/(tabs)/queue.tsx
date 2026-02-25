@@ -32,8 +32,9 @@ export default function QueueScreen() {
         }
     }, [reorderQueue]);
 
-    const renderItem = useCallback(({ item, getIndex, drag, isActive }: RenderItemParams<QueueItem>) => {
-        const index = getIndex() ?? 0;
+    const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<QueueItem>) => {
+        const index = queue.items.findIndex(qi => qi.id === item.id);
+        if (index === -1) return <></>;
         const isCurrent = index === queue.currentIndex;
         const isPlayed = index < queue.currentIndex;
 
@@ -91,7 +92,7 @@ export default function QueueScreen() {
                 </TouchableOpacity>
             </ScaleDecorator>
         );
-    }, [queue.currentIndex, isPlaying, colors, handlePlay, handleRemove]);
+    }, [queue.currentIndex, queue.items, isPlaying, colors, handlePlay, handleRemove]);
 
     const refreshQueue = useStore((state) => state.refreshQueue);
 
@@ -114,11 +115,6 @@ export default function QueueScreen() {
         </View>
     ), [colors]);
 
-    const contentContainerStyle = useMemo(
-        () => [styles.listContent, queue.items.length === 0 && { flex: 1 }],
-        [queue.items.length]
-    );
-
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
@@ -127,7 +123,7 @@ export default function QueueScreen() {
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 onDragEnd={handleDragEnd}
-                contentContainerStyle={contentContainerStyle}
+                contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyComponent}
                 autoscrollThreshold={80}
                 autoscrollSpeed={300}

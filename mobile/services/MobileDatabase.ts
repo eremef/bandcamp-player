@@ -100,6 +100,16 @@ export class MobileDatabase {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS scrobble_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                artist TEXT NOT NULL,
+                track TEXT NOT NULL,
+                album TEXT,
+                duration REAL,
+                timestamp INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
         `);
 
         // Migration for existing users: add position column if missing
@@ -399,6 +409,28 @@ export class MobileDatabase {
             'UPDATE playlists SET updated_at = ? WHERE id = ?',
             [now, playlistId]
         );
+    }
+
+    // --- Scrobble Queue ---
+
+    async addScrobble(artist: string, track: string, album: string | undefined, duration: number | undefined, timestamp: number) {
+        if (!this.db) await this.init();
+        await this.db!.runAsync(
+            'INSERT INTO scrobble_queue (artist, track, album, duration, timestamp) VALUES (?, ?, ?, ?, ?)',
+            [artist, track, album ?? null, duration ?? null, timestamp]
+        );
+    }
+
+    async getPendingScrobbles(): Promise<{ id: number; artist: string; track: string; album: string | null; duration: number | null; timestamp: number }[]> {
+        if (!this.db) await this.init();
+        return await this.db!.getAllAsync(
+            'SELECT * FROM scrobble_queue ORDER BY timestamp ASC'
+        );
+    }
+
+    async deleteScrobble(id: number) {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM scrobble_queue WHERE id = ?', [id]);
     }
 
     private generateUUID() {

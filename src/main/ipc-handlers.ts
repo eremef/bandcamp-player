@@ -138,11 +138,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     ipcMain.handle(QUEUE_CHANNELS.ADD_TRACK, (_, track: Track, playNext?: boolean) =>
         playerService.addToQueue(track, 'collection', playNext)
     );
-    ipcMain.handle(QUEUE_CHANNELS.ADD_TRACKS, (_, tracks: Track[]) =>
-        playerService.addTracksToQueue(tracks)
+    ipcMain.handle(QUEUE_CHANNELS.ADD_TRACKS, (_, tracks: Track[], playNext?: boolean) =>
+        playerService.addTracksToQueue(tracks, 'collection', playNext)
     );
-    ipcMain.handle(QUEUE_CHANNELS.ADD_ALBUM, (_, album: Album, _playNext?: boolean) => {
-        playerService.addTracksToQueue(album.tracks, 'collection');
+    ipcMain.handle(QUEUE_CHANNELS.ADD_ALBUM, (_, album: Album, playNext?: boolean) => {
+        playerService.addTracksToQueue(album.tracks, 'collection', playNext);
     });
     ipcMain.handle(QUEUE_CHANNELS.ADD_PLAYLIST, (_, playlist: Playlist) => {
         playerService.addTracksToQueue(playlist.tracks, 'playlist');
@@ -189,6 +189,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
 
     // ---- Radio ----
     ipcMain.handle(RADIO_CHANNELS.GET_STATIONS, () => scraperService.getRadioStations());
+    ipcMain.handle(RADIO_CHANNELS.REFRESH_STATIONS, () => scraperService.getRadioStations(true));
     ipcMain.handle(RADIO_CHANNELS.PLAY_STATION, (_, station: RadioStation) => playerService.playStation(station));
     ipcMain.handle(RADIO_CHANNELS.STOP, () => playerService.stopRadio());
     ipcMain.handle(RADIO_CHANNELS.GET_STATE, () => playerService.getRadioState());
@@ -196,8 +197,19 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         playerService.addStationToQueue(station, playNext)
     );
     ipcMain.handle(RADIO_CHANNELS.ADD_TO_PLAYLIST, async (_, playlistId: string, station: RadioStation) => {
-        const radioTrack = await playerService.stationToTrack(station);
-        playlistService.addTrack(playlistId, radioTrack);
+        const placeholderTrack: Track = {
+            id: `radio-${station.id}`,
+            title: station.name,
+            artist: station.description || 'Bandcamp Radio',
+            album: 'Bandcamp Radio',
+            duration: 0,
+            artworkUrl: station.imageUrl || '',
+            streamUrl: '',
+            bandcampUrl: '',
+            isCached: false,
+            radioStationId: station.id,
+        };
+        playlistService.addTrack(playlistId, placeholderTrack);
     });
 
     playerService.on('radio-state-changed', (state) => {

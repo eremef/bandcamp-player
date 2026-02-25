@@ -64,6 +64,12 @@ export const remoteConfigService = {
             rateLimitDelay: 500,
             rateLimitJitter: 200
         },
+        lastfm: {
+            apiKey: "mock-api-key",
+            apiSecret: "mock-api-secret",
+            apiUrl: "https://ws.audioscrobbler.com/2.0/",
+            authUrl: "https://www.last.fm/api/auth"
+        },
         radioData: {
             showIdKeys: ["showId", "show_id", "itemId", "id"],
             trackIdKeys: ["audioTrackId", "track_id", "trackId"]

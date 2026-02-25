@@ -29,14 +29,15 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
             // Only auto-fill if not silent (silent doesn't show UI, so auto-fill doesn't matter for user, but we can auto submit?)
             // Actually, if silent, we just want to grab cookies. If there are no valid cookies in WebView, it will show login page.
             if (creds && creds.username && creds.password && !isSilent) {
+                const escapeForJS = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '\\r');
                 js = `
                     (function() {
                         try {
                             var u = document.querySelector('input[name="username"]') || document.querySelector('input[type="text"]');
                             var p = document.querySelector('input[name="password"]') || document.querySelector('input[type="password"]');
                             if (u && p) {
-                                u.value = '${creds.username.replace(/'/g, "\\'")}';
-                                p.value = '${creds.password.replace(/'/g, "\\'")}';
+                                u.value = '${escapeForJS(creds.username)}';
+                                p.value = '${escapeForJS(creds.password)}';
                             }
                         } catch(e) {}
                     })();
