@@ -13,6 +13,7 @@
     "lint": "cd .. && eslint mobile",
     "typecheck": "tsc --noEmit",
     "android:build": "npm run sync-assets && expo run:android",
+    "android:build:dev": "EXPO_DEV_PACKAGE=xyz.eremef.bandcamp.remote.dev npm run android:build",
     "sync-assets": "node ../scripts/generate-config-hash.js && node ../scripts/copy-assets.js",
     "prebuild": "npm run sync-assets",
     "prestart": "npm run sync-assets"
