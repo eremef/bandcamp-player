@@ -28,13 +28,13 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🔍 **Smart Search** - Filter your collection instantly
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
-- 📋 **Queue Management** - Manage your playback queue
+- 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API token)
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
-- 📡 **Connection Management** - manage remote sessions
+- 📡 **Connection Management** - Manage remote sessions with device identification
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
@@ -177,12 +177,13 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🎵 **Standalone Player** - Use the mobile app as an independent Bandcamp player with background audio
 - 📂 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
 - 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
-- 📋 **Queue Management** - View and manage the playback queue 
+- 📋 **Queue Management** - View and manage the playback queue
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
+- 🎧 **Last.fm Scrobbling** - Track your listening history with native scrobbling in standalone mode
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
@@ -202,7 +203,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - **Android SDK** with **CMake 3.22.1** installed.
 - **Android NDK** (Side-by-side versions).
 
-#### **Build Android**:
+#### **Build Android**
 
 **Configure SDK**
    Create a `local.properties` file in `mobile/android/` pointing to your SDK:
@@ -219,7 +220,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
    npm run android:build
    ```
 
-#### **Build iOS** (macOS only):
+#### **Build iOS** (macOS only)
 
    ```bash
    cd mobile
@@ -254,10 +255,11 @@ mobile/
 | Add all searched items to playlist - mobile  | M    | 🔴     |
 | Add all searched items to queue - mobile     | M    | 🔴     |
 | Chromecast for standalone mobile mode        | L    | 🔴     |
-| Bug finding and fixing                       | XL   | 🟡     | 
-| Drag-to-reorder Playlist & Queue             | L    | 🟡     |
+| Drag-to-reorder Playlist                     | L    | 🔴     |
+| Bug finding and fixing                       | XL   | 🟡     |
 | Refine the design                            | L    | 🟡     |
-| Auto-refresh cookie - mobile app             | M    | 🟡     |
+| Auto-refresh cookie - mobile app             | M    | 🟢     |
+| Drag-to-reorder queue                        | L    | 🟢     |
 | Add all searched items to playlist - desktop | M    | 🟢     |
 | Add all searched items to queue - desktop    | M    | 🟢     |
 | Scrobbler for standalone mobile mode         | L    | 🟢     |
