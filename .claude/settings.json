@@ -24,7 +24,8 @@
       "Bash(node -e \":*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Read(//c/Program Files/**)"
     ]
   }
 }

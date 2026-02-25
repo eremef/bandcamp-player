@@ -66,8 +66,9 @@ export class UpdaterService extends EventEmitter {
             this.isChecking = false;
             const message = err.message || String(err);
 
-            // Silence 404/NotFound errors during background checks.
-            // These often happen when a tag exists on GitHub but no release/latest.yml is associated with it yet (or it was deleted).
+            // Fallback: silence 404/NotFound errors during background checks.
+            // The pre-check in checkForUpdates() should prevent this, but guard here in case
+            // latest.yml is missing from a Release (e.g., partial upload or deleted asset).
             if (!this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
                 console.log('[Updater] Background check: Update metadata not found on GitHub (404). Silencing error.');
                 this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
@@ -88,6 +89,21 @@ export class UpdaterService extends EventEmitter {
         });
     }
 
+    private async hasPublishedRelease(): Promise<boolean> {
+        try {
+            const response = await fetch(
+                'https://api.github.com/repos/eremef/bandcamp-player/releases?per_page=1',
+                { headers: { Accept: 'application/vnd.github+json' } }
+            );
+            if (!response.ok) return false;
+            const releases = await response.json() as unknown[];
+            return releases.length > 0;
+        } catch {
+            // Network error — fall through to electron-updater, which handles offline gracefully
+            return true;
+        }
+    }
+
     private getFriendlyErrorMessage(message: string): string {
         if (message.includes('404') || message.includes('NotFound') || message.includes('not found')) {
             return 'The update information was not found on GitHub. This can happen if a release was recently modified or deleted.';
@@ -105,6 +121,16 @@ export class UpdaterService extends EventEmitter {
         if (this.isChecking) return;
 
         this.isManualCheck = isManual;
+
+        // Guard: only proceed if a published GitHub Release exists.
+        // Without this, electron-updater would 404 when only a git tag exists (no Release yet).
+        const releaseExists = await this.hasPublishedRelease();
+        if (!releaseExists) {
+            console.log('[Updater] No published GitHub Release found. Skipping update check.');
+            this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
+            return;
+        }
+
         try {
             return await autoUpdater.checkForUpdates();
         } catch (error) {
