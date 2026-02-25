@@ -16,7 +16,15 @@
       "Bash(git log *)",
       "Bash(git status *)",
       "Bash(eslint *)",
-      "Bash(tsc*)"
+      "Bash(tsc*)",
+      "Bash(cat .github/workflows/*.yml)",
+      "Bash(npm run build*)",
+      "Bash(npm test*)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(node -e \":*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(tasklist)"
     ]
   }
 }
