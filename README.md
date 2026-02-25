@@ -248,11 +248,6 @@ mobile/
 | Drag-to-reorder Playlist                     | L    | 🔴     |
 | Bug finding and fixing                       | XL   | 🟡     |
 | Refine the design                            | L    | 🟡     |
-| Auto-refresh cookie - mobile app             | M    | 🟢     |
-| Drag-to-reorder queue                        | L    | 🟢     |
-| Add all searched items to playlist - desktop | M    | 🟢     |
-| Add all searched items to queue - desktop    | M    | 🟢     |
-| Scrobbler for standalone mobile mode         | L    | 🟢     |
 
 ## Star History (just for fun)
 
