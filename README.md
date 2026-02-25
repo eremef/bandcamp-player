@@ -242,9 +242,9 @@ mobile/
 | What                                         | Size | Status |
 | :------------------------------------------- | ---- | :----: |
 | Refine the design                            | L    | 🟡     |
+| Bug finding and fixing                       | XL   | 🟡     |
 | Add all searched items to playlist - mobile  | M    | 🟠     |
 | Add all searched items to queue - mobile     | M    | 🟠     |
-| Bug finding and fixing                       | XL   | 🟠     |
 | View/edit playlist - mobile                  | M    | 🔴     |
 | Chromecast for standalone mobile mode        | L    | 🔴     |
 | Drag-to-reorder Playlist                     | L    | 🔴     |
