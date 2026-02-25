@@ -1,5 +1,5 @@
 {
-    "version": "1.0.1",
+    "version": "1.0.2",
     "selectors": {
         "collection": {
             "itemContainer": ".collection-item-container",
@@ -69,6 +69,12 @@
         "maxBatches": 1000,
         "rateLimitDelay": 100,
         "rateLimitJitter": 200
+    },
+    "lastfm": {
+        "apiKey": "065ab52bc0f9e72ef6b6a4a811fe75c2",
+        "apiSecret": "a1d38f1e6394dadab9b4954181507a3c",
+        "apiUrl": "https://ws.audioscrobbler.com/2.0/",
+        "authUrl": "https://www.last.fm/api/auth"
     },
     "radioData": {
         "showIdKeys": [

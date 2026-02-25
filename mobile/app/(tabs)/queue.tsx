@@ -115,11 +115,6 @@ export default function QueueScreen() {
         </View>
     ), [colors]);
 
-    const contentContainerStyle = useMemo(
-        () => [styles.listContent, queue.items.length === 0 && { flex: 1 }],
-        [queue.items.length]
-    );
-
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
@@ -128,7 +123,7 @@ export default function QueueScreen() {
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
                 onDragEnd={handleDragEnd}
-                contentContainerStyle={contentContainerStyle}
+                contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyComponent}
                 autoscrollThreshold={80}
                 autoscrollSpeed={300}

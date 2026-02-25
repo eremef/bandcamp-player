@@ -278,7 +278,7 @@ export default function PlayerScreen() {
 
                             <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
-                            {currentTrack && (
+                            {/* {currentTrack && (
                                 <TouchableOpacity
                                     style={styles.menuItem}
                                     onPress={() => {
@@ -288,7 +288,7 @@ export default function PlayerScreen() {
                                 >
                                     <Text style={[styles.menuItemText, { color: colors.text }]}>Add to Playlist</Text>
                                 </TouchableOpacity>
-                            )}
+                            )} */}
 
                             <TouchableOpacity
                                 style={styles.menuItem}
@@ -420,11 +420,11 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         borderRadius: 12,
         overflow: 'hidden',
-        marginTop: 24,
+        marginTop: 15,
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: 0,
+            height: 10,
         },
         shadowOpacity: 0.5,
         shadowRadius: 13.16,

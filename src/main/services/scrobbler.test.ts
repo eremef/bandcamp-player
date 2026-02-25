@@ -7,6 +7,19 @@ import { Track } from '../../shared/types';
 // Mock dependencies
 vi.mock('axios');
 vi.mock('../database/database');
+vi.mock('../../shared/remote-config.service', () => ({
+    remoteConfigService: {
+        get: () => ({
+            lastfm: {
+                apiKey: 'mock-config-api-key',
+                apiSecret: 'mock-config-api-secret',
+                apiUrl: 'https://ws.audioscrobbler.com/2.0/',
+                authUrl: 'https://www.last.fm/api/auth',
+            },
+        }),
+        fetchLatestConfig: vi.fn().mockResolvedValue(undefined),
+    },
+}));
 
 const mockLoadURL = vi.fn().mockResolvedValue(undefined);
 const mockClose = vi.fn();
