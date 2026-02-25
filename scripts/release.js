@@ -65,7 +65,12 @@ function copyAndNormalizeTextFile(srcPath, destPath) {
 log('Step 1: Updating version numbers...');
 updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVersion; });
 updateJson(path.join(mobileDir, 'package.json'), (json) => { json.version = newVersion; });
-updateJson(path.join(mobileDir, 'app.json'), (json) => { json.expo.version = newVersion; });
+
+const appConfigPath = path.join(mobileDir, 'app.config.js');
+log(`Updating ${appConfigPath}...`);
+const appConfigContent = fs.readFileSync(appConfigPath, 'utf8');
+const updatedAppConfig = appConfigContent.replace(/version: '[^']*'/, `version: '${newVersion}'`);
+fs.writeFileSync(appConfigPath, updatedAppConfig, 'utf8');
 
 // 2. Ensure app is closed
 log('Step 2: Ensuring app is closed (skipped in agent mode)...');

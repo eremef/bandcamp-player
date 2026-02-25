@@ -14,6 +14,11 @@ jest.mock('lucide-react-native', () => ({
     RefreshCw: () => 'RefreshCw',
     MoreVertical: () => 'MoreVertical',
     Search: () => 'Search',
+    ListEnd: () => 'ListEnd',
+    ListPlus: () => 'ListPlus',
+    ListMusic: () => 'ListMusic',
+    Play: () => 'Play',
+    MoreHorizontal: () => 'MoreHorizontal',
 }));
 
 // Mock WebSocketService
@@ -134,6 +139,9 @@ describe('CollectionScreen', () => {
         isCollectionLoading: false,
         collectionLoadingStatus: null,
         collectionError: null,
+        queue: { currentIndex: -1, tracks: [] },
+        clearQueue: jest.fn(),
+        playQueueIndex: jest.fn(),
     };
 
     beforeEach(() => {
@@ -317,7 +325,7 @@ describe('CollectionScreen', () => {
         await waitFor(() => expect(getByText('Play Next')).toBeTruthy());
 
         fireEvent.press(getByText('Play Next'));
-        expect(mockStore.addAlbumToQueue).toHaveBeenCalledWith('burl1', true, expect.any(Array));
+        expect(mockStore.addAlbumToQueue).toHaveBeenCalledWith('burl1', true, expect.any(Array), expect.any(String));
     });
 
     it('handles "Add to Playlist" and selection', async () => {
