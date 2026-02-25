@@ -35,6 +35,10 @@ export async function PlaybackService() {
             currentTime: event.position,
             duration: event.duration
         });
+
+        // Scrobble tracking
+        const { mobileScrobblerService } = require('./MobileScrobblerService');
+        mobileScrobblerService.handleProgressUpdate(event.position, event.duration);
     });
 
     TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
@@ -85,7 +89,7 @@ export async function PlaybackService() {
         TrackPlayer.reset();
     });
 
-    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (event) => {
+    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (_event) => {
         // Only handle track end in standalone mode
         // In remote mode, TrackPlayer.reset() in addTrack() fires this event spuriously
         if (useStore.getState().mode !== 'standalone') return;

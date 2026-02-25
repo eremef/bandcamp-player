@@ -3,17 +3,18 @@ import * as crypto from 'crypto';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { Database } from '../database/database';
+import { remoteConfigService } from '../../shared/remote-config.service';
 import type { Track, LastfmState, LastfmUser } from '../../shared/types';
 
 // ============================================================================
 // Last.fm Scrobbler Service
 // ============================================================================
 
-// You need to register at https://www.last.fm/api/account/create
-const FALLBACK_API_KEY = 'YOUR_LASTFM_API_KEY';
-const FALLBACK_API_SECRET = 'YOUR_LASTFM_API_SECRET';
-const LASTFM_API_URL = 'https://ws.audioscrobbler.com/2.0/';
-const LASTFM_AUTH_URL = 'https://www.last.fm/api/auth';
+// Fallbacks if remote-config.json doesn't have lastfm section yet
+const FALLBACK_API_KEY = '065ab52bc0f9e72ef6b6a4a811fe75c2';
+const FALLBACK_API_SECRET = 'a1d38f1e6394dadab9b4954181507a3c';
+const FALLBACK_API_URL = 'https://ws.audioscrobbler.com/2.0/';
+const FALLBACK_AUTH_URL = 'https://www.last.fm/api/auth';
 
 export class ScrobblerService extends EventEmitter {
     private database: Database;
@@ -28,13 +29,19 @@ export class ScrobblerService extends EventEmitter {
     }
 
     private getApiKey(): string {
-        const settings = this.database.getSettings();
-        return settings?.lastfmApiKey || FALLBACK_API_KEY;
+        return remoteConfigService.get().lastfm?.apiKey || FALLBACK_API_KEY;
     }
 
     private getApiSecret(): string {
-        const settings = this.database.getSettings();
-        return settings?.lastfmApiSecret || FALLBACK_API_SECRET;
+        return remoteConfigService.get().lastfm?.apiSecret || FALLBACK_API_SECRET;
+    }
+
+    private getApiUrl(): string {
+        return remoteConfigService.get().lastfm?.apiUrl || FALLBACK_API_URL;
+    }
+
+    private getAuthUrl(): string {
+        return remoteConfigService.get().lastfm?.authUrl || FALLBACK_AUTH_URL;
     }
 
     /**
@@ -64,7 +71,7 @@ export class ScrobblerService extends EventEmitter {
             // Get auth token
             const apiKey = this.getApiKey();
             const callbackUrl = 'http://localhost:41234/lastfm-callback';
-            const authUrl = `${LASTFM_AUTH_URL}?api_key=${apiKey}&cb=${encodeURIComponent(callbackUrl)}`;
+            const authUrl = `${this.getAuthUrl()}?api_key=${apiKey}&cb=${encodeURIComponent(callbackUrl)}`;
 
             const authWindow = new BrowserWindow({
                 width: 500,
@@ -191,7 +198,7 @@ export class ScrobblerService extends EventEmitter {
             token,
         });
 
-        const response = await axios.get(LASTFM_API_URL, {
+        const response = await axios.get(this.getApiUrl(), {
             params: {
                 method: 'auth.getSession',
                 api_key: apiKey,
@@ -230,7 +237,7 @@ export class ScrobblerService extends EventEmitter {
                 sk: this.sessionKey,
             });
 
-            const response = await axios.get(LASTFM_API_URL, {
+            const response = await axios.get(this.getApiUrl(), {
                 params: {
                     method: 'user.getInfo',
                     api_key: apiKey,
@@ -303,7 +310,7 @@ export class ScrobblerService extends EventEmitter {
 
             const sig = this.createSignature(params);
 
-            await axios.post(LASTFM_API_URL, null, {
+            await axios.post(FALLBACK_API_URL, null, {
                 params: {
                     ...params,
                     api_sig: sig,
@@ -372,7 +379,7 @@ export class ScrobblerService extends EventEmitter {
 
         const sig = this.createSignature(params);
 
-        await axios.post(LASTFM_API_URL, null, {
+        await axios.post(FALLBACK_API_URL, null, {
             params: {
                 ...params,
                 api_sig: sig,

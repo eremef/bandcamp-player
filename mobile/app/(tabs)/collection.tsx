@@ -10,6 +10,7 @@ import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
+import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -48,10 +49,12 @@ export default function CollectionScreen() {
 
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
-        setActionSheetTitle(title || 'Item');
+        const artist = item.type === 'album' ? item.album?.artist : item.track?.artist;
+        setActionSheetTitle(title + ' - ' + artist || 'Item');
         setActionSheetActions([
             {
                 text: "Play Next",
+                icon: ListEnd,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
@@ -63,6 +66,7 @@ export default function CollectionScreen() {
             },
             {
                 text: "Add to Queue",
+                icon: ListPlus,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
@@ -74,6 +78,7 @@ export default function CollectionScreen() {
             },
             {
                 text: "Add to Playlist",
+                icon: ListMusic,
                 onPress: () => {
                     setSelectedItem(item);
                     setPlaylistModalVisible(true);

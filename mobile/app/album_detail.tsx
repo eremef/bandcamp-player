@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { webSocketService } from '../services/WebSocketService';
 import { Album, Track } from '@shared/types';
 import { useStore } from '../store';
-import { ArrowLeft, Play, MoreVertical } from 'lucide-react-native';
+import { ArrowLeft, Play, MoreVertical, ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
 import { ActionSheet, Action } from '../components/ActionSheet';
 import { PlaylistSelectionModal } from '../components/PlaylistSelectionModal';
 import { InputModal } from '../components/InputModal';
@@ -147,6 +147,7 @@ export default function AlbumDetailScreen() {
         setActionSheetActions([
             {
                 text: "Play Next",
+                icon: ListEnd,
                 onPress: () => {
                     if (album.bandcampUrl) {
                         addAlbumToQueue(album.bandcampUrl, true, album.tracks);
@@ -156,6 +157,7 @@ export default function AlbumDetailScreen() {
             },
             {
                 text: "Add to Queue",
+                icon: ListPlus,
                 onPress: () => {
                     if (album.bandcampUrl) {
                         addAlbumToQueue(album.bandcampUrl, false, album.tracks);
@@ -165,6 +167,7 @@ export default function AlbumDetailScreen() {
             },
             {
                 text: "Add to Playlist",
+                icon: ListMusic,
                 onPress: () => {
                     setIsAlbumAction(true);
                     setPlaylistModalVisible(true);
@@ -190,18 +193,21 @@ export default function AlbumDetailScreen() {
         setActionSheetActions([
             {
                 text: "Play Next",
+                icon: ListEnd,
                 onPress: () => {
                     addTrackToQueue(trackWithArtist, true);
                 }
             },
             {
                 text: "Add to Queue",
+                icon: ListPlus,
                 onPress: () => {
                     addTrackToQueue(trackWithArtist, false);
                 }
             },
             {
                 text: "Add to Playlist",
+                icon: ListMusic,
                 onPress: () => {
                     setIsAlbumAction(false);
                     setSelectedTrack(trackWithArtist);

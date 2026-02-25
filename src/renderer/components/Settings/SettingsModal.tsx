@@ -295,31 +295,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 </label>
                             </div>
                         )}
-                        <div className={styles.apiConfig}>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.inputLabel}>Last.fm API Key</label>
-                                <input
-                                    type="text"
-                                    className={styles.textInput}
-                                    placeholder="Enter your API Key"
-                                    value={settings?.lastfmApiKey || ''}
-                                    onChange={(e) => updateSettings({ lastfmApiKey: e.target.value })}
-                                />
-                            </div>
-                            <div className={styles.inputGroup}>
-                                <label className={styles.inputLabel}>Last.fm API Secret</label>
-                                <input
-                                    type="password"
-                                    className={styles.textInput}
-                                    placeholder="Enter your API Secret"
-                                    value={settings?.lastfmApiSecret || ''}
-                                    onChange={(e) => updateSettings({ lastfmApiSecret: e.target.value })}
-                                />
-                            </div>
-                            <p className={styles.settingHint}>
-                                You can get your own API credentials at <a href="https://www.last.fm/api/account/create" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)' }}>last.fm/api</a>
-                            </p>
-                        </div>
                     </section>
 
                     {/* Window */}

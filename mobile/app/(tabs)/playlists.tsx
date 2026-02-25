@@ -6,6 +6,7 @@ import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../../components/ActionSheet';
 import { InputModal } from '../../components/InputModal';
+import { Pencil, Trash2 } from 'lucide-react-native';
 
 export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
@@ -167,16 +168,17 @@ export default function PlaylistsScreen() {
                 actions={[
                     {
                         text: 'Rename',
+                        icon: Pencil,
                         onPress: () => {
-                            // Delay slightly to allow action sheet to close
-                            setTimeout(() => setRenameModalVisible(true), 100);
+                            setRenameModalVisible(true);
                         }
                     },
                     {
                         text: 'Delete',
+                        icon: Trash2,
                         style: 'destructive',
                         onPress: () => {
-                            setTimeout(handleDelete, 100);
+                            handleDelete();
                         }
                     },
                     {

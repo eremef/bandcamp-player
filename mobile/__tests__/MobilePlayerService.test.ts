@@ -12,6 +12,7 @@ jest.mock('react-native-track-player', () => ({
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn().mockResolvedValue(undefined),
+        reset: jest.fn().mockResolvedValue(undefined),
         seekTo: jest.fn().mockResolvedValue(undefined),
         getPlaybackState: jest.fn().mockResolvedValue({ state: 'stopped' }),
         getQueue: jest.fn().mockResolvedValue([]),
@@ -111,9 +112,8 @@ describe('MobilePlayerService', () => {
 
         it('should stop playback', async () => {
             await mobilePlayerService.stop();
-            expect(TrackPlayer.pause).toHaveBeenCalled();
-            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(0);
-            expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false, currentTrack: null, currentTime: 0 });
+            expect(TrackPlayer.reset).toHaveBeenCalled();
+            expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
         });
 
         it('should seek to position', async () => {
