@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -63,7 +63,10 @@ export default function QueueScreen() {
                         </Text>
                         <GripVertical size={18} color={colors.textSecondary} />
                     </TouchableOpacity>
-
+                    <Image
+                        source={{ uri: item.track.artworkUrl }}
+                        style={[styles.artwork, { backgroundColor: colors.card }]}
+                    />
                     <View style={[styles.info]}>
                         <Text
                             style={[styles.title, { color: colors.text }, isCurrent && { color: colors.accent }]}
@@ -110,6 +113,7 @@ export default function QueueScreen() {
 
     const renderEmptyComponent = useCallback(() => (
         <View style={styles.emptyContainer}>
+
             <Text style={[styles.emptyText, { color: colors.text }]}>Queue is empty</Text>
             <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Add songs from your collection</Text>
         </View>
@@ -117,7 +121,6 @@ export default function QueueScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
-
             <DraggableFlatList
                 data={queue.items}
                 renderItem={renderItem}
@@ -185,6 +188,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 4,
+        marginHorizontal: 5,
         backgroundColor: '#333',
     },
     info: {

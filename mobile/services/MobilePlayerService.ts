@@ -13,6 +13,32 @@ import { setupPlayer } from './player';
 class MobilePlayerService {
     private isInitialized = false;
     public onQueueChange?: () => void;
+    private progressPollInterval: ReturnType<typeof setInterval> | null = null;
+
+    private startProgressPolling() {
+        this.stopProgressPolling();
+        this.progressPollInterval = setInterval(async () => {
+            try {
+                const progress = await TrackPlayer.getProgress();
+                const update: { currentTime: number; duration?: number } = {
+                    currentTime: progress.position,
+                };
+                if (progress.duration > 0) {
+                    update.duration = progress.duration;
+                }
+                useStore.setState(update);
+            } catch {
+                // Player not ready
+            }
+        }, 1000);
+    }
+
+    private stopProgressPolling() {
+        if (this.progressPollInterval !== null) {
+            clearInterval(this.progressPollInterval);
+            this.progressPollInterval = null;
+        }
+    }
 
     async setupPlayer() {
         if (this.isInitialized) return;
@@ -44,6 +70,7 @@ class MobilePlayerService {
         if (playbackState.state === State.Paused || playbackState.state === State.Ready) {
             await TrackPlayer.play();
             useStore.setState({ isPlaying: true });
+            this.startProgressPolling();
         } else if (store.currentTrack) {
             // If we have a track but player state is stopped/none, re-load it?
             // Maybe.
@@ -56,11 +83,13 @@ class MobilePlayerService {
     }
 
     async pause() {
+        this.stopProgressPolling();
         await TrackPlayer.pause();
         useStore.setState({ isPlaying: false });
     }
 
     async stop() {
+        this.stopProgressPolling();
         await TrackPlayer.reset();
         useStore.setState({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
     }
@@ -277,6 +306,7 @@ class MobilePlayerService {
             console.log('[MobilePlayer] Calling TrackPlayer.play()');
             await TrackPlayer.play();
             console.log('[MobilePlayer] Playback started');
+            this.startProgressPolling();
         } else {
             useStore.setState({ isPlaying: false });
         }

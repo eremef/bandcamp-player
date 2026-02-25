@@ -558,8 +558,8 @@ export class RemoteControlService extends EventEmitter {
                 const radioTrack: Track = {
                     id: `radio-${payload.station.id}`,
                     title: payload.station.name,
-                    artist: 'Bandcamp Radio',
-                    album: payload.station.description || '',
+                    artist: payload.station.description || 'Bandcamp Radio',
+                    album: 'Bandcamp Radio',
                     duration: 0,
                     artworkUrl: payload.station.imageUrl || '',
                     streamUrl: '',

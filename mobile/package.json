@@ -13,7 +13,7 @@
     "lint": "cd .. && eslint mobile",
     "typecheck": "tsc --noEmit",
     "android:build": "npm run sync-assets && expo run:android",
-    "android:build:dev": "EXPO_DEV_PACKAGE=xyz.eremef.bandcamp.remote.dev npm run android:build",
+    "android:build:dev": "cross-env EXPO_DEV_PACKAGE=xyz.eremef.bandcamp.remote.dev npm run android:build",
     "sync-assets": "node ../scripts/generate-config-hash.js && node ../scripts/copy-assets.js",
     "prebuild": "npm run sync-assets",
     "prestart": "npm run sync-assets"
@@ -66,6 +66,7 @@
     "@types/react": "~19.2.11",
     "babel-jest": "^30.2.0",
     "babel-preset-expo": "^54.0.10",
+    "cross-env": "^10.1.0",
     "jest": "~29.7.0",
     "jest-expo": "^54.0.16",
     "metro-config": "^0.83.3",

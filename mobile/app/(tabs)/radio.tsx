@@ -8,7 +8,7 @@ import { InputModal } from '../../components/InputModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
 
 export default function RadioScreen() {
     const insets = useSafeAreaInsets();
@@ -22,16 +22,22 @@ export default function RadioScreen() {
     const refreshRadio = useStore((state) => state.refreshRadio);
     const radioSearchQuery = useStore((state) => state.radioSearchQuery);
     const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
+    const clearQueue = useStore((state) => state.clearQueue);
+    const playQueueIndex = useStore((state) => state.playQueueIndex);
+    const queue = useStore((state) => state.queue);
 
+    // Per-item ActionSheet state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
     const [refreshing, setRefreshing] = useState(false);
-
-    // ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [actionSheetTitle, setActionSheetTitle] = useState('');
     const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+
+    // Bulk ActionSheet state
+    const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
+    const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
 
     const filteredStations = React.useMemo(() => {
         if (!radioSearchQuery.trim()) return radioStations;
@@ -98,6 +104,60 @@ export default function RadioScreen() {
         setCreatePlaylistModalVisible(false);
     };
 
+    // Bulk action handlers
+    const handleBulkPlayNow = React.useCallback(() => {
+        const hadCurrentTrack = queue.currentIndex >= 0;
+        clearQueue();
+        filteredStations.forEach(s => addStationToQueue(s, false));
+        // Only explicitly play if the queue had a current track before clearing
+        // (empty queue case: addStationToQueue triggers auto-play for the first station)
+        if (hadCurrentTrack) {
+            playQueueIndex(1);
+        }
+    }, [filteredStations, queue.currentIndex, clearQueue, addStationToQueue, playQueueIndex]);
+
+    const handleBulkPlayNext = React.useCallback(() => {
+        filteredStations.forEach(s => addStationToQueue(s, true));
+    }, [filteredStations, addStationToQueue]);
+
+    const handleBulkAddToQueue = React.useCallback(() => {
+        filteredStations.forEach(s => addStationToQueue(s, false));
+    }, [filteredStations, addStationToQueue]);
+
+    const handleBulkSelectPlaylist = React.useCallback((playlistId: string) => {
+        filteredStations.forEach(s => addStationToPlaylist(playlistId, s));
+        setBulkPlaylistModalVisible(false);
+        Alert.alert("Success", `Added ${filteredStations.length} stations to playlist`);
+    }, [filteredStations, addStationToPlaylist]);
+
+    const bulkActions: Action[] = React.useMemo(() => [
+        {
+            text: "Play Now",
+            icon: Play,
+            onPress: handleBulkPlayNow,
+        },
+        {
+            text: "Play Next",
+            icon: ListEnd,
+            onPress: handleBulkPlayNext,
+        },
+        {
+            text: "Add to Queue",
+            icon: ListPlus,
+            onPress: handleBulkAddToQueue,
+        },
+        {
+            text: "Add to Playlist",
+            icon: ListMusic,
+            onPress: () => setBulkPlaylistModalVisible(true),
+        },
+        {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { },
+        },
+    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
+
     const renderItem = ({ item }: { item: RadioStation }) => {
         return (
             <TouchableOpacity
@@ -132,14 +192,30 @@ export default function RadioScreen() {
         </View>
     );
 
+    const showBulkBar = radioSearchQuery.trim().length > 0 && filteredStations.length > 0;
+
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
 
-            <SearchBar
-                value={radioSearchQuery}
-                onChangeText={setRadioSearchQuery}
-                placeholder="Search radio shows..."
-            />
+            <View style={styles.searchRow}>
+                <SearchBar
+                    style={styles.searchBarInRow}
+                    value={radioSearchQuery}
+                    onChangeText={setRadioSearchQuery}
+                    placeholder="Search radio shows..."
+                />
+                {showBulkBar && (
+                    <>
+                        <TouchableOpacity
+                            onPress={() => setBulkActionSheetVisible(true)}
+                            style={[styles.bulkButton, { backgroundColor: colors.card }]}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <MoreHorizontal size={18} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </>
+                )}
+            </View>
 
             <FlatList
                 data={filteredStations}
@@ -152,17 +228,32 @@ export default function RadioScreen() {
                 }
             />
 
+            {/* Per-item action sheet */}
             <ActionSheet
                 visible={actionSheetVisible}
                 onClose={() => setActionSheetVisible(false)}
                 title={actionSheetTitle}
                 actions={actionSheetActions}
             />
-
             <PlaylistSelectionModal
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
                 onSelect={handleAddToPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
+            />
+
+            {/* Bulk search result action sheet */}
+            <ActionSheet
+                visible={bulkActionSheetVisible}
+                onClose={() => setBulkActionSheetVisible(false)}
+                title={`${filteredStations.length} ${filteredStations.length === 1 ? 'result' : 'results'}`}
+                actions={bulkActions}
+            />
+            <PlaylistSelectionModal
+                visible={bulkPlaylistModalVisible}
+                onClose={() => setBulkPlaylistModalVisible(false)}
+                onSelect={handleBulkSelectPlaylist}
                 onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
             />
@@ -253,5 +344,27 @@ const styles = StyleSheet.create({
     itemSubtitle: {
         color: '#888',
         fontSize: 14,
+    },
+    searchRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        marginBottom: 15,
+        gap: 6,
+    },
+    searchBarInRow: {
+        flex: 1,
+        marginHorizontal: 0,
+        marginBottom: 0,
+    },
+    bulkCount: {
+        fontSize: 12,
+        fontWeight: '500',
+        flexShrink: 1,
+    },
+    bulkButton: {
+        borderRadius: 12,
+        padding: 15,
+        flexShrink: 0,
     },
 });

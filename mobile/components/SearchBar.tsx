@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme';
 
@@ -8,13 +8,15 @@ interface SearchBarProps {
     onChangeText: (text: string) => void;
     placeholder?: string;
     onClear?: () => void;
+    style?: StyleProp<ViewStyle>;
 }
 
 export const SearchBar: React.FC<SearchBarProps> = React.memo(({
     value,
     onChangeText,
     placeholder = "Search...",
-    onClear
+    onClear,
+    style,
 }) => {
     const colors = useTheme();
 
@@ -24,7 +26,7 @@ export const SearchBar: React.FC<SearchBarProps> = React.memo(({
     };
 
     return (
-        <View style={[styles.searchContainer, { backgroundColor: colors.input }]}>
+        <View style={[styles.searchContainer, { backgroundColor: colors.input }, style]}>
             <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
             <TextInput
                 style={[styles.searchInput, { color: colors.text }]}

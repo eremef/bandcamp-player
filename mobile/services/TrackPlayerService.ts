@@ -31,10 +31,16 @@ export async function PlaybackService() {
     // Progress and state listeners for Standalone mode
     TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
         if (useStore.getState().mode !== 'standalone') return;
-        useStore.setState({
+        // Only update duration from the event if valid — streaming URLs often
+        // report duration=0 until fully buffered, which would clobber the correct
+        // duration set from the scraper response.
+        const update: { currentTime: number; duration?: number } = {
             currentTime: event.position,
-            duration: event.duration
-        });
+        };
+        if (event.duration > 0) {
+            update.duration = event.duration;
+        }
+        useStore.setState(update);
 
         // Scrobble tracking
         const { mobileScrobblerService } = require('./MobileScrobblerService');
