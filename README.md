@@ -253,8 +253,8 @@ mobile/
 | View/edit playlist - mobile                  | M    | 🔴     |
 | Add all searched items to playlist - mobile  | M    | 🔴     |
 | Add all searched items to queue - mobile     | M    | 🔴     |
-| Bug finding and fixing                       | XL   | 🟡     | 
 | Chromecast for standalone mobile mode        | L    | 🔴     |
+| Bug finding and fixing                       | XL   | 🟡     | 
 | Drag-to-reorder Playlist & Queue             | L    | 🟡     |
 | Refine the design                            | L    | 🟡     |
 | Auto-refresh cookie - mobile app             | M    | 🟡     |
