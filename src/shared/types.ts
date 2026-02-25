@@ -21,6 +21,7 @@ export interface Track {
     isCached: boolean;
     cachedPath?: string;
     playlistEntryId?: string;
+    radioStationId?: string; // For radio stations added to playlists - resolved lazily
 }
 
 export interface Album {
@@ -100,6 +101,7 @@ export interface QueueItem {
     track: Track;
     source: 'collection' | 'playlist' | 'radio' | 'search';
     sourceId?: string; // Playlist ID if from playlist
+    radioStation?: RadioStation; // Store radio station for lazy loading
 }
 
 export interface Queue {

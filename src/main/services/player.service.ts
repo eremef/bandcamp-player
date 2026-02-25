@@ -152,15 +152,25 @@ export class PlayerService extends EventEmitter {
             this.emitQueueUpdate();
 
             // Refresh stream URL if needed (radio or casting)
-            // We always check radio because those links expire quickly.
-            // For normal tracks, we trust the cache/store unless we are casting, where we need a fresh guaranteed link.
-            if (track.id.startsWith('radio-') || this.isCasting) {
+            if (track.id.startsWith('radio-') || track.radioStationId || this.isCasting) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
-                    const streamUrl = await this.scraperService.getTrackStreamUrl(track);
-                    if (streamUrl && streamUrl !== track.streamUrl) {
-                        console.log('[PlayerService] Refreshed stream URL');
-                        track.streamUrl = streamUrl;
+                    let streamUrl = track.streamUrl;
+                    // For tracks with radioStationId, always try to get fresh stream URL (they expire quickly)
+                    if (track.radioStationId) {
+                        const streamInfo = await this.scraperService.getStationStreamUrl(track.radioStationId);
+                        if (streamInfo.streamUrl) {
+                            streamUrl = streamInfo.streamUrl;
+                            track.streamUrl = streamUrl;
+                            track.duration = streamInfo.duration;
+                        }
+                    } else if (!streamUrl || track.id.startsWith('radio-')) {
+                        // For legacy radio tracks (id starts with radio-) or non-radio tracks without streamUrl
+                        streamUrl = await this.scraperService.getTrackStreamUrl(track);
+                        if (streamUrl && streamUrl !== track.streamUrl) {
+                            console.log('[PlayerService] Refreshed stream URL');
+                            track.streamUrl = streamUrl;
+                        }
                     }
                 } catch (error) {
                     console.error('[PlayerService] Error refreshing stream URL:', error);
@@ -281,8 +291,8 @@ export class PlayerService extends EventEmitter {
         return {
             id: `radio-${station.id}`,
             title: station.name,
-            artist: 'Bandcamp Radio',
-            album: station.description || '',
+            artist: station.description || 'Bandcamp Radio',
+            album: 'Bandcamp Radio',
             duration: duration,
             artworkUrl: station.imageUrl || '',
             streamUrl: streamUrl,
@@ -292,11 +302,23 @@ export class PlayerService extends EventEmitter {
     }
 
     /**
-     * Add a radio station to the queue as a track
+     * Add a radio station to the queue - stores station for lazy stream URL fetching
      */
-    async addStationToQueue(station: RadioStation, playNext = false): Promise<void> {
-        const radioTrack = await this.stationToTrack(station);
-        this.addToQueue(radioTrack, 'radio', playNext);
+    addStationToQueue(station: RadioStation, playNext = false): void {
+        // Create a placeholder track - stream URL will be resolved when playing
+        const placeholderTrack: Track = {
+            id: `radio-${station.id}`,
+            title: station.name,
+            artist: station.description || 'Bandcamp Radio',
+            album: 'Bandcamp Radio',
+            duration: 0,
+            artworkUrl: station.imageUrl || '',
+            streamUrl: '',
+            bandcampUrl: '',
+            isCached: false
+        };
+
+        this.addToQueue(placeholderTrack, 'radio', playNext, station);
     }
 
     stopRadio(): void {
@@ -342,7 +364,7 @@ export class PlayerService extends EventEmitter {
             }
         }
 
-        this.playIndex(nextIndex);
+        await this.playIndex(nextIndex);
     }
 
     async previous(): Promise<void> {
@@ -373,7 +395,7 @@ export class PlayerService extends EventEmitter {
             }
         }
 
-        this.playIndex(prevIndex);
+        await this.playIndex(prevIndex);
     }
 
     seek(time: number): void {
@@ -429,11 +451,25 @@ export class PlayerService extends EventEmitter {
 
     // ---- Queue Management ----
 
-    addToQueue(track: Track, source: QueueItem['source'] = 'collection', playNext = false, emitUpdate = true): void {
+    addToQueue(track: Track, source: QueueItem['source'] = 'collection', playNext = false, radioStationOrEmitUpdate?: RadioStation | boolean, emitUpdate = true): void {
+        // Handle both old signature (emitUpdate: boolean) and new signature (radioStation: RadioStation, emitUpdate?: boolean)
+        let radioStation: RadioStation | undefined;
+
+        if (radioStationOrEmitUpdate !== undefined) {
+            if (typeof radioStationOrEmitUpdate === 'boolean') {
+                // Old signature: addToQueue(track, source, playNext, emitUpdate)
+                emitUpdate = radioStationOrEmitUpdate;
+            } else {
+                // New signature: addToQueue(track, source, playNext, radioStation, emitUpdate?)
+                radioStation = radioStationOrEmitUpdate;
+            }
+        }
+
         const queueItem: QueueItem = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             track,
             source,
+            radioStation,
         };
 
         if (playNext && this.currentIndex >= 0) {
@@ -484,7 +520,8 @@ export class PlayerService extends EventEmitter {
                 this.stop();
             } else {
                 this.currentIndex = Math.min(this.currentIndex, this.queue.length - 1);
-                this.playIndex(this.currentIndex);
+                // Don't await - fire and forget for queue removal edge case
+                this.playIndex(this.currentIndex).catch(() => { });
             }
         }
 
@@ -536,13 +573,40 @@ export class PlayerService extends EventEmitter {
         this.emitQueueUpdate();
     }
 
-    playIndex(index: number): void {
+    async playIndex(index: number): Promise<void> {
         if (index < 0 || index >= this.queue.length) return;
 
         this.currentIndex = index;
         const queueItem = this.queue[index];
+
+        // If this is a radio station with a lazy-loaded stream URL, resolve it first
+        if (queueItem.radioStation && (!queueItem.track.streamUrl || !queueItem.track.duration)) {
+            await this.resolveRadioStationTrack(queueItem);
+        }
+
         this.play(queueItem.track, false);
         this.emitQueueUpdate();
+    }
+
+    /**
+     * Resolve stream URL for a radio station in the queue
+     */
+    private async resolveRadioStationTrack(queueItem: QueueItem): Promise<void> {
+        if (!queueItem.radioStation) return;
+
+        try {
+            const streamInfo = await this.scraperService.getStationStreamUrl(queueItem.radioStation.id);
+            if (streamInfo.streamUrl) {
+                // Update the track with resolved stream info
+                queueItem.track.streamUrl = streamInfo.streamUrl;
+                queueItem.track.duration = streamInfo.duration;
+                // Also update the stored radio station
+                queueItem.radioStation.streamUrl = streamInfo.streamUrl;
+                queueItem.radioStation.duration = streamInfo.duration;
+            }
+        } catch (error) {
+            console.error(`Failed to resolve stream for radio station ${queueItem.radioStation.name}:`, error);
+        }
     }
 
     getQueue(): { items: QueueItem[]; currentIndex: number } {

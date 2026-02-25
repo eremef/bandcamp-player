@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
 import type { Album } from '../../../shared/types';
-import { MoreHorizontal, Play, List, Music, Download } from 'lucide-react';
+import { MoreHorizontal, Play, SkipForward, List, Music, Download } from 'lucide-react';
 import styles from './AlbumCard.module.css';
 
 interface AlbumCardProps {
@@ -70,6 +70,12 @@ export function AlbumCard({ album }: AlbumCardProps) {
         } else {
             handlePlay();
         }
+    };
+
+    const handlePlayNext = async () => {
+        setShowMenu(false);
+        const albumWithTracks = await ensureAlbumTracks();
+        await addAlbumToQueue(albumWithTracks, true);
     };
 
     const handleAddToQueue = async () => {
@@ -143,6 +149,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
             {showMenu && (
                 <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
                     <button onClick={(e) => { e.stopPropagation(); handlePlay(); }}><Play size={16} /> Play Now</button>
+                    <button onClick={(e) => { e.stopPropagation(); handlePlayNext(); }}><SkipForward size={16} /> Play Next</button>
                     <button onClick={(e) => { e.stopPropagation(); handleAddToQueue(); }}><List size={16} /> Add to Queue</button>
                     <div className={styles.menuDivider} />
                     {playlists.length > 0 && (

@@ -10,6 +10,7 @@ import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
 import { useTheme } from '../../theme';
+import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -96,6 +97,7 @@ export default function ArtistDetailScreen() {
         setActionSheetActions([
             {
                 text: "Play Next",
+                icon: ListEnd,
                 onPress: () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks);
@@ -105,6 +107,7 @@ export default function ArtistDetailScreen() {
             },
             {
                 text: "Add to Queue",
+                icon: ListPlus,
                 onPress: () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
                         addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks);
@@ -114,6 +117,7 @@ export default function ArtistDetailScreen() {
             },
             {
                 text: "Add to Playlist",
+                icon: ListMusic,
                 onPress: () => {
                     setSelectedItem(item);
                     setPlaylistModalVisible(true);

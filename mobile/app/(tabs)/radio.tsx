@@ -8,6 +8,7 @@ import { InputModal } from '../../components/InputModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
 
 export default function RadioScreen() {
     const insets = useSafeAreaInsets();
@@ -58,14 +59,17 @@ export default function RadioScreen() {
         setActionSheetActions([
             {
                 text: "Play Next",
+                icon: ListEnd,
                 onPress: () => addStationToQueue(station, true)
             },
             {
                 text: "Add to Queue",
+                icon: ListPlus,
                 onPress: () => addStationToQueue(station, false)
             },
             {
                 text: "Add to Playlist",
+                icon: ListMusic,
                 onPress: () => {
                     setSelectedStation(station);
                     setPlaylistModalVisible(true);

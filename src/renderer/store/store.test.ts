@@ -293,12 +293,12 @@ describe('useStore', () => {
         });
 
         expect(mockElectron.queue.addTrack).toHaveBeenCalledWith(mockTrack, true);
-        expect(mockElectron.queue.addAlbum).toHaveBeenCalledWith(mockAlbum);
+        expect(mockElectron.queue.addAlbum).toHaveBeenCalledWith(mockAlbum, undefined);
         expect(mockElectron.queue.remove).toHaveBeenCalledWith('1');
         expect(mockElectron.queue.clear).toHaveBeenCalledWith(true);
         expect(mockElectron.queue.reorder).toHaveBeenCalledWith(0, 1);
         expect(mockElectron.queue.playIndex).toHaveBeenCalledWith(2);
-        expect(mockElectron.queue.addTracks).toHaveBeenCalledWith([mockTrack]);
+        expect(mockElectron.queue.addTracks).toHaveBeenCalledWith([mockTrack], undefined);
     });
 
     // --- Collection Slice Tests ---

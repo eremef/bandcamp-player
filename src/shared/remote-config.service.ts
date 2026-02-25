@@ -51,6 +51,12 @@ export interface RemoteConfig {
         rateLimitDelay: number;
         rateLimitJitter: number;
     };
+    lastfm?: {
+        apiKey: string;
+        apiSecret: string;
+        apiUrl: string;
+        authUrl: string;
+    };
     radioData: {
         showIdKeys: string[];
         trackIdKeys: string[];

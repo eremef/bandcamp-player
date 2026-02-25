@@ -13,6 +13,7 @@ vi.mock('lucide-react', () => ({
     X: () => <span data-testid="icon-x" />,
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
+    GripVertical: () => <span data-testid="icon-grip" />,
 }));
 
 describe('QueuePanel', () => {
@@ -29,6 +30,7 @@ describe('QueuePanel', () => {
         removeFromQueue: vi.fn(),
         clearQueue: vi.fn(),
         toggleQueue: vi.fn(),
+        reorderQueue: vi.fn(),
     };
 
     beforeEach(() => {
@@ -85,5 +87,52 @@ describe('QueuePanel', () => {
         expect(items[0].className).toContain('current');
         // Should show play icon for current track if playing
         expect(screen.getByTestId('icon-play')).toBeInTheDocument();
+    });
+
+    it('renders drag handles for each queue item', () => {
+        render(<QueuePanel />);
+        const gripIcons = screen.getAllByTestId('icon-grip');
+        expect(gripIcons).toHaveLength(2);
+    });
+
+    it('calls reorderQueue on drag-and-drop', () => {
+        const { container } = render(<QueuePanel />);
+        const items = container.querySelectorAll('li');
+
+        fireEvent.dragStart(items[0]);
+        fireEvent.dragOver(items[1]);
+        fireEvent.drop(items[1]);
+
+        expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 1);
+    });
+
+    it('does not call reorderQueue when dropped on the same item', () => {
+        const { container } = render(<QueuePanel />);
+        const items = container.querySelectorAll('li');
+
+        fireEvent.dragStart(items[0]);
+        fireEvent.dragOver(items[0]);
+        fireEvent.drop(items[0]);
+
+        expect(mockStore.reorderQueue).not.toHaveBeenCalled();
+    });
+
+    it('clears drag state on dragEnd', () => {
+        const { container } = render(<QueuePanel />);
+        const items = container.querySelectorAll('li');
+
+        fireEvent.dragStart(items[0]);
+        fireEvent.dragEnd(items[0]);
+
+        // After dragEnd, no dragOver highlight should remain
+        expect(items[0].className).not.toContain('dragOver');
+    });
+
+    it('each item has draggable attribute', () => {
+        const { container } = render(<QueuePanel />);
+        const items = container.querySelectorAll('li');
+        items.forEach((item) => {
+            expect(item).toHaveAttribute('draggable', 'true');
+        });
     });
 });

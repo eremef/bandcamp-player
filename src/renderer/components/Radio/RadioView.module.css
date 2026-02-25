@@ -24,7 +24,7 @@
 .headerActions {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-md);
 }
 
 .searchBox {
@@ -87,9 +87,9 @@
 }
 
 .card {
+    position: relative;
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
-    overflow: hidden;
     cursor: pointer;
     transition: all var(--transition-fast);
     border: 1px solid transparent;
@@ -113,6 +113,7 @@
 }
 
 .cardImage img {
+    border-radius: var(--radius-lg);
     width: 100%;
     height: 100%;
     object-fit: cover;
@@ -162,24 +163,6 @@
 
 .playBtn:hover {
     transform: scale(1.1);
-}
-
-.menuButton {
-    position: absolute;
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    color: var(--text-primary);
-    border-radius: var(--radius-full);
-    font-size: 1.2rem;
-    backdrop-filter: blur(4px);
-    transition: all var(--transition-fast);
-    z-index: 10;
 }
 
 .externalLink {
@@ -272,28 +255,99 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-/* Context Menu */
-.contextMenu {
-    position: fixed;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-xs);
-    min-width: 200px;
-    box-shadow: var(--shadow-lg);
-    z-index: 1000;
-    animation: fadeIn 0.1s ease-out;
+.menuButton {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    color: var(--text-primary);
+    border-radius: var(--radius-full);
+    font-size: 1.2rem;
+    backdrop-filter: blur(4px);
+    transition: all var(--transition-fast);
 }
 
-@keyframes fadeIn {
+/* Context menu */
+.contextMenu {
+    position: absolute;
+    top: calc(var(--spacing-sm) + 36px);
+    right: var(--spacing-sm);
+    width: 200px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+    animation: scaleIn var(--transition-fast) ease-out;
+}
+
+@keyframes scaleIn {
     from {
         opacity: 0;
-        transform: scale(0.95);
+        transform: scale(0.95) translateY(-4px);
     }
 
     to {
         opacity: 1;
-        transform: scale(1);
+        transform: scale(1) translateY(0);
+    }
+}
+
+.contextMenu button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.contextMenu button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.menuDivider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-sm) 0;
+}
+
+.menuLabel {
+    display: block;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.menuSeparator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-sm) 0;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
     }
 }
 
@@ -301,16 +355,21 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
+    width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    color: var(--text-primary);
-    cursor: pointer;
-    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
     font-size: var(--font-size-sm);
-    transition: background 0.1s;
+    text-align: left;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
 }
 
 .menuItem:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .menuItemIcon {
@@ -350,4 +409,129 @@
 
 .submenuContainer:hover .submenu {
     display: block;
+}
+
+/* Bulk Actions */
+.bulkActions {
+    display: flex;
+    align-items: center;
+}
+
+.bulkMenuContainer {
+    position: relative;
+}
+
+.bulkMoreButton {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.bulkMoreButton:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.bulkMenu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: calc(var(--spacing-sm) * -1);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-sm);
+    min-width: 200px;
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+    animation: scaleIn var(--transition-fast) ease-out;
+}
+
+.bulkMenu button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+}
+
+.bulkMenu button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.bulkMenuDivider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-sm) 0;
+}
+
+.bulkMenuLabel {
+    display: block;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.menuSeparator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-sm) 0;
+}
+
+/* Refresh Button */
+.refreshBtn {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.refreshBtn:hover {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+.refreshBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }

@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Play, Pause, MoreHorizontal, Search, X, ExternalLink } from 'lucide-react';
+import { Radio, Play, Pause, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
     const {
         radioStations,
         fetchRadioStations,
+        refreshRadioStations,
+        isLoadingRadioStations,
         playRadioStation,
         radioState,
         addRadioToQueue,
@@ -15,10 +17,13 @@ export function RadioView() {
         playlists,
         fetchPlaylists,
         radioSearchQuery,
-        setRadioSearchQuery
+        setRadioSearchQuery,
+        clearQueue,
+        playQueueIndex,
     } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
-    const [contextMenu, setContextMenu] = useState<{ x: number; y: number; station: any } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ station: any } | null>(null);
+    const [showBulkMenu, setShowBulkMenu] = useState(false);
 
     const filteredStations = useMemo(() => {
         if (!radioSearchQuery.trim()) return radioStations;
@@ -56,14 +61,13 @@ export function RadioView() {
 
     const handleContextMenu = (e: React.MouseEvent, station: any) => {
         e.preventDefault();
-        e.stopPropagation(); // Prevent card click
-        setContextMenu({ x: e.clientX, y: e.clientY, station });
+        setContextMenu({ station });
     };
 
     const handleMenuClick = (e: React.MouseEvent, station: any) => {
         e.preventDefault();
         e.stopPropagation();
-        setContextMenu({ x: e.clientX, y: e.clientY, station });
+        setContextMenu({ station });
     };
 
     const handlePlayNext = async (station: any) => {
@@ -79,6 +83,70 @@ export function RadioView() {
     const handleAddToPlaylist = async (playlistId: string, station: any) => {
         await addRadioToPlaylist(playlistId, station);
         setContextMenu(null);
+    };
+
+    const handleDownload = async (station: any) => {
+        if (station.streamUrl) {
+            await window.electron.cache.downloadTrack({
+                id: station.id,
+                title: station.name,
+                artist: station.description || 'Bandcamp Radio',
+                album: station.name,
+                duration: station.duration || 0,
+                streamUrl: station.streamUrl,
+                artworkUrl: station.imageUrl,
+            } as any);
+        }
+        setContextMenu(null);
+    };
+
+    const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist' | 'download', playlistId?: string) => {
+        setShowBulkMenu(false);
+        const stations = filteredStations;
+        
+        switch (action) {
+            case 'play':
+                if (stations.length > 0) {
+                    await clearQueue(false);
+                    for (const station of stations) {
+                        await addRadioToQueue(station, false);
+                    }
+                    await playQueueIndex(0);
+                }
+                break;
+            case 'playNext':
+                for (const station of stations) {
+                    await addRadioToQueue(station, true);
+                }
+                break;
+            case 'addToQueue':
+                for (const station of stations) {
+                    await addRadioToQueue(station, false);
+                }
+                break;
+            case 'addToPlaylist':
+                if (playlistId) {
+                    for (const station of stations) {
+                        await addRadioToPlaylist(playlistId, station);
+                    }
+                }
+                break;
+            case 'download':
+                for (const station of stations) {
+                    if (station.streamUrl) {
+                        await window.electron.cache.downloadTrack({
+                            id: station.id,
+                            title: station.name,
+                            artist: station.description || 'Bandcamp Radio',
+                            album: station.name,
+                            duration: station.duration || 0,
+                            streamUrl: station.streamUrl,
+                            artworkUrl: station.imageUrl,
+                        } as any);
+                    }
+                }
+                break;
+        }
     };
 
     return (
@@ -103,6 +171,55 @@ export function RadioView() {
                             </button>
                         )}
                     </div>
+                    {radioSearchQuery.trim() && filteredStations.length > 0 && (
+                        <div className={styles.bulkActions} onMouseLeave={() => setShowBulkMenu(false)}>
+                            <div className={styles.bulkMenuContainer}>
+                                <button
+                                    className={styles.bulkMoreButton}
+                                    onClick={() => setShowBulkMenu(!showBulkMenu)}
+                                    title="More actions for search results"
+                                >
+                                    <MoreHorizontal size={18} />
+                                </button>
+                                {showBulkMenu && (
+                                    <div className={styles.bulkMenu} onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={() => handleBulkAction('play')}>
+                                            <Play size={16} /> Play All
+                                        </button>
+                                        <button onClick={() => handleBulkAction('playNext')}>
+                                            <SkipForward size={16} /> Play Next
+                                        </button>
+                                        <button onClick={() => handleBulkAction('addToQueue')}>
+                                            <List size={16} /> Add to Queue
+                                        </button>
+                                        {playlists.length > 0 && (
+                                            <>
+                                                <div className={styles.bulkMenuDivider} />
+                                                <span className={styles.bulkMenuLabel}>Add to Playlist</span>
+                                                {playlists.map((playlist) => (
+                                                    <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
+                                                        <Music size={14} /> {playlist.name}
+                                                    </button>
+                                                ))}
+                                                <div className={styles.bulkMenuDivider} />
+                                            </>
+                                        )}
+                                        <button onClick={() => handleBulkAction('download')}>
+                                            <Download size={16} /> Download for Offline
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    <button
+                        className={`${styles.refreshBtn} ${isLoadingRadioStations ? styles.spinning : ''}`}
+                        onClick={() => !isLoadingRadioStations && refreshRadioStations()}
+                        title="Refresh"
+                        disabled={isLoadingRadioStations}
+                    >
+                        <RefreshCw size={18} />
+                    </button>
                 </div>
             </header>
 
@@ -114,6 +231,7 @@ export function RadioView() {
                         className={`${styles.card} ${radioState.currentStation?.id === station.id ? styles.active : ''}`}
                         onClick={() => playRadioStation(station)}
                         onContextMenu={(e) => handleContextMenu(e, station)}
+                        onMouseLeave={() => setContextMenu(null)}
                     >
                         <div className={styles.cardImage}>
                             {station.imageUrl ? (
@@ -157,57 +275,37 @@ export function RadioView() {
                                 <p className={styles.cardDescription}>{station.description}</p>
                             )}
                         </div>
+                        {contextMenu?.station?.id === station.id && (
+                            <div className={styles.contextMenu} onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => { playRadioStation(station); setContextMenu(null); }}>
+                                    <Play size={16} /> Play Now
+                                </button>
+                                <button onClick={() => { handlePlayNext(station); }}>
+                                    <SkipForward size={16} /> Play Next
+                                </button>
+                                <button onClick={() => { handleAddToQueue(station); }}>
+                                    <List size={16} /> Add to Queue
+                                </button>
+                                <div className={styles.menuDivider} />
+                                {playlists.length > 0 && (
+                                    <>
+                                        <span className={styles.menuLabel}>Add to Playlist</span>
+                                        {playlists.map((playlist) => (
+                                            <button key={playlist.id} onClick={() => { handleAddToPlaylist(playlist.id, station); }}>
+                                                <Music size={14} /> {playlist.name}
+                                            </button>
+                                        ))}
+                                        <div className={styles.menuDivider} />
+                                    </>
+                                )}
+                                <button onClick={() => { handleDownload(station); }}>
+                                    <Download size={16} /> Download for Offline
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
-
-            {/* Context Menu */}
-            {contextMenu && (
-                <div
-                    className={styles.contextMenu}
-                    style={{ top: contextMenu.y, left: contextMenu.x }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className={styles.menuItem} onClick={() => {
-                        playRadioStation(contextMenu.station);
-                        setContextMenu(null);
-                    }}>
-                        <Play size={16} /> Play Now
-                    </div>
-                    <div className={styles.menuItem} onClick={() => handlePlayNext(contextMenu.station)}>
-                        <div style={{ width: 16 }} /> Play Next
-                    </div>
-                    <div className={styles.menuItem} onClick={() => handleAddToQueue(contextMenu.station)}>
-                        <div style={{ width: 16 }} /> Add to Queue
-                    </div>
-
-                    <div className={styles.menuSeparator} />
-
-                    <div className={`${styles.menuItem} ${styles.submenuContainer}`}>
-                        <div className={styles.submenuTrigger} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>Add to Playlist</span>
-                            <span>▶</span>
-                        </div>
-                        <div className={styles.submenu}>
-                            {playlists.length > 0 ? (
-                                playlists.map(playlist => (
-                                    <div
-                                        key={playlist.id}
-                                        className={styles.menuItem}
-                                        onClick={() => handleAddToPlaylist(playlist.id, contextMenu.station)}
-                                    >
-                                        {playlist.name}
-                                    </div>
-                                ))
-                            ) : (
-                                <div className={styles.menuItem} style={{ fontStyle: 'italic', cursor: 'default' }}>
-                                    No playlists
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {visibleCount < filteredStations.length && (
                 <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
