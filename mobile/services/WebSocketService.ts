@@ -1,4 +1,7 @@
 
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+
 type MessageHandler = (...args: any[]) => void;
 
 class WebSocketService {
@@ -18,12 +21,9 @@ class WebSocketService {
     private initWebSocket() {
         if (!this.url) return;
 
-        // Stop any pending reconnect attempts when starting a fresh connection
         this.stopReconnect();
 
         if (this.ws) {
-            // We don't null this.ws here because onclose will fire asynchronously
-            // and we need to know NOT to reconnect for this specific instance.
             this.ws.close();
         }
 
@@ -37,6 +37,7 @@ class WebSocketService {
             console.log('Connected to desktop app');
             this.stopReconnect();
             this.emit('connection-status', 'connected');
+            this.sendIdentify();
         };
 
         socket.onmessage = (event) => {
@@ -62,7 +63,6 @@ class WebSocketService {
             if (isThisSocketClosed) return;
             isThisSocketClosed = true;
 
-            // Only proceed if this is still the active socket
             if (this.ws === socket) {
                 console.log('Disconnected');
                 this.emit('connection-status', 'disconnected', this.isExplicitlyClosed);
@@ -78,6 +78,17 @@ class WebSocketService {
                 console.error('WebSocket error', e);
             }
         };
+    }
+
+    private sendIdentify() {
+        const platform = Platform.OS;
+        const version = Constants.expoConfig?.version || 'unknown';
+        
+        this.send('identify', {
+            platform,
+            appVersion: version,
+            device: 'mobile'
+        });
     }
 
     send(type: string, payload?: any) {
@@ -134,10 +145,6 @@ class WebSocketService {
             this.ws.close();
             this.ws = null;
         }
-        // Also emit status here if needed, but on-close usually handles it.
-        // If we close manually, onclose fires.
-        // onclose calls emit('disconnected').
-        // We should ensure onclose emits explicit flag if isExplicitlyClosed is true.
     }
 }
 

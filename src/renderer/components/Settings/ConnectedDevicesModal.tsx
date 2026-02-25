@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Smartphone, Monitor, Globe, Clock, Trash2 } from 'lucide-react';
 import styles from './ConnectedDevicesModal.module.css';
 import { useStore } from '../../store/store';
+import type { RemoteClient } from '../../../shared/types';
 
 interface ConnectedDevicesModalProps {
     onClose: () => void;
@@ -45,7 +46,13 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
         }
     };
 
-    const getDeviceIcon = (userAgent: string) => {
+    const getDeviceIcon = (userAgent: string, deviceInfo?: RemoteClient['deviceInfo']) => {
+        if (deviceInfo?.platform) {
+            const platform = deviceInfo.platform.toLowerCase();
+            if (platform === 'android' || platform === 'ios') {
+                return <Smartphone size={20} />;
+            }
+        }
         const ua = (userAgent || '').toLowerCase();
         if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
             return <Smartphone size={20} />;
@@ -53,7 +60,18 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
         return <Globe size={20} />;
     };
 
-    const getDeviceName = (userAgent: string) => {
+    const getDeviceName = (userAgent: string, deviceInfo?: RemoteClient['deviceInfo']) => {
+        if (deviceInfo?.device) {
+            const device = deviceInfo.device.toLowerCase();
+            if (device === 'mobile') {
+                const platform = deviceInfo.platform?.toLowerCase();
+                if (platform === 'android') return 'Android Device';
+                if (platform === 'ios') return 'iPhone';
+            }
+            if (deviceInfo.device !== 'unknown') {
+                return deviceInfo.device;
+            }
+        }
         const ua = (userAgent || '').toLowerCase();
         if (ua.includes('android')) return 'Android Device';
         if (ua.includes('iphone')) return 'iPhone';
@@ -87,11 +105,11 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
                             {connectedDevices.map((device) => (
                                 <div key={device.id} className={styles.deviceItem}>
                                     <div className={styles.deviceIcon}>
-                                        {getDeviceIcon(device.userAgent)}
+                                        {getDeviceIcon(device.userAgent, device.deviceInfo)}
                                     </div>
                                     <div className={styles.deviceInfo}>
                                         <span className={styles.deviceName}>
-                                            {getDeviceName(device.userAgent)}
+                                            {getDeviceName(device.userAgent, device.deviceInfo)}
                                         </span>
                                         <div className={styles.deviceMeta}>
                                             <span className={styles.deviceIp}>{device.ip}</span>

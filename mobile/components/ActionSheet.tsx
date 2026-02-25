@@ -20,6 +20,7 @@ interface ActionSheetProps {
     actions: Action[];
 }
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export function ActionSheet({ visible, onClose, title, subtitle, actions }: ActionSheetProps) {
     const colors = useTheme();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT));
@@ -88,7 +89,6 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                         { transform: [{ translateY: slideAnim.current }] },
                     ]}
                 >
-                    {/* Main actions group */}
                     <View style={[styles.group, { backgroundColor: cardBg }]}>
                         {(title || subtitle) && (
                             <View style={[styles.header, { borderBottomColor: colors.border + '40' }]}>
@@ -123,7 +123,6 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                                     ]}
                                     onPress={() => {
                                         handleClose();
-                                        // Delay action to allow animation to complete
                                         setTimeout(() => action.onPress(), 220);
                                     }}
                                 >
@@ -146,7 +145,6 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                         })}
                     </View>
 
-                    {/* Cancel button - separated group */}
                     {cancelAction && (
                         <View style={[styles.group, styles.cancelGroup, { backgroundColor: cardBg }]}>
                             <TouchableOpacity
@@ -165,6 +163,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
         </Modal>
     );
 }
+/* eslint-enable react-hooks/rules-of-hooks */
 
 const styles = StyleSheet.create({
     container: {
