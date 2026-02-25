@@ -197,10 +197,8 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 
 #### **Build Android**
 
-**Configure SDK**
-   Create a `local.properties` file in `mobile/android/` pointing to your SDK:
-
    ```properties
+   # Configure SDK Create a local.properties file in mobile/android/ pointing to your SDK:
    sdk.dir=C:\\Users\\<user>\\AppData\\Local\\Android\\Sdk
    ```
 
