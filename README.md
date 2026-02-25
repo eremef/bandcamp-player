@@ -239,25 +239,19 @@ mobile/
 
 ## Roadmap
 
-| What                                         | Size | Status |
-| :------------------------------------------- | ---- | :----: |
-| Refine the design                            | L    | 🟡     |
-| Bug finding and fixing                       | XL   | 🟡     |
-| Add all searched items to playlist - mobile  | M    | 🟠     |
-| Add all searched items to queue - mobile     | M    | 🟠     |
-| View/edit playlist - mobile                  | M    | 🔴     |
-| Chromecast for standalone mobile mode        | L    | 🔴     |
-| Drag-to-reorder Playlist                     | L    | 🔴     |
+| What                                           | Size | Status |
+| :--------------------------------------------- | ---- | :----: |
+| Refine the design                              | L    | 🟡     |
+| Bug finding and fixing                         | XL   | 🟡     |
+| Add searched items to playlist/queue - mobile  | M    | 🟠     |
+| View/edit playlist/ drag-to-reorder - mobile   | L    | 🔴     |
+| Chromecast for standalone mobile mode          | L    | 🔴     |
 
 **Legend**
-
-🔴 - not started
-
-🟠 - just started
-
-🟡 - in the middle
-
-🟢 - finished (waiting for release)
+🟢 finished (waiting for release)
+🟡 in the middle
+🟠 just started
+🔴 not started
 
 ## Star History (just for fun)
 
