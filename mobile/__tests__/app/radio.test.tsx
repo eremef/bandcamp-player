@@ -5,6 +5,22 @@ import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
 import { Alert } from 'react-native';
 
+jest.mock('../../components/ActionSheet', () => ({
+    ActionSheet: ({ visible, title, actions }: any) => {
+        const { View, Text, TouchableOpacity } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>{`ActionSheet: ${title}`}</Text>
+                {actions.map((a: any) => (
+                    <TouchableOpacity key={a.text} onPress={a.onPress}>
+                        <Text>{a.text}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        ) : null;
+    },
+}));
+
 const mockStations: RadioStation[] = [
     {
         id: 'station-1',

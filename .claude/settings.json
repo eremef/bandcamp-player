@@ -3,15 +3,20 @@
     "allow": [
       "Bash(xargs grep -l \"contextMenu\\\\|ContextMenu\\\\|context.*menu\")",
       "Bash(xargs grep -l \"AddToPlaylist\\\\|addToPlaylist.*Modal\\\\|playlistModal\")",
-      "Bash(npm run typecheck)",
-      "Bash(npx vitest run)",
+      "Bash(npm run typecheck*)",
       "WebFetch(domain:www.last.fm)",
       "Bash(npm install js-md5)",
       "Bash(npm ls js-md5)",
       "Bash(npm install --save-dev @types/js-md5)",
-      "Bash(npm run lint:mobile)",
-      "Bash(npm run test:mobile)",
-      "Bash(npx vitest run src/main/services/scrobbler.test.ts)"
+      "Bash(npm run lint*)",
+      "Bash(npx vitest*)",
+      "Bash(npx jest*)",
+      "Bash(npm run test*)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git status *)",
+      "Bash(eslint *)",
+      "Bash(tsc*)"
     ]
   }
 }
