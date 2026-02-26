@@ -134,7 +134,7 @@ describe('MobileDatabase', () => {
 
             const res = await dbInstance.getCollectionGranular('u1', 0, 10, 'search');
 
-            expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.stringContaining('MATCH'), ['u1', 'search*', 10, 0]);
+            expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.stringContaining('MATCH'), ['u1', '"search"*', 10, 0]);
             expect(res).toHaveLength(2);
             expect(res[0].album?.title).toBe('A Title');
             expect(res[1].track?.title).toBe('T Title');
@@ -145,15 +145,28 @@ describe('MobileDatabase', () => {
             expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.not.stringContaining('MATCH'), ['u1', 50, 0]);
         });
 
+        it('should use LIKE fallback for queries with special characters', async () => {
+            mockDb.getAllAsync.mockResolvedValueOnce([]);
+            await dbInstance.getCollectionGranular('u1', 0, 10, '#2');
+            expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.stringContaining('LIKE'), ['u1', '%#2%', '%#2%', '%#2%', '%#2%', 10, 0]);
+        });
+
         it('should handle getCollectionTotalCount', async () => {
             mockDb.getFirstAsync.mockResolvedValueOnce({ count: 42 });
             const count = await dbInstance.getCollectionTotalCount('u1', 'query');
-            expect(mockDb.getFirstAsync).toHaveBeenCalledWith(expect.stringContaining('MATCH'), ['u1', 'query*']);
+            expect(mockDb.getFirstAsync).toHaveBeenCalledWith(expect.stringContaining('MATCH'), ['u1', '"query"*']);
             expect(count).toBe(42);
 
             mockDb.getFirstAsync.mockResolvedValueOnce({ count: 99 });
             const countNoQ = await dbInstance.getCollectionTotalCount('u1');
             expect(countNoQ).toBe(99);
+        });
+
+        it('should use LIKE fallback for getCollectionTotalCount with special characters', async () => {
+            mockDb.getFirstAsync.mockResolvedValueOnce({ count: 3 });
+            const count = await dbInstance.getCollectionTotalCount('u1', '#2');
+            expect(mockDb.getFirstAsync).toHaveBeenCalledWith(expect.stringContaining('LIKE'), ['u1', '%#2%', '%#2%', '%#2%', '%#2%']);
+            expect(count).toBe(3);
         });
     });
 

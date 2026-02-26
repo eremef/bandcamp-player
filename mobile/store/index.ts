@@ -14,6 +14,7 @@ interface AppState extends PlayerState {
     hostIp: string;
     auth: { isAuthenticated: boolean; user: BandcampUser | null };
     skipAutoLogin: boolean;
+    storeInitialized: boolean;
 
     // Data Caches
     collection: Collection | null;
@@ -67,7 +68,7 @@ interface AppState extends PlayerState {
     playQueueIndex: (index: number) => void;
     removeFromQueue: (id: string) => void;
     reorderQueue: (fromIndex: number, toIndex: number) => void;
-    clearQueue: () => void;
+    clearQueue: (keepTrack?: boolean) => void;
 
     // Playlist Actions
     createPlaylist: (name: string, description?: string) => void;
@@ -131,6 +132,7 @@ export const useStore = create<AppState>((set, get) => ({
     queue: { items: [], currentIndex: -1 },
     connectionStatus: 'disconnected',
     skipAutoLogin: false,
+    storeInitialized: false,
     mode: 'remote',
     hostIp: '',
     auth: { isAuthenticated: false, user: null },
@@ -437,6 +439,8 @@ export const useStore = create<AppState>((set, get) => ({
 
             await get().restoreStandaloneState();
         }
+
+        set({ storeInitialized: true });
     },
 
     saveQueue: async () => {
@@ -727,9 +731,14 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     addStationToQueue: (station, playNext) => {
-        // Optimistic update
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            // In remote mode, skip optimistic update — desktop echo via state-changed is authoritative
+            webSocketService.send('add-station-to-queue', { station, playNext });
+            return;
+        }
+
+        // Standalone mode: local queue update
         const { queue } = get();
-        // Create a temporary track object for the station
         const stationTrack: Track = {
             id: `station-${station.id || Date.now()}`,
             title: station.name,
@@ -761,18 +770,12 @@ export const useStore = create<AppState>((set, get) => ({
                 items: newItems
             }
         });
-
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-station-to-queue', { station, playNext });
-        } else {
-            // Local state already updated optimistically above.
-            get().saveQueue();
-            // Auto-play when the queue was empty: play the first item directly so that
-            // subsequent addStationToQueue calls in the same tick are not wiped out by
-            // playStation() replacing the entire queue asynchronously.
-            if (queue.items.length === 0) {
-                get().playQueueIndex(0);
-            }
+        get().saveQueue();
+        // Auto-play when the queue was empty: play the first item directly so that
+        // subsequent addStationToQueue calls in the same tick are not wiped out by
+        // playStation() replacing the entire queue asynchronously.
+        if (queue.items.length === 0) {
+            get().playQueueIndex(0);
         }
     },
     addStationToPlaylist: async (playlistId, station) => {
@@ -824,44 +827,49 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
-        // Optimistic update
-        const { queue } = get();
-        const newItem: QueueItem = {
-            id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            track: trackToAdd,
-            source: 'collection'
-        };
-
-        const newItems = [...queue.items];
-
-        if (playNext) {
-            newItems.splice(queue.currentIndex + 1, 0, newItem);
-        } else {
-            newItems.push(newItem);
-        }
-
-        set({
-            queue: {
-                ...queue,
-                items: newItems
-            }
-        });
-
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            // In remote mode, skip optimistic update — desktop echo via state-changed is authoritative
             webSocketService.send('add-track-to-queue', { track: trackToAdd, playNext });
         } else {
+            // Standalone: update local queue
+            const { queue } = get();
+            const newItem: QueueItem = {
+                id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                track: trackToAdd,
+                source: 'collection'
+            };
+
+            const newItems = [...queue.items];
+
+            if (playNext) {
+                newItems.splice(queue.currentIndex + 1, 0, newItem);
+            } else {
+                newItems.push(newItem);
+            }
+
+            set({
+                queue: {
+                    ...queue,
+                    items: newItems
+                }
+            });
             get().saveQueue();
         }
     },
     addAlbumToQueue: (albumUrl, playNext, tracks, knownArtist) => {
         console.log(`[MobileStore] addAlbumToQueue called. URL: ${albumUrl}, PlayNext: ${playNext}, Tracks: ${tracks?.length}`);
-        // Optimistic update if tracks are provided
+
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            // In remote mode, skip optimistic update — desktop echo via state-changed is authoritative
+            webSocketService.send('add-album-to-queue', { albumUrl, playNext, tracks });
+            return;
+        }
+
+        // Standalone mode: local queue update
         if (tracks && tracks.length > 0) {
             const { queue } = get();
             console.log('[MobileStore] Current queue length:', queue.items.length);
 
-            // Try to find album artist if tracks might have 'Unknown Artist' or empty artist.
-            // Fall back to the known album artist passed from the collection/detail view.
             const artists = tracks.map(t => t.artist).filter(a => a && a !== 'Unknown Artist');
             const fallbackArtist = knownArtist || 'Unknown Artist';
             const commonArtist = artists.length > 0 ? artists[0] : fallbackArtist;
@@ -878,7 +886,6 @@ export const useStore = create<AppState>((set, get) => ({
             const newItems = [...queue.items];
 
             if (playNext) {
-                // When playing next, we insert after current index
                 newItems.splice(queue.currentIndex + 1, 0, ...newQueueItems);
             } else {
                 newItems.push(...newQueueItems);
@@ -892,20 +899,28 @@ export const useStore = create<AppState>((set, get) => ({
                     items: newItems
                 }
             });
-            get().saveQueue();
+
+            console.log('[MobileStore] Added album to queue locally');
+            const { mobilePlayerService } = require('../services/MobilePlayerService');
+            const currentQueue = get().queue;
+            console.log(`[MobileStore] Checking auto-play. Queue len: ${currentQueue.items.length}, Tracks added: ${tracks?.length}`);
+
+            if (currentQueue.items.length === (tracks?.length || 0)) {
+                console.log('[MobileStore] Queue was empty, auto-playing index 0');
+                mobilePlayerService.playQueueIndex(0).then(() => get().saveQueue());
+            } else {
+                get().saveQueue();
+            }
         } else {
             console.warn('[MobileStore] addAlbumToQueue called without tracks! Fetching...', albumUrl);
             const { mobileScraperService } = require('../services/MobileScraperService');
-            // Force fetch tracks
             mobileScraperService.getAlbumDetails(albumUrl)
                 .then((album: any) => {
                     if (album && album.tracks && album.tracks.length > 0) {
-                        // Mirror album_detail.tsx: resolve artist with knownArtist as fallback,
-                        // then pre-fill each track's artist before the recursive call.
                         const finalArtist =
                             (album.artist && album.artist !== 'Unknown Artist') ? album.artist :
-                            (knownArtist && knownArtist !== 'Unknown Artist') ? knownArtist :
-                            album.artist || knownArtist || 'Unknown Artist';
+                                (knownArtist && knownArtist !== 'Unknown Artist') ? knownArtist :
+                                    album.artist || knownArtist || 'Unknown Artist';
                         const resolvedTracks = album.tracks.map((t: Track) => ({
                             ...t,
                             artist: (t.artist && t.artist !== 'Unknown Artist') ? t.artist : finalArtist
@@ -919,27 +934,6 @@ export const useStore = create<AppState>((set, get) => ({
                     console.error('Failed to fetch album for queue:', err);
                     set({ collectionError: 'Failed to fetch album for queue' });
                 });
-        }
-
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('add-album-to-queue', { albumUrl, playNext, tracks });
-        } else {
-            if (tracks && tracks.length > 0) {
-                console.log('[MobileStore] Added album to queue locally');
-                // Check if we should auto-play (if queue was empty)
-                const { mobilePlayerService } = require('../services/MobilePlayerService');
-                // If the queue only contains the items we just added, it was empty.
-                // Note: Use fresh state
-                const currentQueue = get().queue;
-                console.log(`[MobileStore] Checking auto-play. Queue len: ${currentQueue.items.length}, Tracks added: ${tracks?.length}`);
-
-                if (currentQueue.items.length === (tracks?.length || 0)) {
-                    console.log('[MobileStore] Queue was empty, auto-playing index 0');
-                    mobilePlayerService.playQueueIndex(0).then(() => get().saveQueue());
-                } else {
-                    get().saveQueue();
-                }
-            }
         }
     },
     addTrackToPlaylist: async (playlistId, track) => {
@@ -1085,12 +1079,19 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
     },
-    clearQueue: () => {
+    clearQueue: (keepTrack?: boolean) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            // In remote mode, skip local state mutation — desktop echo via state-changed is authoritative
+            webSocketService.send('clear-queue', keepTrack);
+            return;
+        }
+
+        // Standalone mode: clear local queue, keep current track
         const { queue } = get();
         let newItems: QueueItem[] = [];
-        let newIndex = -1;
+        let newIndex = 0;
 
-        if (queue.currentIndex >= 0 && queue.currentIndex < queue.items.length) {
+        if (keepTrack && queue.currentIndex >= 0 && queue.currentIndex < queue.items.length) {
             newItems = [queue.items[queue.currentIndex]];
             newIndex = 0;
         }
@@ -1103,13 +1104,6 @@ export const useStore = create<AppState>((set, get) => ({
             }
         });
         get().saveQueue();
-
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('clear-queue');
-        } else {
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            mobilePlayerService.stop(); // Clear and stop
-        }
     },
     createPlaylist: (name, description) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
@@ -1357,9 +1351,27 @@ export const useStore = create<AppState>((set, get) => ({
         if (artistNames.length === 0) return [];
         const { mode, connectionStatus, collection, auth } = get();
         if (mode === 'remote' && connectionStatus === 'connected') {
-            if (!collection?.items) return [];
+            let itemsToFilter: CollectionItem[] = [];
+
+            // Use existing collection if it has sufficient items (more than typical 50 limit)
+            if (collection?.items && collection.items.length > 50) {
+                itemsToFilter = collection.items;
+            } else {
+                // Fetch full collection (empty payload = returns all items)
+                itemsToFilter = await new Promise<CollectionItem[]>((resolve, reject) => {
+                    const timeout = setTimeout(() => reject(new Error('Collection fetch timeout')), 30000);
+                    const handler = (data: Collection) => {
+                        clearTimeout(timeout);
+                        webSocketService.off('collection-data', handler);
+                        resolve(data?.items || []);
+                    };
+                    webSocketService.on('collection-data', handler);
+                    webSocketService.send('get-collection', {});
+                });
+            }
+
             const nameSet = new Set(artistNames.map(n => n.toLowerCase()));
-            return collection.items.filter(item => {
+            return itemsToFilter.filter(item => {
                 const artist = (item.type === 'album' ? item.album?.artist : item.track?.artist) || '';
                 return nameSet.has(artist.toLowerCase());
             });
@@ -1400,7 +1412,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
 });
 
 webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
-    if (useStore.getState().mode !== 'remote') return;
+    if (useStore.getState().mode !== 'remote' || !useStore.getState().storeInitialized) return;
     const currentState = useStore.getState();
     const prevTrackId = currentState.currentTrack?.id;
 
@@ -1486,7 +1498,20 @@ import { mobileScraperService } from '../services/MobileScraperService';
 // For now, the actions handle the state setting.
 
 webSocketService.on('time-update', async (payload) => {
-    if (useStore.getState().mode !== 'remote') return;
+    if (useStore.getState().mode !== 'remote' || !useStore.getState().storeInitialized) return;
+
+    // Enforce monotonicity to prevent time oscillation from jittery messages.
+    // Only allow time to go backwards if it's a significant jump (seek/track change).
+    if (payload.currentTime !== undefined) {
+        const currentTime = useStore.getState().currentTime;
+        if (payload.currentTime < currentTime && currentTime - payload.currentTime < 2) {
+            // Small backwards jump — skip this update to prevent UI oscillation
+            if (payload.duration !== undefined) {
+                useStore.setState({ duration: payload.duration });
+            }
+            return;
+        }
+    }
 
     useStore.setState(payload);
 

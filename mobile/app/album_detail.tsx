@@ -148,9 +148,9 @@ export default function AlbumDetailScreen() {
             {
                 text: "Play Next",
                 icon: ListEnd,
-                onPress: () => {
+                onPress: async () => {
                     if (album.bandcampUrl) {
-                        addAlbumToQueue(album.bandcampUrl, true, album.tracks);
+                        await addAlbumToQueue(album.bandcampUrl, true, album.tracks);
                         Alert.alert('Success', 'Album added to play next');
                     }
                 }
@@ -158,9 +158,9 @@ export default function AlbumDetailScreen() {
             {
                 text: "Add to Queue",
                 icon: ListPlus,
-                onPress: () => {
+                onPress: async () => {
                     if (album.bandcampUrl) {
-                        addAlbumToQueue(album.bandcampUrl, false, album.tracks);
+                        await addAlbumToQueue(album.bandcampUrl, false, album.tracks);
                         Alert.alert('Success', 'Album added to queue');
                     }
                 }
