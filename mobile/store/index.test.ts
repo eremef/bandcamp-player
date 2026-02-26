@@ -380,11 +380,11 @@ describe('Mobile useStore', () => {
                 }
             });
 
-            act(() => useStore.getState().clearQueue());
+            act(() => useStore.getState().clearQueue(true));
 
             // clearQueue keeps current item if playing
             expect(useStore.getState().queue.items).toHaveLength(1);
-            expect(webSocketService.send).toHaveBeenCalledWith('clear-queue', undefined);
+            expect(webSocketService.send).toHaveBeenCalledWith('clear-queue', { keepTrack: true });
         });
     });
 
