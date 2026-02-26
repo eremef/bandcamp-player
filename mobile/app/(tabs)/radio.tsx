@@ -64,6 +64,11 @@ export default function RadioScreen() {
         setActionSheetTitle(station.name);
         setActionSheetActions([
             {
+                text: "Play Now",
+                icon: Play,
+                onPress: () => playStation(station)
+            },
+            {
                 text: "Play Next",
                 icon: ListEnd,
                 onPress: () => addStationToQueue(station, true)
@@ -107,12 +112,12 @@ export default function RadioScreen() {
     // Bulk action handlers
     const handleBulkPlayNow = React.useCallback(() => {
         const hadCurrentTrack = queue.currentIndex >= 0;
-        clearQueue();
+        clearQueue(false);
         filteredStations.forEach(s => addStationToQueue(s, false));
         // Only explicitly play if the queue had a current track before clearing
         // (empty queue case: addStationToQueue triggers auto-play for the first station)
         if (hadCurrentTrack) {
-            playQueueIndex(1);
+            playQueueIndex(0);
         }
     }, [filteredStations, queue.currentIndex, clearQueue, addStationToQueue, playQueueIndex]);
 
