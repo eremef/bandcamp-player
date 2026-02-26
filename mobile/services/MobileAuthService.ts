@@ -1,6 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
 import { BandcampUser } from '@shared/types';
-import { decode } from 'js-base64';
 
 const COOKIE_KEY = 'bandcamp_cookies';
 const USER_KEY = 'bandcamp_user';
@@ -114,7 +113,6 @@ export class MobileAuthService {
             const match = cookieString.match(/identity=([^;]+)/);
             if (!match) return null;
 
-            const encodedValue = match[1];
             const encodedValueDecoded = decodeURIComponent(match[1]);
             // The value is often double-URI-encoded or simple base64?
             // On desktop it's URL-decoded JSON.

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, ActivityIndicator, View, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { StyleSheet, ActivityIndicator, View, TouchableOpacity, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useStore } from '../store';

@@ -267,7 +267,6 @@ export const useStore = create<AppState>((set, get) => ({
 
         // ── STEP 1: Snapshot before any mutations ──
         // Capture everything we need BEFORE stop() or set() modifies anything
-        const wasConnected = get().connectionStatus === 'connected';
 
         if (currentMode === 'standalone') {
             // Save standalone playback snapshot to AsyncStorage
@@ -1082,7 +1081,6 @@ export const useStore = create<AppState>((set, get) => ({
     clearQueue: (keepTrack?: boolean) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             // In remote mode, skip local state mutation — desktop echo via state-changed is authoritative
-            console.log('clearQueue: ', keepTrack);
             webSocketService.send('clear-queue', { keepTrack });
             return;
         }
@@ -1105,6 +1103,12 @@ export const useStore = create<AppState>((set, get) => ({
             }
         });
         get().saveQueue();
+
+        // If the queue is now empty, stop playback and clear the player
+        if (newItems.length === 0) {
+            const { mobilePlayerService } = require('../services/MobilePlayerService');
+            mobilePlayerService.stop();
+        }
     },
     createPlaylist: (name, description) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
@@ -1491,12 +1495,7 @@ webSocketService.on('artist-collection-data', (artistCollection) => {
 });
 
 // Mobile Scraper Events
-import { mobileScraperService } from '../services/MobileScraperService';
-
-// We can subscribe to the scraper service explicitly or just handle the promise result in the action.
-// The desktop app uses events. Let's stick to promise handling in the action for simplicity in React Native store,
-// OR we can add a listener here if we want to support background updates.
-// For now, the actions handle the state setting.
+// The actions handle the state setting directly via promise handling rather than event listeners.
 
 webSocketService.on('time-update', async (payload) => {
     if (useStore.getState().mode !== 'remote' || !useStore.getState().storeInitialized) return;

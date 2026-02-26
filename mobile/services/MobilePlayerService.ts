@@ -1,8 +1,5 @@
 import TrackPlayer, {
-    State,
-    Event,
-    AppKilledPlaybackBehavior,
-    Capability
+    State
 } from 'react-native-track-player';
 import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';

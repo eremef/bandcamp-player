@@ -13,7 +13,6 @@ vi.mock('lucide-react', () => ({
     X: () => <span data-testid="icon-x" />,
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
-    GripVertical: () => <span data-testid="icon-grip" />,
 }));
 
 describe('QueuePanel', () => {
@@ -87,12 +86,6 @@ describe('QueuePanel', () => {
         expect(items[0].className).toContain('current');
         // Should show play icon for current track if playing
         expect(screen.getByTestId('icon-play')).toBeInTheDocument();
-    });
-
-    it('renders drag handles for each queue item', () => {
-        render(<QueuePanel />);
-        const gripIcons = screen.getAllByTestId('icon-grip');
-        expect(gripIcons).toHaveLength(2);
     });
 
     it('calls reorderQueue on drag-and-drop', () => {

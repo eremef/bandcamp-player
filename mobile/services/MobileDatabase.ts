@@ -486,7 +486,7 @@ export class MobileDatabase {
         });
     }
 
-    async removeTrackFromPlaylist(playlistId: string, trackId: string) { // Note: this removes logically by track content ID if needed, 
+    async removeTrackFromPlaylist(_playlistId: string, _trackId: string) { // Note: this removes logically by track content ID if needed, 
         // but typically robust apps use a unique playlist_entry_id. 
         // For now, mirroring desktop which might just use array filtering.
         // Implementing simple removal by matching track ID inside JSON is hard in SQLite.

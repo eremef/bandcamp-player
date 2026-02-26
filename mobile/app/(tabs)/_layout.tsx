@@ -3,10 +3,8 @@ import { Disc3, Library, ListMusic, Radio, ListOrdered, User } from 'lucide-reac
 import { useStore } from '../../store';
 import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform, TouchableOpacity, View } from 'react-native';
-import { Settings } from 'lucide-react-native';
+import { Platform, View } from 'react-native';
 import { useTheme } from '../../theme';
-import { useRouter } from 'expo-router';
 
 export default function TabLayout() {
     const connectionStatus = useStore((state) => state.connectionStatus);
@@ -15,7 +13,6 @@ export default function TabLayout() {
     const insets = useSafeAreaInsets();
 
     const colors = useTheme();
-    const router = useRouter();
 
     const isConnected = connectionStatus === 'connected';
     const isStandaloneAuth = mode === 'standalone' && auth.isAuthenticated;
