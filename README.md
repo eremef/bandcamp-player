@@ -1,4 +1,4 @@
-# BETA (Bandcamp Experimental Transport Assistant)
+# BETA (Bandcamp Experimental Transport Assistant) Player
 The unofficial Bandcamp Desktop & Mobile Player
 
 ## Desktop App
