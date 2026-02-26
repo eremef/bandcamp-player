@@ -27,7 +27,13 @@
       "Bash(tasklist)",
       "Read(//c/Program Files/**)",
       "Bash(npx tsc*)",
-      "Bash(node -e*)"
+      "Bash(node -e*)",
+      "Bash(ls *)",
+      "Bash(npx playwright *)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(done)",
+      "Bash(grep *)",
+      "Bash(xargs grep *)"
     ],
     "additionalDirectories": [
       "d:\\eremef\\Documents\\AI\\antigravity\\Bandcamp-player\\docs"

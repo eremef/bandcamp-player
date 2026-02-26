@@ -57,7 +57,7 @@ npm run package          # test + build + electron-builder installer
 npm test                 # Unit tests (vitest run + build:main, concurrent)
 npm run test:watch       # Vitest watch mode
 npm run test:coverage    # Coverage report
-npm run test:e2e         # Playwright E2E (always use --workers=1)
+npm run test:e2e         # Playwright E2E
 npm run test:mobile      # Mobile Jest tests
 
 # Quality
@@ -75,6 +75,7 @@ npm rebuild              # Rebuild native modules (required after node_modules c
 ### IPC Communication Pattern
 
 All desktop features follow this pattern:
+
 1. **Constants**: `src/shared/ipc-channels.ts` — typed channel name objects per feature (`AUTH_CHANNELS`, `PLAYER_CHANNELS`, etc.)
 2. **Handlers**: `src/main/ipc-handlers.ts` — registers `ipcMain.handle()` for each channel
 3. **Bridge**: `src/main/preload.ts` — exposes typed API on `window.electron` via `contextBridge`
@@ -132,8 +133,8 @@ Zustand store in `src/renderer/store/store.ts` with slices for: auth, player, qu
 # Unit tests (run concurrently with build:main)
 npm test
 
-# E2E tests — always single worker
-npx playwright test --workers=1
+# E2E tests
+npx playwright test
 
 # Coverage reports (JSON format preferred)
 npx vitest --coverage --coverage.reporter=json-summary
@@ -159,6 +160,7 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Back button**: Requires an explicit visibility wait before clicking — not immediately available after navigation.
 - **Audio streaming**: Real Bandcamp audio doesn't work in E2E. Test UI state, not actual playback.
 - **Zustand injection**: `window.evaluate` on `useStore` only works if the store is globally exposed. Use `CustomEvent` dispatch or mock `window.electron` IPC methods instead.
+- **IPC mocking**: `contextBridge` makes `window.electron` read-only — `window.evaluate` assignments silently fail. Mock at the main process level instead: `electronApp.evaluate(({ ipcMain }, data) => { ipcMain.removeHandler('channel'); ipcMain.handle('channel', async () => data); }, data)`. Then click Refresh or trigger a re-fetch to load mock data.
 - **Obstructed elements**: Elements near absolute-positioned overlays may need `{ force: true }` or `element.evaluate(el => el.click())`.
 - **Strict mode**: `getByTitle`/`getByLabel` can match multiple elements on substring. Use `{ exact: true }` or scope to parent containers.
 - **Conditional toggling**: Check if a panel (Queue, Settings, Playlists) is already open before clicking to avoid accidentally closing it.

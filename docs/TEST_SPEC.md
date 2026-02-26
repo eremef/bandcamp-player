@@ -52,7 +52,7 @@ The project uses a split testing architecture to accommodate the distinct runtim
 | `npm run test:coverage` | Generates coverage report for desktop. | Desktop |
 | `npm run test:mobile` | Runs all mobile unit tests. | Mobile |
 | `npm run test:e2e` | Runs all E2E tests (Playwright). | E2E |
-| `npx playwright test --workers=1` | Runs E2E tests sequentially (more reliable). | E2E |
+| `npx playwright test` | Runs E2E tests sequentially (more reliable). | E2E |
 | `npm run build` | Runs desktop tests before building. | Desktop |
 
 ## Directory Structure
