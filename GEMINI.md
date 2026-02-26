@@ -24,7 +24,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 
 ## E2E Tests
 
-- **Framework**: Playwright with custom Electron fixtures in `e2e/fixtures.ts`. Run with `npx playwright test --workers=1`.
+- **Framework**: Playwright with custom Electron fixtures in `e2e/fixtures.ts`. Run with `npx playwright test`.
 - **Toggle Switch Checkboxes**: Settings checkboxes are styled as toggle switches with `opacity: 0; width: 0; height: 0` on the `<input>`. Playwright's `setChecked()` fails with "Element is outside of the viewport". Use `evaluate(el => el.click())` instead.
 - **Avoid CSS Module Selectors**: Selectors like `[class*="SettingsModal_modal"]` are fragile in Electron's production build. Prefer role-based (`getByRole`, `getByTitle`) and text-based (`locator('text=...')`, `locator('p').filter({ hasText: /regex/ })`) locators.
 - **Scrollable Modals**: The Settings modal is scrollable. Elements below the fold need `scrollIntoViewIfNeeded()` on their visible label before interacting with nearby hidden inputs.
