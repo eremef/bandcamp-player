@@ -7,7 +7,7 @@ The Unofficial Bandcamp Desktop (with remote control) & Mobile Player
  <img width="800" alt="image" src="https://github.com/user-attachments/assets/7216ad2d-d35e-4538-b84d-549e8f3224af" />
 </p>
 
-AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, and Windows media controls.
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls and many more!
 
 >⚠️ **Attention** ⚠️
 >
