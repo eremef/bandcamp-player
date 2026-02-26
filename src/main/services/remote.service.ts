@@ -583,6 +583,12 @@ export class RemoteControlService extends EventEmitter {
                     this.playerService.removeFromQueue(payload);
                 }
                 break;
+            case 'clear-queue':
+                if (payload && typeof payload.keepTrack === 'boolean')
+                    this.playerService.clearQueue(payload.keepTrack);
+                else
+                    this.playerService.clearQueue();
+                break;
             case 'reorder-queue':
                 if (payload && typeof payload.from === 'number' && typeof payload.to === 'number') {
                     this.playerService.reorderQueue(payload.from, payload.to);

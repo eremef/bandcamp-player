@@ -104,22 +104,21 @@ export default function ArtistsScreen() {
 
     // Bulk action handlers (operate on artistCollectionItems)
     const handleBulkPlayNow = useCallback(async () => {
-        const startIndex = queue.currentIndex >= 0 ? 1 : 0;
-        clearQueue();
+        clearQueue(false);
         for (const item of artistCollectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-        playQueueIndex(startIndex);
-    }, [artistCollectionItems, queue.currentIndex, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
+        playQueueIndex(0);
+    }, [artistCollectionItems, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
 
     const handleBulkPlayNext = useCallback(async () => {
         for (const item of artistCollectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, true);
             }
@@ -129,7 +128,7 @@ export default function ArtistsScreen() {
     const handleBulkAddToQueue = useCallback(async () => {
         for (const item of artistCollectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }

@@ -59,11 +59,24 @@ export default function CollectionScreen() {
         setActionSheetTitle(title + ' - ' + artist || 'Item');
         setActionSheetActions([
             {
+                text: "Play Now",
+                icon: Play,
+                onPress: async () => {
+                    clearQueue(false);
+                    if (item.type === 'album' && item.album?.bandcampUrl) {
+                        await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                    } else if (item.type === 'track' && item.track) {
+                        await addTrackToQueue(item.track, false);
+                    }
+                    playQueueIndex(0);
+                }
+            },
+            {
                 text: "Play Next",
                 icon: ListEnd,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
+                        await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) {
                         await addTrackToQueue(item.track, true);
@@ -75,7 +88,7 @@ export default function CollectionScreen() {
                 icon: ListPlus,
                 onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                        await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
                     }
                     else if (item.type === 'track' && item.track) {
                         await addTrackToQueue(item.track, false);
@@ -97,7 +110,7 @@ export default function CollectionScreen() {
             }
         ]);
         setActionSheetVisible(true);
-    }, [addAlbumToQueue, addTrackToQueue]);
+    }, [addAlbumToQueue, addTrackToQueue, clearQueue, playQueueIndex]);
 
     const handleSelectPlaylist = useCallback((playlistId: string) => {
         if (!selectedItem) return;
@@ -124,22 +137,21 @@ export default function CollectionScreen() {
 
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
-        const startIndex = queue.currentIndex >= 0 ? 1 : 0;
-        clearQueue();
+        clearQueue(false);
         for (const item of collectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-        playQueueIndex(startIndex);
-    }, [collectionItems, queue.currentIndex, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
+        playQueueIndex(0);
+    }, [collectionItems, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
 
     const handleBulkPlayNext = useCallback(async () => {
         for (const item of collectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, true);
             }
@@ -149,7 +161,7 @@ export default function CollectionScreen() {
     const handleBulkAddToQueue = useCallback(async () => {
         for (const item of collectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
-                addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }

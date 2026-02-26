@@ -7,6 +7,16 @@ export class MobileDatabase {
     private db: SQLite.SQLiteDatabase | null = null;
     private initPromise: Promise<void> | null = null;
 
+    /** Returns true if the query contains characters that FTS5 tokenizer strips (e.g. #, @, $). */
+    private needsLikeFallback(query: string): boolean {
+        return /[^a-zA-Z0-9\s]/.test(query);
+    }
+
+    /** Escape a search query for FTS5 MATCH — wraps in double quotes to treat special characters as literals. */
+    private fts5Escape(query: string): string {
+        return `"${query.replace(/"/g, '""')}"*`;
+    }
+
     async init() {
         if (this.db) return;
 
@@ -228,19 +238,39 @@ export class MobileDatabase {
         let params: any[] = [];
 
         if (query) {
-            // Use FTS5 search
-            sql = `
-                SELECT ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
-                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid
-                FROM collection_items ci
-                JOIN collection_search_fts fts ON ci.id = fts.id
-                LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
-                LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
-                WHERE ci.user_id = ? AND collection_search_fts MATCH ?
-                ORDER BY ci.position ASC
-                LIMIT ? OFFSET ?
-            `;
-            params = [userId, `${query}*`, limit, offset];
+            const selectCols = `ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid`;
+
+            if (this.needsLikeFallback(query)) {
+                // LIKE fallback for queries with special characters that FTS5 tokenizer strips
+                const likePattern = `%${query}%`;
+                sql = `
+                    SELECT ${selectCols}
+                    FROM collection_items ci
+                    LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                    LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                    WHERE ci.user_id = ? AND (
+                        a.title LIKE ? OR a.artist_name LIKE ? OR
+                        t.title LIKE ? OR t.artist_name LIKE ?
+                    )
+                    ORDER BY ci.position ASC
+                    LIMIT ? OFFSET ?
+                `;
+                params = [userId, likePattern, likePattern, likePattern, likePattern, limit, offset];
+            } else {
+                // FTS5 search for plain alphanumeric queries
+                sql = `
+                    SELECT ${selectCols}
+                    FROM collection_items ci
+                    JOIN collection_search_fts fts ON ci.id = fts.id
+                    LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                    LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                    WHERE ci.user_id = ? AND collection_search_fts MATCH ?
+                    ORDER BY ci.position ASC
+                    LIMIT ? OFFSET ?
+                `;
+                params = [userId, this.fts5Escape(query), limit, offset];
+            }
         } else {
             sql = `
                 SELECT ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
@@ -303,10 +333,25 @@ export class MobileDatabase {
         if (!this.db) await this.init();
 
         if (query) {
-            const result = await this.db!.getFirstAsync<{ count: number }>(
-                'SELECT COUNT(*) as count FROM collection_items ci JOIN collection_search_fts fts ON ci.id = fts.id WHERE ci.user_id = ? AND collection_search_fts MATCH ?',
-                [userId, `${query}*`]
-            );
+            let result;
+            if (this.needsLikeFallback(query)) {
+                const likePattern = `%${query}%`;
+                result = await this.db!.getFirstAsync<{ count: number }>(
+                    `SELECT COUNT(*) as count FROM collection_items ci
+                     LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                     LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                     WHERE ci.user_id = ? AND (
+                         a.title LIKE ? OR a.artist_name LIKE ? OR
+                         t.title LIKE ? OR t.artist_name LIKE ?
+                     )`,
+                    [userId, likePattern, likePattern, likePattern, likePattern]
+                );
+            } else {
+                result = await this.db!.getFirstAsync<{ count: number }>(
+                    'SELECT COUNT(*) as count FROM collection_items ci JOIN collection_search_fts fts ON ci.id = fts.id WHERE ci.user_id = ? AND collection_search_fts MATCH ?',
+                    [userId, this.fts5Escape(query)]
+                );
+            }
             return result?.count ?? 0;
         } else {
             const result = await this.db!.getFirstAsync<{ count: number }>(

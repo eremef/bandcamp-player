@@ -10,6 +10,7 @@ jest.mock('lucide-react-native', () => {
         Play: () => <Text>PlayIcon</Text>,
         Trash2: () => <Text>TrashIcon</Text>,
         GripVertical: () => <Text>GripIcon</Text>,
+        ListX: () => <Text>ListXIcon</Text>,
     };
 });
 
@@ -83,6 +84,7 @@ describe('QueueScreen', () => {
         removeFromQueue: jest.fn(),
         reorderQueue: jest.fn(),
         refreshQueue: jest.fn(),
+        clearQueue: jest.fn(),
     };
 
     beforeEach(() => {

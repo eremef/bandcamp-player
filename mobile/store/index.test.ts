@@ -384,7 +384,7 @@ describe('Mobile useStore', () => {
 
             // clearQueue keeps current item if playing
             expect(useStore.getState().queue.items).toHaveLength(1);
-            expect(webSocketService.send).toHaveBeenCalledWith('clear-queue');
+            expect(webSocketService.send).toHaveBeenCalledWith('clear-queue', undefined);
         });
     });
 
