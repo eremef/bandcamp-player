@@ -526,6 +526,9 @@ export class RemoteControlService extends EventEmitter {
                     if (tracks && tracks.length > 0) {
                         this.playerService.addTracksToQueue(tracks, 'collection', payload.playNext);
                         console.log('[RemoteService] Tracks added to player service');
+                        if (!payload.playNext) {
+                            this.playerService.playIndex(0);
+                        }
                     } else {
                         console.error('[RemoteService] Failed to fetch album details or no tracks');
                     }
