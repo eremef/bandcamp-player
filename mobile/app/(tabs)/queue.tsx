@@ -26,7 +26,7 @@ export default function QueueScreen() {
             'Remove all items from the queue?',
             [
                 { text: 'Cancel', style: 'cancel' },
-                { text: 'Clear', style: 'destructive', onPress: () => clearQueue() },
+                { text: 'Clear', style: 'destructive', onPress: () => clearQueue(false) },
             ]
         );
     }, [queue.items.length, clearQueue]);

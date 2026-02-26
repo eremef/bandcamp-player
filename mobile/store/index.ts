@@ -1082,7 +1082,8 @@ export const useStore = create<AppState>((set, get) => ({
     clearQueue: (keepTrack?: boolean) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             // In remote mode, skip local state mutation — desktop echo via state-changed is authoritative
-            webSocketService.send('clear-queue', keepTrack);
+            console.log('clearQueue: ', keepTrack);
+            webSocketService.send('clear-queue', { keepTrack });
             return;
         }
 
