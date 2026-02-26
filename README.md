@@ -247,7 +247,7 @@ mobile/
 | View/edit playlist/ drag-to-reorder - mobile   | L    | 🔴     |
 | Chromecast for standalone mobile mode          | L    | 🔴     |
 
-**Legend**
+**Legend**:
 🟢 finished (waiting for release)
 🟡 in the middle
 🟠 just started
