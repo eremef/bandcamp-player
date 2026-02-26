@@ -263,6 +263,13 @@ mobile/
  </picture>
 </a>
 
+## BETA also-known-as..
+
+- Bandcamp Eccentric Transport App
+- Browse Every Track Anywhere
+- Bandcamp Equivalent Third-party App
+- Bandcamp Enhanced Transmitting Anywhere
+
 ## License
 
 [MIT](LICENSE.txt)
