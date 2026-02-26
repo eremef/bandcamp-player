@@ -81,7 +81,7 @@
 
 /* List */
 .list {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs);
 }
 
 .item {
@@ -106,7 +106,7 @@
 }
 
 .playBtn {
-    width: 28px;
+    width: 22px;
     height: 28px;
     display: flex;
     align-items: center;
@@ -136,6 +136,8 @@
     width: 40px;
     height: 40px;
     border-radius: var(--radius-sm);
+    margin-left: var(--spacing-xs);
+    padding-right: var(--spacing-xs);
     object-fit: cover;
     flex-shrink: 0;
 }

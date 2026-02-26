@@ -908,8 +908,6 @@ describe('Mobile useStore', () => {
         });
 
         it('additional coverage cases: themes, simulation, search query', async () => {
-            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-
             await act(async () => {
                 await useStore.getState().setTheme('light');
             });

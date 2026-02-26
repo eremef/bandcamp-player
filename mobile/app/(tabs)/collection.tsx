@@ -35,8 +35,6 @@ export default function CollectionScreen() {
     const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
     const storeSearchQuery = useStore((state) => state.searchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
-    const playQueueIndex = useStore((state) => state.playQueueIndex);
-    const queue = useStore((state) => state.queue);
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -68,7 +66,6 @@ export default function CollectionScreen() {
                     } else if (item.type === 'track' && item.track) {
                         await addTrackToQueue(item.track, false);
                     }
-                    playQueueIndex(0);
                 }
             },
             {
@@ -110,7 +107,7 @@ export default function CollectionScreen() {
             }
         ]);
         setActionSheetVisible(true);
-    }, [addAlbumToQueue, addTrackToQueue, clearQueue, playQueueIndex]);
+    }, [addAlbumToQueue, addTrackToQueue, clearQueue]);
 
     const handleSelectPlaylist = useCallback((playlistId: string) => {
         if (!selectedItem) return;
@@ -138,6 +135,8 @@ export default function CollectionScreen() {
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
         clearQueue(false);
+        // addAlbumToQueue and addTrackToQueue auto-play when the queue is empty,
+        // so no explicit playQueueIndex(0) call is needed.
         for (const item of collectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
@@ -145,8 +144,7 @@ export default function CollectionScreen() {
                 await addTrackToQueue(item.track, false);
             }
         }
-        playQueueIndex(0);
-    }, [collectionItems, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
+    }, [collectionItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkPlayNext = useCallback(async () => {
         for (const item of collectionItems) {

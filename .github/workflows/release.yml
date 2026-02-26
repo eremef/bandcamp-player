@@ -157,8 +157,8 @@ jobs:
 
       - name: Rename Artifacts
         run: |
-          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/bandcamp-remote-${{ github.ref_name }}-android.apk
-          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/bandcamp-remote-${{ github.ref_name }}-android.aab
+          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/beta-player-${{ github.ref_name }}-android.apk
+          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/beta-player-${{ github.ref_name }}-android.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -195,11 +195,17 @@ jobs:
           cd mobile
           npx expo prebuild --platform ios
 
+      - name: Discover iOS project name
+        id: ios-project
+        run: |
+          WORKSPACE=$(basename mobile/ios/*.xcworkspace .xcworkspace)
+          echo "name=$WORKSPACE" >> $GITHUB_OUTPUT
+
       - name: Build iOS App
         run: |
           cd mobile/ios
-          xcodebuild -workspace BandcampRemote.xcworkspace \
-            -scheme BandcampRemote \
+          xcodebuild -workspace ${{ steps.ios-project.outputs.name }}.xcworkspace \
+            -scheme ${{ steps.ios-project.outputs.name }} \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
@@ -211,8 +217,8 @@ jobs:
         run: |
           cd mobile/ios/build/Build/Products/Release-iphoneos
           mkdir Payload
-          cp -r BandcampRemote.app Payload/
-          zip -r bandcamp-remote-${{ github.ref_name }}-ios.ipa Payload
+          cp -r ${{ steps.ios-project.outputs.name }}.app Payload/
+          zip -r beta-player-${{ github.ref_name }}-ios.ipa Payload
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

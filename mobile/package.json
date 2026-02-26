@@ -1,7 +1,7 @@
 {
   "name": "xyz.eremef.beta",
   "version": "1.7.9",
-  "productName": "Beta Player",
+  "productName": "Beta-Player",
   "main": "index.js",
   "scripts": {
     "start": "expo start",

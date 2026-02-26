@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, Animated, Dimensions } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, Animated, Dimensions, Keyboard } from 'react-native';
 import { useTheme } from '../theme';
 import type { LucideIcon } from 'lucide-react-native';
 
@@ -20,7 +20,8 @@ interface ActionSheetProps {
     actions: Action[];
 }
 
-/* eslint-disable react-hooks/rules-of-hooks */
+// Animated.Value refs are intentionally used in JSX — standard React Native animation pattern
+/* eslint-disable react-hooks/refs */
 export function ActionSheet({ visible, onClose, title, subtitle, actions }: ActionSheetProps) {
     const colors = useTheme();
     const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT));
@@ -49,6 +50,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
     }, [visible, slideAnim, backdropAnim]);
 
     const handleClose = () => {
+        Keyboard.dismiss();
         Animated.parallel([
             Animated.timing(slideAnim.current, {
                 toValue: SCREEN_HEIGHT,
@@ -163,7 +165,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
         </Modal>
     );
 }
-/* eslint-enable react-hooks/rules-of-hooks */
+/* eslint-enable react-hooks/refs */
 
 const styles = StyleSheet.create({
     container: {

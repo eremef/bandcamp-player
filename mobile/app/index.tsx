@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useStore } from '../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle, Settings, Globe, LogIn } from 'lucide-react-native';
+import { Wifi, AlertCircle, Globe, LogIn } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useRouter } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';

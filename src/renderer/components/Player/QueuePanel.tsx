@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
-import { X, Play, Trash2, GripVertical } from 'lucide-react';
+import { X, Play, Trash2 } from 'lucide-react';
 import styles from './QueuePanel.module.css';
 
 export function QueuePanel() {
@@ -38,7 +38,7 @@ export function QueuePanel() {
             <header className={styles.header}>
                 <h2>Queue</h2>
                 <div className={styles.headerActions}>
-                    <button className={styles.clearBtn} onClick={() => clearQueue()} title="Clear queue">
+                    <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
                         Clear
                     </button>
                     <button className={styles.closeBtn} onClick={toggleQueue} title="Close">
@@ -72,10 +72,6 @@ export function QueuePanel() {
                                 onDragEnd={handleDragEnd}
                                 onDoubleClick={() => playQueueIndex(index)}
                             >
-                                <span className={styles.dragHandle} title="Drag to reorder">
-                                    <GripVertical size={14} />
-                                </span>
-
                                 <button
                                     className={styles.playBtn}
                                     onClick={() => playQueueIndex(index)}
@@ -87,7 +83,7 @@ export function QueuePanel() {
                                         <span className={styles.trackNumber}>{index + 1}.</span>
                                     )}
                                 </button>
-
+                                <img src={item.track.artworkUrl} alt="" className={styles.artwork} />
                                 <div className={styles.trackInfo}>
                                     {/* <img src={item.track.artworkUrl} alt="" className={styles.artwork} /> */}
                                     <div className={styles.details}>

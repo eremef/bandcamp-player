@@ -32,8 +32,13 @@ export default function ArtistsScreen() {
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const clearQueue = useStore((state) => state.clearQueue);
-    const playQueueIndex = useStore((state) => state.playQueueIndex);
-    const queue = useStore((state) => state.queue);
+
+    // Per-artist ActionSheet state
+    const [actionSheetVisible, setActionSheetVisible] = useState(false);
+    const [actionSheetTitle, setActionSheetTitle] = useState('');
+    const [actionSheetActions, setActionSheetActions] = useState<Action[]>([]);
+    const [selectedArtist, setSelectedArtist] = useState<Artist | null>(null);
+    const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
 
     // Bulk ActionSheet state
     const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
@@ -102,9 +107,69 @@ export default function ArtistsScreen() {
         router.push({ pathname: '/artist/artist_detail' as any, params: { id } });
     }, [router]);
 
+    const handleArtistLongPress = useCallback((artist: Artist) => {
+        setSelectedArtist(artist);
+        setActionSheetTitle(artist.name);
+        const queueArtistItems = async (playNext: boolean, clearFirst: boolean) => {
+            const items = await getArtistsBulkItems([artist.name]);
+            if (clearFirst) clearQueue(false);
+            for (const item of items) {
+                if (item.type === 'album' && item.album?.bandcampUrl) {
+                    await addAlbumToQueue(item.album.bandcampUrl, playNext, item.album.tracks, item.album.artist);
+                } else if (item.type === 'track' && item.track) {
+                    await addTrackToQueue(item.track, playNext);
+                }
+            }
+        };
+        setActionSheetActions([
+            {
+                text: "Play Now",
+                icon: Play,
+                onPress: () => queueArtistItems(false, true),
+            },
+            {
+                text: "Play Next",
+                icon: ListEnd,
+                onPress: () => queueArtistItems(true, false),
+            },
+            {
+                text: "Add to Queue",
+                icon: ListPlus,
+                onPress: () => queueArtistItems(false, false),
+            },
+            {
+                text: "Add to Playlist",
+                icon: ListMusic,
+                onPress: () => setPlaylistModalVisible(true),
+            },
+            {
+                text: "Cancel",
+                style: "cancel",
+                onPress: () => { },
+            },
+        ]);
+        setActionSheetVisible(true);
+    }, [getArtistsBulkItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
+
+    const handleSelectPlaylist = useCallback(async (playlistId: string) => {
+        if (!selectedArtist) return;
+        const items = await getArtistsBulkItems([selectedArtist.name]);
+        for (const item of items) {
+            if (item.type === 'album' && item.album?.bandcampUrl) {
+                addAlbumToPlaylist(playlistId, item.album.bandcampUrl);
+            } else if (item.type === 'track' && item.track) {
+                addTrackToPlaylist(playlistId, item.track);
+            }
+        }
+        setPlaylistModalVisible(false);
+        Alert.alert("Success", `Added ${items.length} items to playlist`);
+    }, [selectedArtist, getArtistsBulkItems, addAlbumToPlaylist, addTrackToPlaylist]);
+
     // Bulk action handlers (operate on artistCollectionItems)
     const handleBulkPlayNow = useCallback(async () => {
         clearQueue(false);
+        // addAlbumToQueue and addTrackToQueue auto-play when the queue is empty,
+        // so no explicit playQueueIndex(0) call is needed.
         for (const item of artistCollectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
@@ -112,8 +177,7 @@ export default function ArtistsScreen() {
                 await addTrackToQueue(item.track, false);
             }
         }
-        playQueueIndex(0);
-    }, [artistCollectionItems, clearQueue, addAlbumToQueue, addTrackToQueue, playQueueIndex]);
+    }, [artistCollectionItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkPlayNext = useCallback(async () => {
         for (const item of artistCollectionItems) {
@@ -187,6 +251,7 @@ export default function ArtistsScreen() {
             key={item.id}
             style={styles.artistItem}
             onPress={() => handleArtistPress(item.id)}
+            onLongPress={() => handleArtistLongPress(item)}
         >
             <View style={[styles.avatarContainer, { backgroundColor: colors.input }]}>
                 {item.imageUrl ? (
@@ -203,7 +268,7 @@ export default function ArtistsScreen() {
                 {item.name}
             </Text>
         </TouchableOpacity>
-    ), [colors, handleArtistPress]);
+    ), [colors, handleArtistPress, handleArtistLongPress]);
 
     const renderRow = useCallback(({ item: row }: { item: Artist[] }) => (
         <View style={styles.row}>
@@ -259,6 +324,20 @@ export default function ArtistsScreen() {
                         <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No artists found</Text>
                     </View>
                 }
+            />
+
+            <ActionSheet
+                visible={actionSheetVisible}
+                onClose={() => setActionSheetVisible(false)}
+                title={actionSheetTitle}
+                actions={actionSheetActions}
+            />
+            <PlaylistSelectionModal
+                visible={playlistModalVisible}
+                onClose={() => setPlaylistModalVisible(false)}
+                onSelect={handleSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
             />
 
             <ActionSheet

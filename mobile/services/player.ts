@@ -1,11 +1,5 @@
-import TrackPlayer, {
-    Capability,
-    AppKilledPlaybackBehavior,
-    Event,
-    State
-} from 'react-native-track-player';
+import TrackPlayer from 'react-native-track-player';
 import { Track } from '@shared/types';
-import { useStore } from '../store';
 
 export async function setupPlayer() {
     let isSetup = false;

@@ -23,8 +23,6 @@ export default function RadioScreen() {
     const radioSearchQuery = useStore((state) => state.radioSearchQuery);
     const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
-    const playQueueIndex = useStore((state) => state.playQueueIndex);
-    const queue = useStore((state) => state.queue);
 
     // Per-item ActionSheet state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
@@ -111,15 +109,11 @@ export default function RadioScreen() {
 
     // Bulk action handlers
     const handleBulkPlayNow = React.useCallback(() => {
-        const hadCurrentTrack = queue.currentIndex >= 0;
         clearQueue(false);
+        // addStationToQueue auto-plays when the queue is empty (first station),
+        // so no explicit playQueueIndex(0) call is needed.
         filteredStations.forEach(s => addStationToQueue(s, false));
-        // Only explicitly play if the queue had a current track before clearing
-        // (empty queue case: addStationToQueue triggers auto-play for the first station)
-        if (hadCurrentTrack) {
-            playQueueIndex(0);
-        }
-    }, [filteredStations, queue.currentIndex, clearQueue, addStationToQueue, playQueueIndex]);
+    }, [filteredStations, clearQueue, addStationToQueue]);
 
     const handleBulkPlayNext = React.useCallback(() => {
         filteredStations.forEach(s => addStationToQueue(s, true));

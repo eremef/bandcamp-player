@@ -3,8 +3,6 @@ import { useStore } from '../store';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
-import TrackPlayer from 'react-native-track-player';
-import { PlaybackService } from '../services/TrackPlayerService';
 import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
