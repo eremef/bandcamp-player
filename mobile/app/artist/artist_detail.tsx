@@ -98,21 +98,21 @@ export default function ArtistDetailScreen() {
             {
                 text: "Play Next",
                 icon: ListEnd,
-                onPress: () => {
+                onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
+                        await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
                     }
-                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, true);
+                    else if (item.type === 'track' && item.track) await addTrackToQueue(item.track, true);
                 }
             },
             {
                 text: "Add to Queue",
                 icon: ListPlus,
-                onPress: () => {
+                onPress: async () => {
                     if (item.type === 'album' && item.album?.bandcampUrl) {
-                        addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
+                        await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
                     }
-                    else if (item.type === 'track' && item.track) addTrackToQueue(item.track, false);
+                    else if (item.type === 'track' && item.track) await addTrackToQueue(item.track, false);
                 }
             },
             {

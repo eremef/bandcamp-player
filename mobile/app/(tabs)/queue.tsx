@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ListX } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
 
@@ -15,8 +15,21 @@ export default function QueueScreen() {
     const removeFromQueue = useStore((state) => state.removeFromQueue);
     const reorderQueue = useStore((state) => state.reorderQueue);
     const isPlaying = useStore((state) => state.isPlaying);
+    const clearQueue = useStore((state) => state.clearQueue);
 
     const insets = useSafeAreaInsets();
+
+    const handleClearQueue = useCallback(() => {
+        if (queue.items.length === 0) return;
+        Alert.alert(
+            'Clear Queue',
+            'Remove all items from the queue?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Clear', style: 'destructive', onPress: () => clearQueue(false) },
+            ]
+        );
+    }, [queue.items.length, clearQueue]);
 
     const handlePlay = useCallback((index: number) => {
         playQueueIndex(index);
@@ -121,6 +134,20 @@ export default function QueueScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+            {queue.items.length > 0 && (
+                <View style={styles.header}>
+                    <Text style={[styles.headerText, { color: colors.textSecondary }]}>
+                        {queue.items.length} {queue.items.length === 1 ? 'track' : 'tracks'}
+                    </Text>
+                    <TouchableOpacity
+                        onPress={handleClearQueue}
+                        style={styles.clearBtn}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <ListX size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+            )}
             <DraggableFlatList
                 data={queue.items}
                 renderItem={renderItem}
@@ -145,6 +172,20 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0a0a0a',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+    },
+    headerText: {
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    clearBtn: {
+        padding: 4,
     },
     listContent: {
         paddingBottom: 20,
