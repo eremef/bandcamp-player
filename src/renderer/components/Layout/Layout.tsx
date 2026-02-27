@@ -14,6 +14,7 @@ export function Layout() {
         <div className={styles.layout}>
             {/* Title bar drag region */}
             <div className={styles.titleBar}>
+                <span className={styles.title}>Beta Player</span>
                 <div className={styles.dragRegion} />
             </div>
 

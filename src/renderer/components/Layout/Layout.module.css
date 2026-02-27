@@ -8,12 +8,23 @@
 }
 
 .titleBar {
+    width: 100%;
     height: var(--titlebar-height);
     background: var(--bg-secondary);
     border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    position: relative;
+}
+
+.title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 14px;
+    color: var(--text-secondary);
+    -webkit-app-region: no-drag;
 }
 
 .dragRegion {
