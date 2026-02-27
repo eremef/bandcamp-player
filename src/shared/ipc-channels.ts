@@ -154,6 +154,7 @@ export const WINDOW_CHANNELS = {
     SET_ALWAYS_ON_TOP: 'window:set-always-on-top',
     GET_STATE: 'window:get-state',
     ON_STATE_CHANGED: 'window:on-state-changed',
+    SET_TITLE_BAR_OVERLAY: 'window:set-title-bar-overlay',
 } as const;
 
 // ============================================================================

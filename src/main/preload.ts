@@ -203,6 +203,8 @@ const electronAPI = {
         toggleMiniPlayer: (): Promise<void> => ipcRenderer.invoke(WINDOW_CHANNELS.TOGGLE_MINI_PLAYER),
         setAlwaysOnTop: (value: boolean): Promise<void> =>
             ipcRenderer.invoke(WINDOW_CHANNELS.SET_ALWAYS_ON_TOP, value),
+        setTitleBarOverlay: (color: string, symbolColor: string): Promise<void> =>
+            ipcRenderer.invoke(WINDOW_CHANNELS.SET_TITLE_BAR_OVERLAY, { color, symbolColor }),
     },
 
     // ---- Remote Control ----

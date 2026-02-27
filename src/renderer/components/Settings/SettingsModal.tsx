@@ -43,6 +43,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         }
     }, [fetchRemoteConfig, remoteConfig]);
 
+    useEffect(() => {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const dimmedColor = isDark ? '#080808' : '#626262';
+        const dimmedSymbolColor = isDark ? '#ffffff' : '#000000';
+        window.electron.window.setTitleBarOverlay(dimmedColor, dimmedSymbolColor);
+
+        return () => {
+            const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const resetColor = isDark ? '#141414' : '#f5f5f5';
+            const resetSymbolColor = isDark ? '#ffffff' : '#000000';
+            window.electron.window.setTitleBarOverlay(resetColor, resetSymbolColor);
+        };
+    }, [settings?.theme]);
+
     const handleRefreshConfig = async () => {
         setIsRefreshingConfig(true);
         try {

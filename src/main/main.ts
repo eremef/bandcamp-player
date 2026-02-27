@@ -54,19 +54,20 @@ let castService: CastService;
 function getTitleBarOverlay() {
     const isDark = nativeTheme.shouldUseDarkColors;
     return {
-        color: isDark ? '#111111' : '#f5f5f5',
+        color: isDark ? '#141414' : '#f5f5f5',
         symbolColor: isDark ? '#ffffff' : '#000000',
         height: 40,
     };
 }
 
 function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow {
+    const isDark = nativeTheme.shouldUseDarkColors;
     const window = new BrowserWindow({
         width: 1200,
         height: 800,
         minWidth: 900,
         minHeight: 600,
-        backgroundColor: '#111111',
+        frame: false,
         titleBarStyle: 'hidden',
         titleBarOverlay: getTitleBarOverlay(),
         webPreferences: {
