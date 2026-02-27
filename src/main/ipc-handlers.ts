@@ -320,7 +320,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         getMiniPlayerWindow()?.setAlwaysOnTop(value);
     });
     ipcMain.handle(WINDOW_CHANNELS.SET_TITLE_BAR_OVERLAY, (_, { color, symbolColor }: { color: string; symbolColor: string }) => {
-        getMainWindow()?.setTitleBarOverlay({ color, symbolColor, height: 40 });
+        if (process.platform === 'win32') {
+            getMainWindow()?.setTitleBarOverlay({ color, symbolColor, height: 40 });
+        }
     });
 
     // ---- System ----
