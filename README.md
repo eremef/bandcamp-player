@@ -274,6 +274,8 @@ mobile/
 - Built Exclusively To Audition
 - Better Every Time, Almost
 - Beats Echoing Through Air
+- Bandcamp Experience Through App
+- Bandcamp Embedded Track Aggregator
 
 ## License
 
