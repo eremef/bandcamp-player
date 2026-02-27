@@ -263,12 +263,17 @@ mobile/
  </picture>
 </a>
 
-## Also-known-as...
+## Also-Known-As...
 
 - Bandcamp Eccentric Transport App
 - Browse Every Track Anywhere
 - Bandcamp Equivalent Third-party App
 - Bandcamp Enhanced Transmitting Anywhere
+- Bugs Everywhere, Try Anyway
+- Bandcamp Explorer, Totally Alpha
+- Built Exclusively To Audition
+- Better Every Time, Almost
+- Beats Echoing Through Air
 
 ## License
 
