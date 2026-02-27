@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.0",
+  "version": "1.8.1-alpha",
   "productName": "Beta-Player",
   "main": "index.js",
   "scripts": {
