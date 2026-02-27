@@ -51,6 +51,15 @@ let castService: CastService;
 // Window Creation
 // ============================================================================
 
+function getTitleBarOverlay() {
+    const isDark = nativeTheme.shouldUseDarkColors;
+    return {
+        color: isDark ? '#111111' : '#f5f5f5',
+        symbolColor: isDark ? '#ffffff' : '#000000',
+        height: 40,
+    };
+}
+
 function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow {
     const window = new BrowserWindow({
         width: 1200,
@@ -59,11 +68,7 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
         minHeight: 600,
         backgroundColor: '#111111',
         titleBarStyle: 'hidden',
-        titleBarOverlay: {
-            color: '#111111',
-            symbolColor: '#ffffff',
-            height: 40,
-        },
+        titleBarOverlay: getTitleBarOverlay(),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -124,6 +129,11 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
         mainWindow = null;
     });
 
+    // Update title bar overlay when theme changes
+    nativeTheme.on('updated', () => {
+        window.setTitleBarOverlay(getTitleBarOverlay());
+    });
+
     return window;
 }
 
@@ -177,10 +187,10 @@ async function initializeServices() {
     scrobblerService = new ScrobblerService(database);
     castService = new CastService();
     playerService = new PlayerService(cacheService, scrobblerService, scraperService, castService, database);
-    
+
     const remotePort = process.env.REMOTE_PORT ? parseInt(process.env.REMOTE_PORT, 10) : 9999;
     remoteService = new RemoteControlService(playerService, scraperService, playlistService, authService, database, remotePort);
-    
+
     updaterService = new UpdaterService(isDev);
 
     // Start remote service if enabled
