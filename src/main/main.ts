@@ -130,9 +130,11 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
         mainWindow = null;
     });
 
-    // Update title bar overlay when theme changes
+    // Update title bar overlay when theme changes (Windows only)
     nativeTheme.on('updated', () => {
-        window.setTitleBarOverlay(getTitleBarOverlay());
+        if (process.platform === 'win32') {
+            window.setTitleBarOverlay(getTitleBarOverlay());
+        }
     });
 
     return window;
