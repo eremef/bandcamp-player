@@ -1,11 +1,13 @@
 .container {
     min-height: 100%;
+
 }
 
 /* Header */
 .header {
     padding: var(--spacing-xl);
     background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .backBtn {

@@ -319,6 +319,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         getMainWindow()?.setAlwaysOnTop(value);
         getMiniPlayerWindow()?.setAlwaysOnTop(value);
     });
+    ipcMain.handle(WINDOW_CHANNELS.SET_TITLE_BAR_OVERLAY, (_, { color, symbolColor }: { color: string; symbolColor: string }) => {
+        getMainWindow()?.setTitleBarOverlay({ color, symbolColor, height: 40 });
+    });
 
     // ---- System ----
     ipcMain.handle(SYSTEM_CHANNELS.GET_APP_VERSION, () => app.getVersion());

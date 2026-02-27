@@ -1,6 +1,7 @@
 .container {
     padding: var(--spacing-xl);
     min-height: 100%;
+    border-top: 1px solid var(--border-subtle);
 }
 
 /* Header */

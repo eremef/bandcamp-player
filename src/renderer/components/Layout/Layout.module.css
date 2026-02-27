@@ -11,7 +11,6 @@
     width: 100%;
     height: var(--titlebar-height);
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     flex-shrink: 0;
