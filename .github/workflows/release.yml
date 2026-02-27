@@ -153,9 +153,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/android/gradle.properties', 'mobile/android/build.gradle', 'mobile/android/app/build.gradle', 'mobile/android/gradle/wrapper/gradle-wrapper.properties') }}
+            mobile/android/.gradle/caches
+            mobile/android/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
