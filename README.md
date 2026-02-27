@@ -263,7 +263,7 @@ mobile/
  </picture>
 </a>
 
-## BETA also-known-as..
+## Also-known-as...
 
 - Bandcamp Eccentric Transport App
 - Browse Every Track Anywhere
