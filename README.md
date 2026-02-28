@@ -176,7 +176,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
-- 🎧 **Last.fm Scrobbling** - Track your listening history with native scrobbling in standalone mode
+- 🎧 **Last.fm Scrobbling** - Track your listening history with native scrobbling in standalone mode (do mot use Last.Fm's *Scrobble from...* as it might behave unstably)
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
