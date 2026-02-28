@@ -104,7 +104,7 @@ export default function ConnectScreen() {
                     </View>
 
                     <Text style={[styles.title, { color: colors.text }]}>
-                        {mode === 'remote' ? 'Bandcamp Remote' : 'Bandcamp Standalone'}
+                        {mode === 'remote' ? 'Remote mode' : 'Standalone mode'}
                     </Text>
 
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>

@@ -2,7 +2,7 @@
 
 ## 1. Architecture Overview
 
-The Bandcamp Desktop Player is a desktop application built with **Electron**, leveraging a **React** frontend (Renderer process) and a robust **Node.js** backend (Main process).
+The Beta Player is a desktop application built with **Electron**, leveraging a **React** frontend (Renderer process) and a robust **Node.js** backend (Main process).
 
 - **Main Process**: Handles system integration, file operations, database management (SQLite), web scraping (Cheerio), and audio playback control via system media keys.
 - **Renderer Process**: Provides the user interface using React. Depending on the route, it renders either the main `Layout` or the dedicated compact `MiniPlayer`.

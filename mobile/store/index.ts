@@ -1,6 +1,14 @@
 import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
+
+const runAfterInteractions = (callback: () => void) => {
+    if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(callback);
+    } else {
+        setTimeout(callback, 100);
+    }
+};
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer from 'react-native-track-player';
@@ -248,16 +256,21 @@ export const useStore = create<AppState>((set, get) => ({
         const simMode = await AsyncStorage.getItem('is_simulation_mode');
         set({ isSimulationMode: simMode === 'true' });
 
-        // Data refresh — stagger to avoid SQLite "database is locked" errors
+        // Data refresh — defer to after UI interactions complete for immediate responsiveness
+        // Using requestIdleCallback ensures the UI is rendered first
         if (authState.isAuthenticated) {
-            get().refreshCollection(true);
-            setTimeout(() => {
-                get().refreshPlaylists();
-                get().refreshRadio();
-            }, 200);
+            runAfterInteractions(() => {
+                get().refreshCollection(true);
+                setTimeout(() => {
+                    get().refreshPlaylists();
+                    get().refreshRadio();
+                }, 200);
+            });
         } else {
             // Even if not authenticated, we can refresh radio as it doesn't require session
-            get().refreshRadio();
+            runAfterInteractions(() => {
+                get().refreshRadio();
+            });
         }
     },
 
@@ -316,14 +329,14 @@ export const useStore = create<AppState>((set, get) => ({
             });
 
             if (isActuallyConnected) {
-                // Delay refresh to let the UI settle with the mode change
-                setTimeout(() => {
+                // Defer refresh to after UI interactions complete for immediate responsiveness
+                runAfterInteractions(() => {
                     get().refreshCollection(false);
                     get().refreshPlaylists();
                     get().refreshRadio();
                     get().refreshArtists();
                     get().refreshQueue();
-                }, 100);
+                });
             } else {
                 // Not connected — the connect screen will handle connection
                 // via its autoConnect effect when the UI navigates there
