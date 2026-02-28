@@ -150,7 +150,7 @@ jobs:
           path: |
             ~/.gradle/caches
             ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js') }}
+          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
 
@@ -159,16 +159,15 @@ jobs:
           cd mobile
           npx expo prebuild --platform android
 
-      - name: Build APK & AAB
+      - name: Build APK
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleRelease bundleRelease
+          ./gradlew assembleRelease
 
       - name: Rename Artifacts
         run: |
           mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/beta-player-${{ github.ref_name }}-android.apk
-          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/beta-player-${{ github.ref_name }}-android.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -176,7 +175,6 @@ jobs:
           name: mobile-android
           path: |
             mobile/android/app/build/outputs/apk/release/*.apk
-            mobile/android/app/build/outputs/bundle/release/*.aab
 
   build-ios:
     name: Build iOS (IPA)
