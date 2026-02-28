@@ -64,7 +64,6 @@ function copyAndNormalizeTextFile(srcPath, destPath) {
 // 1. Update Versions
 log('Step 1: Updating version numbers...');
 updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVersion; });
-updateJson(path.join(mobileDir, 'package.json'), (json) => { json.version = newVersion; });
 
 const appConfigPath = path.join(mobileDir, 'app.config.js');
 log(`Updating ${appConfigPath}...`);
