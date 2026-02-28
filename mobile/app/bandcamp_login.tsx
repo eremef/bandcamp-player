@@ -7,7 +7,7 @@ import { mobileAuthService } from '../services/MobileAuthService';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../theme';
-import CookieManager from '@react-native-cookies/cookies';
+import CookieManager from '@preeternal/react-native-cookie-manager';
 
 const LOGIN_URL = 'https://bandcamp.com/login';
 

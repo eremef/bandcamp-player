@@ -3,7 +3,7 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import BandcampLoginScreen from '../../app/bandcamp_login';
 import { useStore } from '../../store';
 import { mobileAuthService } from '../../services/MobileAuthService';
-import CookieManager from '@react-native-cookies/cookies';
+import CookieManager from '@preeternal/react-native-cookie-manager';
 
 // Mock expo-router
 const mockReplace = jest.fn();
@@ -36,7 +36,7 @@ jest.mock('../../services/MobileAuthService', () => ({
     }
 }));
 
-jest.mock('@react-native-cookies/cookies', () => ({
+jest.mock('@preeternal/react-native-cookie-manager', () => ({
     get: jest.fn().mockResolvedValue({
         'session': { value: '123' },
         'identity': { value: 'abc' }
