@@ -35,12 +35,11 @@ export default function AboutScreen() {
                     <Image source={require('../assets/icon.png')} style={styles.logo} />
                 </View>
 
-                <Text style={[styles.appName, { color: colors.text }]}>Bandcamp Remote</Text>
+                <Text style={[styles.appName, { color: colors.text }]}>Beta Player</Text>
                 <Text style={[styles.version, { color: colors.textSecondary }]}>Version {version} (Config {configVersion})</Text>
 
                 <Text style={[styles.description, { color: colors.textSecondary }]}>
-                    A remote control companion for the Bandcamp Desktop Player.
-                    Control playback, browse your collection, and manage your queue from your mobile device.
+                    A remote controller for the desktop Beta Player and standalone mobile player.
                 </Text>
 
                 <TouchableOpacity style={[styles.githubButton, { backgroundColor: colors.accent }]} onPress={handleGithubPress}>
