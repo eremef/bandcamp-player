@@ -18,7 +18,7 @@ description: Prepare release with version {newVersion}
 
 Do NOT perform the following manually:
 
-- **Do not bump versions** in `package.json`, `mobile/package.json`, or `mobile/app.json`.
+- **Do not bump versions** in `package.json`, `mobile/package.json`, or `mobile/app.config.js`.
 - **Do not run `npm install`** manually (unless the script fails).
 - **Do not run `npm test`** manually (the script includes them).
 - **Do not commit, tag, or push** the release changes manually.

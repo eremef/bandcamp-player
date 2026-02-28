@@ -455,7 +455,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <section className={styles.section}>
                         <h3>About</h3>
                         <div className={styles.about}>
-                            <p><strong>Bandcamp Desktop Player</strong></p>
+                            <p><strong>Beta Player</strong></p>
                             <p className={styles.version}>Version {appVersion}</p>
                             {remoteConfig && (
                                 <p className={styles.version}>

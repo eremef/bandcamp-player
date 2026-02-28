@@ -28,7 +28,7 @@ jest.mock('lucide-react-native', () => ({
 describe('AboutScreen', () => {
     it('renders correctly', () => {
         const { getByText } = render(<AboutScreen />);
-        expect(getByText('Bandcamp Remote')).toBeTruthy();
+        expect(getByText('Beta Player')).toBeTruthy();
         expect(getByText(/Version 1\.0\.0-test/)).toBeTruthy();
         expect(getByText('View on GitHub')).toBeTruthy();
     });

@@ -1,6 +1,7 @@
 # BETA (Bandcamp Experimental Transport Assistant) Player
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
+
 ## Desktop App
 
 <p align="center">
@@ -263,7 +264,7 @@ mobile/
  </picture>
 </a>
 
-## Also-Known-As...
+## Also-Known-As
 
 - Bandcamp Eccentric Transport App
 - Browse Every Track Anywhere

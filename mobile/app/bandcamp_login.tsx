@@ -281,7 +281,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                                 // Navigate to explicit login as fallback
                                 router.replace('/bandcamp_login');
                             }
-                        }, 10000);
+                        }, 5000);
                     }}
                     onMessage={handleMessage}
                     injectedJavaScript={extractCookiesJS + credentialsJS}

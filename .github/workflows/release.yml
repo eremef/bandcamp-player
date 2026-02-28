@@ -144,20 +144,20 @@ jobs:
           cd mobile
           npm ci
 
-      - name: Prebuild Android
-        run: |
-          cd mobile
-          npx expo prebuild --platform android
-
       - name: Cache Gradle
         uses: actions/cache@v4
         with:
           path: |
-            mobile/android/.gradle/caches
-            mobile/android/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/package-lock.json', 'mobile/app.config.js') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
+
+      - name: Prebuild Android
+        run: |
+          cd mobile
+          npx expo prebuild --platform android
 
       - name: Build APK & AAB
         run: |
@@ -255,6 +255,15 @@ jobs:
           mkdir release
           find artifacts -type f -exec mv {} release/ \;
 
+      - name: Determine if pre-release
+        id: prerelease
+        run: |
+          if [[ '${{ github.ref_name }}' == *-alpha* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -273,3 +282,4 @@ jobs:
             release/*.blockmap
           generate_release_notes: true
           overwrite_files: true
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}
