@@ -126,13 +126,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -159,6 +152,13 @@ jobs:
         run: |
           cd mobile
           npx expo prebuild --platform android
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
 
       - name: Build APK
         run: |
