@@ -3,44 +3,71 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Expo config plugin that patches the generated Podfile to disable
- * SWIFT_ENABLE_EXPLICIT_MODULES for react-native-volume-manager.
+ * Expo config plugin that fixes react-native-volume-manager for Xcode 16 / Swift 6.
  *
- * react-native-volume-manager's VolumeManagerSilentListener.swift relies on
- * implicit transitive imports of Foundation and React types, which breaks under
- * Xcode 16's strict explicit module compilation. Disabling the flag for only
- * that pod target is the targeted fix.
+ * Two issues:
+ *  1. Swift 6 requires explicit `import Foundation` for @objc attributes.
+ *     The Swift file in the package omits it.
+ *  2. RCTEventEmitter is not visible under Xcode 16's strict explicit module
+ *     compilation. Disabling SWIFT_ENABLE_EXPLICIT_MODULES for just that pod
+ *     restores the legacy module resolution that made it visible.
+ *
+ * The Podfile injection is placed at the very end of the post_install block
+ * so it runs AFTER react_native_post_install and is not overridden.
  */
 function withVolumeManagerFix(config) {
     return withDangerousMod(config, [
         'ios',
         (config) => {
-            const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
-            let content = fs.readFileSync(podfilePath, 'utf-8');
-
-            const marker = '# withVolumeManagerFix: disable explicit modules';
-            if (content.includes(marker)) {
-                return config;
+            // Fix 1: add `import Foundation` to VolumeManagerSilentListener.swift.
+            // Swift 6 requires this explicitly when using @objc or NSNumber.
+            const swiftFilePath = path.join(
+                config.modRequest.projectRoot,
+                'node_modules',
+                'react-native-volume-manager',
+                'ios',
+                'VolumeManagerSilentListener.swift',
+            );
+            if (fs.existsSync(swiftFilePath)) {
+                const swiftContent = fs.readFileSync(swiftFilePath, 'utf-8');
+                if (!swiftContent.includes('import Foundation')) {
+                    fs.writeFileSync(swiftFilePath, 'import Foundation\n' + swiftContent);
+                }
             }
 
-            const fix = [
-                `  ${marker}`,
-                `  installer.pods_project.targets.each do |target|`,
-                `    if target.name == 'react-native-volume-manager'`,
-                `      target.build_configurations.each do |config|`,
-                `        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'`,
-                `      end`,
-                `    end`,
-                `  end`,
-                ``,
-            ].join('\n');
+            // Fix 2: disable SWIFT_ENABLE_EXPLICIT_MODULES for the pod so
+            // RCTEventEmitter is resolved via the legacy module system.
+            // Inject at the END of post_install so react_native_post_install
+            // doesn't override it.
+            const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+            let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
-            content = content.replace(
-                /^(post_install do \|installer\|)$/m,
-                `$1\n${fix}`,
-            );
+            const marker = '# withVolumeManagerFix';
+            if (!podfileContent.includes(marker)) {
+                const fix = [
+                    `  ${marker}`,
+                    `  installer.pods_project.targets.each do |target|`,
+                    `    if target.name == 'react-native-volume-manager'`,
+                    `      target.build_configurations.each do |config|`,
+                    `        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'`,
+                    `      end`,
+                    `    end`,
+                    `  end`,
+                ].join('\n');
 
-            fs.writeFileSync(podfilePath, content);
+                // Insert before the very last `end` in the file, which closes
+                // the post_install block.
+                const lastEnd = podfileContent.lastIndexOf('\nend');
+                if (lastEnd !== -1) {
+                    podfileContent =
+                        podfileContent.slice(0, lastEnd) +
+                        '\n' + fix +
+                        '\nend' +
+                        podfileContent.slice(lastEnd + '\nend'.length);
+                    fs.writeFileSync(podfilePath, podfileContent);
+                }
+            }
+
             return config;
         },
     ]);
