@@ -34,7 +34,8 @@
       "Bash(done)",
       "Bash(grep *)",
       "Bash(xargs grep *)",
-      "WebFetch(domain:docs.expo.dev)"
+      "WebFetch(domain:docs.expo.dev)",
+      "Bash(node --version)"
     ],
     "additionalDirectories": [
       "d:\\eremef\\Documents\\AI\\antigravity\\Bandcamp-player\\docs"
