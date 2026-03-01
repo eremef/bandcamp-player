@@ -218,6 +218,8 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
+            SWIFT_VERSION=5 \
+            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
             OTHER_SWIFT_FLAGS="-strict-concurrency=minimal" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
