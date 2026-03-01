@@ -49,8 +49,8 @@ async function processIcon() {
     };
 
     // Electron
-    await saveResized('icon.png', 512, 512, ELECTRON_ICON_DIR);
-    await saveResized('512x512.png', 512, 512, ELECTRON_ICON_DIR);
+    await saveResized('icon.png', 256, 256, ELECTRON_ICON_DIR);
+    await saveResized('tray.png', 32, 32, ELECTRON_ICON_DIR);
 
     // .ico
     // Generate a 256x256 temp for ICO to avoid issues with large source
@@ -73,7 +73,7 @@ async function processIcon() {
     }
 
     // Mobile
-    await saveResized('icon.png', 1024, 1024, MOBILE_ICON_DIR);
+    await saveResized('icon.png', 256, 256, MOBILE_ICON_DIR);
     await saveResized('splash-icon.png', 512, 512, MOBILE_ICON_DIR);
     await saveResized('favicon.png', 48, 48, MOBILE_ICON_DIR);
 

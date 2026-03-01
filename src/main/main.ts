@@ -69,7 +69,7 @@ function createMainWindow(options: { forceShow?: boolean } = {}): BrowserWindow 
         minHeight: 600,
         frame: false,
         titleBarStyle: 'hidden',
-        titleBarOverlay: getTitleBarOverlay(),
+        ...(process.platform !== 'linux' && { titleBarOverlay: getTitleBarOverlay() }),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,

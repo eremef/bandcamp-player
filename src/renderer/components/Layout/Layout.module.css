@@ -32,6 +32,35 @@
     -webkit-app-region: drag;
 }
 
+.windowControls {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    -webkit-app-region: no-drag;
+}
+
+.windowButton {
+    width: 46px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.windowButton:hover {
+    background: var(--hover-bg, rgba(128, 128, 128, 0.2));
+}
+
+.closeButton:hover {
+    background: #e81123;
+    color: #ffffff;
+}
+
 .main {
     display: flex;
     flex: 1;

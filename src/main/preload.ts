@@ -222,6 +222,7 @@ const electronAPI = {
 
     // ---- System ----
     system: {
+        platform: process.platform,
         getAppVersion: (): Promise<string> => ipcRenderer.invoke(SYSTEM_CHANNELS.GET_APP_VERSION),
         openExternal: (url: string): Promise<void> =>
             ipcRenderer.invoke(SYSTEM_CHANNELS.OPEN_EXTERNAL, url),
