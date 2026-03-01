@@ -3,14 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Expo config plugin that fixes react-native-volume-manager for Xcode 16 / Swift 6.
+ * Expo config plugin that patches react-native-volume-manager's Swift file
+ * to add `import Foundation` (required by Swift 6 for @objc attributes).
  *
- * Swift 6 requires explicit `import Foundation` for @objc attributes and NSNumber.
- * The VolumeManagerSilentListener.swift file in the package omits it.
- *
- * The companion fix for RCTEventEmitter visibility (SWIFT_ENABLE_EXPLICIT_MODULES=NO)
- * is applied via the xcodebuild command-line flag in the CI workflow, which has the
- * highest priority in Xcode's build setting hierarchy.
+ * The broader Xcode 16 explicit modules issue is handled separately:
+ * - CI: Ruby script patches Pods.xcodeproj after pod install
+ * - Local: run the same script or pass SWIFT_ENABLE_EXPLICIT_MODULES=NO to xcodebuild
  */
 function withVolumeManagerFix(config) {
     return withDangerousMod(config, [
@@ -26,18 +24,8 @@ function withVolumeManagerFix(config) {
                 );
                 if (fs.existsSync(swiftFilePath)) {
                     const content = fs.readFileSync(swiftFilePath, 'utf-8');
-                    let patched = false;
-                    let updated = content;
-                    if (!updated.includes('import Foundation')) {
-                        updated = 'import Foundation\n' + updated;
-                        patched = true;
-                    }
-                    if (!updated.includes('import React')) {
-                        updated = 'import React\n' + updated;
-                        patched = true;
-                    }
-                    if (patched) {
-                        fs.writeFileSync(swiftFilePath, updated);
+                    if (!content.includes('import Foundation')) {
+                        fs.writeFileSync(swiftFilePath, 'import Foundation\n' + content);
                         console.log('[withVolumeManagerFix] Patched VolumeManagerSilentListener.swift');
                     }
                 }

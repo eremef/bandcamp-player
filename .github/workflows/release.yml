@@ -209,6 +209,20 @@ jobs:
           cd mobile/ios
           pod install
 
+      - name: Disable explicit Swift modules for pods (Xcode 16 compat)
+        run: |
+          ruby <<'RUBY'
+          require 'xcodeproj'
+          project = Xcodeproj::Project.open('mobile/ios/Pods/Pods.xcodeproj')
+          project.targets.each do |target|
+            target.build_configurations.each do |config|
+              config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
+            end
+          end
+          project.save
+          puts "Disabled SWIFT_ENABLE_EXPLICIT_MODULES for #{project.targets.count} pod targets"
+          RUBY
+
       - name: Discover iOS project name
         id: ios-project
         run: |
