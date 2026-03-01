@@ -1,5 +1,5 @@
 /**
- * Core domain types for the Bandcamp Player application
+ * Core domain types for the Beta Player application
  */
 
 // ============================================================================
