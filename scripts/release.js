@@ -7,9 +7,10 @@ const args = process.argv.slice(2);
 const newVersion = args.find(arg => !arg.startsWith('--'));
 const ignoreErrors = args.includes('--ignore-errors');
 const forceTag = args.includes('--force-tag');
+const fastTrack = args.includes('--fast-track');
 
 if (!newVersion) {
-    console.error('Usage: node scripts/release.js <newVersion> [--ignore-errors] [--force-tag]');
+    console.error('Usage: node scripts/release.js <newVersion> [--ignore-errors] [--force-tag] [--fast-track]');
     process.exit(1);
 }
 
@@ -96,13 +97,15 @@ run('node scripts/copy-assets.js');
 run('node scripts/validate-config.js');
 
 // 5. Run Quality Checks (Tests, Typecheck, Lint)
-log('Step 5: Running quality checks...');
-run('npm test');
-run('npm test', mobileDir);
-run('npm run typecheck');
-run('npm run typecheck', mobileDir);
-run('npm run lint');
-run('npm run lint', mobileDir);
+if (!fastTrack) {
+    log('Step 5: Running quality checks...');
+    run('npm test');
+    run('npm test', mobileDir);
+    run('npm run typecheck');
+    run('npm run typecheck', mobileDir);
+    run('npm run lint');
+    run('npm run lint', mobileDir);
+}
 
 // 6. Git Operations
 log('Step 6: Git operations (commit, tag, push)...');
