@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.1-alpha.19",
+  "version": "1.8.1-alpha.20",
   "productName": "Beta-Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
