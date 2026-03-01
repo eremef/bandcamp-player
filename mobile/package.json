@@ -2,6 +2,13 @@
   "name": "xyz.eremef.beta",
   "productName": "Beta-Player",
   "main": "index.js",
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "exclude": ["react-native-volume-manager"]
+      }
+    }
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
