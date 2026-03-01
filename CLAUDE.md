@@ -8,7 +8,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Database**: better-sqlite3 (SQLite with FTS5 for full-text search)
 - **Scraping**: Cheerio (no official Bandcamp API exists)
 - **Testing**: Vitest + happy-dom (unit), Playwright (E2E)
-- **Mobile**: React Native via Expo 54, expo-router, react-native-track-player
+- **Mobile**: React Native via Expo (version in mobile/package.json), expo-router, react-native-track-player
 
 ## Repository Structure
 
