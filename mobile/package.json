@@ -23,7 +23,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.1.2",
     "cheerio": "1.0.0-rc.12",
-    "expo": "^55.0.4",
+    "expo": "~55.0.2",
     "expo-asset": "~55.0.8",
     "expo-background-fetch": "~55.0.9",
     "expo-build-properties": "~55.0.9",
