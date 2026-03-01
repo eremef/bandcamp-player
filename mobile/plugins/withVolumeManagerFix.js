@@ -19,53 +19,61 @@ function withVolumeManagerFix(config) {
     return withDangerousMod(config, [
         'ios',
         (config) => {
-            // Fix 1: add `import Foundation` to VolumeManagerSilentListener.swift.
-            // Swift 6 requires this explicitly when using @objc or NSNumber.
-            const swiftFilePath = path.join(
-                config.modRequest.projectRoot,
-                'node_modules',
-                'react-native-volume-manager',
-                'ios',
-                'VolumeManagerSilentListener.swift',
-            );
-            if (fs.existsSync(swiftFilePath)) {
-                const swiftContent = fs.readFileSync(swiftFilePath, 'utf-8');
-                if (!swiftContent.includes('import Foundation')) {
-                    fs.writeFileSync(swiftFilePath, 'import Foundation\n' + swiftContent);
+            // Fix 1: add `import Foundation` to VolumeManagerSilentListener.swift
+            try {
+                const swiftFilePath = path.join(
+                    config.modRequest.projectRoot,
+                    'node_modules',
+                    'react-native-volume-manager',
+                    'ios',
+                    'VolumeManagerSilentListener.swift',
+                );
+                if (fs.existsSync(swiftFilePath)) {
+                    const swiftContent = fs.readFileSync(swiftFilePath, 'utf-8');
+                    if (!swiftContent.includes('import Foundation')) {
+                        fs.writeFileSync(swiftFilePath, 'import Foundation\n' + swiftContent);
+                        console.log('[withVolumeManagerFix] Patched VolumeManagerSilentListener.swift with import Foundation');
+                    }
                 }
+            } catch (e) {
+                console.warn('[withVolumeManagerFix] Failed to patch Swift file:', e.message);
             }
 
-            // Fix 2: disable SWIFT_ENABLE_EXPLICIT_MODULES for the pod so
-            // RCTEventEmitter is resolved via the legacy module system.
-            // Inject at the END of post_install so react_native_post_install
-            // doesn't override it.
-            const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
-            let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
+            // Fix 2: disable SWIFT_ENABLE_EXPLICIT_MODULES for the pod
+            try {
+                const podfilePath = path.join(config.modRequest.platformProjectRoot, 'Podfile');
+                if (fs.existsSync(podfilePath)) {
+                    let podfileContent = fs.readFileSync(podfilePath, 'utf-8');
 
-            const marker = '# withVolumeManagerFix';
-            if (!podfileContent.includes(marker)) {
-                const fix = [
-                    `  ${marker}`,
-                    `  installer.pods_project.targets.each do |target|`,
-                    `    if target.name == 'react-native-volume-manager'`,
-                    `      target.build_configurations.each do |config|`,
-                    `        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'`,
-                    `      end`,
-                    `    end`,
-                    `  end`,
-                ].join('\n');
+                    const marker = '# withVolumeManagerFix';
+                    if (!podfileContent.includes(marker)) {
+                        const fix = [
+                            `  ${marker}`,
+                            `  installer.pods_project.targets.each do |target|`,
+                            `    if target.name == 'react-native-volume-manager'`,
+                            `      target.build_configurations.each do |config|`,
+                            `        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'`,
+                            `      end`,
+                            `    end`,
+                            `  end`,
+                        ].join('\n');
 
-                // Insert before the very last `end` in the file, which closes
-                // the post_install block.
-                const lastEnd = podfileContent.lastIndexOf('\nend');
-                if (lastEnd !== -1) {
-                    podfileContent =
-                        podfileContent.slice(0, lastEnd) +
-                        '\n' + fix +
-                        '\nend' +
-                        podfileContent.slice(lastEnd + '\nend'.length);
-                    fs.writeFileSync(podfilePath, podfileContent);
+                        const lastEnd = podfileContent.lastIndexOf('\nend');
+                        if (lastEnd !== -1) {
+                            podfileContent =
+                                podfileContent.slice(0, lastEnd) +
+                                '\n' + fix +
+                                '\nend' +
+                                podfileContent.slice(lastEnd + '\nend'.length);
+                            fs.writeFileSync(podfilePath, podfileContent);
+                            console.log('[withVolumeManagerFix] Patched Podfile with SWIFT_ENABLE_EXPLICIT_MODULES=NO');
+                        } else {
+                            console.warn('[withVolumeManagerFix] Could not find closing end in Podfile');
+                        }
+                    }
                 }
+            } catch (e) {
+                console.warn('[withVolumeManagerFix] Failed to patch Podfile:', e.message);
             }
 
             return config;

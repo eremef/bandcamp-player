@@ -204,17 +204,27 @@ jobs:
           cd mobile
           npx expo prebuild --platform ios
 
+      - name: Install CocoaPods
+        run: |
+          cd mobile/ios
+          pod install
+
       - name: Discover iOS project name
         id: ios-project
         run: |
           WORKSPACE=$(basename mobile/ios/*.xcworkspace .xcworkspace)
+          if [ "$WORKSPACE" = "*" ]; then
+            echo "::error::No .xcworkspace found in mobile/ios/"
+            ls -la mobile/ios/ 2>/dev/null || echo "mobile/ios/ does not exist"
+            exit 1
+          fi
           echo "name=$WORKSPACE" >> $GITHUB_OUTPUT
 
       - name: Build iOS App
         run: |
           cd mobile/ios
-          xcodebuild -workspace ${{ steps.ios-project.outputs.name }}.xcworkspace \
-            -scheme ${{ steps.ios-project.outputs.name }} \
+          xcodebuild -workspace "${{ steps.ios-project.outputs.name }}.xcworkspace" \
+            -scheme "${{ steps.ios-project.outputs.name }}" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
