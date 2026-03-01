@@ -22,7 +22,7 @@ export function LoginPrompt() {
                             />
                         </svg>
                     </div>
-                    <h1 className={styles.title}>Bandcamp Player</h1>
+                    <h1 className={styles.title}>Beta Player</h1>
                     <p className={styles.subtitle}>
                         Your personal music collection, offline-ready
                     </p>
