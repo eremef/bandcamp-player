@@ -42,7 +42,7 @@ export function MiniPlayer() {
                 {/* Info */}
                 <div className={styles.info}>
                     <div className={styles.title}>{currentTrack?.title || 'Not Playing'}</div>
-                    <div className={styles.artist}>{currentTrack?.artist || 'Bandcamp Player'}</div>
+                    <div className={styles.artist}>{currentTrack?.artist || 'Beta Player'}</div>
                 </div>
 
                 {/* Controls */}

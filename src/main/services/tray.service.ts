@@ -40,7 +40,7 @@ export class TrayService {
         }
 
         this.tray = new Tray(icon);
-        this.tray.setToolTip('Bandcamp Player');
+        this.tray.setToolTip('Beta Player');
 
         // Set up context menu
         this.updateContextMenu();
@@ -73,7 +73,7 @@ export class TrayService {
             {
                 label: playerState.currentTrack
                     ? `${playerState.currentTrack.title} - ${playerState.currentTrack.artist}`
-                    : 'Bandcamp Player',
+                    : 'Beta Player',
                 enabled: false,
             },
             { type: 'separator' },
@@ -143,7 +143,7 @@ export class TrayService {
                 `${playerState.currentTrack.title}\n${playerState.currentTrack.artist}`
             );
         } else {
-            this.tray.setToolTip('Bandcamp Player');
+            this.tray.setToolTip('Beta Player');
         }
     }
 
