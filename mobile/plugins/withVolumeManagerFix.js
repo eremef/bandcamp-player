@@ -26,8 +26,18 @@ function withVolumeManagerFix(config) {
                 );
                 if (fs.existsSync(swiftFilePath)) {
                     const content = fs.readFileSync(swiftFilePath, 'utf-8');
-                    if (!content.includes('import Foundation')) {
-                        fs.writeFileSync(swiftFilePath, 'import Foundation\n' + content);
+                    let patched = false;
+                    let updated = content;
+                    if (!updated.includes('import Foundation')) {
+                        updated = 'import Foundation\n' + updated;
+                        patched = true;
+                    }
+                    if (!updated.includes('import React')) {
+                        updated = 'import React\n' + updated;
+                        patched = true;
+                    }
+                    if (patched) {
+                        fs.writeFileSync(swiftFilePath, updated);
                         console.log('[withVolumeManagerFix] Patched VolumeManagerSilentListener.swift');
                     }
                 }
