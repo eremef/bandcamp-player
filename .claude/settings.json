@@ -33,7 +33,8 @@
       "Bash(xargs -I {} basename {})",
       "Bash(done)",
       "Bash(grep *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "WebFetch(domain:docs.expo.dev)"
     ],
     "additionalDirectories": [
       "d:\\eremef\\Documents\\AI\\antigravity\\Bandcamp-player\\docs"

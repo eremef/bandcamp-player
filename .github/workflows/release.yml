@@ -179,7 +179,7 @@ jobs:
 
   build-ios:
     name: Build iOS (IPA)
-    runs-on: macos-latest
+    runs-on: macos-26
     permissions:
       contents: read
 
@@ -204,25 +204,6 @@ jobs:
           cd mobile
           npx expo prebuild --platform ios
 
-      - name: Install CocoaPods
-        run: |
-          cd mobile/ios
-          pod install
-
-      - name: Disable explicit Swift modules for pods (Xcode 16 compat)
-        run: |
-          ruby <<'RUBY'
-          require 'xcodeproj'
-          project = Xcodeproj::Project.open('mobile/ios/Pods/Pods.xcodeproj')
-          project.targets.each do |target|
-            target.build_configurations.each do |config|
-              config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
-            end
-          end
-          project.save
-          puts "Disabled SWIFT_ENABLE_EXPLICIT_MODULES for #{project.targets.count} pod targets"
-          RUBY
-
       - name: Discover iOS project name
         id: ios-project
         run: |
@@ -242,8 +223,6 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath build \
-            SWIFT_VERSION=5 \
-            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
             OTHER_SWIFT_FLAGS="-strict-concurrency=minimal" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
