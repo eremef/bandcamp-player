@@ -179,7 +179,7 @@ jobs:
 
   build-ios:
     name: Build iOS (IPA)
-    runs-on: macos-latest
+    runs-on: macos-14
     permissions:
       contents: read
 
