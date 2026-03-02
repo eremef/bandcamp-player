@@ -49,7 +49,7 @@ async function processIcon() {
     };
 
     // Electron
-    await saveResized('icon.png', 256, 256, ELECTRON_ICON_DIR);
+    await saveResized('icon.png', 512, 512, ELECTRON_ICON_DIR);
     await saveResized('tray.png', 32, 32, ELECTRON_ICON_DIR);
 
     // .ico
