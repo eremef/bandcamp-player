@@ -257,7 +257,7 @@ jobs:
 
   release:
     name: Release
-    needs: [build-desktop-windows, build-desktop-linux, build-desktop-macos, build-android]
+    needs: [build-desktop-windows, build-desktop-linux, build-desktop-macos, build-android, build-ios]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:
