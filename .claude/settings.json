@@ -46,7 +46,8 @@
       "Bash(where node)",
       "Bash(node.exe -e \"const http=require\\(''http''\\),fs=require\\(''fs''\\),path=require\\(''path''\\);const dir=''d:/eremef/Documents/AI/antigravity/Bandcamp-player/site'';const s=http.createServer\\(\\(q,r\\)=>{const f=path.join\\(dir,q.url===''/''?''index.html'':q.url.slice\\(1\\)\\);const ext=path.extname\\(f\\);const ct={''.html'':''text/html'',''.png'':''image/png'',''.js'':''text/javascript'',''.css'':''text/css''}[ext]||''application/octet-stream'';fs.readFile\\(f,\\(e,d\\)=>{if\\(e\\){r.writeHead\\(404\\);r.end\\(\\);}else{r.writeHead\\(200,{''Content-Type'':ct}\\);r.end\\(d\\);}}\\);}\\);s.listen\\(8321,\\(\\)=>console.log\\(''listening on 8321''\\)\\);\")",
       "mcp__plugin_playwright_playwright__browser_take_screenshot",
-      "mcp__plugin_playwright_playwright__browser_close"
+      "mcp__plugin_playwright_playwright__browser_close",
+      "Bash(./gradlew.bat app:assembleDebug -x lint -x test --configure-on-demand --build-cache -PreactNativeArchitectures=arm64-v8a,armeabi-v7a)"
     ],
     "additionalDirectories": [
       "d:\\eremef\\Documents\\AI\\antigravity\\Bandcamp-player\\docs"
