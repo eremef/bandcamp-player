@@ -1,8 +1,11 @@
 import md5 from 'js-md5';
+import * as SecureStore from 'expo-secure-store';
 import { remoteConfigService } from '@shared/remote-config.service';
 import { mobileDatabase } from './MobileDatabase';
 import { useStore } from '../store';
 import type { Track, LastfmState, LastfmUser } from '@shared/types';
+
+const LASTFM_SESSION_KEY = 'lastfm_session_key';
 
 // ============================================================================
 // Mobile Last.fm Scrobbler Service (Standalone Mode)
@@ -44,8 +47,21 @@ class MobileScrobblerService {
 
     async loadSession(): Promise<void> {
         try {
-            const settings = await mobileDatabase.getSettings();
-            const key = settings.lastfmSessionKey as string | undefined;
+            // Try SecureStore first
+            let key = await SecureStore.getItemAsync(LASTFM_SESSION_KEY);
+
+            // Migrate from SQLite if present (one-time migration for existing users)
+            if (!key) {
+                const settings = await mobileDatabase.getSettings();
+                const legacyKey = settings.lastfmSessionKey as string | undefined;
+                if (legacyKey) {
+                    key = legacyKey;
+                    await SecureStore.setItemAsync(LASTFM_SESSION_KEY, key);
+                    await mobileDatabase.setSetting('lastfmSessionKey', null);
+                    console.log('[MobileScrobbler] Migrated session key to SecureStore');
+                }
+            }
+
             if (key) {
                 this.sessionKey = key;
                 await this.verifySession();
@@ -75,7 +91,7 @@ class MobileScrobblerService {
                 url: `https://www.last.fm/user/${data.session.name}`,
             };
 
-            await mobileDatabase.setSetting('lastfmSessionKey', this.sessionKey);
+            await SecureStore.setItemAsync(LASTFM_SESSION_KEY, this.sessionKey!);
             return this.getState();
         }
 
@@ -110,14 +126,14 @@ class MobileScrobblerService {
         } catch {
             this.sessionKey = null;
             this.user = null;
-            await mobileDatabase.setSetting('lastfmSessionKey', null);
+            await SecureStore.deleteItemAsync(LASTFM_SESSION_KEY);
         }
     }
 
     async disconnect(): Promise<void> {
         this.sessionKey = null;
         this.user = null;
-        await mobileDatabase.setSetting('lastfmSessionKey', null);
+        await SecureStore.deleteItemAsync(LASTFM_SESSION_KEY);
     }
 
     getState(): LastfmState {
