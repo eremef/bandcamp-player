@@ -2,9 +2,7 @@
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
 
-<p align="center">
- <img width="1685" height="905" alt="beta" src="https://github.com/user-attachments/assets/c776791f-cd6f-4e69-9664-688299891add" />
-</p>
+![Presentation of both desktop and mobile apps](https://github.com/user-attachments/assets/7024b79d-28c6-47ed-8f11-212dd9245eae "Beta Player (desktop and mobile apps)")
 
 ## Download
 
