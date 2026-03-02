@@ -2,7 +2,11 @@
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
 
-## [Download](https://eremef.xyz/beta-player)
+## Download
+
+**Download links**
+- https://github.com/eremef/bandcamp-player/releases/latest - raw release files
+- https://eremef.xyz/beta-player - more convenient download page
 
 ## Desktop App
 
