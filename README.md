@@ -2,6 +2,10 @@
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
 
+<p align="center">
+ <img width="1685" height="905" alt="beta" src="https://github.com/user-attachments/assets/c776791f-cd6f-4e69-9664-688299891add" />
+</p>
+
 ## Download
 
 **Download links**
@@ -10,11 +14,8 @@ The Unofficial multi-platform Bandcamp desktop player with mobile remote control
 
 ## Desktop App
 
-<p align="center">
- <img width="800" alt="image" src="https://github.com/user-attachments/assets/7216ad2d-d35e-4538-b84d-549e8f3224af" />
-</p>
 
-AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls and many more!
+AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more!
 
 >⚠️ **Attention** ⚠️
 >
@@ -164,10 +165,6 @@ src/
 8. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile App (Remote control & Standalone Player)
-
-<p align="center">
- <img width="400" alt="image" src="https://github.com/user-attachments/assets/ce31405d-d8b1-46f6-ae8f-ab6aeeeba576" />
-</p>
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
 
