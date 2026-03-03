@@ -1,4 +1,4 @@
-# BETA (Bandcamp Experimental Transport Assistant) Player
+# Bandcamp Experimental Transport Assistant
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
 
