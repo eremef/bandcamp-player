@@ -7,40 +7,40 @@
 // ============================================================================
 
 export interface Track {
-    id: string;
-    title: string;
-    artist: string;
-    artistId?: string;
-    album: string;
-    albumId?: string;
-    duration: number; // in seconds
-    trackNumber?: number;
-    artworkUrl: string;
-    streamUrl: string;
-    bandcampUrl: string;
-    isCached: boolean;
-    cachedPath?: string;
-    playlistEntryId?: string;
-    radioStationId?: string; // For radio stations added to playlists - resolved lazily
+  id: string;
+  title: string;
+  artist: string;
+  artistId?: string;
+  album: string;
+  albumId?: string;
+  duration: number; // in seconds
+  trackNumber?: number;
+  artworkUrl: string;
+  streamUrl: string;
+  bandcampUrl: string;
+  isCached: boolean;
+  cachedPath?: string;
+  playlistEntryId?: string;
+  radioStationId?: string; // For radio stations added to playlists - resolved lazily
 }
 
 export interface Album {
-    id: string;
-    title: string;
-    artist: string;
-    artistId?: string;
-    artworkUrl: string;
-    bandcampUrl: string;
-    releaseDate?: string;
-    tracks: Track[];
-    trackCount: number;
+  id: string;
+  title: string;
+  artist: string;
+  artistId?: string;
+  artworkUrl: string;
+  bandcampUrl: string;
+  releaseDate?: string;
+  tracks: Track[];
+  trackCount: number;
 }
 
 export interface Artist {
-    id: string;
-    name: string;
-    bandcampUrl: string;
-    imageUrl?: string;
+  id: string;
+  name: string;
+  bandcampUrl: string;
+  imageUrl?: string;
 }
 
 // ============================================================================
@@ -48,21 +48,21 @@ export interface Artist {
 // ============================================================================
 
 export interface CollectionItem {
-    id: string;
-    type: 'album' | 'track';
-    token?: string;
-    album?: Album;
-    track?: Track;
-    purchaseDate: string;
+  id: string;
+  type: "album" | "track";
+  token?: string;
+  album?: Album;
+  track?: Track;
+  purchaseDate: string;
 }
 
 export interface Collection {
-    items: CollectionItem[];
-    totalCount: number;
-    lastUpdated: string;
-    isSimulated?: boolean;
-    offset?: number;
-    limit?: number;
+  items: CollectionItem[];
+  totalCount: number;
+  lastUpdated: string;
+  isSimulated?: boolean;
+  offset?: number;
+  limit?: number;
 }
 
 // ============================================================================
@@ -70,26 +70,26 @@ export interface Collection {
 // ============================================================================
 
 export interface Playlist {
-    id: string;
-    name: string;
-    description?: string;
-    tracks: Track[];
-    trackCount: number;
-    totalDuration: number; // in seconds
-    artworkUrl?: string; // First track's artwork or custom
-    createdAt: string;
-    updatedAt: string;
+  id: string;
+  name: string;
+  description?: string;
+  tracks: Track[];
+  trackCount: number;
+  totalDuration: number; // in seconds
+  artworkUrl?: string; // First track's artwork or custom
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PlaylistCreateInput {
-    name: string;
-    description?: string;
+  name: string;
+  description?: string;
 }
 
 export interface PlaylistUpdateInput {
-    id: string;
-    name?: string;
-    description?: string;
+  id: string;
+  name?: string;
+  description?: string;
 }
 
 // ============================================================================
@@ -97,39 +97,39 @@ export interface PlaylistUpdateInput {
 // ============================================================================
 
 export interface QueueItem {
-    id: string; // Unique queue item ID
-    track: Track;
-    source: 'collection' | 'playlist' | 'radio' | 'search';
-    sourceId?: string; // Playlist ID if from playlist
-    radioStation?: RadioStation; // Store radio station for lazy loading
+  id: string; // Unique queue item ID
+  track: Track;
+  source: "collection" | "playlist" | "radio" | "search";
+  sourceId?: string; // Playlist ID if from playlist
+  radioStation?: RadioStation; // Store radio station for lazy loading
 }
 
 export interface Queue {
-    items: QueueItem[];
-    currentIndex: number;
-    shuffleOrder?: number[]; // Indices for shuffle mode
+  items: QueueItem[];
+  currentIndex: number;
+  shuffleOrder?: number[]; // Indices for shuffle mode
 }
 
 // ============================================================================
 // Player State Types
 // ============================================================================
 
-export type RepeatMode = 'off' | 'one' | 'all';
-export type Theme = 'light' | 'dark' | 'system';
+export type RepeatMode = "off" | "one" | "all";
+export type Theme = "light" | "dark" | "system";
 
 export interface PlayerState {
-    isPlaying: boolean;
-    currentTrack: Track | null;
-    currentTime: number;
-    duration: number;
-    volume: number; // 0-1
-    isMuted: boolean;
-    repeatMode: RepeatMode;
-    isShuffled: boolean;
-    queue: Queue;
-    isCasting: boolean;
-    castDevice?: CastDevice;
-    error?: string | null;
+  isPlaying: boolean;
+  currentTrack: Track | null;
+  currentTime: number;
+  duration: number;
+  volume: number; // 0-1
+  isMuted: boolean;
+  repeatMode: RepeatMode;
+  isShuffled: boolean;
+  queue: Queue;
+  isCasting: boolean;
+  castDevice?: CastDevice;
+  error?: string | null;
 }
 
 // ============================================================================
@@ -137,19 +137,19 @@ export interface PlayerState {
 // ============================================================================
 
 export interface RadioStation {
-    id: string;
-    name: string;
-    description?: string;
-    imageUrl?: string;
-    streamUrl: string;
-    date?: string;
-    duration?: number;
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  streamUrl: string;
+  date?: string;
+  duration?: number;
 }
 
 export interface RadioState {
-    isActive: boolean;
-    currentStation: RadioStation | null;
-    currentTrack: Track | null;
+  isActive: boolean;
+  currentStation: RadioStation | null;
+  currentTrack: Track | null;
 }
 
 // ============================================================================
@@ -157,17 +157,17 @@ export interface RadioState {
 // ============================================================================
 
 export interface BandcampUser {
-    id: string;
-    username: string;
-    displayName?: string;
-    avatarUrl?: string;
-    profileUrl: string;
+  id: string;
+  username: string;
+  displayName?: string;
+  avatarUrl?: string;
+  profileUrl: string;
 }
 
 export interface AuthState {
-    isAuthenticated: boolean;
-    user: BandcampUser | null;
-    sessionExpiry?: string;
+  isAuthenticated: boolean;
+  user: BandcampUser | null;
+  sessionExpiry?: string;
 }
 
 // ============================================================================
@@ -175,22 +175,22 @@ export interface AuthState {
 // ============================================================================
 
 export interface LastfmUser {
-    name: string;
-    url: string;
-    imageUrl?: string;
+  name: string;
+  url: string;
+  imageUrl?: string;
 }
 
 export interface LastfmState {
-    isConnected: boolean;
-    user: LastfmUser | null;
+  isConnected: boolean;
+  user: LastfmUser | null;
 }
 
 export interface ScrobbleData {
-    artist: string;
-    track: string;
-    album?: string;
-    duration?: number;
-    timestamp: number;
+  artist: string;
+  track: string;
+  album?: string;
+  duration?: number;
+  timestamp: number;
 }
 
 // ============================================================================
@@ -198,30 +198,33 @@ export interface ScrobbleData {
 // ============================================================================
 
 export interface AppSettings {
-    // Cache settings
-    cacheEnabled: boolean;
-    cacheMaxSizeGB: number;
-    cacheLocation: string;
+  // Cache settings
+  cacheEnabled: boolean;
+  cacheMaxSizeGB: number;
+  cacheLocation: string;
 
-    // Playback settings
-    defaultVolume: number;
-    crossfadeDuration: number; // in seconds, 0 = disabled
+  // Playback settings
+  defaultVolume: number;
+  crossfadeDuration: number; // in seconds, 0 = disabled
 
-    // UI settings
-    startMinimized: boolean;
-    minimizeToTray: boolean;
-    showNotifications: boolean;
-    remoteEnabled: boolean;
-    theme: Theme;
+  // UI settings
+  startMinimized: boolean;
+  minimizeToTray: boolean;
+  showNotifications: boolean;
+  remoteEnabled: boolean;
+  theme: Theme;
 
-    // Scrobbling
-    scrobblingEnabled: boolean;
-    scrobbleThreshold: number; // percentage (0-100)
+  // Offline mode
+  offlineMode: boolean;
 
-    // Last.fm credentials (encrypted)
-    lastfmSessionKey?: string;
-    lastfmApiKey?: string;
-    lastfmApiSecret?: string;
+  // Scrobbling
+  scrobblingEnabled: boolean;
+  scrobbleThreshold: number; // percentage (0-100)
+
+  // Last.fm credentials (encrypted)
+  lastfmSessionKey?: string;
+  lastfmApiKey?: string;
+  lastfmApiSecret?: string;
 }
 
 // ============================================================================
@@ -229,33 +232,41 @@ export interface AppSettings {
 // ============================================================================
 
 export interface CacheEntry {
-    trackId: string;
-    filePath: string;
-    fileSize: number; // in bytes
-    cachedAt: string;
-    lastAccessedAt: string;
+  trackId: string;
+  albumId?: string;
+  filePath: string;
+  fileSize: number; // in bytes
+  cachedAt: string;
+  lastAccessedAt: string;
 }
 
 export interface CacheStats {
-    totalSize: number; // in bytes
-    trackCount: number;
-    maxSize: number; // in bytes
-    usagePercent: number;
+  totalSize: number; // in bytes
+  trackCount: number;
+  maxSize: number; // in bytes
+  usagePercent: number;
 }
 
 // ============================================================================
 // UI State Types
 // ============================================================================
 
-export type ViewType = 'collection' | 'playlists' | 'playlist-detail' | 'album-detail' | 'artists' | 'radio' | 'settings';
+export type ViewType =
+  | "collection"
+  | "playlists"
+  | "playlist-detail"
+  | "album-detail"
+  | "artists"
+  | "radio"
+  | "settings";
 
 export interface UIState {
-    currentView: ViewType;
-    selectedPlaylistId?: string;
-    isQueueVisible: boolean;
-    isMiniPlayer: boolean;
-    isLoading: boolean;
-    searchQuery: string;
+  currentView: ViewType;
+  selectedPlaylistId?: string;
+  isQueueVisible: boolean;
+  isMiniPlayer: boolean;
+  isLoading: boolean;
+  searchQuery: string;
 }
 
 // ============================================================================
@@ -263,9 +274,9 @@ export interface UIState {
 // ============================================================================
 
 export interface AppError {
-    code: string;
-    message: string;
-    details?: unknown;
+  code: string;
+  message: string;
+  details?: unknown;
 }
 
 // ============================================================================
@@ -273,17 +284,17 @@ export interface AppError {
 // ============================================================================
 
 export interface CastDevice {
-    id: string;
-    name: string;
-    host: string;
-    friendlyName: string;
-    type: string;
-    status: 'connected' | 'disconnected' | 'connecting';
+  id: string;
+  name: string;
+  host: string;
+  friendlyName: string;
+  type: string;
+  status: "connected" | "disconnected" | "connecting";
 }
 
 export interface CastStatus {
-    status: 'connected' | 'disconnected' | 'connecting';
-    device?: CastDevice;
+  status: "connected" | "disconnected" | "connecting";
+  device?: CastDevice;
 }
 
 // ============================================================================
@@ -291,14 +302,14 @@ export interface CastStatus {
 // ============================================================================
 
 export interface RemoteClient {
-    id: string;
-    ip: string;
-    userAgent: string;
-    connectedAt: string;
-    lastActiveAt: string;
-    deviceInfo?: {
-        platform: string;
-        appVersion: string;
-        device: string;
-    };
+  id: string;
+  ip: string;
+  userAgent: string;
+  connectedAt: string;
+  lastActiveAt: string;
+  deviceInfo?: {
+    platform: string;
+    appVersion: string;
+    device: string;
+  };
 }
