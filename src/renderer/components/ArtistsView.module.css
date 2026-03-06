@@ -93,15 +93,50 @@
     background: var(--bg-hover);
 }
 
+/* Wrapper sits outside overflow:hidden so the dot is never clipped by the circle */
+.imageWrapper {
+    position: relative;
+    width: 100%;
+    margin-bottom: var(--spacing-md);
+}
+
 .imageContainer {
     width: 100%;
     aspect-ratio: 1;
     border-radius: 50%;
     overflow: hidden;
-    margin-bottom: var(--spacing-md);
     background: var(--bg-secondary);
     position: relative;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Cached dot — sits at the bottom-left of the circular image, outside the clip */
+.cachedDot {
+    position: absolute;
+    bottom: 4%;
+    left: 4%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--bg-tertiary);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.cachedDotDownloading {
+    background: var(--accent-primary);
+    animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
 }
 
 .artistImage {

@@ -1,12 +1,15 @@
 .container {
     min-height: 100%;
-
 }
 
 /* Header */
 .header {
     padding: var(--spacing-xl);
-    background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%);
+    background: linear-gradient(
+        180deg,
+        var(--bg-tertiary) 0%,
+        var(--bg-primary) 100%
+    );
     border-top: 1px solid var(--border-subtle);
 }
 
@@ -238,11 +241,36 @@
     gap: var(--spacing-md);
 }
 
+.cachedDot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    flex-shrink: 0;
+    align-self: center;
+    opacity: 0.85;
+}
+
+.cachedDotDownloading {
+    background: var(--accent-primary);
+    animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
 .colArtist {
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
 }
-
 
 /* Context menu */
 .menuBtn {

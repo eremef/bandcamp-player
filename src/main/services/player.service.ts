@@ -125,6 +125,12 @@ export class PlayerService extends EventEmitter {
 
     // ---- Playback Control ----
 
+    // ---- Offline Mode ----
+
+    private isOfflineMode(): boolean {
+        return this.database.getSettings()?.offlineMode ?? false;
+    }
+
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
         this.error = null;
         console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
@@ -175,6 +181,15 @@ export class PlayerService extends EventEmitter {
                 } catch (error) {
                     console.error('[PlayerService] Error refreshing stream URL:', error);
                 }
+            }
+
+            // Offline mode check: block playback of non-cached tracks
+            if (this.isOfflineMode() && !this.cacheService.isCached(track.id)) {
+                console.warn(`[PlayerService] Offline mode: track ${track.title} is not cached, blocking playback.`);
+                this.error = `Offline mode: "${track.title}" is not available offline`;
+                this.isPlaying = false;
+                this.emitStateChange();
+                return;
             }
 
             // Play a specific track
@@ -364,6 +379,27 @@ export class PlayerService extends EventEmitter {
             }
         }
 
+        // In offline mode, skip non-cached tracks
+        if (this.isOfflineMode()) {
+            const startIndex = nextIndex;
+            while (!this.cacheService.isCached(this.queue[nextIndex].track.id)) {
+                nextIndex++;
+                if (nextIndex >= this.queue.length) {
+                    if (this.repeatMode === 'all') {
+                        nextIndex = 0;
+                    } else {
+                        this.finishQueue();
+                        return;
+                    }
+                }
+                if (nextIndex === startIndex) {
+                    // Looped through all — none cached
+                    this.finishQueue();
+                    return;
+                }
+            }
+        }
+
         await this.playIndex(nextIndex);
     }
 
@@ -392,6 +428,26 @@ export class PlayerService extends EventEmitter {
             } else {
                 this.seek(0);
                 return;
+            }
+        }
+
+        // In offline mode, skip non-cached tracks going backwards
+        if (this.isOfflineMode()) {
+            const startIndex = prevIndex;
+            while (!this.cacheService.isCached(this.queue[prevIndex].track.id)) {
+                prevIndex--;
+                if (prevIndex < 0) {
+                    if (this.repeatMode === 'all') {
+                        prevIndex = this.queue.length - 1;
+                    } else {
+                        this.seek(0);
+                        return;
+                    }
+                }
+                if (prevIndex === startIndex) {
+                    this.seek(0);
+                    return;
+                }
             }
         }
 
