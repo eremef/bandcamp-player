@@ -87,7 +87,7 @@ export function CollectionView() {
       }
       return allTracks;
     },
-    [getAlbumDetails],
+    [getAlbumDetails, cachedTrackIds],
   );
 
   const handleBulkAction = useCallback(

@@ -21,7 +21,6 @@ export function CacheView() {
     deleteAlbum,
     clearCache,
     play,
-    addToQueue,
   } = useStore();
 
   const [isClearing, setIsClearing] = useState(false);
@@ -149,75 +148,75 @@ export function CacheView() {
       ) : (
         <div className={styles.content}>
           {Array.from(groupedTracks.entries()).map(([albumId, tracks]) => {
-              const isExpanded = expandedAlbums.has(albumId);
-              return (
-                <div key={albumId} className={styles.albumGroup}>
-                  <div className={styles.albumHeader}>
-                    <div className={styles.albumInfo}>
-                      <button
-                        className={styles.expandBtn}
-                        onClick={() => toggleAlbum(albumId)}
-                        aria-label={isExpanded ? "Collapse album" : "Expand album"}
-                      >
-                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </button>
-                      {tracks[0].artworkUrl && (
-                        <img
-                          src={tracks[0].artworkUrl}
-                          alt=""
-                          className={styles.albumArt}
-                        />
-                      )}
-                      <div>
-                        <h3 className={styles.albumTitle}>
-                          {tracks[0].album || "Unknown Album"}
-                        </h3>
-                        <p className={styles.albumMeta}>
-                          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
+            const isExpanded = expandedAlbums.has(albumId);
+            return (
+              <div key={albumId} className={styles.albumGroup}>
+                <div className={styles.albumHeader}>
+                  <div className={styles.albumInfo}>
                     <button
-                      className={styles.removeAlbumBtn}
-                      onClick={() => deleteAlbum(albumId)}
-                      title="Remove album from cache"
+                      className={styles.expandBtn}
+                      onClick={() => toggleAlbum(albumId)}
+                      aria-label={isExpanded ? "Collapse album" : "Expand album"}
                     >
-                      <Trash2 size={14} />
-                      Remove Album
+                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
-                  </div>
-
-                  {isExpanded && (
-                    <div className={styles.trackList}>
-                      {tracks.map((track) => (
-                        <div
-                          key={track.id}
-                          className={styles.trackItem}
-                          onClick={() => handlePlayTrack(track)}
-                        >
-                          <div className={styles.trackInfo}>
-                            <span className={styles.trackTitle}>{track.title}</span>
-                            <span className={styles.trackArtist}>{track.artist}</span>
-                          </div>
-                          <div className={styles.trackActions}>
-                            <button
-                              className={styles.removeBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleRemoveTrack(track.id);
-                              }}
-                              title="Remove from cache"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    {tracks[0].artworkUrl && (
+                      <img
+                        src={tracks[0].artworkUrl}
+                        alt=""
+                        className={styles.albumArt}
+                      />
+                    )}
+                    <div>
+                      <h3 className={styles.albumTitle}>
+                        {tracks[0].album || "Unknown Album"}
+                      </h3>
+                      <p className={styles.albumMeta}>
+                        {tracks.length} track{tracks.length !== 1 ? "s" : ""}
+                      </p>
                     </div>
-                  )}
+                  </div>
+                  <button
+                    className={styles.removeAlbumBtn}
+                    onClick={() => deleteAlbum(albumId)}
+                    title="Remove album from cache"
+                  >
+                    <Trash2 size={14} />
+                    Remove Album
+                  </button>
                 </div>
-              );
-            })}
+
+                {isExpanded && (
+                  <div className={styles.trackList}>
+                    {tracks.map((track) => (
+                      <div
+                        key={track.id}
+                        className={styles.trackItem}
+                        onClick={() => handlePlayTrack(track)}
+                      >
+                        <div className={styles.trackInfo}>
+                          <span className={styles.trackTitle}>{track.title}</span>
+                          <span className={styles.trackArtist}>{track.artist}</span>
+                        </div>
+                        <div className={styles.trackActions}>
+                          <button
+                            className={styles.removeBtn}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveTrack(track.id);
+                            }}
+                            title="Remove from cache"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

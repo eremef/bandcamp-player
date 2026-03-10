@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, protocol, session, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, session, nativeTheme } from "electron";
 import { remoteConfigService } from "../shared/remote-config.service";
 import * as path from "path";
 import * as fs from "fs";
