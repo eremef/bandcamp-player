@@ -7,6 +7,7 @@ import {
   List,
   MoreHorizontal,
   Download,
+  Trash2,
 } from "lucide-react";
 import styles from "./AlbumDetailView.module.css";
 
@@ -26,9 +27,13 @@ export function AlbumDetailView() {
     addTracksToPlaylist,
     playlists,
     downloadTrack,
+    downloadAlbum,
+    deleteAlbum,
     albumDetailSourceView,
     cachedTrackIds,
+    cachedAlbumIds,
     downloadingTracks,
+    downloadingAlbumIds,
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -119,6 +124,31 @@ export function AlbumDetailView() {
     await downloadTrack(track);
   };
 
+  const handleTrackRemoveFromCache = async (track: any) => {
+    setActiveTrackMenu(null);
+    await downloadTrack(track);
+    await useStore.getState().deleteFromCache(track.id);
+  };
+
+  const handleAlbumDownload = async () => {
+    if (albumDetails) {
+      await downloadAlbum(albumDetails);
+    }
+  };
+
+  const handleAlbumRemoveFromCache = async () => {
+    if (albumDetails?.id) {
+      await deleteAlbum(albumDetails.id);
+    }
+  };
+
+  const isAlbumDownloaded = selectedAlbum
+    ? cachedAlbumIds.has(selectedAlbum.id)
+    : false;
+  const isAlbumDownloading = selectedAlbum
+    ? downloadingAlbumIds.has(selectedAlbum.id)
+    : false;
+
   return (
     <div className={styles.container}>
       {/* Header */}
@@ -168,6 +198,32 @@ export function AlbumDetailView() {
                 <List size={18} />
                 <span>Add to Queue</span>
               </button>
+              {isAlbumDownloaded ? (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleAlbumRemoveFromCache}
+                  disabled={isLoading}
+                  title="Remove from cache"
+                >
+                  <Trash2 size={18} />
+                  <span>Downloaded</span>
+                </button>
+              ) : isAlbumDownloading ? (
+                <button className={styles.actionBtn} disabled>
+                  <Download size={18} className={styles.spinningIcon} />
+                  <span>Downloading...</span>
+                </button>
+              ) : (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleAlbumDownload}
+                  disabled={isLoading}
+                  title="Download album for offline"
+                >
+                  <Download size={18} />
+                  <span>Download Album</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -288,9 +344,13 @@ export function AlbumDetailView() {
                           )}
 
                           <div className={styles.menuDivider} />
-                          {!cachedTrackIds.has(track.id) && (
+                          {!cachedTrackIds.has(track.id) ? (
                             <button onClick={() => handleTrackDownload(track)}>
                               <Download size={14} /> Download
+                            </button>
+                          ) : (
+                            <button onClick={() => handleTrackRemoveFromCache(track)}>
+                              <Trash2 size={14} /> Remove from cache
                             </button>
                           )}
                         </div>
