@@ -241,7 +241,7 @@ export const ArtistsView: React.FC = () => {
       }
       return allTracks;
     },
-    [getAlbumDetails],
+    [getAlbumDetails, cachedTrackIds],
   );
 
   const getItemsForArtist = useCallback(
@@ -261,7 +261,7 @@ export const ArtistsView: React.FC = () => {
           const matchesName =
             artist &&
             data.artist.toLowerCase().trim() ===
-              artist.name.toLowerCase().trim();
+            artist.name.toLowerCase().trim();
           return matchesId || matchesName;
         }) || []
       );
