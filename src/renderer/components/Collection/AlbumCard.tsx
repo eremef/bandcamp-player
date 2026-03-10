@@ -48,7 +48,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
   // DEBUG — remove once indicator is confirmed working
   console.debug(
     `[AlbumCard] id="${album.id}" title="${album.title}" trackCount=${album.trackCount}` +
-      ` isCached=${isCached} cachedAlbumIds=[${[...cachedAlbumIds].join(",")}]`,
+    ` isCached=${isCached} cachedAlbumIds=[${[...cachedAlbumIds].join(",")}]`,
   );
 
   const ensureAlbumTracks = async () => {
@@ -130,14 +130,14 @@ export function AlbumCard({ album }: AlbumCardProps) {
     await addTracksToPlaylist(playlistId, albumWithTracks.tracks);
   };
 
-  const handleDownload = async () => {
-    setShowMenu(false);
-    const albumWithTracks = await ensureAlbumTracks();
-    console.debug(
-      `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
-    );
-    await downloadAlbum(albumWithTracks);
-  };
+    const handleDownload = async () => {
+        setShowMenu(false);
+        const albumWithTracks = await ensureAlbumTracks();
+        console.debug(
+            `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
+        );
+        await downloadAlbum(albumWithTracks);
+    };
 
   return (
     <div
