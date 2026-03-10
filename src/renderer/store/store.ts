@@ -112,11 +112,15 @@ interface CacheSlice {
   cachedAlbumIds: Set<string>;
   downloadingTracks: Set<string>;
   downloadingAlbumIds: Set<string>;
+  cachedTracksDetailed: Track[];
   downloadTrack: (track: Track) => Promise<void>;
+  downloadAlbum: (album: Album) => Promise<void>;
   deleteFromCache: (trackId: string) => Promise<void>;
+  deleteAlbum: (albumId: string) => Promise<void>;
   clearCache: () => Promise<void>;
   fetchCacheStats: () => Promise<void>;
   fetchCachedTrackIds: () => Promise<void>;
+  fetchCachedTracksDetailed: () => Promise<void>;
 }
 
 interface ScrobblerSlice {
@@ -577,6 +581,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   cachedAlbumIds: new Set(),
   downloadingTracks: new Set(),
   downloadingAlbumIds: new Set(),
+  cachedTracksDetailed: [],
   downloadTrack: async (track) => {
     // Module-level map: trackId → albumId, used to recompute downloadingAlbumIds
     // after each track finishes without needing a separate Zustand field.
@@ -651,6 +656,38 @@ export const useStore = create<StoreState>()((set, get) => ({
     const cachedAlbumIds = deriveCachedAlbumIds(get().collection);
 
     set({ cachedTrackIds, cachedAlbumIds });
+  },
+  downloadAlbum: async (album) => {
+    if (!album.tracks || album.tracks.length === 0) {
+      return;
+    }
+
+    // Track which album we're downloading
+    const albumId = album.id;
+    set((s) => ({
+      downloadingAlbumIds: new Set([...s.downloadingAlbumIds, albumId]),
+    }));
+
+    try {
+      await window.electron.cache.downloadAlbum(album);
+      // Refresh cached IDs so the indicator flips from blinking → solid immediately
+      get().fetchCachedTrackIds();
+    } finally {
+      set((s) => {
+        const updatedAlbums = new Set(s.downloadingAlbumIds);
+        updatedAlbums.delete(albumId);
+        return { downloadingAlbumIds: updatedAlbums };
+      });
+    }
+  },
+  deleteAlbum: async (albumId) => {
+    await window.electron.cache.deleteAlbum(albumId);
+    get().fetchCacheStats();
+    get().fetchCachedTrackIds();
+  },
+  fetchCachedTracksDetailed: async () => {
+    const tracks = await window.electron.cache.getCachedTracksDetailed();
+    set({ cachedTracksDetailed: tracks });
   },
 
   // ---- Scrobbler Slice ----

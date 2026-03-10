@@ -217,6 +217,12 @@ const electronAPI = {
       ipcRenderer.invoke(CACHE_CHANNELS.GET_CACHED_TRACKS),
     isCached: (trackId: string): Promise<boolean> =>
       ipcRenderer.invoke(CACHE_CHANNELS.IS_CACHED, trackId),
+    downloadAlbum: (album: Album): Promise<void> =>
+      ipcRenderer.invoke(CACHE_CHANNELS.DOWNLOAD_ALBUM, album),
+    deleteAlbum: (albumId: string): Promise<void> =>
+      ipcRenderer.invoke(CACHE_CHANNELS.DELETE_ALBUM, albumId),
+    getCachedTracksDetailed: (): Promise<Track[]> =>
+      ipcRenderer.invoke(CACHE_CHANNELS.GET_CACHED_TRACKS_DETAILED),
     onDownloadProgress: createEventSubscriber<{
       trackId: string;
       progress: number;
