@@ -157,8 +157,18 @@ export class PlayerService extends EventEmitter {
             }
             this.emitQueueUpdate();
 
-            // Refresh stream URL if needed (radio or casting)
-            if (track.id.startsWith('radio-') || track.radioStationId || this.isCasting) {
+            // For cached tracks, prefer cached file to avoid network requests
+            const isTrackCached = this.cacheService.isCached(track.id);
+            if (isTrackCached) {
+                const cachedPath = this.cacheService.getCachedPath(track.id);
+                if (cachedPath) {
+                    track.streamUrl = `file://${cachedPath}`;
+                    console.log(`[PlayerService] Using cached file for ${track.title}`);
+                }
+            }
+
+            // Refresh stream URL only for non-cached tracks (radio, casting, or expired stream)
+            if (!isTrackCached && (track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
                     let streamUrl = track.streamUrl;
