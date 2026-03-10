@@ -143,10 +143,10 @@ export function AlbumDetailView() {
   };
 
   const isAlbumDownloaded = selectedAlbum
-    ? cachedAlbumIds.has(selectedAlbum.id)
+    ? cachedAlbumIds?.has(selectedAlbum.id)
     : false;
   const isAlbumDownloading = selectedAlbum
-    ? downloadingAlbumIds.has(selectedAlbum.id)
+    ? downloadingAlbumIds?.has(selectedAlbum.id)
     : false;
 
   return (

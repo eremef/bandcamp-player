@@ -37,7 +37,7 @@ describe("AlbumCard", () => {
       addAlbumToQueue: vi.fn(),
       playlists: mockPlaylists,
       addTracksToPlaylist: vi.fn(),
-      downloadTrack: vi.fn(),
+      downloadAlbum: vi.fn(),
       clearQueue: vi.fn(),
       playQueueIndex: vi.fn(),
       selectAlbum: vi.fn(),
@@ -195,20 +195,8 @@ describe("AlbumCard", () => {
     fireEvent.click(screen.getByText("Download for Offline"));
 
     await waitFor(() => {
-      expect(storeMethods.downloadTrack).toHaveBeenCalledTimes(2);
-      // albumId is overridden with album.id so the stored key always matches
-      // what deriveCachedAlbumIds looks up in the collection.
-      expect(storeMethods.downloadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ...albumWithTracks.tracks[0],
-          albumId: albumWithTracks.id,
-        }),
-      );
-      expect(storeMethods.downloadTrack).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ...albumWithTracks.tracks[1],
-          albumId: albumWithTracks.id,
-        }),
+      expect(storeMethods.downloadAlbum).toHaveBeenCalledWith(
+        albumWithTracks,
       );
     });
   });
@@ -270,7 +258,7 @@ describe("AlbumCard", () => {
 
   it("handles getAlbumDetails error gracefully during ensureAlbumTracks", async () => {
     storeMethods.getAlbumDetails.mockRejectedValue(new Error("Network error"));
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => { });
 
     render(<AlbumCard album={mockAlbum} />);
     const playBtn = screen.getByTitle("Play");
