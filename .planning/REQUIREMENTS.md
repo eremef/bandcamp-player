@@ -9,11 +9,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Offline Listening
 
-- [ ] **OFFL-01**: User can cache individual tracks for offline playback
-- [ ] **OFFL-02**: User can cache entire albums for offline playback
-- [ ] **OFFL-03**: Cached tracks play without internet connection
-- [ ] **OFFL-04**: User can view which tracks are cached
-- [ ] **OFFL-05**: User can clear cache for individual tracks or albums
+- [x] **OFFL-01**: User can cache individual tracks for offline playback
+- [x] **OFFL-02**: User can cache entire albums for offline playback
+- [x] **OFFL-03**: Cached tracks play without internet connection
+- [x] **OFFL-04**: User can view which tracks are cached
+- [x] **OFFL-05**: User can clear cache for individual tracks or albums
 
 ### Remote Control
 
@@ -50,11 +50,11 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| OFFL-01 | Phase 1 | Pending |
-| OFFL-02 | Phase 1 | Pending |
-| OFFL-03 | Phase 1 | Pending |
-| OFFL-04 | Phase 1 | Pending |
-| OFFL-05 | Phase 1 | Pending |
+| OFFL-01 | Phase 1 | Complete |
+| OFFL-02 | Phase 1 | Complete |
+| OFFL-03 | Phase 1 | Complete |
+| OFFL-04 | Phase 1 | Complete |
+| OFFL-05 | Phase 1 | Complete |
 | REMT-01 | Phase 2 | Pending |
 | REMT-02 | Phase 2 | Pending |
 | REMT-03 | Phase 2 | Pending |
