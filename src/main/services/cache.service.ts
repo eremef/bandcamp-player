@@ -3,7 +3,7 @@ import * as path from "path";
 import axios from "axios";
 import { EventEmitter } from "events";
 import { Database } from "../database/database";
-import type { Track, CacheStats } from "../../shared/types";
+import type { Track, Album, CacheStats } from "../../shared/types";
 
 // ============================================================================
 // Cache Service
@@ -213,6 +213,106 @@ export class CacheService extends EventEmitter {
       isCached: true,
       cachedPath: entry.filePath,
     }));
+  }
+
+  /**
+   * Download all tracks in an album
+   */
+  async downloadAlbum(album: Album): Promise<void> {
+    const total = album.tracks.length;
+    let completed = 0;
+
+    for (const track of album.tracks) {
+      try {
+        if (!this.isCached(track.id)) {
+          await this.downloadTrack(track);
+        }
+        completed++;
+        this.emit("download-progress", {
+          albumId: album.id,
+          trackId: track.id,
+          progress: (completed / total) * 100,
+          total,
+          completed,
+        });
+      } catch (error) {
+        console.error(
+          `[CacheService] Failed to download track ${track.id}:`,
+          error,
+        );
+        completed++;
+        this.emit("download-progress", {
+          albumId: album.id,
+          trackId: track.id,
+          progress: (completed / total) * 100,
+          total,
+          completed,
+        });
+      }
+    }
+  }
+
+  /**
+   * Delete all cached tracks for an album
+   */
+  deleteAlbum(albumId: string): void {
+    const entries = this.database.getAllCacheEntries();
+    const albumEntries = entries.filter((entry) => entry.albumId === albumId);
+
+    for (const entry of albumEntries) {
+      if (fs.existsSync(entry.filePath)) {
+        fs.unlinkSync(entry.filePath);
+      }
+      this.database.deleteCacheEntry(entry.trackId);
+    }
+    this.emitStatsUpdate();
+  }
+
+  /**
+   * Get cached tracks with full details from collection cache
+   */
+  getCachedTracksWithDetails(): Track[] {
+    const entries = this.database.getAllCacheEntries();
+    const tracks: Track[] = [];
+
+    for (const entry of entries) {
+      let trackFound = false;
+
+      if (entry.albumId) {
+        const albumCache = this.database.getCollectionCache(entry.albumId);
+        if (albumCache && albumCache.data && albumCache.data.tracks) {
+          const trackData = albumCache.data.tracks.find(
+            (t: Track) => t.id === entry.trackId,
+          );
+          if (trackData) {
+            tracks.push({
+              ...trackData,
+              isCached: true,
+              cachedPath: entry.filePath,
+            });
+            trackFound = true;
+          }
+        }
+      }
+
+      if (!trackFound) {
+        tracks.push({
+          id: entry.trackId,
+          albumId: entry.albumId,
+          title: "",
+          artist: "",
+          album: "",
+          duration: 0,
+          artworkUrl: "",
+          streamUrl: "",
+          bandcampUrl: "",
+          isCached: true,
+          cachedPath: entry.filePath,
+        });
+      }
+    }
+
+    return tracks;
   }
 
   // ---- Private Helpers ----
