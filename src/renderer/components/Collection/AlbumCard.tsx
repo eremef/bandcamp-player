@@ -21,7 +21,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
     addAlbumToQueue,
     playlists,
     addTracksToPlaylist,
-    downloadTrack,
+    downloadAlbum,
     clearQueue,
     playQueueIndex,
     selectAlbum,
@@ -134,12 +134,9 @@ export function AlbumCard({ album }: AlbumCardProps) {
     setShowMenu(false);
     const albumWithTracks = await ensureAlbumTracks();
     console.debug(
-      `[AlbumCard] downloading ${albumWithTracks.tracks.length} tracks` +
-        ` for album id="${album.id}", first track albumId="${albumWithTracks.tracks[0]?.albumId}"`,
+      `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
     );
-    for (const track of albumWithTracks.tracks) {
-      //await downloadTrack(track);
-    }
+    await downloadAlbum(albumWithTracks);
   };
 
   return (

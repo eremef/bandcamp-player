@@ -720,9 +720,9 @@ export class ScraperService extends EventEmitter {
               item.item_art_url ||
               (item.art_id
                 ? config.endpoints.artworkFormat.replace(
-                    "{art_id}",
-                    item.art_id.toString(),
-                  )
+                  "{art_id}",
+                  item.art_id.toString(),
+                )
                 : ""),
             bandcampUrl: item.item_url || item.bandcamp_url,
             tracks: [],
@@ -753,9 +753,9 @@ export class ScraperService extends EventEmitter {
               item.item_art_url ||
               (item.art_id
                 ? config.endpoints.artworkFormat.replace(
-                    "{art_id}",
-                    item.art_id.toString(),
-                  )
+                  "{art_id}",
+                  item.art_id.toString(),
+                )
                 : ""),
             streamUrl: "", // Will be fetched separately
             bandcampUrl: item.item_url || "",
@@ -912,9 +912,9 @@ export class ScraperService extends EventEmitter {
               trackNumber: trackInfo.track_num || index + 1,
               artworkUrl: tralbumData.art_id
                 ? config.endpoints.artworkFormat.replace(
-                    "{art_id}",
-                    tralbumData.art_id.toString(),
-                  )
+                  "{art_id}",
+                  tralbumData.art_id.toString(),
+                )
                 : "",
               streamUrl,
               bandcampUrl: trackInfo.title_link
@@ -933,9 +933,9 @@ export class ScraperService extends EventEmitter {
         artistId: String(tralbumData.band_id),
         artworkUrl: tralbumData.art_id
           ? config.endpoints.artworkFormat.replace(
-              "{art_id}",
-              tralbumData.art_id.toString(),
-            )
+            "{art_id}",
+            tralbumData.art_id.toString(),
+          )
           : "",
         bandcampUrl: albumUrl,
         releaseDate: tralbumData.current?.release_date,
@@ -1022,17 +1022,17 @@ export class ScraperService extends EventEmitter {
             description: episode.subtitle || episode.desc,
             imageUrl: episode.image_id
               ? config.endpoints.radioImageFormat.replace(
-                  "{image_id}",
-                  episode.image_id.toString(),
-                )
+                "{image_id}",
+                episode.image_id.toString(),
+              )
               : undefined,
             streamUrl: "", // Fetched on-demand when playing
             date: episode.published_date
               ? new Date(episode.published_date).toLocaleDateString("en-US", {
-                  month: "long",
-                  day: "numeric",
-                  year: "numeric",
-                })
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })
               : undefined,
           });
         }

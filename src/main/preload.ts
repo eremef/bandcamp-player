@@ -64,6 +64,8 @@ const electronAPI = {
       ipcRenderer.invoke(AUTH_CHANNELS.CHECK_SESSION),
     getUser: (): Promise<AuthState> =>
       ipcRenderer.invoke(AUTH_CHANNELS.GET_USER),
+    refreshUser: (): Promise<AuthState> =>
+      ipcRenderer.invoke(AUTH_CHANNELS.REFRESH_USER),
     onAuthChanged: createEventSubscriber<AuthState>(
       AUTH_CHANNELS.ON_AUTH_CHANGED,
     ),

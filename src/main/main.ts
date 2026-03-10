@@ -1,6 +1,9 @@
-import { app, BrowserWindow, ipcMain, session, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, protocol, session, nativeTheme } from "electron";
 import { remoteConfigService } from "../shared/remote-config.service";
 import * as path from "path";
+import * as fs from "fs";
+import * as http from "http";
+import type { IncomingMessage, ServerResponse } from "http";
 import { TrayService } from "./services/tray.service";
 import { AuthService } from "./services/auth.service";
 import { ScraperService } from "./services/scraper.service";
@@ -310,6 +313,23 @@ if (!gotTheLock) {
   app
     .whenReady()
     .then(async () => {
+      const cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+        const filePath = decodeURIComponent(req.url?.slice(1) || "");
+        console.log("[cache-server] Serving:", filePath);
+        if (fs.existsSync(filePath)) {
+          res.writeHead(200, { "Content-Type": "audio/mpeg" });
+          fs.createReadStream(filePath).pipe(res);
+        } else {
+          res.writeHead(404);
+          res.end("File not found");
+        }
+      });
+      cacheServer.listen(0, "127.0.0.1", () => {
+        const addr = cacheServer.address() as { port: number };
+        (global as any).cacheServerPort = addr.port;
+        console.log("[cache-server] Listening on port", addr.port);
+      });
+
       await initializeServices();
       mainWindow = createMainWindow();
 

@@ -6,6 +6,8 @@ import {
   Music,
   HardDrive,
   AlertCircle,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import styles from "./CacheView.module.css";
 
@@ -24,11 +26,24 @@ export function CacheView() {
 
   const [isClearing, setIsClearing] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [expandedAlbums, setExpandedAlbums] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchCacheStats();
     fetchCachedTracksDetailed();
   }, [fetchCacheStats, fetchCachedTracksDetailed]);
+
+  const toggleAlbum = (albumId: string) => {
+    setExpandedAlbums((prev) => {
+      const next = new Set(prev);
+      if (next.has(albumId)) {
+        next.delete(albumId);
+      } else {
+        next.add(albumId);
+      }
+      return next;
+    });
+  };
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -133,64 +148,76 @@ export function CacheView() {
         </div>
       ) : (
         <div className={styles.content}>
-          {Array.from(groupedTracks.entries()).map(([albumId, tracks]) => (
-            <div key={albumId} className={styles.albumGroup}>
-              <div className={styles.albumHeader}>
-                <div className={styles.albumInfo}>
-                  {tracks[0].artworkUrl && (
-                    <img
-                      src={tracks[0].artworkUrl}
-                      alt=""
-                      className={styles.albumArt}
-                    />
-                  )}
-                  <div>
-                    <h3 className={styles.albumTitle}>
-                      {tracks[0].album || "Unknown Album"}
-                    </h3>
-                    <p className={styles.albumMeta}>
-                      {tracks.length} track{tracks.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  className={styles.removeAlbumBtn}
-                  onClick={() => deleteAlbum(albumId)}
-                  title="Remove album from cache"
-                >
-                  <Trash2 size={14} />
-                  Remove Album
-                </button>
-              </div>
-
-              <div className={styles.trackList}>
-                {tracks.map((track) => (
-                  <div
-                    key={track.id}
-                    className={styles.trackItem}
-                    onClick={() => handlePlayTrack(track)}
-                  >
-                    <div className={styles.trackInfo}>
-                      <span className={styles.trackTitle}>{track.title}</span>
-                      <span className={styles.trackArtist}>{track.artist}</span>
-                    </div>
-                    <div className={styles.trackActions}>
+          {Array.from(groupedTracks.entries()).map(([albumId, tracks]) => {
+              const isExpanded = expandedAlbums.has(albumId);
+              return (
+                <div key={albumId} className={styles.albumGroup}>
+                  <div className={styles.albumHeader}>
+                    <div className={styles.albumInfo}>
                       <button
-                        className={styles.removeBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleRemoveTrack(track.id);
-                        }}
-                        title="Remove from cache"
+                        className={styles.expandBtn}
+                        onClick={() => toggleAlbum(albumId)}
+                        aria-label={isExpanded ? "Collapse album" : "Expand album"}
                       >
-                        <Trash2 size={14} />
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                       </button>
+                      {tracks[0].artworkUrl && (
+                        <img
+                          src={tracks[0].artworkUrl}
+                          alt=""
+                          className={styles.albumArt}
+                        />
+                      )}
+                      <div>
+                        <h3 className={styles.albumTitle}>
+                          {tracks[0].album || "Unknown Album"}
+                        </h3>
+                        <p className={styles.albumMeta}>
+                          {tracks.length} track{tracks.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </div>
+                    <button
+                      className={styles.removeAlbumBtn}
+                      onClick={() => deleteAlbum(albumId)}
+                      title="Remove album from cache"
+                    >
+                      <Trash2 size={14} />
+                      Remove Album
+                    </button>
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
+
+                  {isExpanded && (
+                    <div className={styles.trackList}>
+                      {tracks.map((track) => (
+                        <div
+                          key={track.id}
+                          className={styles.trackItem}
+                          onClick={() => handlePlayTrack(track)}
+                        >
+                          <div className={styles.trackInfo}>
+                            <span className={styles.trackTitle}>{track.title}</span>
+                            <span className={styles.trackArtist}>{track.artist}</span>
+                          </div>
+                          <div className={styles.trackActions}>
+                            <button
+                              className={styles.removeBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveTrack(track.id);
+                              }}
+                              title="Remove from cache"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
     </div>

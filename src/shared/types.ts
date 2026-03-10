@@ -235,9 +235,15 @@ export interface CacheEntry {
   trackId: string;
   albumId?: string;
   filePath: string;
-  fileSize: number; // in bytes
+  fileSize: number;
   cachedAt: string;
   lastAccessedAt: string;
+  title?: string;
+  artist?: string;
+  album?: string;
+  duration?: number;
+  trackNumber?: number;
+  artworkUrl?: string;
 }
 
 export interface CacheStats {

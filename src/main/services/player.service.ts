@@ -162,7 +162,10 @@ export class PlayerService extends EventEmitter {
             if (isTrackCached) {
                 const cachedPath = this.cacheService.getCachedPath(track.id);
                 if (cachedPath) {
-                    track.streamUrl = `file://${cachedPath}`;
+                    const port = (global as any).cacheServerPort || 0;
+                    const cleanPath = cachedPath.replace(/^\/+/, "");
+                    const encoded = cleanPath.split("/").map(encodeURIComponent).join("/");
+                    track.streamUrl = `http://127.0.0.1:${port}/${encoded}`;
                     console.log(`[PlayerService] Using cached file for ${track.title}`);
                 }
             }
@@ -751,10 +754,12 @@ export class PlayerService extends EventEmitter {
     }
 
     getStreamUrl(track: Track): string {
-        // Check if cached
         const cachedPath = this.cacheService.getCachedPath(track.id);
         if (cachedPath) {
-            return `file://${cachedPath}`;
+            const port = (global as any).cacheServerPort || 0;
+            const cleanPath = cachedPath.replace(/^\/+/, "");
+            const encoded = cleanPath.split("/").map(encodeURIComponent).join("/");
+            return `http://127.0.0.1:${port}/${encoded}`;
         }
         return track.streamUrl;
     }
