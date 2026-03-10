@@ -98,6 +98,12 @@ export class CacheService extends EventEmitter {
             fileSize: stats.size,
             cachedAt: now,
             lastAccessedAt: now,
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            duration: track.duration,
+            trackNumber: track.trackNumber,
+            artworkUrl: track.artworkUrl,
           });
 
           this.activeDownloads.delete(track.id);
@@ -299,15 +305,16 @@ export class CacheService extends EventEmitter {
         tracks.push({
           id: entry.trackId,
           albumId: entry.albumId,
-          title: "",
-          artist: "",
-          album: "",
-          duration: 0,
-          artworkUrl: "",
+          title: entry.title || "",
+          artist: entry.artist || "",
+          album: entry.album || "",
+          duration: entry.duration || 0,
+          artworkUrl: entry.artworkUrl || "",
           streamUrl: "",
           bandcampUrl: "",
           isCached: true,
           cachedPath: entry.filePath,
+          trackNumber: entry.trackNumber,
         });
       }
     }

@@ -709,8 +709,19 @@ export const useStore = create<StoreState>()((set, get) => ({
     set({ settings });
   },
   updateSettings: async (newSettings) => {
+    const currentSettings = get().settings;
+    const wasOffline = currentSettings?.offlineMode ?? false;
+    const isNowOnline = newSettings.offlineMode === false;
+
     const updated = await window.electron.settings.set(newSettings);
     set({ settings: updated });
+
+    if (wasOffline && isNowOnline) {
+      console.log("[Store] Back online - refreshing auth and collection...");
+      const authResult = await window.electron.auth.refreshUser();
+      get().setAuth(authResult);
+      get().fetchCollection(true);
+    }
 
     // Auto-start/stop remote service based on setting
     if ("remoteEnabled" in newSettings) {

@@ -443,8 +443,9 @@ describe("PlayerService", () => {
 
     it("should get stream root based on cache", () => {
       mockCacheService.getCachedPath.mockReturnValue("/cached/file.mp3");
+      (global as any).cacheServerPort = 12345;
       const url = playerService.getStreamUrl(mockTrack);
-      expect(url).toBe("file:///cached/file.mp3");
+      expect(url).toBe("http://127.0.0.1:12345/cached/file.mp3");
     });
   });
 });

@@ -12,6 +12,7 @@ export const AUTH_CHANNELS = {
   LOGOUT: "auth:logout",
   CHECK_SESSION: "auth:check-session",
   GET_USER: "auth:get-user",
+  REFRESH_USER: "auth:refresh-user",
   ON_AUTH_CHANGED: "auth:on-changed",
 } as const;
 

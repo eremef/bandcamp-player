@@ -96,6 +96,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(AUTH_CHANNELS.LOGOUT, () => authService.logout());
   ipcMain.handle(AUTH_CHANNELS.CHECK_SESSION, () => authService.checkSession());
   ipcMain.handle(AUTH_CHANNELS.GET_USER, () => authService.getUser());
+  ipcMain.handle(AUTH_CHANNELS.REFRESH_USER, () => authService.refreshUser());
 
   // ---- Collection ----
   ipcMain.handle(COLLECTION_CHANNELS.FETCH, () =>

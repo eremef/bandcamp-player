@@ -148,6 +148,14 @@ export class AuthService {
   }
 
   /**
+   * Force refresh user profile (clears cached user and re-fetches)
+   */
+  async refreshUser(): Promise<AuthState> {
+    this.currentUser = null;
+    return await this.checkSession();
+  }
+
+  /**
    * Get raw fan_id from identity cookie (bypasses profile fetch)
    */
   getFanIdFromCookie(): string | null {
@@ -246,8 +254,8 @@ export class AuthService {
       );
       return {
         id: fanId,
-        username: `fan${fanId}`,
-        profileUrl: `https://bandcamp.com/fan${fanId}`,
+        username: "Offline mode",
+        profileUrl: "",
       };
     }
 

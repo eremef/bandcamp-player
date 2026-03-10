@@ -123,6 +123,25 @@
     gap: var(--spacing-md);
 }
 
+.expandBtn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    color: var(--text-secondary);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.expandBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
 .albumArt {
     width: 48px;
     height: 48px;

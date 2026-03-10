@@ -74,7 +74,13 @@ export class Database {
         file_path TEXT NOT NULL,
         file_size INTEGER NOT NULL,
         cached_at TEXT NOT NULL,
-        last_accessed_at TEXT NOT NULL
+        last_accessed_at TEXT NOT NULL,
+        title TEXT,
+        artist TEXT,
+        album TEXT,
+        duration INTEGER,
+        track_number INTEGER,
+        artwork_url TEXT
       );
 
       -- Scrobble queue (for offline scrobbles)
@@ -115,6 +121,22 @@ export class Database {
         "[Database] Migrating audio_cache table to include album_id column...",
       );
       this.db.exec(`ALTER TABLE audio_cache ADD COLUMN album_id TEXT;`);
+    }
+
+    try {
+      this.db.prepare("SELECT title FROM audio_cache LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating audio_cache table to include metadata columns...",
+      );
+      this.db.exec(`
+        ALTER TABLE audio_cache ADD COLUMN title TEXT;
+        ALTER TABLE audio_cache ADD COLUMN artist TEXT;
+        ALTER TABLE audio_cache ADD COLUMN album TEXT;
+        ALTER TABLE audio_cache ADD COLUMN duration INTEGER;
+        ALTER TABLE audio_cache ADD COLUMN track_number INTEGER;
+        ALTER TABLE audio_cache ADD COLUMN artwork_url TEXT;
+      `);
     }
 
     // Ensure the album_id index exists (safe for both new and migrated databases)
@@ -490,8 +512,8 @@ export class Database {
     this.db
       .prepare(
         `
-      INSERT OR REPLACE INTO audio_cache (track_id, album_id, file_path, file_size, cached_at, last_accessed_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO audio_cache (track_id, album_id, file_path, file_size, cached_at, last_accessed_at, title, artist, album, duration, track_number, artwork_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       )
       .run(
@@ -501,6 +523,12 @@ export class Database {
         entry.fileSize,
         entry.cachedAt,
         entry.lastAccessedAt,
+        entry.title ?? null,
+        entry.artist ?? null,
+        entry.album ?? null,
+        entry.duration ?? null,
+        entry.trackNumber ?? null,
+        entry.artworkUrl ?? null,
       );
   }
 
@@ -525,6 +553,12 @@ export class Database {
         file_size: number;
         cached_at: string;
         last_accessed_at: string;
+        title: string | null;
+        artist: string | null;
+        album: string | null;
+        duration: number | null;
+        track_number: number | null;
+        artwork_url: string | null;
       }>;
 
     return rows.map((row) => ({
@@ -534,6 +568,12 @@ export class Database {
       fileSize: row.file_size,
       cachedAt: row.cached_at,
       lastAccessedAt: row.last_accessed_at,
+      title: row.title ?? undefined,
+      artist: row.artist ?? undefined,
+      album: row.album ?? undefined,
+      duration: row.duration ?? undefined,
+      trackNumber: row.track_number ?? undefined,
+      artworkUrl: row.artwork_url ?? undefined,
     }));
   }
 
