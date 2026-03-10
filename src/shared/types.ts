@@ -258,7 +258,8 @@ export type ViewType =
   | "album-detail"
   | "artists"
   | "radio"
-  | "settings";
+  | "settings"
+  | "cache";
 
 export interface UIState {
   currentView: ViewType;
