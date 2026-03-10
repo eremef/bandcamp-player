@@ -217,11 +217,39 @@ export class ScraperService extends EventEmitter {
         const isSimulating = simulationService.shouldSimulate();
         const cacheId = isSimulating ? `${userId}_sim` : userId || "anonymous";
 
+        // Also try to get fan_id directly from cookie (more reliable in some cases)
+        const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
+
+        console.log(
+          `[Scraper] Offline mode: trying cache with userId=${userId}, cacheId=${cacheId}, fanIdFromCookie=${fanIdFromCookie}, isSimulating=${isSimulating}`,
+        );
+
         if (this.database) {
-          const cached = this.database.getCollectionCache(cacheId);
+          let cached = this.database.getCollectionCache(cacheId);
+          console.log(
+            `[Scraper] Offline mode: first try cacheId="${cacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+          );
+
+          // If user-specific cache not found, try fanId from cookie as fallback
+          // (handles case where menubar API returned different ID than cookie)
+          if (!cached && fanIdFromCookie && fanIdFromCookie !== userId) {
+            cached = this.database.getCollectionCache(fanIdFromCookie);
+            console.log(
+              `[Scraper] Offline mode: fallback to fanIdFromCookie="${fanIdFromCookie}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+            );
+          }
+
+          // If still not found, try anonymous fallback
+          if (!cached) {
+            cached = this.database.getCollectionCache("anonymous");
+            console.log(
+              `[Scraper] Offline mode: fallback to "anonymous" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+            );
+          }
+
           if (cached) {
             console.log(
-              `[Scraper] Offline mode: loaded collection from cache for ${userId || "anonymous"}`,
+              `[Scraper] Offline mode: loaded collection from cache`,
             );
             this.cachedCollection = cached.data;
             this.consolidateArtistIds(this.cachedCollection!.items);
@@ -464,12 +492,28 @@ export class ScraperService extends EventEmitter {
 
         this.emit("collection-updated", this.cachedCollection);
 
-        if (this.database && userId && items.length > 0) {
+        if (this.database && items.length > 0) {
+          const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
+          console.log(
+            `[Scraper] Saving collection to cache with userId=${userId}, fanIdFromCookie=${fanIdFromCookie}, cacheId=${cacheId}, items=${items.length}`,
+          );
+          // Save with primary cacheId
           this.database.saveCollectionCache(
             cacheId,
             "collection",
             this.cachedCollection,
           );
+          // Also save with fanIdFromCookie if different (handles cookie format changes)
+          if (fanIdFromCookie && fanIdFromCookie !== cacheId) {
+            this.database.saveCollectionCache(
+              fanIdFromCookie,
+              "collection",
+              this.cachedCollection,
+            );
+            console.log(
+              `[Scraper] Also saved collection to cache with fanIdFromCookie=${fanIdFromCookie}`,
+            );
+          }
           console.log(
             `[Scraper] Saved ${isSimulating ? "simulated " : ""}collection to cache (${items.length} items)`,
           );
