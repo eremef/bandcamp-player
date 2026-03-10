@@ -235,15 +235,15 @@ export class Database {
     `,
       )
       .all() as Array<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: string;
-      updated_at: string;
-      track_count: number;
-      total_duration: number;
-      artwork_url: string | null;
-    }>;
+        id: string;
+        name: string;
+        description: string | null;
+        created_at: string;
+        updated_at: string;
+        track_count: number;
+        total_duration: number;
+        artwork_url: string | null;
+      }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -263,12 +263,12 @@ export class Database {
       .prepare("SELECT * FROM playlists WHERE id = ?")
       .get(id) as
       | {
-          id: string;
-          name: string;
-          description: string | null;
-          created_at: string;
-          updated_at: string;
-        }
+        id: string;
+        name: string;
+        description: string | null;
+        created_at: string;
+        updated_at: string;
+      }
       | undefined;
 
     if (!playlistRow) return null;
@@ -465,13 +465,13 @@ export class Database {
       .prepare("SELECT * FROM audio_cache WHERE track_id = ?")
       .get(trackId) as
       | {
-          track_id: string;
-          album_id: string | null;
-          file_path: string;
-          file_size: number;
-          cached_at: string;
-          last_accessed_at: string;
-        }
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+      }
       | undefined;
 
     if (!row) return null;
@@ -519,13 +519,13 @@ export class Database {
     const rows = this.db
       .prepare("SELECT * FROM audio_cache ORDER BY last_accessed_at DESC")
       .all() as Array<{
-      track_id: string;
-      album_id: string | null;
-      file_path: string;
-      file_size: number;
-      cached_at: string;
-      last_accessed_at: string;
-    }>;
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+      }>;
 
     return rows.map((row) => ({
       trackId: row.track_id,
@@ -552,13 +552,13 @@ export class Database {
     `,
       )
       .all(count) as Array<{
-      track_id: string;
-      album_id: string | null;
-      file_path: string;
-      file_size: number;
-      cached_at: string;
-      last_accessed_at: string;
-    }>;
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+      }>;
 
     return rows.map((row) => ({
       trackId: row.track_id,
@@ -612,13 +612,13 @@ export class Database {
     return this.db
       .prepare("SELECT * FROM scrobble_queue ORDER BY timestamp ASC")
       .all() as Array<{
-      id: number;
-      artist: string;
-      track: string;
-      album: string | null;
-      duration: number | null;
-      timestamp: number;
-    }>;
+        id: number;
+        artist: string;
+        track: string;
+        album: string | null;
+        duration: number | null;
+        timestamp: number;
+      }>;
   }
 
   deleteScrobble(id: number): void {
@@ -746,11 +746,11 @@ export class Database {
         "SELECT * FROM artists WHERE is_simulated = ? ORDER BY name COLLATE NOCASE ASC",
       )
       .all(simulatedVal) as Array<{
-      id: string;
-      name: string;
-      url: string;
-      image_url: string | null;
-    }>;
+        id: string;
+        name: string;
+        url: string;
+        image_url: string | null;
+      }>;
 
     return rows.map((row) => ({
       id: row.id,

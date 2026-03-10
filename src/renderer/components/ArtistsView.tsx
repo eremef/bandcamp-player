@@ -223,7 +223,7 @@ export const ArtistsView: React.FC = () => {
         if (item.type === "album" && item.album) {
           const hasValidTracks =
             item.album.tracks.length > 0 &&
-            item.album.tracks.every((t) => !!t.streamUrl || !!t.isCached);
+            item.album.tracks.every((t) => !!t.streamUrl || cachedTrackIds.has(t.id));
           if (hasValidTracks) {
             allTracks.push(...item.album.tracks);
           } else if (item.album.bandcampUrl) {
@@ -231,7 +231,7 @@ export const ArtistsView: React.FC = () => {
             if (details) allTracks.push(...details.tracks);
           }
         } else if (item.type === "track" && item.track) {
-          if (item.track.streamUrl || item.track.isCached) {
+          if (item.track.streamUrl || cachedTrackIds.has(item.track.id)) {
             allTracks.push(item.track);
           } else if (item.track.bandcampUrl) {
             const details = await getAlbumDetails(item.track.bandcampUrl);

@@ -330,7 +330,8 @@ export const useStore = create<StoreState>()((set, get) => ({
     set((s) => ({ player: { ...s.player, ...state } })),
   play: async (track) => {
     // Fast client-side guard: show toast immediately for non-cached tracks in offline mode
-    if (track && get().settings?.offlineMode && !track.isCached) {
+    const cachedTrackIds = get().cachedTrackIds;
+    if (track && get().settings?.offlineMode && !cachedTrackIds.has(track.id)) {
       get().showToast(
         "Offline mode is on — track not available offline",
         "error",

@@ -13,6 +13,7 @@ export class AuthService {
   private session: Session;
   private currentUser: BandcampUser | null = null;
   private loginWindow: BrowserWindow | null = null;
+  private fanIdFromCookie: string | null = null;
   private readonly getSettings: (() => AppSettings | null) | null;
 
   constructor(session: Session, getSettings?: () => AppSettings | null) {
@@ -147,6 +148,13 @@ export class AuthService {
   }
 
   /**
+   * Get raw fan_id from identity cookie (bypasses profile fetch)
+   */
+  getFanIdFromCookie(): string | null {
+    return this.fanIdFromCookie;
+  }
+
+  /**
    * Get current user
    */
   getUser(): AuthState {
@@ -175,6 +183,7 @@ export class AuthService {
 
       // Parse identity cookie to extract user info
       const identityValue = decodeURIComponent(identityCookie.value);
+      console.log(`Identity cookie raw value: ${identityValue.substring(0, 200)}`);
 
       // Try to extract fan_id from identity cookie JSON
       try {
@@ -187,8 +196,11 @@ export class AuthService {
 
         console.log(`Attempting to parse JSON: ${jsonValue}`);
         const identity = JSON.parse(jsonValue);
+        console.log(`Identity parsed: fan_id=${identity.fan_id}, id=${identity.id}`);
         if (identity.fan_id || identity.id) {
           const fanId = String(identity.fan_id || identity.id);
+          this.fanIdFromCookie = fanId;
+          console.log(`fanIdFromCookie set to: ${fanId}`);
 
           // We prioritize Menubar API over cookie data for correctness
 
@@ -202,6 +214,7 @@ export class AuthService {
 
         if (fanIdMatch) {
           const fanId = fanIdMatch[1];
+          this.fanIdFromCookie = fanId;
           const username = usernameMatch ? usernameMatch[1] : `fan${fanId}`;
           return {
             id: fanId,
