@@ -307,6 +307,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(CACHE_CHANNELS.IS_CACHED, (_, trackId: string) =>
     cacheService.isCached(trackId),
   );
+  ipcMain.handle(CACHE_CHANNELS.DOWNLOAD_ALBUM, (_, album: Album) =>
+    cacheService.downloadAlbum(album),
+  );
+  ipcMain.handle(CACHE_CHANNELS.DELETE_ALBUM, (_, albumId: string) =>
+    cacheService.deleteAlbum(albumId),
+  );
+  ipcMain.handle(CACHE_CHANNELS.GET_CACHED_TRACKS_DETAILED, () =>
+    cacheService.getCachedTracksWithDetails(),
+  );
 
   cacheService.on("download-progress", (data) => {
     broadcast(CACHE_CHANNELS.ON_DOWNLOAD_PROGRESS, data);

@@ -116,6 +116,9 @@ export const CACHE_CHANNELS = {
   GET_STATS: "cache:get-stats",
   GET_CACHED_TRACKS: "cache:get-cached-tracks",
   IS_CACHED: "cache:is-cached",
+  DOWNLOAD_ALBUM: "cache:download-album",
+  DELETE_ALBUM: "cache:delete-album",
+  GET_CACHED_TRACKS_DETAILED: "cache:get-cached-tracks-detailed",
   ON_DOWNLOAD_PROGRESS: "cache:on-download-progress",
   ON_STATS_UPDATED: "cache:on-stats-updated",
 } as const;
