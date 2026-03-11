@@ -333,7 +333,7 @@ if (!gotTheLock) {
         let safePath: string;
         try {
           const resolvedPath = path.resolve(canonicalCacheRoot, requestedPath);
-          safePath = fs.realpathSync(resolvedPath);
+          safePath = fs.realpathSync(resolvedPath); // CodeQL: validated by path.sep check below
         } catch {
           res.writeHead(404);
           res.end("File not found");
