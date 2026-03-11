@@ -258,7 +258,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             <input
                                 type="range"
                                 min="1"
-                                max="50"
+                                max="100"
                                 step="1"
                                 value={settings?.cacheMaxSizeGB || 5}
                                 onChange={(e) => updateSettings({ cacheMaxSizeGB: parseInt(e.target.value) })}

@@ -130,12 +130,13 @@
 
 /* Slider input */
 .setting input[type="range"] {
-    width: 120px;
+    width: 150px;
     height: 4px;
     -webkit-appearance: none;
     appearance: none;
     background: var(--bg-active);
     border-radius: var(--radius-full);
+    padding: var(--spacing-sm) 0;
     cursor: pointer;
 }
 
