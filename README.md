@@ -236,7 +236,6 @@ mobile/
 
 | What                                           | Size | Status |
 | :--------------------------------------------- | ---- | :----: |
-| Enhance music caching, add offline mode      | XL   | 🟡     |
 | Bug finding and fixing                         | XL   | 🟡     |
 | Refine the design                              | L    | 🟡     |
 | View/edit playlist/ drag-to-reorder - mobile   | L    | 🔴     |
