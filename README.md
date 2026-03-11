@@ -36,6 +36,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
+- 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 
@@ -169,7 +170,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery** - Automatic local network discovery
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
-- 🎧 **Last.fm Scrobbling** - Track your listening history with native scrobbling in standalone mode (do mot use Last.Fm's *Scrobble from...* as it might behave unstably)
+- 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
