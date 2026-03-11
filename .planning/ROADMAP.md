@@ -65,6 +65,25 @@
 2. Loading states are clear
 3. Power users can navigate with keyboard
 
+### Phase 4: Mobile Offline Caching
+
+**Goal:** Enable offline playback on mobile app by caching audio files locally. Based on the desktop solution but adapted for React Native's file system and react-native-track-player.
+
+**Requirements:** OFFL-01 - OFFL-05 (same as Phase 1, applied to mobile)
+- OFFL-01: User can cache individual tracks for offline playback
+- OFFL-02: User can cache entire albums for offline playback
+- OFFL-03: Cached tracks play without internet connection
+- OFFL-04: User can view which tracks are cached
+- OFFL-05: User can clear cache for individual tracks or albums
+
+**Depends on:** Phase 1 (desktop offline)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — MobileCacheService + Database schema
+- [ ] 04-02-PLAN.md — Player integration + Store updates
+- [ ] 04-03-PLAN.md — UI indicators and cache management
+
 ---
 
 ## Notes
