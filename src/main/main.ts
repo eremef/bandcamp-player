@@ -319,6 +319,7 @@ if (!gotTheLock) {
     .whenReady()
     .then(async () => {
       const CACHE_ROOT = path.join(app.getPath("userData"), "cache");
+      const canonicalCacheRoot = fs.realpathSync(CACHE_ROOT);
       const cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
         const rawPath = req.url ? req.url.slice(1) : "";
         const requestedPath = decodeURIComponent(rawPath);
@@ -331,7 +332,7 @@ if (!gotTheLock) {
 
         let safePath: string;
         try {
-          const resolvedPath = path.resolve(CACHE_ROOT, requestedPath);
+          const resolvedPath = path.resolve(canonicalCacheRoot, requestedPath);
           safePath = fs.realpathSync(resolvedPath);
         } catch {
           res.writeHead(404);
@@ -340,8 +341,8 @@ if (!gotTheLock) {
         }
 
         if (
-          safePath !== CACHE_ROOT &&
-          !safePath.startsWith(CACHE_ROOT + path.sep)
+          safePath !== canonicalCacheRoot &&
+          !safePath.startsWith(canonicalCacheRoot + path.sep)
         ) {
           res.writeHead(403);
           res.end("Access denied");
