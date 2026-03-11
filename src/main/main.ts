@@ -248,6 +248,11 @@ async function initializeServices() {
     remoteConfigService.setOfflineMode(true);
   }
 
+  // Fetch remote config (skipped automatically if offline mode is enabled)
+  remoteConfigService.fetchLatestConfig().catch((e) =>
+    console.error("[RemoteConfig] Initial fetch failed:", e),
+  );
+
   // Register IPC handlers
   registerIpcHandlers(ipcMain, {
     authService,
@@ -317,8 +322,30 @@ if (!gotTheLock) {
         const filePath = decodeURIComponent(req.url?.slice(1) || "");
         console.log("[cache-server] Serving:", filePath);
         if (fs.existsSync(filePath)) {
-          res.writeHead(200, { "Content-Type": "audio/mpeg" });
-          fs.createReadStream(filePath).pipe(res);
+          const stat = fs.statSync(filePath);
+          const fileSize = stat.size;
+          const range = req.headers.range;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunkSize = end - start + 1;
+
+            res.writeHead(206, {
+              "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+              "Accept-Ranges": "bytes",
+              "Content-Length": chunkSize,
+              "Content-Type": "audio/mpeg",
+            });
+            fs.createReadStream(filePath, { start, end }).pipe(res);
+          } else {
+            res.writeHead(200, {
+              "Content-Length": fileSize,
+              "Content-Type": "audio/mpeg",
+            });
+            fs.createReadStream(filePath).pipe(res);
+          }
         } else {
           res.writeHead(404);
           res.end("File not found");

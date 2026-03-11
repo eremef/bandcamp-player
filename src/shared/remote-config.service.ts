@@ -109,12 +109,7 @@ export class RemoteConfigService {
   private offlineMode = false;
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-  private constructor() {
-    // Automatically fetch on instantiation if not done recently
-    this.fetchLatestConfig().catch((e) =>
-      console.error("[RemoteConfig] Initial fetch failed:", e),
-    );
-  }
+  private constructor() {}
 
   public static getInstance(): RemoteConfigService {
     if (!RemoteConfigService.instance) {
