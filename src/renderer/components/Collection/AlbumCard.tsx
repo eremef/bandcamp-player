@@ -29,7 +29,10 @@ export function AlbumCard({ album }: AlbumCardProps) {
     cachedAlbumIds,
     downloadingTracks,
     downloadingAlbumIds,
+    settings,
   } = useStore();
+
+  const isOfflineMode = settings?.offlineMode ?? false;
   const [isLoading, setIsLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -52,12 +55,21 @@ export function AlbumCard({ album }: AlbumCardProps) {
   );
 
   const ensureAlbumTracks = async () => {
-    // If we have no tracks, or we have tracks but they are missing stream URLs (and not cached), we need to fetch
-    const hasValidTracks =
-      album.tracks.length > 0 &&
-      album.tracks.every((t) => !!t.streamUrl || !!t.isCached);
+    const isAlbumFullyCached = cachedAlbumIds.has(album.id);
 
-    if (hasValidTracks) {
+    // If album has loaded tracks with valid streamUrls, use them directly
+    if (album.tracks.length > 0 && album.tracks.every((t) => !!t.streamUrl)) {
+      return album;
+    }
+
+    // In offline mode with fully cached album, get tracks from cache
+    if (isOfflineMode && isAlbumFullyCached) {
+      const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(album.id);
+      if (cachedTracks.length > 0) {
+        return { ...album, tracks: cachedTracks, trackCount: cachedTracks.length };
+      }
+      // If no cached tracks found but album is marked as cached, return album anyway
+      // The player will handle playing from cache
       return album;
     }
 

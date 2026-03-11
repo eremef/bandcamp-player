@@ -51,6 +51,7 @@ describe("AlbumDetailView", () => {
       downloadTrack: vi.fn(),
       playlists: [],
       cachedTrackIds: new Set<string>(),
+      cachedAlbumIds: new Set<string>(),
       downloadingTracks: new Set<string>(),
       albumDetailSourceView: "collection",
     });
@@ -197,6 +198,7 @@ describe("AlbumDetailView", () => {
       play: vi.fn(),
       playlists: [],
       cachedTrackIds: new Set<string>(),
+      cachedAlbumIds: new Set<string>(),
       downloadingTracks: new Set<string>(),
       albumDetailSourceView: "collection",
     });

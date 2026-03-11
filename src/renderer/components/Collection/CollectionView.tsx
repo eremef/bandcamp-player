@@ -34,6 +34,7 @@ export function CollectionView() {
     settings,
     isOnline,
     cachedTrackIds,
+    cachedAlbumIds,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -67,12 +68,25 @@ export function CollectionView() {
       const allTracks: Track[] = [];
       for (const item of items) {
         if (item.type === "album" && item.album) {
-          const hasValidTracks =
-            item.album.tracks.length > 0 &&
-            item.album.tracks.every((t) => !!t.streamUrl || cachedTrackIds.has(t.id));
-          if (hasValidTracks) {
+          const isAlbumFullyCached = cachedAlbumIds.has(item.album.id);
+
+          // If album has loaded tracks with valid streamUrls, use them
+          if (item.album.tracks.length > 0 && item.album.tracks.every((t) => !!t.streamUrl)) {
             allTracks.push(...item.album.tracks);
-          } else if (item.album.bandcampUrl) {
+            continue;
+          }
+
+          // In offline mode with fully cached album, get tracks from cache
+          if (isOfflineMode && isAlbumFullyCached) {
+            const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(item.album.id);
+            if (cachedTracks.length > 0) {
+              allTracks.push(...cachedTracks);
+              continue;
+            }
+          }
+
+          // Otherwise try network fetch
+          if (item.album.bandcampUrl) {
             const details = await getAlbumDetails(item.album.bandcampUrl);
             if (details) allTracks.push(...details.tracks);
           }
@@ -87,7 +101,7 @@ export function CollectionView() {
       }
       return allTracks;
     },
-    [getAlbumDetails, cachedTrackIds],
+    [getAlbumDetails, cachedTrackIds, cachedAlbumIds, isOfflineMode],
   );
 
   const handleBulkAction = useCallback(

@@ -34,7 +34,10 @@ export function AlbumDetailView() {
     cachedAlbumIds,
     downloadingTracks,
     downloadingAlbumIds,
+    settings,
   } = useStore();
+
+  const isOfflineMode = settings?.offlineMode ?? false;
 
   const [isLoading, setIsLoading] = useState(false);
   const [albumDetails, setAlbumDetails] = useState(selectedAlbum);
@@ -47,12 +50,23 @@ export function AlbumDetailView() {
     setIsLoading(false);
 
     const fetchDetails = async () => {
-      // If we have no tracks, or we have tracks but they are missing stream URLs, we need to fetch
-      const hasValidTracks =
-        selectedAlbum.tracks.length > 0 &&
-        selectedAlbum.tracks.every((t) => !!t.streamUrl || !!t.isCached);
+      const isAlbumFullyCached = cachedAlbumIds.has(selectedAlbum.id);
 
-      if (!hasValidTracks && selectedAlbum.bandcampUrl) {
+      // If album has loaded tracks with valid streamUrls, we're done
+      if (selectedAlbum.tracks.length > 0 && selectedAlbum.tracks.every((t) => !!t.streamUrl)) {
+        return;
+      }
+
+      // In offline mode with fully cached album, get tracks from cache
+      if (isOfflineMode && isAlbumFullyCached) {
+        const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(selectedAlbum.id);
+        if (cachedTracks.length > 0) {
+          setAlbumDetails({ ...selectedAlbum, tracks: cachedTracks, trackCount: cachedTracks.length });
+        }
+        return;
+      }
+
+      if (selectedAlbum.bandcampUrl) {
         setIsLoading(true);
         try {
           const details = await getAlbumDetails(selectedAlbum.bandcampUrl);
@@ -72,7 +86,7 @@ export function AlbumDetailView() {
     };
 
     fetchDetails();
-  }, [selectedAlbum, getAlbumDetails, updateAlbumInCollection]);
+  }, [selectedAlbum, getAlbumDetails, updateAlbumInCollection, cachedTrackIds, cachedAlbumIds, isOfflineMode]);
 
   if (!selectedAlbum) {
     return (

@@ -317,6 +317,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(CACHE_CHANNELS.GET_CACHED_TRACKS_DETAILED, () =>
     cacheService.getCachedTracksWithDetails(),
   );
+  ipcMain.handle(CACHE_CHANNELS.GET_CACHED_TRACKS_BY_ALBUM, (_, albumId: string) =>
+    cacheService.getCachedTracksByAlbum(albumId),
+  );
 
   cacheService.on("download-progress", (data) => {
     broadcast(CACHE_CHANNELS.ON_DOWNLOAD_PROGRESS, data);
