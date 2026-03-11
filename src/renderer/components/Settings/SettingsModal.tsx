@@ -237,13 +237,28 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         </div>
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Offline Mode</span>
+                                <span className={styles.settingHint}>Only play cached tracks (skips streaming)</span>
+                            </div>
+                            <label className={`${styles.switch} ${!settings?.cacheEnabled ? styles.switchDisabled : ''}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.offlineMode ?? false}
+                                    disabled={!settings?.cacheEnabled}
+                                    onChange={(e) => updateSettings({ offlineMode: e.target.checked })}
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Max Cache Size</span>
                                 <span className={styles.settingValue}>{settings?.cacheMaxSizeGB || 5} GB</span>
                             </div>
                             <input
                                 type="range"
                                 min="1"
-                                max="50"
+                                max="100"
                                 step="1"
                                 value={settings?.cacheMaxSizeGB || 5}
                                 onChange={(e) => updateSettings({ cacheMaxSizeGB: parseInt(e.target.value) })}

@@ -3,6 +3,41 @@
     cursor: pointer;
 }
 
+/* Artwork wrapper — sits outside overflow:hidden so the dot is never clipped */
+.artworkWrapper {
+    position: relative;
+    margin-bottom: var(--spacing-md);
+}
+
+/* Cached dot — bottom-left of the artwork */
+.cachedDot {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    left: var(--spacing-sm);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--bg-secondary);
+    z-index: 2;
+    pointer-events: none;
+}
+
+.cachedDotDownloading {
+    background: var(--accent-primary);
+    animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+    0%,
+    100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
 /* Artwork */
 .artworkContainer {
     position: relative;
@@ -10,7 +45,6 @@
     border-radius: var(--radius-lg);
     overflow: hidden;
     background: var(--bg-tertiary);
-    margin-bottom: var(--spacing-md);
 }
 
 .artwork {

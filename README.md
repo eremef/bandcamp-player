@@ -2,16 +2,14 @@
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
 
-![Presentation of both desktop and mobile apps](https://github.com/user-attachments/assets/488a5523-8cd5-4094-9d17-07aa135553e6 "Beta Player (desktop and mobile apps)")
+![Presentation of both desktop and mobile apps](https://github.com/user-attachments/assets/9fbee901-1bbc-4f06-9ffd-018cceb8bdbd "Beta Player (desktop and mobile apps)")
 
 ## Download
 
-**Download links**
-- https://github.com/eremef/bandcamp-player/releases/latest - raw release files
-- https://eremef.xyz/beta-player - more convenient download page
+- <https://eremef.xyz/beta-player> - download page
+- <https://github.com/eremef/bandcamp-player/releases/latest> - raw release files
 
 ## Desktop App
-
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more!
 
@@ -30,7 +28,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
-- 📥 **Offline Caching** - Download tracks for offline playback
+- 📥 **Offline Caching** - Download entire albums for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
 - 🔍 **Smart Search** - Filter your collection instantly
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
@@ -45,6 +43,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
+- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection - no network errors when playing cached content
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 

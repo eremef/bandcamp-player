@@ -1,250 +1,382 @@
-import { useEffect, useState } from 'react';
-import { useStore } from '../../store/store';
-import { ArrowLeft, Music, Play, List, MoreHorizontal, Download } from 'lucide-react';
-import styles from './AlbumDetailView.module.css';
+import { useEffect, useState } from "react";
+import { useStore } from "../../store/store";
+import {
+  ArrowLeft,
+  Music,
+  Play,
+  List,
+  MoreHorizontal,
+  Download,
+  Trash2,
+} from "lucide-react";
+import styles from "./AlbumDetailView.module.css";
 
 export function AlbumDetailView() {
-    const {
-        selectedAlbum,
-        setView,
-        play,
-        addAlbumToQueue,
-        addTracksToQueue,
-        clearQueue,
-        playQueueIndex,
+  const {
+    selectedAlbum,
+    setView,
+    play,
+    addAlbumToQueue,
+    addTracksToQueue,
+    clearQueue,
+    playQueueIndex,
 
-        getAlbumDetails,
-        addToQueue,
-        addTracksToPlaylist,
-        playlists,
-        downloadTrack,
-        albumDetailSourceView
-    } = useStore();
+    getAlbumDetails,
+    updateAlbumInCollection,
+    addToQueue,
+    addTracksToPlaylist,
+    playlists,
+    downloadTrack,
+    downloadAlbum,
+    deleteAlbum,
+    albumDetailSourceView,
+    cachedTrackIds,
+    cachedAlbumIds,
+    downloadingTracks,
+    downloadingAlbumIds,
+    settings,
+  } = useStore();
 
-    const [isLoading, setIsLoading] = useState(false);
-    const [albumDetails, setAlbumDetails] = useState(selectedAlbum);
-    const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
+  const isOfflineMode = settings?.offlineMode ?? false;
 
-    useEffect(() => {
-        if (!selectedAlbum) return;
+  const [isLoading, setIsLoading] = useState(false);
+  const [albumDetails, setAlbumDetails] = useState(selectedAlbum);
+  const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
 
-        setAlbumDetails(selectedAlbum);
-        setIsLoading(false);
+  useEffect(() => {
+    if (!selectedAlbum) return;
 
-        const fetchDetails = async () => {
-            // If we have no tracks, or we have tracks but they are missing stream URLs, we need to fetch
-            const hasValidTracks = selectedAlbum.tracks.length > 0 && selectedAlbum.tracks.every(t => !!t.streamUrl || !!t.isCached);
+    setAlbumDetails(selectedAlbum);
+    setIsLoading(false);
 
-            if (!hasValidTracks && selectedAlbum.bandcampUrl) {
-                setIsLoading(true);
-                try {
-                    const details = await getAlbumDetails(selectedAlbum.bandcampUrl);
-                    if (details) {
-                        setAlbumDetails(details);
-                    }
-                } catch (error) {
-                    console.error('Error fetching album details:', error);
-                } finally {
-                    setIsLoading(false);
-                }
-            }
-        };
+    const fetchDetails = async () => {
+      const isAlbumFullyCached = cachedAlbumIds.has(selectedAlbum.id);
 
-        fetchDetails();
-    }, [selectedAlbum, getAlbumDetails]);
+      // If album has loaded tracks with valid streamUrls, we're done
+      if (selectedAlbum.tracks.length > 0 && selectedAlbum.tracks.every((t) => !!t.streamUrl)) {
+        return;
+      }
 
-    if (!selectedAlbum) {
-        return (
-            <div className={styles.container}>
-                <p>Album not found</p>
-                <button onClick={() => setView(albumDetailSourceView || 'collection')}>
-                    Back to {albumDetailSourceView === 'artists' ? 'artists' : 'collection'}
-                </button>
-            </div>
-        );
-    }
-
-    const formatDuration = (seconds: number) => {
-        const hours = Math.floor(seconds / 3600);
-        const mins = Math.floor((seconds % 3600) / 60);
-        if (hours > 0) {
-            return `${hours} hr ${mins} min`;
+      // In offline mode with fully cached album, get tracks from cache
+      if (isOfflineMode && isAlbumFullyCached) {
+        const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(selectedAlbum.id);
+        if (cachedTracks.length > 0) {
+          setAlbumDetails({ ...selectedAlbum, tracks: cachedTracks, trackCount: cachedTracks.length });
         }
-        return `${mins} min`;
-    };
+        return;
+      }
 
-    const handlePlayAll = async () => {
-        if (albumDetails && albumDetails.tracks.length > 0) {
-            await clearQueue(false);
-            await addTracksToQueue(albumDetails.tracks);
-            await playQueueIndex(0);
+      if (selectedAlbum.bandcampUrl) {
+        setIsLoading(true);
+        try {
+          const details = await getAlbumDetails(selectedAlbum.bandcampUrl);
+          if (details) {
+            setAlbumDetails(details);
+            // Write full tracks back into the collection store so the next
+            // open of this album skips the network fetch entirely, and so
+            // deriveCachedAlbumIds has the real trackCount to compare against.
+            updateAlbumInCollection(details);
+          }
+        } catch (error) {
+          console.error("Error fetching album details:", error);
+        } finally {
+          setIsLoading(false);
         }
+      }
     };
 
-    const handleAddToQueue = async () => {
-        if (albumDetails) {
-            await addAlbumToQueue(albumDetails);
-        }
-    };
+    fetchDetails();
+  }, [selectedAlbum, getAlbumDetails, updateAlbumInCollection, cachedTrackIds, cachedAlbumIds, isOfflineMode]);
 
-    const handleTrackAddToQueue = async (track: any) => {
-        setActiveTrackMenu(null);
-        await addToQueue(track);
-    };
-
-    const handleTrackAddToPlaylist = async (playlistId: string, track: any) => {
-        setActiveTrackMenu(null);
-        await addTracksToPlaylist(playlistId, [track]);
-    };
-
-    const handleTrackDownload = async (track: any) => {
-        setActiveTrackMenu(null);
-        await downloadTrack(track);
-    };
-
+  if (!selectedAlbum) {
     return (
-        <div className={styles.container}>
-            {/* Header */}
-            <header className={styles.header}>
-                <button className={styles.backBtn} onClick={() => setView(albumDetailSourceView || 'collection')}>
-                    <ArrowLeft size={18} />
-                    <span>Back</span>
-                </button>
-                <div className={styles.headerContent}>
-                    <div className={styles.artwork}>
-                        {albumDetails?.artworkUrl ? (
-                            <img src={albumDetails.artworkUrl} alt={albumDetails.title} />
-                        ) : (
-                            <div className={styles.placeholderArtwork}><Music size={48} /></div>
-                        )}
-                    </div>
-                    <div className={styles.info}>
-                        <span className={styles.label}>Album</span>
-                        <h1 className={styles.title}>{albumDetails?.title}</h1>
-                        <h2 className={styles.artist}>{albumDetails?.artist}</h2>
-
-                        <p className={styles.meta}>
-                            {albumDetails?.tracks.length || 0} tracks
-                            {albumDetails?.tracks.length ? ` • ${formatDuration(albumDetails.tracks.reduce((acc, t) => acc + t.duration, 0))}` : ''}
-                        </p>
-                        <div className={styles.actions}>
-                            <button
-                                className={styles.playBtn}
-                                onClick={handlePlayAll}
-                                disabled={isLoading || !albumDetails?.tracks.length}
-                            >
-                                <Play size={18} fill="currentColor" />
-                                <span>Play</span>
-                            </button>
-                            <button
-                                className={styles.actionBtn}
-                                onClick={handleAddToQueue}
-                                disabled={isLoading}
-                            >
-                                <List size={18} />
-                                <span>Add to Queue</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Track list */}
-            <div className={styles.trackList}>
-                {isLoading ? (
-                    <div className={styles.loading}>
-                        <div className="spinner" />
-                        <p>Loading tracks...</p>
-                    </div>
-                ) : !albumDetails?.tracks.length ? (
-                    <div className={styles.empty}>
-                        <p>No tracks found for this album</p>
-                    </div>
-                ) : (
-                    <table className={styles.table}>
-                        <thead>
-                            <tr>
-                                <th className={styles.colNum}>#</th>
-                                <th className={styles.colTitle}>Title</th>
-                                <th className={styles.colDuration}>Duration</th>
-                                <th className={styles.colActions}></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {albumDetails.tracks.map((track, index) => (
-                                <tr
-                                    key={`${track.id}-${index}`}
-                                    className={styles.trackRow}
-                                    onMouseLeave={() => setActiveTrackMenu(null)}
-                                    onContextMenu={(e) => {
-                                        e.preventDefault();
-                                        setActiveTrackMenu(track.id);
-                                    }}
-                                >
-                                    <td className={styles.colNum}>
-                                        <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => play(track)}>
-                                            <span className={styles.trackNumber}>{index + 1}</span>
-                                            <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
-                                        </button>
-                                    </td>
-                                    <td className={styles.colTitle}>
-                                        <div className={styles.trackTitle}>
-                                            <span>{track.title}</span>
-                                        </div>
-                                    </td>
-                                    <td className={styles.colDuration}>
-                                        {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
-                                    </td>
-                                    <td className={styles.colActions}>
-                                        <div className={styles.menuContainer}>
-                                            <button
-                                                className={styles.menuBtn}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
-                                                }}
-                                            >
-                                                <MoreHorizontal size={16} />
-                                            </button>
-
-                                            {activeTrackMenu === track.id && (
-                                                <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
-                                                    <button onClick={() => {
-                                                        setActiveTrackMenu(null);
-                                                        addToQueue(track, true);
-                                                    }}>
-                                                        <Play size={14} /> Play Next
-                                                    </button>
-                                                    <button onClick={() => handleTrackAddToQueue(track)}>
-                                                        <List size={14} /> Add to Queue
-                                                    </button>
-
-                                                    {playlists.length > 0 && (
-                                                        <>
-                                                            <div className={styles.menuDivider} />
-                                                            <span className={styles.menuLabel}>Add to Playlist</span>
-                                                            {playlists.map((playlist) => (
-                                                                <button key={playlist.id} onClick={() => handleTrackAddToPlaylist(playlist.id, track)}>
-                                                                    <Music size={14} /> {playlist.name}
-                                                                </button>
-                                                            ))}
-                                                        </>
-                                                    )}
-
-                                                    <div className={styles.menuDivider} />
-                                                    <button onClick={() => handleTrackDownload(track)}>
-                                                        <Download size={14} /> Download
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
-            </div>
-        </div>
+      <div className={styles.container}>
+        <p>Album not found</p>
+        <button onClick={() => setView(albumDetailSourceView || "collection")}>
+          Back to{" "}
+          {albumDetailSourceView === "artists" ? "artists" : "collection"}
+        </button>
+      </div>
     );
+  }
+
+  const formatDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) {
+      return `${hours} hr ${mins} min`;
+    }
+    return `${mins} min`;
+  };
+
+  const handlePlayAll = async () => {
+    if (albumDetails && albumDetails.tracks.length > 0) {
+      await clearQueue(false);
+      await addTracksToQueue(albumDetails.tracks);
+      await playQueueIndex(0);
+    }
+  };
+
+  const handleAddToQueue = async () => {
+    if (albumDetails) {
+      await addAlbumToQueue(albumDetails);
+    }
+  };
+
+  const handleTrackAddToQueue = async (track: any) => {
+    setActiveTrackMenu(null);
+    await addToQueue(track);
+  };
+
+  const handleTrackAddToPlaylist = async (playlistId: string, track: any) => {
+    setActiveTrackMenu(null);
+    await addTracksToPlaylist(playlistId, [track]);
+  };
+
+  const handleTrackDownload = async (track: any) => {
+    setActiveTrackMenu(null);
+    await downloadTrack(track);
+  };
+
+  const handleTrackRemoveFromCache = async (track: any) => {
+    setActiveTrackMenu(null);
+    await downloadTrack(track);
+    await useStore.getState().deleteFromCache(track.id);
+  };
+
+  const handleAlbumDownload = async () => {
+    if (albumDetails) {
+      await downloadAlbum(albumDetails);
+    }
+  };
+
+  const handleAlbumRemoveFromCache = async () => {
+    if (albumDetails?.id) {
+      await deleteAlbum(albumDetails.id);
+    }
+  };
+
+  const isAlbumDownloaded = selectedAlbum
+    ? cachedAlbumIds?.has(selectedAlbum.id)
+    : false;
+  const isAlbumDownloading = selectedAlbum
+    ? downloadingAlbumIds?.has(selectedAlbum.id)
+    : false;
+
+  return (
+    <div className={styles.container}>
+      {/* Header */}
+      <header className={styles.header}>
+        <button
+          className={styles.backBtn}
+          onClick={() => setView(albumDetailSourceView || "collection")}
+        >
+          <ArrowLeft size={18} />
+          <span>Back</span>
+        </button>
+        <div className={styles.headerContent}>
+          <div className={styles.artwork}>
+            {albumDetails?.artworkUrl ? (
+              <img src={albumDetails.artworkUrl} alt={albumDetails.title} />
+            ) : (
+              <div className={styles.placeholderArtwork}>
+                <Music size={48} />
+              </div>
+            )}
+          </div>
+          <div className={styles.info}>
+            <span className={styles.label}>Album</span>
+            <h1 className={styles.title}>{albumDetails?.title}</h1>
+            <h2 className={styles.artist}>{albumDetails?.artist}</h2>
+
+            <p className={styles.meta}>
+              {albumDetails?.tracks.length || 0} tracks
+              {albumDetails?.tracks.length
+                ? ` • ${formatDuration(albumDetails.tracks.reduce((acc, t) => acc + t.duration, 0))}`
+                : ""}
+            </p>
+            <div className={styles.actions}>
+              <button
+                className={styles.playBtn}
+                onClick={handlePlayAll}
+                disabled={isLoading || !albumDetails?.tracks.length}
+              >
+                <Play size={18} fill="currentColor" />
+                <span>Play</span>
+              </button>
+              <button
+                className={styles.actionBtn}
+                onClick={handleAddToQueue}
+                disabled={isLoading}
+              >
+                <List size={18} />
+                <span>Add to Queue</span>
+              </button>
+              {isAlbumDownloaded ? (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleAlbumRemoveFromCache}
+                  disabled={isLoading}
+                  title="Remove from cache"
+                >
+                  <Trash2 size={18} />
+                  <span>Downloaded</span>
+                </button>
+              ) : isAlbumDownloading ? (
+                <button className={styles.actionBtn} disabled>
+                  <Download size={18} className={styles.spinningIcon} />
+                  <span>Downloading...</span>
+                </button>
+              ) : (
+                <button
+                  className={styles.actionBtn}
+                  onClick={handleAlbumDownload}
+                  disabled={isLoading}
+                  title="Download album for offline"
+                >
+                  <Download size={18} />
+                  <span>Download Album</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Track list */}
+      <div className={styles.trackList}>
+        {isLoading ? (
+          <div className={styles.loading}>
+            <div className="spinner" />
+            <p>Loading tracks...</p>
+          </div>
+        ) : !albumDetails?.tracks.length ? (
+          <div className={styles.empty}>
+            <p>No tracks found for this album</p>
+          </div>
+        ) : (
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th className={styles.colNum}>#</th>
+                <th className={styles.colTitle}>Title</th>
+                <th className={styles.colDuration}>Duration</th>
+                <th className={styles.colActions}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {albumDetails.tracks.map((track, index) => (
+                <tr
+                  key={`${track.id}-${index}`}
+                  className={styles.trackRow}
+                  onMouseLeave={() => setActiveTrackMenu(null)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setActiveTrackMenu(track.id);
+                  }}
+                >
+                  <td className={styles.colNum}>
+                    <button
+                      data-testid="play-track-btn"
+                      className={styles.playTrackBtn}
+                      onClick={() => play(track)}
+                    >
+                      <span className={styles.trackNumber}>{index + 1}</span>
+                      <span className={styles.playIcon}>
+                        <Play size={14} fill="currentColor" />
+                      </span>
+                    </button>
+                  </td>
+                  <td className={styles.colTitle}>
+                    <div className={styles.trackTitle}>
+                      {downloadingTracks.has(track.id) ? (
+                        <span
+                          className={`${styles.cachedDot} ${styles.cachedDotDownloading}`}
+                          title="Downloading…"
+                        />
+                      ) : cachedTrackIds.has(track.id) ? (
+                        <span
+                          className={styles.cachedDot}
+                          title="Available offline"
+                        />
+                      ) : null}
+                      <span>{track.title}</span>
+                    </div>
+                  </td>
+                  <td className={styles.colDuration}>
+                    {Math.floor(track.duration / 60)}:
+                    {String(Math.floor(track.duration % 60)).padStart(2, "0")}
+                  </td>
+                  <td className={styles.colActions}>
+                    <div className={styles.menuContainer}>
+                      <button
+                        className={styles.menuBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveTrackMenu(
+                            activeTrackMenu === track.id ? null : track.id,
+                          );
+                        }}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+
+                      {activeTrackMenu === track.id && (
+                        <div
+                          className={styles.menu}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            onClick={() => {
+                              setActiveTrackMenu(null);
+                              addToQueue(track, true);
+                            }}
+                          >
+                            <Play size={14} /> Play Next
+                          </button>
+                          <button onClick={() => handleTrackAddToQueue(track)}>
+                            <List size={14} /> Add to Queue
+                          </button>
+
+                          {playlists.length > 0 && (
+                            <>
+                              <div className={styles.menuDivider} />
+                              <span className={styles.menuLabel}>
+                                Add to Playlist
+                              </span>
+                              {playlists.map((playlist) => (
+                                <button
+                                  key={playlist.id}
+                                  onClick={() =>
+                                    handleTrackAddToPlaylist(playlist.id, track)
+                                  }
+                                >
+                                  <Music size={14} /> {playlist.name}
+                                </button>
+                              ))}
+                            </>
+                          )}
+
+                          <div className={styles.menuDivider} />
+                          {!cachedTrackIds.has(track.id) ? (
+                            <button onClick={() => handleTrackDownload(track)}>
+                              <Download size={14} /> Download
+                            </button>
+                          ) : (
+                            <button onClick={() => handleTrackRemoveFromCache(track)}>
+                              <Trash2 size={14} /> Remove from cache
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
 }
