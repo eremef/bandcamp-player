@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
 import type { ViewType } from '../../../shared/types';
-import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X } from 'lucide-react';
+import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X, Download } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
 export function Sidebar() {
@@ -41,6 +41,7 @@ export function Sidebar() {
         { view: 'artists', label: 'Artists', icon: <User size={20} /> },
         { view: 'playlists', label: 'Playlists', icon: <ListMusic size={20} /> },
         { view: 'radio', label: 'Radio', icon: <Radio size={20} /> },
+        { view: 'cache', label: 'Offline', icon: <Download size={20} /> },
     ];
 
     return (

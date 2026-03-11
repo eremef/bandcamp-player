@@ -1,0 +1,145 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.dialog {
+    width: 90%;
+    max-width: 420px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl, 12px);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 36px 32px 28px;
+    gap: 0;
+    animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.iconWrapper {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.icon {
+    color: #ef4444;
+}
+
+.content {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 12px;
+    line-height: 1.2;
+}
+
+.message {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin: 0 0 10px;
+}
+
+.message strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.hint {
+    font-size: 12px;
+    color: var(--text-muted, var(--text-secondary));
+    line-height: 1.5;
+    margin: 0;
+    opacity: 0.75;
+}
+
+.hint em {
+    font-style: normal;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.primaryButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 20px;
+    background: #f59e0b;
+    color: #000;
+    border: none;
+    border-radius: var(--radius-md, 8px);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+
+.primaryButton:hover {
+    background: #fbbf24;
+}
+
+.primaryButton:active {
+    transform: scale(0.98);
+}
+
+.secondaryButton {
+    width: 100%;
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius-md, 8px);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.secondaryButton:hover {
+    background: var(--hover-bg, rgba(128, 128, 128, 0.15));
+    color: var(--text-primary);
+}

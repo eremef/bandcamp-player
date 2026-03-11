@@ -1,30 +1,36 @@
-import BetterSqlite3 from 'better-sqlite3';
-import * as path from 'path';
-import * as fs from 'fs';
-import type { AppSettings, Playlist, Track, CacheEntry, RadioStation } from '../../shared/types';
+import BetterSqlite3 from "better-sqlite3";
+import * as path from "path";
+import * as fs from "fs";
+import type {
+  AppSettings,
+  Playlist,
+  Track,
+  CacheEntry,
+  RadioStation,
+} from "../../shared/types";
 
 // ============================================================================
 // Database Class
 // ============================================================================
 
 export class Database {
-    private db: BetterSqlite3.Database;
+  private db: BetterSqlite3.Database;
 
-    constructor(dbPath: string) {
-        // Ensure directory exists
-        const dir = path.dirname(dbPath);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        this.db = new BetterSqlite3(dbPath);
-        this.db.pragma('journal_mode = WAL');
-        this.initialize();
+  constructor(dbPath: string) {
+    // Ensure directory exists
+    const dir = path.dirname(dbPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
     }
 
-    private initialize() {
-        // Create tables
-        this.db.exec(`
+    this.db = new BetterSqlite3(dbPath);
+    this.db.pragma("journal_mode = WAL");
+    this.initialize();
+  }
+
+  private initialize() {
+    // Create tables
+    this.db.exec(`
       -- Settings table (key-value store)
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -50,7 +56,7 @@ export class Database {
         FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
       );
 
-      CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist 
+      CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist
         ON playlist_tracks(playlist_id, position);
 
       -- Cached collection (for faster loading)
@@ -64,10 +70,17 @@ export class Database {
       -- Audio file cache metadata
       CREATE TABLE IF NOT EXISTS audio_cache (
         track_id TEXT PRIMARY KEY,
+        album_id TEXT,
         file_path TEXT NOT NULL,
         file_size INTEGER NOT NULL,
         cached_at TEXT NOT NULL,
-        last_accessed_at TEXT NOT NULL
+        last_accessed_at TEXT NOT NULL,
+        title TEXT,
+        artist TEXT,
+        album TEXT,
+        duration INTEGER,
+        track_number INTEGER,
+        artwork_url TEXT
       );
 
       -- Scrobble queue (for offline scrobbles)
@@ -100,12 +113,45 @@ export class Database {
       );
     `);
 
-        // Migration: Add is_simulated to artists if it doesn't exist
-        try {
-            this.db.prepare('SELECT is_simulated FROM artists LIMIT 1').get();
-        } catch {
-            console.log('[Database] Migrating artists table to include is_simulated column...');
-            this.db.exec(`
+    // Migration: Add album_id to audio_cache if it doesn't exist
+    try {
+      this.db.prepare("SELECT album_id FROM audio_cache LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating audio_cache table to include album_id column...",
+      );
+      this.db.exec(`ALTER TABLE audio_cache ADD COLUMN album_id TEXT;`);
+    }
+
+    try {
+      this.db.prepare("SELECT title FROM audio_cache LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating audio_cache table to include metadata columns...",
+      );
+      this.db.exec(`
+        ALTER TABLE audio_cache ADD COLUMN title TEXT;
+        ALTER TABLE audio_cache ADD COLUMN artist TEXT;
+        ALTER TABLE audio_cache ADD COLUMN album TEXT;
+        ALTER TABLE audio_cache ADD COLUMN duration INTEGER;
+        ALTER TABLE audio_cache ADD COLUMN track_number INTEGER;
+        ALTER TABLE audio_cache ADD COLUMN artwork_url TEXT;
+      `);
+    }
+
+    // Ensure the album_id index exists (safe for both new and migrated databases)
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_audio_cache_album_id ON audio_cache(album_id);`,
+    );
+
+    // Migration: Add is_simulated to artists if it doesn't exist
+    try {
+      this.db.prepare("SELECT is_simulated FROM artists LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating artists table to include is_simulated column...",
+      );
+      this.db.exec(`
                 ALTER TABLE artists RENAME TO artists_old;
                 CREATE TABLE artists (
                     id TEXT NOT NULL,
@@ -120,473 +166,694 @@ export class Database {
                 SELECT id, name, url, image_url, cached_at, 0 FROM artists_old;
                 DROP TABLE artists_old;
             `);
+    }
+
+    // Initialize default settings if not exists
+    this.initializeDefaultSettings();
+  }
+
+  private initializeDefaultSettings() {
+    const defaultSettings: AppSettings = {
+      cacheEnabled: true,
+      cacheMaxSizeGB: 5,
+      cacheLocation: "",
+      defaultVolume: 0.8,
+      crossfadeDuration: 0,
+      startMinimized: false,
+      minimizeToTray: true,
+      showNotifications: true,
+      scrobblingEnabled: true,
+      scrobbleThreshold: 50,
+      remoteEnabled: true,
+      theme: "system",
+      offlineMode: false,
+    };
+
+    const existing = this.db
+      .prepare("SELECT value FROM settings WHERE key = ?")
+      .get("app_settings") as { value: string } | undefined;
+    if (!existing) {
+      this.db
+        .prepare("INSERT INTO settings (key, value) VALUES (?, ?)")
+        .run("app_settings", JSON.stringify(defaultSettings));
+    } else {
+      // Merge any new default fields that may be missing from older saved settings,
+      // then enforce remoteEnabled for debugging/setup purposes.
+      const current = JSON.parse(existing.value);
+      let needsUpdate = false;
+
+      // Schema migration: add any new fields from defaultSettings that are absent
+      for (const [key, value] of Object.entries(defaultSettings)) {
+        if (!(key in current)) {
+          (current as Record<string, unknown>)[key] = value;
+          needsUpdate = true;
         }
+      }
 
-        // Initialize default settings if not exists
-        this.initializeDefaultSettings();
+      // Force enable remote for debugging/setup if it was disabled
+      if (!current.remoteEnabled) {
+        current.remoteEnabled = true;
+        needsUpdate = true;
+      }
+
+      if (needsUpdate) {
+        this.db
+          .prepare("UPDATE settings SET value = ? WHERE key = ?")
+          .run(JSON.stringify(current), "app_settings");
+      }
     }
+  }
 
-    private initializeDefaultSettings() {
-        const defaultSettings: AppSettings = {
-            cacheEnabled: true,
-            cacheMaxSizeGB: 5,
-            cacheLocation: '',
-            defaultVolume: 0.8,
-            crossfadeDuration: 0,
-            startMinimized: false,
-            minimizeToTray: true,
-            showNotifications: true,
-            scrobblingEnabled: true,
-            scrobbleThreshold: 50,
-            remoteEnabled: true,
-            theme: 'system',
-        };
+  // ---- Settings ----
 
-        const existing = this.db.prepare('SELECT value FROM settings WHERE key = ?').get('app_settings') as { value: string } | undefined;
-        if (!existing) {
-            this.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(
-                'app_settings',
-                JSON.stringify(defaultSettings)
-            );
-        } else {
-            // Force enable remote for debugging/setup if it was disabled
-            const current = JSON.parse(existing.value);
-            if (!current.remoteEnabled) {
-                current.remoteEnabled = true;
-                this.db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(
-                    JSON.stringify(current),
-                    'app_settings'
-                );
-            }
-        }
-    }
+  getSettings(): AppSettings | null {
+    const row = this.db
+      .prepare("SELECT value FROM settings WHERE key = ?")
+      .get("app_settings") as { value: string } | undefined;
+    return row ? JSON.parse(row.value) : null;
+  }
 
-    // ---- Settings ----
+  setSettings(settings: Partial<AppSettings>): AppSettings {
+    const current = this.getSettings() || ({} as AppSettings);
+    const updated = { ...current, ...settings };
+    this.db
+      .prepare("UPDATE settings SET value = ? WHERE key = ?")
+      .run(JSON.stringify(updated), "app_settings");
+    return updated;
+  }
 
-    getSettings(): AppSettings | null {
-        const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get('app_settings') as { value: string } | undefined;
-        return row ? JSON.parse(row.value) : null;
-    }
+  // ---- Playlists ----
 
-    setSettings(settings: Partial<AppSettings>): AppSettings {
-        const current = this.getSettings() || {} as AppSettings;
-        const updated = { ...current, ...settings };
-        this.db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(
-            JSON.stringify(updated),
-            'app_settings'
-        );
-        return updated;
-    }
-
-    // ---- Playlists ----
-
-    getAllPlaylists(): Playlist[] {
-        const rows = this.db.prepare(`
-      SELECT p.*, 
+  getAllPlaylists(): Playlist[] {
+    const rows = this.db
+      .prepare(
+        `
+      SELECT p.*,
         (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count,
         (SELECT SUM(json_extract(track_data, '$.duration')) FROM playlist_tracks WHERE playlist_id = p.id) as total_duration,
         (SELECT json_extract(track_data, '$.artworkUrl') FROM playlist_tracks WHERE playlist_id = p.id ORDER BY position ASC LIMIT 1) as artwork_url
       FROM playlists p
       ORDER BY p.updated_at DESC
-    `).all() as Array<{
-            id: string;
-            name: string;
-            description: string | null;
-            created_at: string;
-            updated_at: string;
-            track_count: number;
-            total_duration: number;
-            artwork_url: string | null;
-        }>;
+    `,
+      )
+      .all() as Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        created_at: string;
+        updated_at: string;
+        track_count: number;
+        total_duration: number;
+        artwork_url: string | null;
+      }>;
 
-        return rows.map(row => ({
-            id: row.id,
-            name: row.name,
-            description: row.description || undefined,
-            tracks: [],
-            trackCount: row.track_count,
-            totalDuration: row.total_duration || 0,
-            artworkUrl: row.artwork_url || undefined,
-            createdAt: row.created_at,
-            updatedAt: row.updated_at,
-        }));
-    }
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      description: row.description || undefined,
+      tracks: [],
+      trackCount: row.track_count,
+      totalDuration: row.total_duration || 0,
+      artworkUrl: row.artwork_url || undefined,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
 
-    getPlaylistById(id: string): Playlist | null {
-        const playlistRow = this.db.prepare('SELECT * FROM playlists WHERE id = ?').get(id) as {
-            id: string;
-            name: string;
-            description: string | null;
-            created_at: string;
-            updated_at: string;
-        } | undefined;
+  getPlaylistById(id: string): Playlist | null {
+    const playlistRow = this.db
+      .prepare("SELECT * FROM playlists WHERE id = ?")
+      .get(id) as
+      | {
+        id: string;
+        name: string;
+        description: string | null;
+        created_at: string;
+        updated_at: string;
+      }
+      | undefined;
 
-        if (!playlistRow) return null;
+    if (!playlistRow) return null;
 
-        const trackRows = this.db.prepare(`
-      SELECT id, track_data FROM playlist_tracks 
-      WHERE playlist_id = ? 
+    const trackRows = this.db
+      .prepare(
+        `
+      SELECT id, track_data FROM playlist_tracks
+      WHERE playlist_id = ?
       ORDER BY position
-    `).all(id) as Array<{ id: string; track_data: string }>;
+    `,
+      )
+      .all(id) as Array<{ id: string; track_data: string }>;
 
-        const tracks: Track[] = trackRows.map(row => {
-            const track = JSON.parse(row.track_data);
-            track.playlistEntryId = row.id;
-            return track;
-        });
-        const totalDuration = tracks.reduce((sum, t) => sum + t.duration, 0);
+    const tracks: Track[] = trackRows.map((row) => {
+      const track = JSON.parse(row.track_data);
+      track.playlistEntryId = row.id;
+      return track;
+    });
+    const totalDuration = tracks.reduce((sum, t) => sum + t.duration, 0);
 
-        return {
-            id: playlistRow.id,
-            name: playlistRow.name,
-            description: playlistRow.description || undefined,
-            tracks,
-            trackCount: tracks.length,
-            totalDuration,
-            artworkUrl: tracks[0]?.artworkUrl,
-            createdAt: playlistRow.created_at,
-            updatedAt: playlistRow.updated_at,
-        };
-    }
+    return {
+      id: playlistRow.id,
+      name: playlistRow.name,
+      description: playlistRow.description || undefined,
+      tracks,
+      trackCount: tracks.length,
+      totalDuration,
+      artworkUrl: tracks[0]?.artworkUrl,
+      createdAt: playlistRow.created_at,
+      updatedAt: playlistRow.updated_at,
+    };
+  }
 
-    createPlaylist(id: string, name: string, description?: string): Playlist {
-        const now = new Date().toISOString();
-        this.db.prepare(`
+  createPlaylist(id: string, name: string, description?: string): Playlist {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `
       INSERT INTO playlists (id, name, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
-    `).run(id, name, description || null, now, now);
+    `,
+      )
+      .run(id, name, description || null, now, now);
 
-        return {
-            id,
-            name,
-            description,
-            tracks: [],
-            trackCount: 0,
-            totalDuration: 0,
-            createdAt: now,
-            updatedAt: now,
-        };
+    return {
+      id,
+      name,
+      description,
+      tracks: [],
+      trackCount: 0,
+      totalDuration: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  updatePlaylist(id: string, name?: string, description?: string): void {
+    const now = new Date().toISOString();
+    const sets: string[] = ["updated_at = ?"];
+    const params: any[] = [now];
+
+    if (name !== undefined) {
+      sets.push("name = ?");
+      params.push(name);
+    }
+    if (description !== undefined) {
+      sets.push("description = ?");
+      params.push(description);
     }
 
-    updatePlaylist(id: string, name?: string, description?: string): void {
-        const now = new Date().toISOString();
-        const sets: string[] = ['updated_at = ?'];
-        const params: any[] = [now];
+    params.push(id);
+    const sql = `UPDATE playlists SET ${sets.join(", ")} WHERE id = ?`;
 
-        if (name !== undefined) {
-            sets.push('name = ?');
-            params.push(name);
-        }
-        if (description !== undefined) {
-            sets.push('description = ?');
-            params.push(description);
-        }
+    // console.log(`[Database] Updating playlist ${id}: name=${name}, description=${description}`);
+    const result = this.db.prepare(sql).run(...params);
 
-        params.push(id);
-        const sql = `UPDATE playlists SET ${sets.join(', ')} WHERE id = ?`;
-
-        // console.log(`[Database] Updating playlist ${id}: name=${name}, description=${description}`);
-        const result = this.db.prepare(sql).run(...params);
-
-        if (result.changes === 0) {
-            console.warn(`[Database] No playlist found with ID ${id} to update`);
-        }
+    if (result.changes === 0) {
+      console.warn(`[Database] No playlist found with ID ${id} to update`);
     }
+  }
 
-    deletePlaylist(id: string): void {
-        this.db.prepare('DELETE FROM playlists WHERE id = ?').run(id);
-    }
+  deletePlaylist(id: string): void {
+    this.db.prepare("DELETE FROM playlists WHERE id = ?").run(id);
+  }
 
-    addTrackToPlaylist(playlistId: string, trackId: string, track: Track): void {
-        const now = new Date().toISOString();
-        const maxPos = this.db.prepare(
-            'SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?'
-        ).get(playlistId) as { max: number | null };
+  addTrackToPlaylist(playlistId: string, trackId: string, track: Track): void {
+    const now = new Date().toISOString();
+    const maxPos = this.db
+      .prepare(
+        "SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?",
+      )
+      .get(playlistId) as { max: number | null };
 
-        const position = (maxPos.max ?? -1) + 1;
+    const position = (maxPos.max ?? -1) + 1;
 
-        this.db.prepare(`
+    this.db
+      .prepare(
+        `
       INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at)
       VALUES (?, ?, ?, ?, ?)
-    `).run(trackId, playlistId, JSON.stringify(track), position, now);
+    `,
+      )
+      .run(trackId, playlistId, JSON.stringify(track), position, now);
 
-        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(now, playlistId);
-    }
+    this.db
+      .prepare("UPDATE playlists SET updated_at = ? WHERE id = ?")
+      .run(now, playlistId);
+  }
 
-    addTracksToPlaylist(playlistId: string, tracks: Track[]): void {
-        if (tracks.length === 0) return;
+  addTracksToPlaylist(playlistId: string, tracks: Track[]): void {
+    if (tracks.length === 0) return;
 
-        const now = new Date().toISOString();
+    const now = new Date().toISOString();
 
-        // Get current max position
-        const maxPos = this.db.prepare(
-            'SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?'
-        ).get(playlistId) as { max: number | null };
+    // Get current max position
+    const maxPos = this.db
+      .prepare(
+        "SELECT MAX(position) as max FROM playlist_tracks WHERE playlist_id = ?",
+      )
+      .get(playlistId) as { max: number | null };
 
-        let currentPos = (maxPos.max ?? -1) + 1;
+    let currentPos = (maxPos.max ?? -1) + 1;
 
-        const insertStmt = this.db.prepare(`
+    const insertStmt = this.db.prepare(`
             INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at)
             VALUES (?, ?, ?, ?, ?)
         `);
 
-        // Use transaction for bulk insert
-        const transaction = this.db.transaction(() => {
-            for (const track of tracks) {
-                // Generate a unique ID for the playlist item
-                const trackId = `${playlistId}-${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-                insertStmt.run(trackId, playlistId, JSON.stringify(track), currentPos++, now);
-            }
+    // Use transaction for bulk insert
+    const transaction = this.db.transaction(() => {
+      for (const track of tracks) {
+        // Generate a unique ID for the playlist item
+        const trackId = `${playlistId}-${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+        insertStmt.run(
+          trackId,
+          playlistId,
+          JSON.stringify(track),
+          currentPos++,
+          now,
+        );
+      }
 
-            // Update playlist timestamp
-            this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(now, playlistId);
-        });
+      // Update playlist timestamp
+      this.db
+        .prepare("UPDATE playlists SET updated_at = ? WHERE id = ?")
+        .run(now, playlistId);
+    });
 
-        transaction();
-    }
+    transaction();
+  }
 
-    removeTrackFromPlaylist(playlistId: string, trackId: string): void {
-        const now = new Date().toISOString();
-        this.db.prepare('DELETE FROM playlist_tracks WHERE playlist_id = ? AND id = ?').run(playlistId, trackId);
-        this.db.prepare('UPDATE playlists SET updated_at = ? WHERE id = ?').run(now, playlistId);
-    }
+  removeTrackFromPlaylist(playlistId: string, trackId: string): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare("DELETE FROM playlist_tracks WHERE playlist_id = ? AND id = ?")
+      .run(playlistId, trackId);
+    this.db
+      .prepare("UPDATE playlists SET updated_at = ? WHERE id = ?")
+      .run(now, playlistId);
+  }
 
-    reorderPlaylistTracks(playlistId: string, fromIndex: number, toIndex: number): void {
-        const tracks = this.db.prepare(`
+  reorderPlaylistTracks(
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ): void {
+    const tracks = this.db
+      .prepare(
+        `
       SELECT id FROM playlist_tracks WHERE playlist_id = ? ORDER BY position
-    `).all(playlistId) as Array<{ id: string }>;
+    `,
+      )
+      .all(playlistId) as Array<{ id: string }>;
 
-        const [moved] = tracks.splice(fromIndex, 1);
-        tracks.splice(toIndex, 0, moved);
+    const [moved] = tracks.splice(fromIndex, 1);
+    tracks.splice(toIndex, 0, moved);
 
-        const updateStmt = this.db.prepare('UPDATE playlist_tracks SET position = ? WHERE id = ?');
-        const transaction = this.db.transaction(() => {
-            tracks.forEach((track, index) => {
-                updateStmt.run(index, track.id);
-            });
-        });
-        transaction();
-    }
+    const updateStmt = this.db.prepare(
+      "UPDATE playlist_tracks SET position = ? WHERE id = ?",
+    );
+    const transaction = this.db.transaction(() => {
+      tracks.forEach((track, index) => {
+        updateStmt.run(index, track.id);
+      });
+    });
+    transaction();
+  }
 
-    // ---- Audio Cache ----
+  // ---- Audio Cache ----
 
-    getCacheEntry(trackId: string): CacheEntry | null {
-        const row = this.db.prepare('SELECT * FROM audio_cache WHERE track_id = ?').get(trackId) as {
-            track_id: string;
-            file_path: string;
-            file_size: number;
-            cached_at: string;
-            last_accessed_at: string;
-        } | undefined;
+  getCacheEntry(trackId: string): CacheEntry | null {
+    const row = this.db
+      .prepare("SELECT * FROM audio_cache WHERE track_id = ?")
+      .get(trackId) as
+      | {
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+      }
+      | undefined;
 
-        if (!row) return null;
+    if (!row) return null;
 
-        return {
-            trackId: row.track_id,
-            filePath: row.file_path,
-            fileSize: row.file_size,
-            cachedAt: row.cached_at,
-            lastAccessedAt: row.last_accessed_at,
-        };
-    }
+    return {
+      trackId: row.track_id,
+      albumId: row.album_id ?? undefined,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+    };
+  }
 
-    addCacheEntry(entry: CacheEntry): void {
-        this.db.prepare(`
-      INSERT OR REPLACE INTO audio_cache (track_id, file_path, file_size, cached_at, last_accessed_at)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(entry.trackId, entry.filePath, entry.fileSize, entry.cachedAt, entry.lastAccessedAt);
-    }
+  addCacheEntry(entry: CacheEntry): void {
+    this.db
+      .prepare(
+        `
+      INSERT OR REPLACE INTO audio_cache (track_id, album_id, file_path, file_size, cached_at, last_accessed_at, title, artist, album, duration, track_number, artwork_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+      )
+      .run(
+        entry.trackId,
+        entry.albumId ?? null,
+        entry.filePath,
+        entry.fileSize,
+        entry.cachedAt,
+        entry.lastAccessedAt,
+        entry.title ?? null,
+        entry.artist ?? null,
+        entry.album ?? null,
+        entry.duration ?? null,
+        entry.trackNumber ?? null,
+        entry.artworkUrl ?? null,
+      );
+  }
 
-    updateCacheAccess(trackId: string): void {
-        const now = new Date().toISOString();
-        this.db.prepare('UPDATE audio_cache SET last_accessed_at = ? WHERE track_id = ?').run(now, trackId);
-    }
+  updateCacheAccess(trackId: string): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare("UPDATE audio_cache SET last_accessed_at = ? WHERE track_id = ?")
+      .run(now, trackId);
+  }
 
-    deleteCacheEntry(trackId: string): void {
-        this.db.prepare('DELETE FROM audio_cache WHERE track_id = ?').run(trackId);
-    }
+  deleteCacheEntry(trackId: string): void {
+    this.db.prepare("DELETE FROM audio_cache WHERE track_id = ?").run(trackId);
+  }
 
-    getAllCacheEntries(): CacheEntry[] {
-        const rows = this.db.prepare('SELECT * FROM audio_cache ORDER BY last_accessed_at DESC').all() as Array<{
-            track_id: string;
-            file_path: string;
-            file_size: number;
-            cached_at: string;
-            last_accessed_at: string;
-        }>;
+  getAllCacheEntries(): CacheEntry[] {
+    const rows = this.db
+      .prepare("SELECT * FROM audio_cache ORDER BY last_accessed_at DESC")
+      .all() as Array<{
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+        title: string | null;
+        artist: string | null;
+        album: string | null;
+        duration: number | null;
+        track_number: number | null;
+        artwork_url: string | null;
+      }>;
 
-        return rows.map(row => ({
-            trackId: row.track_id,
-            filePath: row.file_path,
-            fileSize: row.file_size,
-            cachedAt: row.cached_at,
-            lastAccessedAt: row.last_accessed_at,
-        }));
-    }
+    return rows.map((row) => ({
+      trackId: row.track_id,
+      albumId: row.album_id ?? undefined,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+      title: row.title ?? undefined,
+      artist: row.artist ?? undefined,
+      album: row.album ?? undefined,
+      duration: row.duration ?? undefined,
+      trackNumber: row.track_number ?? undefined,
+      artworkUrl: row.artwork_url ?? undefined,
+    }));
+  }
 
-    getCacheTotalSize(): number {
-        const result = this.db.prepare('SELECT SUM(file_size) as total FROM audio_cache').get() as { total: number | null };
-        return result.total || 0;
-    }
+  getCacheEntriesByAlbum(albumId: string): CacheEntry[] {
+    const rows = this.db
+      .prepare("SELECT * FROM audio_cache WHERE album_id = ? ORDER BY track_number ASC")
+      .all(albumId) as Array<{
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+        title: string | null;
+        artist: string | null;
+        album: string | null;
+        duration: number | null;
+        track_number: number | null;
+        artwork_url: string | null;
+      }>;
 
-    getOldestCacheEntries(count: number): CacheEntry[] {
-        const rows = this.db.prepare(`
+    return rows.map((row) => ({
+      trackId: row.track_id,
+      albumId: row.album_id ?? undefined,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+      title: row.title ?? undefined,
+      artist: row.artist ?? undefined,
+      album: row.album ?? undefined,
+      duration: row.duration ?? undefined,
+      trackNumber: row.track_number ?? undefined,
+      artworkUrl: row.artwork_url ?? undefined,
+    }));
+  }
+
+  getCacheTotalSize(): number {
+    const result = this.db
+      .prepare("SELECT SUM(file_size) as total FROM audio_cache")
+      .get() as { total: number | null };
+    return result.total || 0;
+  }
+
+  getOldestCacheEntries(count: number): CacheEntry[] {
+    const rows = this.db
+      .prepare(
+        `
       SELECT * FROM audio_cache ORDER BY last_accessed_at ASC LIMIT ?
-    `).all(count) as Array<{
-            track_id: string;
-            file_path: string;
-            file_size: number;
-            cached_at: string;
-            last_accessed_at: string;
-        }>;
+    `,
+      )
+      .all(count) as Array<{
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+      }>;
 
-        return rows.map(row => ({
-            trackId: row.track_id,
-            filePath: row.file_path,
-            fileSize: row.file_size,
-            cachedAt: row.cached_at,
-            lastAccessedAt: row.last_accessed_at,
-        }));
-    }
+    return rows.map((row) => ({
+      trackId: row.track_id,
+      albumId: row.album_id ?? undefined,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+    }));
+  }
 
-    clearCache(): void {
-        this.db.prepare('DELETE FROM audio_cache').run();
-    }
+  clearCache(): void {
+    this.db.prepare("DELETE FROM audio_cache").run();
+  }
 
-    // ---- Scrobble Queue ----
+  // ---- Scrobble Queue ----
 
-    addScrobble(artist: string, track: string, album?: string, duration?: number, timestamp?: number): void {
-        const now = new Date().toISOString();
-        this.db.prepare(`
+  addScrobble(
+    artist: string,
+    track: string,
+    album?: string,
+    duration?: number,
+    timestamp?: number,
+  ): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `
       INSERT INTO scrobble_queue (artist, track, album, duration, timestamp, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(artist, track, album || null, duration || null, timestamp || Math.floor(Date.now() / 1000), now);
-    }
+    `,
+      )
+      .run(
+        artist,
+        track,
+        album || null,
+        duration || null,
+        timestamp || Math.floor(Date.now() / 1000),
+        now,
+      );
+  }
 
-    getPendingScrobbles(): Array<{ id: number; artist: string; track: string; album: string | null; duration: number | null; timestamp: number }> {
-        return this.db.prepare('SELECT * FROM scrobble_queue ORDER BY timestamp ASC').all() as Array<{
-            id: number;
-            artist: string;
-            track: string;
-            album: string | null;
-            duration: number | null;
-            timestamp: number;
-        }>;
-    }
+  getPendingScrobbles(): Array<{
+    id: number;
+    artist: string;
+    track: string;
+    album: string | null;
+    duration: number | null;
+    timestamp: number;
+  }> {
+    return this.db
+      .prepare("SELECT * FROM scrobble_queue ORDER BY timestamp ASC")
+      .all() as Array<{
+        id: number;
+        artist: string;
+        track: string;
+        album: string | null;
+        duration: number | null;
+        timestamp: number;
+      }>;
+  }
 
-    deleteScrobble(id: number): void {
-        this.db.prepare('DELETE FROM scrobble_queue WHERE id = ?').run(id);
-    }
+  deleteScrobble(id: number): void {
+    this.db.prepare("DELETE FROM scrobble_queue WHERE id = ?").run(id);
+  }
 
-    // ---- Collection Cache ----
+  // ---- Collection Cache ----
 
-    getCollectionCache(id: string): { data: any, cachedAt: string } | null {
-        const row = this.db.prepare('SELECT data, cached_at FROM collection_cache WHERE id = ?').get(id) as { data: string, cached_at: string } | undefined;
-        return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
-    }
+  getCollectionCache(id: string): { data: any; cachedAt: string } | null {
+    const row = this.db
+      .prepare("SELECT data, cached_at FROM collection_cache WHERE id = ?")
+      .get(id) as { data: string; cached_at: string } | undefined;
+    return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
+  }
 
-    saveCollectionCache(id: string, type: string, data: any): void {
-        const now = new Date().toISOString();
-        this.db.prepare(`
+  saveCollectionCache(id: string, type: string, data: any): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `
       INSERT OR REPLACE INTO collection_cache (id, type, data, cached_at)
       VALUES (?, ?, ?, ?)
-    `).run(id, type, JSON.stringify(data), now);
-    }
+    `,
+      )
+      .run(id, type, JSON.stringify(data), now);
+  }
 
-    clearCollectionCache(id: string): void {
-        this.db.prepare('DELETE FROM collection_cache WHERE id = ?').run(id);
-    }
+  clearCollectionCache(id: string): void {
+    this.db.prepare("DELETE FROM collection_cache WHERE id = ?").run(id);
+  }
 
-    // ---- Radio Cache ----
+  // ---- Radio Cache ----
 
-    getRadioCache(): { data: RadioStation[], cachedAt: string } | null {
-        const row = this.db.prepare('SELECT data, cached_at FROM radio_cache WHERE id = ?').get('main') as { data: string, cached_at: string } | undefined;
-        return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
-    }
+  getRadioCache(): { data: RadioStation[]; cachedAt: string } | null {
+    const row = this.db
+      .prepare("SELECT data, cached_at FROM radio_cache WHERE id = ?")
+      .get("main") as { data: string; cached_at: string } | undefined;
+    return row ? { data: JSON.parse(row.data), cachedAt: row.cached_at } : null;
+  }
 
-    saveRadioCache(stations: RadioStation[]): void {
-        const now = new Date().toISOString();
-        this.db.prepare(`
+  saveRadioCache(stations: RadioStation[]): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `
             INSERT OR REPLACE INTO radio_cache (id, data, cached_at)
             VALUES (?, ?, ?)
-        `).run('main', JSON.stringify(stations), now);
-    }
+        `,
+      )
+      .run("main", JSON.stringify(stations), now);
+  }
 
-    // ---- Cleanup ----
+  // ---- Cleanup ----
 
-    // ---- Artists ----
+  // ---- Artists ----
 
-    saveArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[], isSimulated = false): void {
-        const now = new Date().toISOString();
-        const simulatedVal = isSimulated ? 1 : 0;
-        const insert = this.db.prepare(`
+  saveArtists(
+    artists: { id: string; name: string; url: string; imageUrl?: string }[],
+    isSimulated = false,
+  ): void {
+    const now = new Date().toISOString();
+    const simulatedVal = isSimulated ? 1 : 0;
+    const insert = this.db.prepare(`
             INSERT OR REPLACE INTO artists (id, name, url, image_url, is_simulated, cached_at)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
 
-        const transaction = this.db.transaction(() => {
-            for (const artist of artists) {
-                insert.run(artist.id, artist.name, artist.url, artist.imageUrl || null, simulatedVal, now);
-            }
-        });
+    const transaction = this.db.transaction(() => {
+      for (const artist of artists) {
+        insert.run(
+          artist.id,
+          artist.name,
+          artist.url,
+          artist.imageUrl || null,
+          simulatedVal,
+          now,
+        );
+      }
+    });
 
-        transaction();
-    }
+    transaction();
+  }
 
-    replaceArtists(artists: { id: string; name: string; url: string; imageUrl?: string }[], isSimulated = false): void {
-        const now = new Date().toISOString();
-        const simulatedVal = isSimulated ? 1 : 0;
+  replaceArtists(
+    artists: { id: string; name: string; url: string; imageUrl?: string }[],
+    isSimulated = false,
+  ): void {
+    const now = new Date().toISOString();
+    const simulatedVal = isSimulated ? 1 : 0;
 
-        const deleteStmt = this.db.prepare('DELETE FROM artists WHERE is_simulated = ?');
-        const insertStmt = this.db.prepare(`
+    const deleteStmt = this.db.prepare(
+      "DELETE FROM artists WHERE is_simulated = ?",
+    );
+    const insertStmt = this.db.prepare(`
             INSERT INTO artists (id, name, url, image_url, is_simulated, cached_at)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
 
-        const transaction = this.db.transaction(() => {
-            // 1. Clear existing artists for this mode (real or simulated)
-            deleteStmt.run(simulatedVal);
+    const transaction = this.db.transaction(() => {
+      // 1. Clear existing artists for this mode (real or simulated)
+      deleteStmt.run(simulatedVal);
 
-            // 2. Insert new artists
-            for (const artist of artists) {
-                insertStmt.run(artist.id, artist.name, artist.url, artist.imageUrl || null, simulatedVal, now);
-            }
-        });
+      // 2. Insert new artists
+      for (const artist of artists) {
+        insertStmt.run(
+          artist.id,
+          artist.name,
+          artist.url,
+          artist.imageUrl || null,
+          simulatedVal,
+          now,
+        );
+      }
+    });
 
-        transaction();
-    }
+    transaction();
+  }
 
-    getArtists(isSimulated = false): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
-        const simulatedVal = isSimulated ? 1 : 0;
-        const rows = this.db.prepare('SELECT * FROM artists WHERE is_simulated = ? ORDER BY name COLLATE NOCASE ASC').all(simulatedVal) as Array<{
-            id: string;
-            name: string;
-            url: string;
-            image_url: string | null;
-        }>;
+  getArtists(
+    isSimulated = false,
+  ): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
+    const simulatedVal = isSimulated ? 1 : 0;
+    const rows = this.db
+      .prepare(
+        "SELECT * FROM artists WHERE is_simulated = ? ORDER BY name COLLATE NOCASE ASC",
+      )
+      .all(simulatedVal) as Array<{
+        id: string;
+        name: string;
+        url: string;
+        image_url: string | null;
+      }>;
 
-        return rows.map(row => ({
-            id: row.id,
-            name: row.name,
-            bandcampUrl: row.url,
-            imageUrl: row.image_url || undefined
-        }));
-    }
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      bandcampUrl: row.url,
+      imageUrl: row.image_url || undefined,
+    }));
+  }
 
-    clearSimulatedData(): void {
-        console.log('[Database] Cleaning up all simulated data...');
+  clearSimulatedData(): void {
+    console.log("[Database] Cleaning up all simulated data...");
 
-        // 1. Clear simulated artists
-        const artistsResult = this.db.prepare('DELETE FROM artists WHERE is_simulated = 1').run();
+    // 1. Clear simulated artists
+    const artistsResult = this.db
+      .prepare("DELETE FROM artists WHERE is_simulated = 1")
+      .run();
 
-        // 2. Clear simulated collection cache
-        // IDs for simulation end with '_sim' (e.g. 'fanid_sim')
-        const cacheResult = this.db.prepare("DELETE FROM collection_cache WHERE id LIKE '%_sim'").run();
+    // 2. Clear simulated collection cache
+    // IDs for simulation end with '_sim' (e.g. 'fanid_sim')
+    const cacheResult = this.db
+      .prepare("DELETE FROM collection_cache WHERE id LIKE '%_sim'")
+      .run();
 
-        console.log(`[Database] Cleanup complete: ${artistsResult.changes} artists and ${cacheResult.changes} cache entries removed.`);
-    }
+    console.log(
+      `[Database] Cleanup complete: ${artistsResult.changes} artists and ${cacheResult.changes} cache entries removed.`,
+    );
+  }
 
-    close(): void {
-        this.db.close();
-    }
+  close(): void {
+    this.db.close();
+  }
 }

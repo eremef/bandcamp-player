@@ -174,6 +174,15 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Mocking HTTP servers**: Capture the request handler passed to `http.createServer` by intercepting `listen`. Invoke it with mocked `req`/`res` objects to test route logic.
 - **Mocking WebSocketServer (`ws`)**: Use an `EventEmitter` for the server. Manage `wss.clients` Set manually — add on `connection`, remove on client `close`, clear on `wss.close()`. Prevents stale connections leaking between tests.
 
+### Desktop Unit Test Conventions (Vitest) — Cache Indicators
+
+- **Album-level cache detection**: Collection view albums often have `tracks: []` before being opened. To detect fully-cached albums without loading tracks, `album_id` is stored in `audio_cache` DB entries. `getCachedTracks()` returns this `albumId` on each stub Track so the store can build a `cachedAlbumIds` set by comparing cached-track-counts-per-album against `album.trackCount`.
+- **`cachedAlbumIds` derivation**: Computed via a module-level `_cachedTrackCountByAlbum` map (albumId → cached track count) populated in `fetchCachedTrackIds()`. A standalone `deriveCachedAlbumIds(collection)` helper re-evaluates the Set from that map without a second IPC call. It is invoked in three places: `fetchCachedTrackIds()`, `fetchCollection()` (after `set({ collection })`), and the `onUpdated` collection event handler — ensuring the indicator is correct regardless of whether the cache or the collection loads first.
+- **`downloadingAlbumIds` tracking**: A module-level `Map<string, string>` (`_downloadingTrackAlbums`: trackId → albumId) lives outside Zustand state. It is updated in `downloadTrack` and used to recompute `downloadingAlbumIds` after each track finishes — avoids needing a full map in serialisable Zustand state.
+- **Cache cleared eagerly**: `clearCache()` immediately sets `cachedTrackIds` and `cachedAlbumIds` to empty Sets before the async `fetchCachedTrackIds` re-confirms, so indicators disappear instantly.
+- **AlbumCard mock fields**: Tests must include `cachedAlbumIds: new Set<string>()` and `downloadingAlbumIds: new Set<string>()` in the store mock object alongside the existing `cachedTrackIds` / `downloadingTracks`.
+- **`addCacheEntry` albumId assertion**: Use `expect.objectContaining({ trackId, albumId })` — the field is `undefined` for radio/playlist tracks that have no `albumId`.
+
 ### Mobile Unit Test Conventions (Jest)
 
 - **State isolation**: Zustand stores and `AsyncStorage` leak between tests. Reset with `useStore.setState()` in `beforeEach`.

@@ -125,6 +125,12 @@ export class PlayerService extends EventEmitter {
 
     // ---- Playback Control ----
 
+    // ---- Offline Mode ----
+
+    private isOfflineMode(): boolean {
+        return this.database.getSettings()?.offlineMode ?? false;
+    }
+
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
         this.error = null;
         console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
@@ -151,8 +157,21 @@ export class PlayerService extends EventEmitter {
             }
             this.emitQueueUpdate();
 
-            // Refresh stream URL if needed (radio or casting)
-            if (track.id.startsWith('radio-') || track.radioStationId || this.isCasting) {
+            // For cached tracks, prefer cached file to avoid network requests
+            const isTrackCached = this.cacheService.isCached(track.id);
+            if (isTrackCached) {
+                const cachedPath = this.cacheService.getCachedPath(track.id);
+                if (cachedPath) {
+                    const port = (global as any).cacheServerPort || 0;
+                    const cleanPath = cachedPath.replace(/^\/+/, "");
+                    const encoded = cleanPath.split("/").map(encodeURIComponent).join("/");
+                    track.streamUrl = `http://127.0.0.1:${port}/${encoded}`;
+                    console.log(`[PlayerService] Using cached file for ${track.title}`);
+                }
+            }
+
+            // Refresh stream URL only for non-cached tracks (radio, casting, or expired stream)
+            if (!isTrackCached && (track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
                     let streamUrl = track.streamUrl;
@@ -175,6 +194,15 @@ export class PlayerService extends EventEmitter {
                 } catch (error) {
                     console.error('[PlayerService] Error refreshing stream URL:', error);
                 }
+            }
+
+            // Offline mode check: block playback of non-cached tracks
+            if (this.isOfflineMode() && !this.cacheService.isCached(track.id)) {
+                console.warn(`[PlayerService] Offline mode: track ${track.title} is not cached, blocking playback.`);
+                this.error = `Offline mode: "${track.title}" is not available offline`;
+                this.isPlaying = false;
+                this.emitStateChange();
+                return;
             }
 
             // Play a specific track
@@ -364,6 +392,27 @@ export class PlayerService extends EventEmitter {
             }
         }
 
+        // In offline mode, skip non-cached tracks
+        if (this.isOfflineMode()) {
+            const startIndex = nextIndex;
+            while (!this.cacheService.isCached(this.queue[nextIndex].track.id)) {
+                nextIndex++;
+                if (nextIndex >= this.queue.length) {
+                    if (this.repeatMode === 'all') {
+                        nextIndex = 0;
+                    } else {
+                        this.finishQueue();
+                        return;
+                    }
+                }
+                if (nextIndex === startIndex) {
+                    // Looped through all — none cached
+                    this.finishQueue();
+                    return;
+                }
+            }
+        }
+
         await this.playIndex(nextIndex);
     }
 
@@ -392,6 +441,26 @@ export class PlayerService extends EventEmitter {
             } else {
                 this.seek(0);
                 return;
+            }
+        }
+
+        // In offline mode, skip non-cached tracks going backwards
+        if (this.isOfflineMode()) {
+            const startIndex = prevIndex;
+            while (!this.cacheService.isCached(this.queue[prevIndex].track.id)) {
+                prevIndex--;
+                if (prevIndex < 0) {
+                    if (this.repeatMode === 'all') {
+                        prevIndex = this.queue.length - 1;
+                    } else {
+                        this.seek(0);
+                        return;
+                    }
+                }
+                if (prevIndex === startIndex) {
+                    this.seek(0);
+                    return;
+                }
             }
         }
 
@@ -685,10 +754,12 @@ export class PlayerService extends EventEmitter {
     }
 
     getStreamUrl(track: Track): string {
-        // Check if cached
         const cachedPath = this.cacheService.getCachedPath(track.id);
         if (cachedPath) {
-            return `file://${cachedPath}`;
+            const port = (global as any).cacheServerPort || 0;
+            const cleanPath = cachedPath.replace(/^\/+/, "");
+            const encoded = cleanPath.split("/").map(encodeURIComponent).join("/");
+            return `http://127.0.0.1:${port}/${encoded}`;
         }
         return track.streamUrl;
     }
