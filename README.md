@@ -13,14 +13,6 @@ The Unofficial multi-platform Bandcamp desktop player with mobile remote control
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more!
 
->⚠️ **Attention** ⚠️
->
->May violate Bandcamp terms and policies.
->
->Use at your own risk.
->
->Application is designed for personal use, allowing users, aka fans, to listen to and cache only the tracks they have collected, as well as listen to freely available BC radio shows.
-
 \*not with one prompt, but hundreds of them (to be more precise, so far, over 101 conversations and 900 user prompts), a few weeks of designing, prompting, testing on different devices/virtual machines, re-designing, prompting, testing, etc., a full-time job. Still, not a traditional craft programming, and not as eco-friendly.
 
 ### Features
@@ -278,6 +270,12 @@ mobile/
 - Beats Echoing Through Air
 - Bandcamp Experience Through App
 - Bandcamp Embedded Track Aggregator
+
+## Legal concerns
+
+Since the application only allows users to stream and cache music they have already collected, I don't see any risk in using it. Below is Bandcamp's stance on much more questionable behaviors for comparison:
+
+https://get.bandcamp.help/hc/en-us/articles/23020694039575-I-heard-you-can-steal-music-on-Bandcamp-What-are-you-doing-about-this
 
 ## License
 
