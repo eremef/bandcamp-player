@@ -6,12 +6,10 @@ The Unofficial multi-platform Bandcamp desktop player with mobile remote control
 
 ## Download
 
-**Download links**
-- https://github.com/eremef/bandcamp-player/releases/latest - raw release files
-- https://eremef.xyz/beta-player - more convenient download page
+- <https://eremef.xyz/beta-player> - download page
+- <https://github.com/eremef/bandcamp-player/releases/latest> - raw release files
 
 ## Desktop App
-
 
 AI-generated\* feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more!
 
