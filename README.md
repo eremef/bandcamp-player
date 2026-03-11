@@ -30,7 +30,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 📝 **Playlist Management** - Create and manage custom playlists
-- 📥 **Offline Caching** - Download tracks for offline playback
+- 📥 **Offline Caching** - Download entire albums for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
 - 🔍 **Smart Search** - Filter your collection instantly
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
@@ -45,6 +45,7 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
+- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection - no network errors when playing cached content
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 

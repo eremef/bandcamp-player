@@ -34,7 +34,10 @@ export const ArtistsView: React.FC = () => {
     cachedAlbumIds,
     downloadingTracks,
     downloadingAlbumIds,
+    settings,
   } = useStore();
+
+  const isOfflineMode = settings?.offlineMode ?? false;
   const [filter, setFilter] = useState("");
   const [isActionsLoading, setIsActionsLoading] = useState(false);
   const [showDetailMenu, setShowDetailMenu] = useState(false);
@@ -221,12 +224,25 @@ export const ArtistsView: React.FC = () => {
       const allTracks: Track[] = [];
       for (const item of items) {
         if (item.type === "album" && item.album) {
-          const hasValidTracks =
-            item.album.tracks.length > 0 &&
-            item.album.tracks.every((t) => !!t.streamUrl || cachedTrackIds.has(t.id));
-          if (hasValidTracks) {
+          const isAlbumFullyCached = cachedAlbumIds.has(item.album.id);
+
+          // If album has loaded tracks with valid streamUrls, use them
+          if (item.album.tracks.length > 0 && item.album.tracks.every((t) => !!t.streamUrl)) {
             allTracks.push(...item.album.tracks);
-          } else if (item.album.bandcampUrl) {
+            continue;
+          }
+
+          // In offline mode with fully cached album, get tracks from cache
+          if (isOfflineMode && isAlbumFullyCached) {
+            const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(item.album.id);
+            if (cachedTracks.length > 0) {
+              allTracks.push(...cachedTracks);
+              continue;
+            }
+          }
+
+          // Otherwise try network fetch
+          if (item.album.bandcampUrl) {
             const details = await getAlbumDetails(item.album.bandcampUrl);
             if (details) allTracks.push(...details.tracks);
           }
@@ -241,7 +257,7 @@ export const ArtistsView: React.FC = () => {
       }
       return allTracks;
     },
-    [getAlbumDetails, cachedTrackIds],
+    [getAlbumDetails, cachedTrackIds, cachedAlbumIds, isOfflineMode],
   );
 
   const getItemsForArtist = useCallback(

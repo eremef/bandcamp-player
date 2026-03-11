@@ -322,6 +322,47 @@ export class CacheService extends EventEmitter {
     return tracks;
   }
 
+  getCachedTracksByAlbum(albumId: string): Track[] {
+    const entries = this.database.getCacheEntriesByAlbum(albumId);
+    const tracks: Track[] = [];
+
+    for (const entry of entries) {
+      const albumCache = this.database.getCollectionCache(albumId);
+      let trackData: Track | null = null;
+
+      if (albumCache && albumCache.data && albumCache.data.tracks) {
+        trackData = albumCache.data.tracks.find(
+          (t: Track) => t.id === entry.trackId,
+        ) || null;
+      }
+
+      if (trackData) {
+        tracks.push({
+          ...trackData,
+          isCached: true,
+          cachedPath: entry.filePath,
+        });
+      } else {
+        tracks.push({
+          id: entry.trackId,
+          albumId: entry.albumId,
+          title: entry.title || "",
+          artist: entry.artist || "",
+          album: entry.album || "",
+          duration: entry.duration || 0,
+          artworkUrl: entry.artworkUrl || "",
+          streamUrl: "",
+          bandcampUrl: "",
+          isCached: true,
+          cachedPath: entry.filePath,
+          trackNumber: entry.trackNumber,
+        });
+      }
+    }
+
+    return tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
+  }
+
   // ---- Private Helpers ----
 
   private getTrackFilePath(trackId: string): string {

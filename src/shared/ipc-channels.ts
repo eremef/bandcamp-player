@@ -120,6 +120,7 @@ export const CACHE_CHANNELS = {
   DOWNLOAD_ALBUM: "cache:download-album",
   DELETE_ALBUM: "cache:delete-album",
   GET_CACHED_TRACKS_DETAILED: "cache:get-cached-tracks-detailed",
+  GET_CACHED_TRACKS_BY_ALBUM: "cache:get-cached-tracks-by-album",
   ON_DOWNLOAD_PROGRESS: "cache:on-download-progress",
   ON_STATS_UPDATED: "cache:on-stats-updated",
 } as const;

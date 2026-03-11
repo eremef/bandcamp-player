@@ -577,6 +577,40 @@ export class Database {
     }));
   }
 
+  getCacheEntriesByAlbum(albumId: string): CacheEntry[] {
+    const rows = this.db
+      .prepare("SELECT * FROM audio_cache WHERE album_id = ? ORDER BY track_number ASC")
+      .all(albumId) as Array<{
+        track_id: string;
+        album_id: string | null;
+        file_path: string;
+        file_size: number;
+        cached_at: string;
+        last_accessed_at: string;
+        title: string | null;
+        artist: string | null;
+        album: string | null;
+        duration: number | null;
+        track_number: number | null;
+        artwork_url: string | null;
+      }>;
+
+    return rows.map((row) => ({
+      trackId: row.track_id,
+      albumId: row.album_id ?? undefined,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      cachedAt: row.cached_at,
+      lastAccessedAt: row.last_accessed_at,
+      title: row.title ?? undefined,
+      artist: row.artist ?? undefined,
+      album: row.album ?? undefined,
+      duration: row.duration ?? undefined,
+      trackNumber: row.track_number ?? undefined,
+      artworkUrl: row.artwork_url ?? undefined,
+    }));
+  }
+
   getCacheTotalSize(): number {
     const result = this.db
       .prepare("SELECT SUM(file_size) as total FROM audio_cache")

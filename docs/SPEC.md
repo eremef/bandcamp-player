@@ -239,10 +239,17 @@ Cached collection data for faster loading.
 Tracks downloaded for offline playback.
 
 - `track_id` (TEXT PK)
+- `album_id` (TEXT): Album ID for grouping tracks by album
 - `file_path` (TEXT): Local filesystem path
 - `file_size` (INTEGER): Bytes
 - `cached_at` (TEXT)
 - `last_accessed_at` (TEXT): LRU eviction support
+- `title` (TEXT): Track title for display
+- `artist` (TEXT): Track artist
+- `album` (TEXT): Album name
+- `duration` (INTEGER): Track duration in seconds
+- `track_number` (INTEGER): Track number in album
+- `artwork_url` (TEXT): Album artwork URL
 
 ### `scrobble_queue`
 
@@ -268,10 +275,31 @@ The app does not use the official Bandcamp API (which is limited/closed). Instea
 
 ### Offline Caching
 
+1. **Album-Level Caching**: Users can download entire albums for offline playback via the "Download Album" button in AlbumDetailView.
+2. **Cache Management**: The CacheView provides a UI to view cached tracks grouped by album, with options to delete individual tracks or entire albums.
+3. **Offline Mode**: When offline, the app uses cached collection data and plays from local cached audio files.
+4. **Offline Detection**: The app checks connectivity using DNS lookup to bandcamp.com. In offline mode:
+   - Collection is loaded from `collection_cache` table
+   - Cached albums are identified using `cachedAlbumIds` Set (derived from track count)
+   - Tracks are loaded from local cache via `getCachedTracksByAlbum`
+   - Player uses cached file paths instead of streaming URLs
+
+### Track Caching Flow
+
 1. User requests a download for a track.
 2. Main process streams the audio URL to a local file in `AppData`.
-3. Metadata is inserted into `audio_cache`.
-4. When playing, the `player.service` checks `audio_cache`. If present, it serves the local `file://` URL instead of the remote stream.
+3. Metadata is inserted into `audio_cache` table.
+4. `fetchCachedTrackIds()` updates the `cachedTrackIds` Set in the store.
+5. `deriveCachedAlbumIds()` determines which albums are fully cached based on track counts.
+
+### Offline Playback
+
+When playing a cached album in offline mode:
+
+1. **AlbumCard/AlbumDetailView**: Checks if album is in `cachedAlbumIds`
+2. If fully cached: Uses `getCachedTracksByAlbum()` to load track metadata from cache
+3. **PlayerService**: For cached tracks, uses `cachedPath` (local file:// URL) instead of fetching stream URLs
+4. This ensures zero network requests during offline playback
 
 ### Last.fm Scrobbling
 
