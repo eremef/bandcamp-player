@@ -318,11 +318,39 @@ if (!gotTheLock) {
   app
     .whenReady()
     .then(async () => {
+      const CACHE_ROOT = path.join(app.getPath("userData"), "cache");
       const cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
-        const filePath = decodeURIComponent(req.url?.slice(1) || "");
-        console.log("[cache-server] Serving:", filePath);
-        if (fs.existsSync(filePath)) {
-          const stat = fs.statSync(filePath);
+        const rawPath = req.url ? req.url.slice(1) : "";
+        const requestedPath = decodeURIComponent(rawPath);
+
+        if (!requestedPath) {
+          res.writeHead(400);
+          res.end("Missing file path");
+          return;
+        }
+
+        let safePath: string;
+        try {
+          const resolvedPath = path.resolve(CACHE_ROOT, requestedPath);
+          safePath = fs.realpathSync(resolvedPath);
+        } catch {
+          res.writeHead(404);
+          res.end("File not found");
+          return;
+        }
+
+        if (
+          safePath !== CACHE_ROOT &&
+          !safePath.startsWith(CACHE_ROOT + path.sep)
+        ) {
+          res.writeHead(403);
+          res.end("Access denied");
+          return;
+        }
+
+        console.log("[cache-server] Serving:", safePath);
+        if (fs.existsSync(safePath)) {
+          const stat = fs.statSync(safePath);
           const fileSize = stat.size;
           const range = req.headers.range;
 
@@ -338,13 +366,13 @@ if (!gotTheLock) {
               "Content-Length": chunkSize,
               "Content-Type": "audio/mpeg",
             });
-            fs.createReadStream(filePath, { start, end }).pipe(res);
+            fs.createReadStream(safePath, { start, end }).pipe(res);
           } else {
             res.writeHead(200, {
               "Content-Length": fileSize,
               "Content-Type": "audio/mpeg",
             });
-            fs.createReadStream(filePath).pipe(res);
+            fs.createReadStream(safePath).pipe(res);
           }
         } else {
           res.writeHead(404);
