@@ -120,6 +120,15 @@ export class MobileDatabase {
                 timestamp INTEGER NOT NULL,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS audio_cache (
+                track_id TEXT PRIMARY KEY,
+                album_id TEXT,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                cached_at TEXT NOT NULL,
+                last_accessed_at TEXT NOT NULL
+            );
         `);
 
         // Migration for existing users: add position column if missing
@@ -630,6 +639,105 @@ export class MobileDatabase {
             'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
             [key, JSON.stringify(value)]
         );
+    }
+
+    // --- Audio Cache ---
+
+    async addToAudioCache(trackId: string, albumId: string | null, filePath: string, fileSize: number) {
+        if (!this.db) await this.init();
+        const now = new Date().toISOString();
+        await this.db!.runAsync(
+            `INSERT OR REPLACE INTO audio_cache (track_id, album_id, file_path, file_size, cached_at, last_accessed_at)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [trackId, albumId, filePath, fileSize, now, now]
+        );
+    }
+
+    async removeFromAudioCache(trackId: string) {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM audio_cache WHERE track_id = ?', [trackId]);
+    }
+
+    async getAudioCacheEntry(trackId: string): Promise<{ trackId: string; albumId: string | null; filePath: string; fileSize: number; cachedAt: string; lastAccessedAt: string } | null> {
+        if (!this.db) await this.init();
+        const result = await this.db!.getFirstAsync<{
+            track_id: string;
+            album_id: string | null;
+            file_path: string;
+            file_size: number;
+            cached_at: string;
+            last_accessed_at: string;
+        }>('SELECT * FROM audio_cache WHERE track_id = ?', [trackId]);
+
+        if (!result) return null;
+        return {
+            trackId: result.track_id,
+            albumId: result.album_id,
+            filePath: result.file_path,
+            fileSize: result.file_size,
+            cachedAt: result.cached_at,
+            lastAccessedAt: result.last_accessed_at,
+        };
+    }
+
+    async getAllAudioCacheEntries(): Promise<{ trackId: string; albumId: string | null; filePath: string; fileSize: number; cachedAt: string; lastAccessedAt: string }[]> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<{
+            track_id: string;
+            album_id: string | null;
+            file_path: string;
+            file_size: number;
+            cached_at: string;
+            last_accessed_at: string;
+        }>('SELECT * FROM audio_cache ORDER BY last_accessed_at ASC');
+
+        return rows.map(row => ({
+            trackId: row.track_id,
+            albumId: row.album_id,
+            filePath: row.file_path,
+            fileSize: row.file_size,
+            cachedAt: row.cached_at,
+            lastAccessedAt: row.last_accessed_at,
+        }));
+    }
+
+    async getAudioCacheTotalSize(): Promise<number> {
+        if (!this.db) await this.init();
+        const result = await this.db!.getFirstAsync<{ total: number }>(
+            'SELECT COALESCE(SUM(file_size), 0) as total FROM audio_cache'
+        );
+        return result?.total ?? 0;
+    }
+
+    async updateLastAccessed(trackId: string) {
+        if (!this.db) await this.init();
+        const now = new Date().toISOString();
+        await this.db!.runAsync(
+            'UPDATE audio_cache SET last_accessed_at = ? WHERE track_id = ?',
+            [now, trackId]
+        );
+    }
+
+    async clearAudioCache() {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM audio_cache');
+    }
+
+    async getOldestCacheEntries(limit: number): Promise<{ trackId: string; albumId: string | null; filePath: string; fileSize: number }[]> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<{
+            track_id: string;
+            album_id: string | null;
+            file_path: string;
+            file_size: number;
+        }>('SELECT track_id, album_id, file_path, file_size FROM audio_cache ORDER BY last_accessed_at ASC LIMIT ?', [limit]);
+
+        return rows.map(row => ({
+            trackId: row.track_id,
+            albumId: row.album_id,
+            filePath: row.file_path,
+            fileSize: row.file_size,
+        }));
     }
 }
 
