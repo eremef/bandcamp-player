@@ -189,6 +189,14 @@ export class MobileCacheService extends EventEmitter {
         const entries = await mobileDatabase.getAllAudioCacheEntries();
         return new Set(entries.map(e => e.trackId));
     }
+
+    async getCacheEntry(trackId: string): Promise<{ trackId: string; albumId: string | null; filePath: string; fileSize: number } | null> {
+        return await mobileDatabase.getAudioCacheEntry(trackId);
+    }
+
+    async updateLastAccessed(trackId: string): Promise<void> {
+        await mobileDatabase.updateLastAccessed(trackId);
+    }
 }
 
 export const mobileCacheService = new MobileCacheService();
