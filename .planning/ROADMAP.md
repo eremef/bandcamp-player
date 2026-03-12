@@ -82,7 +82,7 @@
 Plans:
 - [x] 04-01-PLAN.md — MobileCacheService + Database schema
 - [x] 04-02-PLAN.md — Player integration + Store updates
-- [ ] 04-03-PLAN.md — UI indicators and cache management
+- [x] 04-03-PLAN.md — UI indicators and cache management
 
 ---
 
