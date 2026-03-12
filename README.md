@@ -236,7 +236,8 @@ mobile/
 
 | What                                           | Size | Status |
 | :--------------------------------------------- | ---- | :----: |
-| Bug finding and fixing                         | XL   | 🟡     |
+| Offline mode and music caching - mobile        | XL   | 🟡     |
+| Bug finding and fixing                         | XXL  | 🟡     |
 | Refine the design                              | L    | 🟡     |
 | View/edit playlist/ drag-to-reorder - mobile   | L    | 🔴     |
 | Chromecast for standalone mobile mode          | L    | 🔴     |
