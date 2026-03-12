@@ -142,6 +142,9 @@ describe('CollectionScreen', () => {
         queue: { currentIndex: -1, tracks: [] },
         clearQueue: jest.fn(),
         playQueueIndex: jest.fn(),
+        cachedTrackIds: new Set(),
+        downloadingTrackIds: new Map(),
+        isOfflineMode: false,
     };
 
     beforeEach(() => {

@@ -6,7 +6,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 // Mock external dependencies
 jest.mock('../../store', () => ({
-    useStore: jest.fn(),
+    useStore: Object.assign(jest.fn(), {
+        getState: () => ({
+            cachedTrackIds: new Set(),
+            downloadingTrackIds: new Map(),
+            isOfflineMode: false,
+        })
+    }),
 }));
 
 jest.mock('expo-router', () => ({
@@ -89,6 +95,9 @@ describe('ArtistDetailScreen', () => {
             isArtistCollectionLoading: false,
             connectionStatus: 'connected',
             playlists: [{ id: 'p1', name: 'Playlist 1' }],
+            cachedTrackIds: new Set(),
+            downloadingTrackIds: new Map(),
+            isOfflineMode: false,
         });
         (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'a1' });
         (useRouter as jest.Mock).mockReturnValue({

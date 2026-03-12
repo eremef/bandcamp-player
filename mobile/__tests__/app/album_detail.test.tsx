@@ -40,6 +40,9 @@ jest.mock('../../store', () => {
     const mockStore = {
         playTrack: jest.fn(),
         playAlbum: jest.fn(),
+        cachedTrackIds: new Set(),
+        downloadingTrackIds: new Map(),
+        isOfflineMode: false,
     };
     const useStoreMock: any = (selector: any) => selector ? selector(mockStore) : mockStore;
     useStoreMock.getState = () => mockStore;

@@ -129,6 +129,9 @@ describe('PlayerScreen', () => {
             playlists: [],
             addTrackToPlaylist: jest.fn(),
             createPlaylist: jest.fn(),
+            cachedTrackIds: new Set(),
+            downloadingTrackIds: new Map(),
+            isOfflineMode: false,
         };
 
         mockColors = {
