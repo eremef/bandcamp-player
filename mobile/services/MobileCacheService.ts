@@ -1,5 +1,4 @@
 import { File, Directory, Paths } from 'expo-file-system';
-import { EventEmitter } from 'events';
 import { mobileDatabase } from './MobileDatabase';
 
 export interface Track {
@@ -26,12 +25,11 @@ const getAudioDirectory = (): Directory => {
 
 const DEFAULT_MAX_SIZE = 2 * 1024 * 1024 * 1024;
 
-export class MobileCacheService extends EventEmitter {
+export class MobileCacheService {
     maxSizeBytes: number;
     activeDownloads: Map<string, AbortController>;
 
     constructor(maxSizeBytes: number = DEFAULT_MAX_SIZE) {
-        super();
         this.maxSizeBytes = maxSizeBytes;
         this.activeDownloads = new Map();
     }
@@ -60,7 +58,7 @@ export class MobileCacheService extends EventEmitter {
         }
     }
 
-    async downloadTrack(track: Track): Promise<void> {
+    async downloadTrack(track: Track, onProgress?: (progress: CacheProgress) => void): Promise<void> {
         await this.ensureDirectory();
 
         const ext = this.getExtension(track.streamUrl);
@@ -87,20 +85,20 @@ export class MobileCacheService extends EventEmitter {
                 fileSize
             );
 
-            this.emit('download-progress', {
+            onProgress?.({
                 trackId: track.id,
                 bytesWritten: fileSize,
                 totalBytes: fileSize,
                 progress: 1,
-            } as CacheProgress);
+            });
         } finally {
             this.activeDownloads.delete(track.id);
         }
     }
 
-    async downloadAlbum(tracks: Track[]): Promise<void> {
+    async downloadAlbum(tracks: Track[], onProgress?: (progress: CacheProgress) => void): Promise<void> {
         const results = await Promise.allSettled(
-            tracks.map(track => this.downloadTrack(track))
+            tracks.map(track => this.downloadTrack(track, onProgress))
         );
 
         const failed = results.filter(r => r.status === 'rejected');

@@ -245,13 +245,11 @@ export const useStore = create<AppState>((set, get) => ({
         set({ downloadingTrackIds: newMap });
 
         try {
-            mobileCacheService.on('download-progress', (progress: { trackId: string; progress: number }) => {
+            await mobileCacheService.downloadTrack(track, (progress: { trackId: string; progress: number }) => {
                 if (progress.trackId === track.id) {
                     setDownloadProgress(track.id, progress.progress);
                 }
             });
-
-            await mobileCacheService.downloadTrack(track);
 
             removeDownloadProgress(track.id);
             const newCachedIds = new Set(cachedTrackIds);
@@ -267,7 +265,10 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     downloadAlbum: async (tracks: Track[]) => {
-        await mobileCacheService.downloadAlbum(tracks);
+        const { setDownloadProgress } = get();
+        await mobileCacheService.downloadAlbum(tracks, (progress) => {
+            setDownloadProgress(progress.trackId, progress.progress);
+        });
         await get().loadCachedTrackIds();
     },
 
