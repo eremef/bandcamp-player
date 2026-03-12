@@ -1,18 +1,64 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Trash2, HardDriveDownload } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { remoteConfigService } from '@shared/remote-config.service';
+import { mobileCacheService } from '../services/MobileCacheService';
+
+function formatBytes(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
 
 export default function SettingsScreen() {
     const router = useRouter();
     const colors = useTheme();
-    const { mode, isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling } = useStore();
+    const { mode, isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling, maxCacheSize, setMaxCacheSize, clearAllCache } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
+    const [cacheSize, setCacheSize] = useState(0);
+    const [isClearingCache, setIsClearingCache] = useState(false);
+
+    useEffect(() => {
+        loadCacheSize();
+    }, []);
+
+    const loadCacheSize = async () => {
+        const size = await mobileCacheService.getCacheSize();
+        setCacheSize(size);
+    };
+
+    const handleClearCache = async () => {
+        Alert.alert(
+            'Clear Cache',
+            'Are you sure you want to clear all cached music? This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Clear',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setIsClearingCache(true);
+                        try {
+                            await clearAllCache();
+                            await loadCacheSize();
+                            Alert.alert('Success', 'Cache cleared successfully');
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to clear cache');
+                        } finally {
+                            setIsClearingCache(false);
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     const handleRefreshConfig = async () => {
         setIsRefreshingConfig(true);
@@ -104,6 +150,68 @@ export default function SettingsScreen() {
                         )}
                     </View>
                 )}
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Offline Cache</Text>
+                    
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <HardDriveDownload color={colors.text} size={20} style={styles.settingIcon} />
+                            <View>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Cache Used</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    {formatBytes(cacheSize)} / {formatBytes(maxCacheSize)}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Max Cache Size</Text>
+                                <Slider
+                                    style={styles.slider}
+                                    value={maxCacheSize}
+                                    onValueChange={(value) => setMaxCacheSize(value)}
+                                    minimumValue={512 * 1024 * 1024}
+                                    maximumValue={10 * 1024 * 1024 * 1024}
+                                    minimumTrackTintColor={colors.accent || '#1DA1F2'}
+                                    maximumTrackTintColor="#333"
+                                    thumbTintColor={colors.accent || '#1DA1F2'}
+                                />
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    {formatBytes(maxCacheSize)}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <Trash2 color="#FF3B30" size={20} style={styles.settingIcon} />
+                            <View>
+                                <Text style={[styles.settingTitle, { color: '#FF3B30' }]}>Clear Cache</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Remove all cached music files
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleClearCache}
+                            disabled={isClearingCache || cacheSize === 0}
+                            style={styles.refreshButton}
+                        >
+                            {isClearingCache ? (
+                                <ActivityIndicator size="small" color="#FF3B30" />
+                            ) : (
+                                <Text style={{ color: cacheSize > 0 ? '#FF3B30' : colors.textSecondary, fontWeight: '600' }}>
+                                    Clear
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
                 {__DEV__ && (
                     <View style={styles.section}>
@@ -197,6 +305,11 @@ const styles = StyleSheet.create({
     },
     refreshButton: {
         padding: 10,
+    },
+    slider: {
+        width: '100%',
+        height: 40,
+        marginTop: 8,
     },
     infoBox: {
         padding: 16,
