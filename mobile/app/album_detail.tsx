@@ -10,6 +10,7 @@ import { ActionSheet, Action } from '../components/ActionSheet';
 import { PlaylistSelectionModal } from '../components/PlaylistSelectionModal';
 import { InputModal } from '../components/InputModal';
 import { useTheme } from '../theme';
+import { CachedIndicator } from '../components/CachedIndicator';
 
 export default function AlbumDetailScreen() {
     const colors = useTheme();
@@ -296,7 +297,10 @@ export default function AlbumDetailScreen() {
             <Text style={[styles.trackNumber, { color: colors.textSecondary }]}>{index + 1}</Text>
             <View style={styles.trackInfo}>
                 <Text style={[styles.trackTitle, { color: colors.text }]}>{item.title}</Text>
-                <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</Text>
+                <View style={styles.trackRight}>
+                    <CachedIndicator trackId={String(item.id)} size="small" />
+                    <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</Text>
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -445,6 +449,11 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    trackRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
     },
     trackTitle: {
         color: '#fff',
