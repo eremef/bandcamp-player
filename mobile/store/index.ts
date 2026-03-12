@@ -1,6 +1,7 @@
 import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState } from '@shared/types';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
+import { mobileCacheService } from '../services/MobileCacheService';
 
 const runAfterInteractions = (callback: () => void) => {
     if (typeof requestIdleCallback !== 'undefined') {
@@ -118,6 +119,29 @@ interface AppState extends PlayerState {
     disconnectLastfm: () => Promise<void>;
     toggleScrobbling: () => Promise<void>;
 
+    // Cache State
+    cachedTrackIds: Set<string>;
+    downloadingTrackIds: Map<string, number>;
+    isOfflineMode: boolean;
+    manualOfflineOverride: boolean;
+    cacheSize: number;
+    maxCacheSize: number;
+
+    // Cache Actions
+    setCachedTrackIds: (ids: Set<string>) => void;
+    setDownloadProgress: (trackId: string, progress: number) => void;
+    removeDownloadProgress: (trackId: string) => void;
+    setOfflineMode: (isOffline: boolean) => void;
+    setManualOfflineOverride: (override: boolean) => void;
+    setCacheSize: (size: number) => void;
+    setMaxCacheSize: (size: number) => void;
+    downloadTrack: (track: Track) => Promise<void>;
+    downloadAlbum: (tracks: Track[]) => Promise<void>;
+    deleteTrackFromCache: (trackId: string) => Promise<void>;
+    deleteAlbumFromCache: (albumId: string) => Promise<void>;
+    clearAllCache: () => Promise<void>;
+    loadCachedTrackIds: () => Promise<void>;
+
     // Persistence Helpers
     saveQueue: () => Promise<void>;
 }
@@ -171,6 +195,14 @@ export const useStore = create<AppState>((set, get) => ({
     lastfmState: { isConnected: false, user: null },
     scrobblingEnabled: true,
 
+    // Cache State
+    cachedTrackIds: new Set<string>(),
+    downloadingTrackIds: new Map<string, number>(),
+    isOfflineMode: false,
+    manualOfflineOverride: false,
+    cacheSize: 0,
+    maxCacheSize: 2 * 1024 * 1024 * 1024, // 2GB
+
     disconnectLastfm: async () => {
         const { mobileScrobblerService } = require('../services/MobileScrobblerService');
         await mobileScrobblerService.disconnect();
@@ -183,6 +215,94 @@ export const useStore = create<AppState>((set, get) => ({
         await mobileDatabase.setSetting('scrobbling_enabled', newValue);
         set({ scrobblingEnabled: newValue });
     },
+
+    // Cache Actions
+    setCachedTrackIds: (ids: Set<string>) => set({ cachedTrackIds: ids }),
+    setDownloadProgress: (trackId: string, progress: number) => {
+        const newMap = new Map(get().downloadingTrackIds);
+        newMap.set(trackId, progress);
+        set({ downloadingTrackIds: newMap });
+    },
+    removeDownloadProgress: (trackId: string) => {
+        const newMap = new Map(get().downloadingTrackIds);
+        newMap.delete(trackId);
+        set({ downloadingTrackIds: newMap });
+    },
+    setOfflineMode: (isOffline: boolean) => set({ isOfflineMode: isOffline }),
+    setManualOfflineOverride: (override: boolean) => set({ manualOfflineOverride: override }),
+    setCacheSize: (size: number) => set({ cacheSize: size }),
+    setMaxCacheSize: (size: number) => set({ maxCacheSize: size }),
+
+    downloadTrack: async (track: Track) => {
+        const { downloadingTrackIds, cachedTrackIds, setDownloadProgress, removeDownloadProgress, setCacheSize } = get();
+        
+        if (cachedTrackIds.has(track.id)) {
+            return;
+        }
+
+        const newMap = new Map(downloadingTrackIds);
+        newMap.set(track.id, 0);
+        set({ downloadingTrackIds: newMap });
+
+        try {
+            mobileCacheService.on('download-progress', (progress: { trackId: string; progress: number }) => {
+                if (progress.trackId === track.id) {
+                    setDownloadProgress(track.id, progress.progress);
+                }
+            });
+
+            await mobileCacheService.downloadTrack(track);
+
+            removeDownloadProgress(track.id);
+            const newCachedIds = new Set(cachedTrackIds);
+            newCachedIds.add(track.id);
+            set({ cachedTrackIds: newCachedIds });
+
+            const newSize = await mobileCacheService.getCacheSize();
+            setCacheSize(newSize);
+        } catch (error) {
+            removeDownloadProgress(track.id);
+            console.error('[MobileStore] Failed to download track:', error);
+        }
+    },
+
+    downloadAlbum: async (tracks: Track[]) => {
+        await mobileCacheService.downloadAlbum(tracks);
+        await get().loadCachedTrackIds();
+    },
+
+    deleteTrackFromCache: async (trackId: string) => {
+        await mobileCacheService.deleteTrack(trackId);
+        const newCachedIds = new Set(get().cachedTrackIds);
+        newCachedIds.delete(trackId);
+        set({ cachedTrackIds: newCachedIds });
+        
+        const newSize = await mobileCacheService.getCacheSize();
+        set({ cacheSize: newSize });
+    },
+
+    deleteAlbumFromCache: async (albumId: string) => {
+        await mobileCacheService.deleteAlbum(albumId);
+        await get().loadCachedTrackIds();
+    },
+
+    clearAllCache: async () => {
+        await mobileCacheService.clearCache();
+        set({ 
+            cachedTrackIds: new Set<string>(),
+            cacheSize: 0 
+        });
+    },
+
+    loadCachedTrackIds: async () => {
+        const cachedIds = await mobileCacheService.getCachedTrackIds();
+        const cacheSize = await mobileCacheService.getCacheSize();
+        set({ 
+            cachedTrackIds: cachedIds,
+            cacheSize 
+        });
+    },
+
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
         await AsyncStorage.setItem('is_simulation_mode', newValue ? 'true' : 'false');
