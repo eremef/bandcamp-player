@@ -5,6 +5,7 @@ import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, View } from 'react-native';
 import { useTheme } from '../../theme';
+import { OfflineBanner } from '../../components/OfflineBanner';
 
 export default function TabLayout() {
     const connectionStatus = useStore((state) => state.connectionStatus);
@@ -23,6 +24,7 @@ export default function TabLayout() {
 
     return (
         <View style={{ flex: 1 }}>
+            <OfflineBanner />
             <Tabs
                 screenOptions={{
                     headerShown: false,
