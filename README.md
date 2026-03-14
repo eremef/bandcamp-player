@@ -1,3 +1,4 @@
+![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue)
 # Bandcamp Experimental Transport Assistant
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
