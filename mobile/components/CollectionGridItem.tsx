@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { CollectionItem } from '@shared/types';
 import { useTheme } from '../theme';
+import { useStore } from '../store';
 
 interface CollectionGridItemProps {
     item: CollectionItem;
     onPress: (item: CollectionItem) => void;
     onLongPress?: (item: CollectionItem) => void;
     width: number;
+    albumTrackIds?: string[];
     testID?: string;
 }
 
@@ -16,11 +18,17 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
     onPress,
     onLongPress,
     width,
+    albumTrackIds,
     testID
 }) => {
     const colors = useTheme();
-    // ... logic remains same ...
+    const cachedTrackIds = useStore((state) => state.cachedTrackIds);
     let artworkUrl, title, artist;
+
+    const isAlbumCached = useMemo(() => {
+        if (!albumTrackIds || albumTrackIds.length === 0) return false;
+        return albumTrackIds.some((id) => cachedTrackIds.has(id));
+    }, [albumTrackIds, cachedTrackIds]);
 
     if (item.type === 'album' && item.album) {
         artworkUrl = item.album.artworkUrl;
@@ -49,6 +57,9 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
                     <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.card }]}>
                         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
+                )}
+                {isAlbumCached && (
+                    <View style={[styles.cachedDot, { backgroundColor: colors.accent }]} />
                 )}
             </View>
             <View style={styles.info}>
@@ -85,6 +96,14 @@ const styles = StyleSheet.create({
     placeholderText: {
         color: '#666',
         fontSize: 24,
+    },
+    cachedDot: {
+        position: 'absolute',
+        bottom: 4,
+        left: 4,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
     },
     info: {
         paddingHorizontal: 2,
