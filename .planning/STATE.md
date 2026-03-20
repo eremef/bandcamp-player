@@ -3,15 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06
-current_plan: 01
-status: planned
-last_updated: "2026-03-20T20:06:00Z"
+current_plan: 02
+status: unknown
+last_updated: "2026-03-20T20:09:32.560Z"
 progress:
   total_phases: 6
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 8
-  percent: 73
+  completed_phases: 4
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # State: Bandcamp Desktop Player
@@ -47,11 +46,11 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 - 2026-03-20: Completed Plan 05-03 - Background downloads, WiFi-only setting, corrupted cache detection, queue filtering
 - 2026-03-20: Discussed Phase 6 context - Fully offline mode
 - 2026-03-20: Completed Plan 06-01 - OfflineEmptyState component + Collection integration
+- 2026-03-20: Completed Plan 06-02 - Artists & Album Detail offline integration
 
 ## Next Actions
 
-1. Plan 06-02: Artists & Album Detail offline integration
-2. Plan 06-03: TBD
+1. Plan 06-03: TBD
 
 ## Blockers
 
@@ -72,12 +71,16 @@ None.
 - Offline mode queue restoration filters uncached tracks before restoring state
 - Used ListEmptyComponent for OfflineEmptyState, preserved ListFooterComponent for pagination spinner
 - isEmpty computed: filteredItems.length === 0 && !isCollectionLoading && mode === 'offline'
+- OfflineEmptyState in Artists shown only when offline AND no search query (preserving search behavior)
+- Album Detail offline message includes "Switch to Standalone" button for easy mode switching
+- View on Bandcamp button hidden in offline mode since it requires network
 
 ## Notes
 
 Plan 04-02 complete - player uses cached URLs, store tracks cache state, useOfflineMode hook detects network.
 Plan 04-03 complete - CachedIndicator and OfflineBanner components, cache settings in Settings screen.
 Plan 06-01 complete - OfflineEmptyState component and Collection screen integration.
+Plan 06-02 complete - Artists screen, Album Detail, and Artist Detail offline integration.
 
 ## Accumulated Context
 
