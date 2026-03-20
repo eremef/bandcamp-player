@@ -11,6 +11,7 @@ import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
 import { useTheme } from '../../theme';
+import { OfflineEmptyState } from '../../components/OfflineEmptyState';
 import { ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -346,23 +347,29 @@ export default function ArtistDetailScreen() {
                         <Text style={[styles.name, { color: colors.text }]}>{artist.name}</Text>
                         <Text style={[styles.stats, { color: colors.textSecondary }]}>{filteredArtistItems.length} releases in collection</Text>
 
-                        <TouchableOpacity
-                            style={[styles.bandcampButton, { backgroundColor: colors.input }]}
-                            onPress={handleViewOnBandcamp}
-                        >
-                            <Text style={[styles.bandcampButtonText, { color: colors.textSecondary }]}>View on Bandcamp</Text>
-                            <Ionicons name="open-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 5 }} />
-                        </TouchableOpacity>
+                        {mode !== 'offline' && (
+                            <TouchableOpacity
+                                style={[styles.bandcampButton, { backgroundColor: colors.input }]}
+                                onPress={handleViewOnBandcamp}
+                            >
+                                <Text style={[styles.bandcampButtonText, { color: colors.textSecondary }]}>View on Bandcamp</Text>
+                                <Ionicons name="open-outline" size={16} color={colors.textSecondary} style={{ marginLeft: 5 }} />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 }
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        {isArtistCollectionLoading ? (
+                    isArtistCollectionLoading ? (
+                        <View style={styles.emptyContainer}>
                             <ActivityIndicator size="large" color={colors.accent} />
-                        ) : (
+                        </View>
+                    ) : mode === 'offline' ? (
+                        <OfflineEmptyState visible={true} message="No cached items for this artist" />
+                    ) : (
+                        <View style={styles.emptyContainer}>
                             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No items found in collection</Text>
-                        )}
-                    </View>
+                        </View>
+                    )
                 }
             />
 
