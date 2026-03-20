@@ -10,6 +10,7 @@ import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { CacheFab } from '../../components/CacheFab';
 import { InputModal } from '../../components/InputModal';
+import { OfflineEmptyState } from '../../components/OfflineEmptyState';
 import { Play, MoreHorizontal, ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 
 const COLUMN_COUNT = 3;
@@ -436,9 +437,13 @@ export default function ArtistsScreen() {
                 maxToRenderPerBatch={10}
                 windowSize={10}
                 ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No artists found</Text>
-                    </View>
+                    mode === 'offline' && !searchQuery.trim() ? (
+                        <OfflineEmptyState visible={true} />
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No artists found</Text>
+                        </View>
+                    )
                 }
             />
 
