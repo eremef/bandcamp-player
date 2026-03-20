@@ -363,6 +363,9 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     downloadTrack: async (track: Track) => {
+        const { addPendingDownload } = require('../services/BackgroundSyncService');
+        await addPendingDownload(track);
+
         let trackToDownload = track;
 
         if (!track.streamUrl && track.bandcampUrl) {
