@@ -5,12 +5,12 @@ milestone_name: milestone
 current_phase: 05
 current_plan: 03
 status: in_progress
-last_updated: "2026-03-20T18:43:15Z"
+last_updated: "2026-03-20T18:58:00Z"
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # State: Bandcamp Desktop Player
@@ -43,11 +43,12 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 - 2026-03-20: Created Phase 5 plans (3 plans, 3 waves)
 - 2026-03-20: Completed Plan 05-01 - CachedIndicator accent color fix, CollectionGridItem cached dots, CacheFab component
 - 2026-03-20: Completed Plan 05-02 - Offline mode filtering + CacheFab across collection, artists, artist_detail screens
+- 2026-03-20: Completed Plan 05-03 - Background downloads, WiFi-only setting, corrupted cache detection, queue filtering
 
 ## Next Actions
 
-1. Plan 05-02 complete - offline filtering + CacheFab on all screens
-2. Ready for Plan 05-03 - Remaining offline mode integration
+1. Plan 05-03 complete - Phase 5 all plans complete
+2. Ready for Phase 6 - Fully offline mode without network requests
 
 ## Blockers
 
@@ -62,6 +63,10 @@ None.
 - Used expo-network (already installed) instead of @react-native-community/netinfo
 - Used file:// URLs for iOS, content:// for Android
 - Default max cache size: 2GB
+- WiFi-only downloads default to enabled
+- Background download uses 15-minute minimum interval for battery efficiency
+- Corrupted cache detection wraps TrackPlayer.add with try/catch and falls back to stream URL
+- Offline mode queue restoration filters uncached tracks before restoring state
 
 ## Notes
 
