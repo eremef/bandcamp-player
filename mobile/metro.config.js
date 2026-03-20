@@ -6,8 +6,11 @@ const workspaceRoot = path.resolve(projectRoot, '..');
 
 const config = getDefaultConfig(projectRoot);
 
-// Remove watchFolders since it's not needed
-config.watchFolders = [];
+// 1. Watch all files within the monorepo
+config.watchFolders = [
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(workspaceRoot, 'src/shared'),
+];
 
 // 2. Add an aggressive BlockList for Desktop-only directories
 const blockList = [
