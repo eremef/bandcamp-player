@@ -343,7 +343,18 @@ export default function AlbumDetailScreen() {
                     </TouchableOpacity>
                 </View>
                 <View style={styles.center}>
-                    <Text style={[styles.text, { color: colors.textSecondary }]}>Album not found</Text>
+                    <Text style={[styles.text, { color: colors.textSecondary }]}>
+                        {mode === 'offline' ? 'This album is not available offline' : 'Album not found'}
+                    </Text>
+                    {mode === 'offline' && (
+                        <TouchableOpacity
+                            style={[styles.switchButton, { backgroundColor: colors.accent }]}
+                            onPress={() => useStore.getState().setMode('standalone')}
+                            activeOpacity={0.8}
+                        >
+                            <Text style={styles.switchButtonText}>Switch to Standalone</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             </SafeAreaView>
         );
@@ -560,5 +571,16 @@ const styles = StyleSheet.create({
     offlineBadgeText: {
         fontSize: 10,
         fontWeight: 'bold',
+    },
+    switchButton: {
+        marginTop: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    switchButtonText: {
+        color: '#fff',
+        fontWeight: '600',
+        fontSize: 16,
     },
 });
