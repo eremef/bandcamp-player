@@ -9,21 +9,9 @@ const config = getDefaultConfig(projectRoot);
 // 1. Watch all files within the monorepo
 config.watchFolders = [
     path.resolve(projectRoot, 'node_modules'),
+    path.resolve(workspaceRoot, 'node_modules'),
     path.resolve(workspaceRoot, 'src/shared'),
 ];
-
-// 2. Add an aggressive BlockList for Desktop-only directories
-const blockList = [
-    /^.*\.git.*$/,
-    /^.*\.agent.*$/,
-    /^.*\.gemini.*$/,
-    /^.*\.claude.*$/,
-    /src\/main\/.*$/,      // Exclude desktop main process
-    /src\/renderer\/.*$/,  // Exclude desktop renderer
-    /dist\/.*$/,           // Exclude desktop build folder
-    /coverage\/.*$/,
-];
-config.resolver.blockList = blockList;
 
 // 2. Let Metro know where to resolve packages and in what order
 config.resolver.nodeModulesPaths = [
@@ -36,17 +24,6 @@ config.resolver.extraNodeModules = {
     ...config.resolver.extraNodeModules,
     'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
-};
-
-// 4. Fix for lucide-react-native - use source file resolution to bypass exports field
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-    if (moduleName === 'lucide-react-native') {
-        return {
-            filePath: path.resolve(projectRoot, 'node_modules/lucide-react-native/dist/cjs/lucide-react-native.js'),
-            type: 'sourceFile',
-        };
-    }
-    return context.resolveRequest(context, moduleName, platform);
 };
 
 // Disable the exports field resolution for packages that have broken exports
