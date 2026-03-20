@@ -34,19 +34,10 @@ config.resolver.extraNodeModules = {
     ...config.resolver.extraNodeModules,
     'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
-    'lucide-react-native': path.resolve(projectRoot, 'node_modules/lucide-react-native'),
 };
 
-// 4. Fix for lucide-react-native module resolution
-config.resolver.resolveRequest = (context, moduleName, platform) => {
-    if (moduleName === 'lucide-react-native') {
-        return {
-            filePath: path.resolve(projectRoot, 'node_modules/lucide-react-native/dist/cjs/lucide-react-native.js'),
-            type: 'sourceFile',
-        };
-    }
-    return context.resolveRequest(context, moduleName, platform);
-};
+// 4. Fix for lucide-react-native - prioritize main (CJS) over module (ESM)
+config.resolver.mainFields = ['react-native', 'main', 'module'];
 
 // 4. Handle txt and hash files
 if (!config.resolver.assetExts.includes('txt')) {
