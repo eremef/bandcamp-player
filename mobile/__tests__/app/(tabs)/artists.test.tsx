@@ -44,6 +44,16 @@ describe('ArtistsScreen', () => {
         clearQueue: jest.fn(),
         playQueueIndex: jest.fn(),
         queue: { currentIndex: -1, tracks: [] },
+        // Added for 06-02 offline mode:
+        downloadingTrackIds: new Set<string>(),
+        cachedTrackIds: new Set<string>(),
+        mode: 'standalone' as const,
+        isOfflineMode: false,
+        manualOfflineOverride: false,
+        downloadTrack: jest.fn().mockResolvedValue(undefined),
+        downloadAlbum: jest.fn().mockResolvedValue(undefined),
+        deleteTrackFromCache: jest.fn().mockResolvedValue(undefined),
+        deleteAlbumFromCache: jest.fn().mockResolvedValue(undefined),
     };
 
     beforeEach(() => {

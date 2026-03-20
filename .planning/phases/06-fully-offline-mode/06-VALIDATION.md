@@ -40,7 +40,6 @@ created: 2026-03-20
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
 | 06-01-01 | 01 | 1 | OFFL-04 | component | visual check | ✅ | ⬜ pending |
 | 06-02-01 | 02 | 1 | OFFL-04 | component | visual check | ✅ | ⬜ pending |
-| 06-03-01 | 03 | 2 | OFFL-01/02 | unit | `npm run test:mobile` | ✅ | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
