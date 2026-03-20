@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
-import { registerBackgroundSync } from '../services/BackgroundSyncService';
+import { registerBackgroundSync, registerBackgroundDownload } from '../services/BackgroundSyncService';
 import { SilentRefreshHandler } from '../components/SilentRefreshHandler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -27,6 +27,7 @@ export default function RootLayout() {
     useEffect(() => {
         setupPlayer();
         registerBackgroundSync();
+        registerBackgroundDownload();
     }, []);
 
     useEffect(() => {
