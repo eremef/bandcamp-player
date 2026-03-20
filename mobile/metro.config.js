@@ -36,8 +36,8 @@ config.resolver.extraNodeModules = {
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
 };
 
-// 4. Fix for lucide-react-native - prioritize main (CJS) over module (ESM)
-config.resolver.mainFields = ['react-native', 'main', 'module'];
+// 4. Fix for lucide-react-native - skip react-native field which points to broken ESM path
+config.resolver.mainFields = ['main', 'module', 'react-native'];
 
 // 4. Handle txt and hash files
 if (!config.resolver.assetExts.includes('txt')) {
