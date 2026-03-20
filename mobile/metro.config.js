@@ -6,10 +6,9 @@ const workspaceRoot = path.resolve(projectRoot, '..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch all files within the monorepo
-config.watchFolders = [
-    path.resolve(workspaceRoot, 'src/shared'),
-];
+// Remove watchFolders since it's not needed
+config.watchFolders = [];
+
 // 2. Add an aggressive BlockList for Desktop-only directories
 const blockList = [
     /^.*\.git.*$/,
@@ -36,8 +35,19 @@ config.resolver.extraNodeModules = {
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
 };
 
-// 4. Fix for lucide-react-native - skip react-native field which points to broken ESM path
-config.resolver.mainFields = ['main', 'module', 'react-native'];
+// 4. Fix for lucide-react-native - use source file resolution to bypass exports field
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+    if (moduleName === 'lucide-react-native') {
+        return {
+            filePath: path.resolve(projectRoot, 'node_modules/lucide-react-native/dist/cjs/lucide-react-native.js'),
+            type: 'sourceFile',
+        };
+    }
+    return context.resolveRequest(context, moduleName, platform);
+};
+
+// Disable the exports field resolution for packages that have broken exports
+config.resolver.conditions = ['browser', 'require'];
 
 // 4. Handle txt and hash files
 if (!config.resolver.assetExts.includes('txt')) {
