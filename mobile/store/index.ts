@@ -237,6 +237,32 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
+        // Load cached track IDs to filter uncached tracks from queue
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        const cachedTrackIds = await mobileCacheService.getCachedTrackIds();
+
+        // Filter to only cached tracks when restoring offline mode
+        const cachedItems = (restoredQueue.items || []).filter((item: QueueItem) => {
+            return cachedTrackIds.has(String(item.track?.id));
+        });
+
+        const newCurrentIndex = Math.min(restoredQueue.currentIndex, cachedItems.length - 1);
+
+        restoredQueue = {
+            items: cachedItems,
+            currentIndex: newCurrentIndex >= 0 ? newCurrentIndex : -1
+        };
+
+        // Update restoredTrack if current track was filtered out
+        restoredTrack = cachedItems[newCurrentIndex]?.track || null;
+        if (restoredTrack) {
+            restoredDuration = restoredTrack.duration || 0;
+        } else {
+            restoredTrack = null;
+            restoredDuration = 0;
+            restoredTime = 0;
+        }
+
         // Restore persisted volume from DB
         const { mobileDatabase } = require('../services/MobileDatabase');
         const settings = await mobileDatabase.getSettings();

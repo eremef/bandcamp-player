@@ -196,6 +196,8 @@ class MobilePlayerService {
                 await TrackPlayer.reset();
             }
 
+            // Preserve original stream URL for fallback if cache is corrupted
+            const originalStreamUrl = track.streamUrl;
             let streamUrl = track.streamUrl;
 
             // 1. Check if track is cached locally
@@ -263,15 +265,48 @@ class MobilePlayerService {
             const queue = await TrackPlayer.getQueue();
             const nextIndex = queue.length;
 
-            await TrackPlayer.add({
-                id: track.id,
-                url: streamUrl,
-                title: track.title || 'Untitled',
-                artist: artistName,
-                album: track.album,
-                artwork: track.artworkUrl,
-                duration: track.duration,
-            });
+            // Try to add the track, handling corrupted cache files
+            try {
+                await TrackPlayer.add({
+                    id: track.id,
+                    url: streamUrl,
+                    title: track.title || 'Untitled',
+                    artist: artistName,
+                    album: track.album,
+                    artwork: track.artworkUrl,
+                    duration: track.duration,
+                });
+            } catch (playbackError) {
+                console.error('[MobilePlayer] Failed to load track from cache:', playbackError);
+                // Corrupted or invalid cached file — delete cache entry and retry with stream
+                try {
+                    await mobileCacheService.deleteTrack(track.id);
+                    const newCachedIds = new Set(useStore.getState().cachedTrackIds);
+                    newCachedIds.delete(track.id);
+                    useStore.setState({ cachedTrackIds: newCachedIds });
+                    console.log(`[MobilePlayer] Removed corrupted cache for ${track.title}`);
+                } catch (deleteError) {
+                    console.warn('[MobilePlayer] Failed to delete corrupted cache entry:', deleteError);
+                }
+                
+                // Retry with original stream URL
+                if (originalStreamUrl) {
+                    console.log('[MobilePlayer] Retrying with stream URL');
+                    streamUrl = originalStreamUrl;
+                    await TrackPlayer.add({
+                        id: track.id,
+                        url: streamUrl,
+                        title: track.title || 'Untitled',
+                        artist: artistName,
+                        album: track.album,
+                        artwork: track.artworkUrl,
+                        duration: track.duration,
+                    });
+                } else {
+                    useStore.setState({ collectionError: 'Failed to load track. Please try again.' });
+                    return false;
+                }
+            }
 
             if (nextIndex > 0) {
                 await TrackPlayer.skip(nextIndex);
