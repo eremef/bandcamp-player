@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
 import { SearchBar } from '../../components/SearchBar';
+import { CacheFab } from '../../components/CacheFab';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
@@ -41,6 +42,7 @@ export default function CollectionScreen() {
     const downloadAlbum = useStore(state => state.downloadAlbum);
     const deleteTrackFromCache = useStore(state => state.deleteTrackFromCache);
     const deleteAlbumFromCache = useStore(state => state.deleteAlbumFromCache);
+    const downloadingTrackIds = useStore(state => state.downloadingTrackIds);
     const isOffline = useStore(state => state.isOfflineMode || state.manualOfflineOverride);
 
     const insets = useSafeAreaInsets();
@@ -205,42 +207,53 @@ export default function CollectionScreen() {
 
     const collectionItems = useMemo(() => collection?.items || [], [collection?.items]);
 
+    const filteredItems = useMemo(() => {
+        if (mode !== 'offline') return collectionItems;
+
+        return collectionItems.filter(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [collectionItems, mode, cachedTrackIds]);
+
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
         clearQueue(false);
-        // addAlbumToQueue and addTrackToQueue auto-play when the queue is empty,
-        // so no explicit playQueueIndex(0) call is needed.
-        for (const item of collectionItems) {
+        for (const item of filteredItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-    }, [collectionItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkPlayNext = useCallback(async () => {
-        for (const item of collectionItems) {
+        for (const item of filteredItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, true);
             }
         }
-    }, [collectionItems, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredItems, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkAddToQueue = useCallback(async () => {
-        for (const item of collectionItems) {
+        for (const item of filteredItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-    }, [collectionItems, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredItems, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkSelectPlaylist = useCallback((playlistId: string) => {
-        for (const item of collectionItems) {
+        for (const item of filteredItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 addAlbumToPlaylist(playlistId, item.album.bandcampUrl);
             } else if (item.type === 'track' && item.track) {
@@ -248,8 +261,8 @@ export default function CollectionScreen() {
             }
         }
         setBulkPlaylistModalVisible(false);
-        Alert.alert("Success", `Added ${collectionItems.length} items to playlist`);
-    }, [collectionItems, addAlbumToPlaylist, addTrackToPlaylist]);
+        Alert.alert("Success", `Added ${filteredItems.length} items to playlist`);
+    }, [filteredItems, addAlbumToPlaylist, addTrackToPlaylist]);
 
     const bulkActions: Action[] = useMemo(() => [
         {
@@ -277,7 +290,7 @@ export default function CollectionScreen() {
             style: "cancel",
             onPress: () => { },
         },
-    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
+    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue, filteredItems]);
 
     const handlePlayItem = useCallback(async (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
@@ -396,7 +409,44 @@ export default function CollectionScreen() {
         );
     }
 
-    const showBulkBar = searchQuery.trim().length > 0 && collectionItems.length > 0;
+    const showBulkBar = searchQuery.trim().length > 0 && filteredItems.length > 0;
+
+    const isAllCached = useMemo(() => {
+        return filteredItems.every(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [filteredItems, cachedTrackIds]);
+
+    const handleDownloadAll = useCallback(async () => {
+        for (const item of filteredItems) {
+            if (item.type === 'album' && item.album?.tracks) {
+                const isFullyCached = item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+                if (!isFullyCached) {
+                    const tracksWithProps = item.album.tracks.map((t) => ({
+                        ...t,
+                        albumId: item.album?.id,
+                        album: item.album?.title
+                    }));
+                    await downloadAlbum(tracksWithProps as any[]);
+                }
+            } else if (item.type === 'track' && item.track) {
+                const isCached = cachedTrackIds.has(String(item.track.id));
+                if (!isCached) {
+                    await downloadTrack(item.track as any);
+                }
+            }
+        }
+        Alert.alert("Downloading", "Downloads started in the background");
+    }, [filteredItems, cachedTrackIds, downloadAlbum, downloadTrack]);
+
+    const handleCancelDownloads = useCallback(() => {
+        Alert.alert("Cancel Downloads", "Download cancellation is not yet implemented");
+    }, []);
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
@@ -434,7 +484,7 @@ export default function CollectionScreen() {
 
             <FlatList
                 testID="collection-list"
-                data={collectionItems}
+                data={filteredItems}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={COLUMN_COUNT}
@@ -458,6 +508,15 @@ export default function CollectionScreen() {
                         </View>
                     ) : null
                 )}
+            />
+
+            <CacheFab
+                visible={mode === 'standalone'}
+                isAllCached={isAllCached}
+                downloadProgress={downloadingTrackIds.size > 0 ? 0 : null}
+                onDownloadAllCached={handleDownloadAll}
+                onDownloadAllVisible={handleDownloadAll}
+                onCancelDownloads={handleCancelDownloads}
             />
 
             {/* Per-item modals */}
