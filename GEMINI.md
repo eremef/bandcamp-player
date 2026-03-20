@@ -20,7 +20,10 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Standalone Queue Persistence**: The mobile app saves the current track and playback queue to `AsyncStorage` on modification. Both are restored automatically upon relaunch.
 - **Persistent Remote Connection**: The mobile app attempts to maintain or re-establish its WebSocket connection to the desktop server even when in Standalone mode, allowing seamless switching back to Remote.
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
+- **Remote Radio Refresh**: Refreshing the radio tab in mobile remote mode sends a `forceRefresh` flag to the desktop server, ensuring stations are re-scraped before the updated list is sent back.
 - **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
+- **Offline Mode (Mobile)**: The mobile app supports a dedicated offline mode in standalone operation. When enabled (manually or automatically), it prioritizes cached tracks for playback, redirects metadata fetching to the local SQLite database, and skips background synchronization tasks. Offline indicators (badges) are visible across the UI to inform the user of limited functionality.
+- **Radio Station Caching**: Radio station lists are cached locally in the mobile app's database. When online, the list is refreshed from the Bandcamp API and stored; when offline, it's retrieved from the local cache. Radio stream URLs can only be resolved when online.
 
 ## E2E Tests
 
@@ -52,6 +55,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Mock Implementation Leakage**: When methods (e.g., `play()`) fetch data multiple times (like calling `useStore.getState()` or `TrackPlayer.getQueue()`), using `mockReturnValueOnce()` or `mockResolvedValueOnce()` restricts the mock to the first invocation only, causing subsequent internal calls to return default/undefined states and failing the test. Only use `*Once` mock modifiers when specifically testing sequential behavior differences; use `mockReturnValue()` and `mockResolvedValue()` by default.
 - **Mock Cleanup Isolation**: Use `jest.clearAllMocks()` alongside `jest.restoreAllMocks()` inside `beforeEach()` to fully reset mocked implementations (like `jest.spyOn`) and prevent test bleeding.
 - **Partial Type Mocking**: When partial objects are supplied as mocks to complex type parameters (e.g., passing `{ id, streamUrl }` to a `Track` parameter), you can safely cast it using `track as any` or `as unknown as Track` in unit tests, provided the inner logic only interacts with those specific properties.
+- **Mocking Store Offline State**: When testing components or services that depend on the store's offline state, use `useStore.setState({ isOfflineMode: true, manualOfflineOverride: false })` in `beforeEach` to ensure a consistent test environment. Ensure `useStore` is properly required/imported in the test file scope.
 
 ## Desktop Test Learnings
 

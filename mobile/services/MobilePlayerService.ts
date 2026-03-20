@@ -5,6 +5,7 @@ import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';
 import { Track, RepeatMode } from '@shared/types';
+import { mobileCacheService } from './MobileCacheService';
 import { setupPlayer } from './player';
 
 class MobilePlayerService {
@@ -197,41 +198,44 @@ class MobilePlayerService {
 
             let streamUrl = track.streamUrl;
 
-            if (!streamUrl) {
-                console.log(`[MobilePlayer] fetching stream URL for ${track.title}`);
-                // Try to get album details using bandcampUrl
-                // If bandcampUrl is missing, try to construct it or fail
+            // 1. Check if track is cached locally
+            const cacheEntry = await mobileCacheService.getCacheEntry(track.id);
+            if (cacheEntry) {
+                console.log(`[MobilePlayer] Using cached file for ${track.title}: ${cacheEntry.filePath}`);
+                streamUrl = cacheEntry.filePath;
+                await mobileCacheService.updateLastAccessed(track.id);
+            }
 
+            if (!streamUrl) {
+                // Check if we are offline
+                const isOffline = store.isOfflineMode || store.manualOfflineOverride;
+                if (isOffline) {
+                    console.warn(`[MobilePlayer] App is offline and track ${track.title} is not cached.`);
+                    useStore.setState({ collectionError: 'This track is not cached and the app is offline.' });
+                    return false;
+                }
+
+                console.log(`[MobilePlayer] Fetching stream URL for ${track.title} (ID: ${track.id})...`);
                 const urlToFetch = track.bandcampUrl;
                 if (urlToFetch) {
                     if (urlToFetch.includes('show=')) {
-                        // Radio show branch
                         const showId = urlToFetch.split('show=').pop()?.split('&')[0];
                         if (showId) {
-                            console.log(`[MobilePlayer] fetching radio stream URL for show ${showId}`);
                             const result = await mobileScraperService.getStationStreamUrl(showId);
-                            if (result && result.streamUrl) {
+                            if (result?.streamUrl) {
                                 streamUrl = result.streamUrl;
-                                if (result.duration) {
-                                    track.duration = result.duration;
-                                }
+                                if (result.duration) track.duration = result.duration;
                             }
                         }
                     } else {
-                        // Album/Track branch
                         const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
                         if (albumDetails) {
-                            // Find matching track
                             const foundTrack = albumDetails.tracks.find(t =>
-                                t.title.toLowerCase() === track.title.toLowerCase() ||
-                                t.id === track.id
+                                t.id === track.id || t.title.toLowerCase() === track.title.toLowerCase()
                             );
-
-                            if (foundTrack && foundTrack.streamUrl) {
+                            if (foundTrack?.streamUrl) {
                                 streamUrl = foundTrack.streamUrl;
-                                console.log(`[MobilePlayer] Found stream URL: ${streamUrl}`);
                             } else if (albumDetails.tracks.length === 1) {
-                                // Single track fallback
                                 streamUrl = albumDetails.tracks[0].streamUrl;
                             }
                         }

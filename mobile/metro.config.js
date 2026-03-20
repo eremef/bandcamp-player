@@ -7,7 +7,21 @@ const workspaceRoot = path.resolve(projectRoot, '..');
 const config = getDefaultConfig(projectRoot);
 
 // 1. Watch all files within the monorepo
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+    path.resolve(workspaceRoot, 'src/shared'),
+];
+// 2. Add an aggressive BlockList for Desktop-only directories
+const blockList = [
+    /^.*\.git.*$/,
+    /^.*\.agent.*$/,
+    /^.*\.gemini.*$/,
+    /^.*\.claude.*$/,
+    /src\/main\/.*$/,      // Exclude desktop main process
+    /src\/renderer\/.*$/,  // Exclude desktop renderer
+    /dist\/.*$/,           // Exclude desktop build folder
+    /coverage\/.*$/,
+];
+config.resolver.blockList = blockList;
 
 // 2. Let Metro know where to resolve packages and in what order
 config.resolver.nodeModulesPaths = [

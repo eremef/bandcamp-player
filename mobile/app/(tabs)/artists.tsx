@@ -9,7 +9,7 @@ import { SearchBar } from '../../components/SearchBar';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
-import { Play, MoreHorizontal, ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { Play, MoreHorizontal, ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 
 const COLUMN_COUNT = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -32,6 +32,13 @@ export default function ArtistsScreen() {
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const clearQueue = useStore((state) => state.clearQueue);
+    const mode = useStore(state => state.mode);
+    const downloadTrack = useStore(state => state.downloadTrack);
+    const downloadAlbum = useStore(state => state.downloadAlbum);
+    const deleteTrackFromCache = useStore(state => state.deleteTrackFromCache);
+    const deleteAlbumFromCache = useStore(state => state.deleteAlbumFromCache);
+    const isOffline = useStore(state => state.isOfflineMode || state.manualOfflineOverride);
+    const cachedTrackIds = useStore(state => state.cachedTrackIds);
 
     // Per-artist ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -121,7 +128,8 @@ export default function ArtistsScreen() {
                 }
             }
         };
-        setActionSheetActions([
+
+        const actions: Action[] = [
             {
                 text: "Play Now",
                 icon: Play,
@@ -141,15 +149,69 @@ export default function ArtistsScreen() {
                 text: "Add to Playlist",
                 icon: ListMusic,
                 onPress: () => setPlaylistModalVisible(true),
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { },
-            },
-        ]);
+            }
+        ];
+
+        if (mode === 'standalone') {
+            if (!isOffline) {
+                actions.push({
+                    text: "Download for Offline",
+                    icon: Download,
+                    onPress: async () => {
+                        const items = await getArtistsBulkItems([artist.name]);
+                        let itemsCount = 0;
+                        for (const item of items) {
+                            if (item.type === 'album' && item.album?.tracks) {
+                                const tracksWithProps = item.album.tracks.map((t) => ({
+                                    ...t,
+                                    albumId: item.album?.id,
+                                    album: item.album?.title
+                                }));
+                                await downloadAlbum(tracksWithProps as any[]);
+                                itemsCount++;
+                            } else if (item.type === 'track' && item.track) {
+                                await downloadTrack(item.track as any);
+                                itemsCount++;
+                            }
+                        }
+                        if (itemsCount > 0) {
+                            Alert.alert("Downloading", `Artist is downloading in the background`);
+                        } else {
+                            Alert.alert("Error", `Artist has no cacheable items`);
+                        }
+                    }
+                });
+            }
+
+            actions.push({
+                text: "Remove from Cache",
+                icon: Trash2,
+                onPress: async () => {
+                    const items = await getArtistsBulkItems([artist.name]);
+                    for (const item of items) {
+                        if (item.type === 'album' && item.album?.id) {
+                            await deleteAlbumFromCache(String(item.album.id));
+                        } else if (item.type === 'track' && item.track?.id) {
+                            await deleteTrackFromCache(String(item.track.id));
+                        }
+                    }
+                    Alert.alert("Success", "Artist items removed from cache");
+                }
+            });
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { },
+        });
+
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
-    }, [getArtistsBulkItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
+    }, [
+        getArtistsBulkItems, clearQueue, addAlbumToQueue, addTrackToQueue, mode,
+        downloadAlbum, downloadTrack, deleteAlbumFromCache, deleteTrackFromCache
+    ]);
 
     const handleSelectPlaylist = useCallback(async (playlistId: string) => {
         if (!selectedArtist) return;
@@ -296,6 +358,11 @@ export default function ArtistsScreen() {
                     onChangeText={setSearchQuery}
                     placeholder="Search artists.."
                 />
+                {isOffline && (
+                    <View style={[styles.offlineBadge, { backgroundColor: colors.accent + '20' }]}>
+                        <Text style={[styles.offlineBadgeText, { color: colors.accent }]}>OFFLINE</Text>
+                    </View>
+                )}
                 {showBulkBar && (
                     <>
                         <TouchableOpacity
@@ -464,5 +531,15 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 15,
         flexShrink: 0,
+    },
+    offlineBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginLeft: 4,
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, ArrowLeftRight, Settings } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, WifiOff, ArrowLeftRight, Settings } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
@@ -167,6 +167,8 @@ export default function PlayerScreen() {
                         onPress={async () => {
                             if (mode === 'remote') {
                                 await setMode('standalone');
+                            } else if (mode === 'standalone') {
+                                await setMode('offline');
                             } else {
                                 await setMode('remote');
                             }
@@ -174,11 +176,13 @@ export default function PlayerScreen() {
                     >
                         {mode === 'remote' ? (
                             <Wifi size={16} color={colors.accent} />
-                        ) : (
+                        ) : mode === 'standalone' ? (
                             <Globe size={16} color={colors.accent} />
+                        ) : (
+                            <WifiOff size={16} color={colors.accent} />
                         )}
                         <Text style={[styles.modeBadgeText, { color: colors.text }]}>
-                            {mode === 'remote' ? 'Remote' : 'Standalone'}
+                            {mode === 'remote' ? 'Remote' : mode === 'standalone' ? 'Standalone' : 'Offline'}
                         </Text>
                         <ArrowLeftRight size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
@@ -263,7 +267,7 @@ export default function PlayerScreen() {
                     >
                         <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                             <Text style={[styles.menuTitle, { color: colors.textSecondary }]}>
-                                {mode === 'standalone' ? 'Standalone Mode' : 'Connected to'}
+                                {mode === 'offline' ? 'Offline Mode' : mode === 'standalone' ? 'Standalone Mode' : 'Connected to'}
                             </Text>
                             {mode === 'remote' && <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>}
 
@@ -327,7 +331,7 @@ export default function PlayerScreen() {
                                 onPress={handleDisconnect}
                             >
                                 <Text style={[styles.menuItemText, styles.destructiveText]}>
-                                    {mode === 'standalone' ? 'Exit' : 'Disconnect'}
+                                    {mode === 'remote' ? 'Disconnect' : 'Exit'}
                                 </Text>
                             </TouchableOpacity>
                         </View>

@@ -18,8 +18,8 @@ import { addTrack } from '../services/player';
 
 interface AppState extends PlayerState {
     // Connection State
-    connectionStatus: 'disconnected' | 'connected' | 'connecting';
-    mode: 'remote' | 'standalone';
+    connectionStatus: 'disconnected' | 'connected' | 'connecting' | 'error';
+    mode: 'remote' | 'standalone' | 'offline';
     hostIp: string;
     auth: { isAuthenticated: boolean; user: BandcampUser | null };
     skipAutoLogin: boolean;
@@ -40,7 +40,8 @@ interface AppState extends PlayerState {
     // Actions
     setHostIp: (ip: string) => Promise<void>;
     restoreStandaloneState: () => Promise<void>;
-    setMode: (mode: 'remote' | 'standalone') => Promise<void>;
+    restoreOfflineState: () => Promise<void>;
+    setMode: (mode: 'remote' | 'standalone' | 'offline') => Promise<void>;
     loginBandcamp: () => Promise<void>;
     logoutBandcamp: () => Promise<void>;
     connect: (ip?: string) => Promise<void>;
@@ -88,7 +89,7 @@ interface AppState extends PlayerState {
     refreshCollection: (reset?: boolean, query?: string, forceServerRefresh?: boolean) => void;
     loadMoreCollection: () => void;
     refreshPlaylists: () => void;
-    refreshRadio: () => void;
+    refreshRadio: (forceRefresh?: boolean) => void;
     refreshQueue: () => void;
     refreshArtists: () => void;
     refreshArtistCollection: (artistId: string) => void;
@@ -136,7 +137,7 @@ interface AppState extends PlayerState {
     setCacheSize: (size: number) => void;
     setMaxCacheSize: (size: number) => void;
     downloadTrack: (track: Track) => Promise<void>;
-    downloadAlbum: (tracks: Track[]) => Promise<void>;
+    downloadAlbum: (tracks: Track[], albumInfo?: Album) => Promise<void>;
     deleteTrackFromCache: (trackId: string) => Promise<void>;
     deleteAlbumFromCache: (albumId: string) => Promise<void>;
     clearAllCache: () => Promise<void>;
@@ -146,7 +147,32 @@ interface AppState extends PlayerState {
     saveQueue: () => Promise<void>;
 }
 
-const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
+const initialState: Omit<PlayerState, 'queue'> & {
+    skipAutoLogin: boolean;
+    mode: 'remote' | 'standalone' | 'offline';
+    isOfflineMode: boolean;
+    manualOfflineOverride: boolean;
+    connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+    storeInitialized: boolean;
+    hostIp: string;
+    auth: { isAuthenticated: boolean; user: BandcampUser | null };
+    recentIps: string[];
+    collection: Collection | null;
+    playlists: Playlist[];
+    radioStations: RadioStation[];
+    artists: Artist[];
+    isScanning: boolean;
+    collectionOffset: number;
+    hasMoreCollection: boolean;
+    isCollectionLoading: boolean;
+    artistCollection: Collection | null;
+    isArtistCollectionLoading: boolean;
+    collectionError: string | null;
+    searchQuery: string;
+    radioSearchQuery: string;
+    collectionLoadingStatus: string | null;
+    isSimulationMode: boolean;
+} = {
     isPlaying: false,
     currentTrack: null,
     currentTime: 0,
@@ -157,15 +183,11 @@ const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
     isShuffled: false,
     isCasting: false,
     skipAutoLogin: false,
-};
-
-export const useStore = create<AppState>((set, get) => ({
-    ...initialState,
-    queue: { items: [], currentIndex: -1 },
-    connectionStatus: 'disconnected',
-    skipAutoLogin: false,
-    storeInitialized: false,
     mode: 'remote',
+    isOfflineMode: false,
+    manualOfflineOverride: false,
+    connectionStatus: 'disconnected',
+    storeInitialized: false,
     hostIp: '',
     auth: { isAuthenticated: false, user: null },
     recentIps: [],
@@ -182,6 +204,79 @@ export const useStore = create<AppState>((set, get) => ({
     collectionError: null,
     searchQuery: '',
     radioSearchQuery: '',
+    collectionLoadingStatus: null,
+    isSimulationMode: false,
+};
+
+export const useStore = create<AppState>((set, get) => ({
+    ...initialState,
+    queue: { items: [], currentIndex: -1 },
+    restoreOfflineState: async () => {
+        // Restore offline queue
+        let restoredQueue = { items: [] as QueueItem[], currentIndex: -1 };
+        let restoredTrack = null as Track | null;
+        let restoredDuration = 0;
+        let restoredTime = 0;
+
+        const savedQueueJson = await AsyncStorage.getItem('offline_queue');
+        if (savedQueueJson) {
+            try {
+                const parsed = JSON.parse(savedQueueJson);
+                if (parsed?.items?.length > 0) {
+                    restoredQueue = parsed;
+                    restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
+                    restoredDuration = restoredTrack?.duration || 0;
+                    restoredTime = typeof parsed.currentTime === 'number' ? parsed.currentTime : 0;
+                }
+            } catch (e) {
+                console.error('[MobileStore] Failed to parse offline queue:', e);
+            }
+        }
+
+        // Restore persisted volume from DB
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        const settings = await mobileDatabase.getSettings();
+        const restoredVolume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
+
+        // Atomic set: restored playback state for offline mode
+        set({
+            mode: 'offline',
+            isPlaying: false,
+            currentTrack: restoredTrack,
+            currentTime: restoredTime,
+            duration: restoredDuration,
+            volume: restoredVolume,
+            isMuted: false,
+            repeatMode: 'off',
+            isShuffled: false,
+            isCasting: false,
+            queue: restoredQueue,
+            // Force offline state
+            auth: { isAuthenticated: false, user: null },
+            connectionStatus: 'disconnected',
+            isOfflineMode: true,
+            manualOfflineOverride: true,
+            collection: null,
+            playlists: [],
+            radioStations: [],
+            artists: [],
+        });
+
+        // Ensure TrackPlayer volume is restored
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        await mobilePlayerService.setVolume(restoredVolume);
+
+        // Load track into player without playing if restored
+        if (restoredTrack) {
+            await mobilePlayerService.loadTrack(restoredTrack, restoredTime);
+        }
+        // Defer refresh to after UI interactions 
+        runAfterInteractions(() => {
+            get().refreshCollection(true);
+        });
+    },
+    searchQuery: '',
+    radioSearchQuery: '',
     setRadioSearchQuery: (query) => set({ radioSearchQuery: query }),
     collectionLoadingStatus: null,
     theme: 'system',
@@ -190,7 +285,6 @@ export const useStore = create<AppState>((set, get) => ({
         set({ theme });
     },
 
-    isSimulationMode: false,
     isSilentRefreshing: false,
     lastfmState: { isConnected: false, user: null },
     scrobblingEnabled: true,
@@ -198,8 +292,6 @@ export const useStore = create<AppState>((set, get) => ({
     // Cache State
     cachedTrackIds: new Set<string>(),
     downloadingTrackIds: new Map<string, number>(),
-    isOfflineMode: false,
-    manualOfflineOverride: false,
     cacheSize: 0,
     maxCacheSize: 2 * 1024 * 1024 * 1024, // 2GB
 
@@ -234,8 +326,25 @@ export const useStore = create<AppState>((set, get) => ({
     setMaxCacheSize: (size: number) => set({ maxCacheSize: size }),
 
     downloadTrack: async (track: Track) => {
+        let trackToDownload = track;
+
+        if (!track.streamUrl && track.bandcampUrl) {
+            try {
+                const { mobileScraperService } = require('../services/MobileScraperService');
+                const albumDetails = await mobileScraperService.getAlbumDetails(track.bandcampUrl);
+                if (albumDetails && albumDetails.tracks) {
+                    const fullTrack = albumDetails.tracks.find((t: { id: any; title: string; }) => String(t.id) === String(track.id) || t.title === track.title);
+                    if (fullTrack && fullTrack.streamUrl) {
+                        trackToDownload = { ...track, ...fullTrack };
+                    }
+                }
+            } catch (e) {
+                console.warn('[MobileStore] Failed to resolve streamUrl for download:', e);
+            }
+        }
+
         const { downloadingTrackIds, cachedTrackIds, setDownloadProgress, removeDownloadProgress, setCacheSize } = get();
-        
+
         if (cachedTrackIds.has(track.id)) {
             return;
         }
@@ -245,7 +354,20 @@ export const useStore = create<AppState>((set, get) => ({
         set({ downloadingTrackIds: newMap });
 
         try {
-            await mobileCacheService.downloadTrack(track, (progress: { trackId: string; progress: number }) => {
+            // Ensure metadata is saved before/during download
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            if (trackToDownload.albumId) {
+                // Save track with album link without clearing the DB
+                await mobileDatabase.upsertCollectionItems('', [{
+                    id: trackToDownload.id,
+                    type: 'track',
+                    token: '',
+                    purchaseDate: new Date().toISOString(),
+                    track: trackToDownload
+                }]);
+            }
+
+            await mobileCacheService.downloadTrack(trackToDownload, (progress: { trackId: string; progress: number }) => {
                 if (progress.trackId === track.id) {
                     setDownloadProgress(track.id, progress.progress);
                 }
@@ -264,11 +386,30 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    downloadAlbum: async (tracks: Track[]) => {
-        const { setDownloadProgress } = get();
-        await mobileCacheService.downloadAlbum(tracks, (progress) => {
-            setDownloadProgress(progress.trackId, progress.progress);
-        });
+    downloadAlbum: async (tracks: Track[], albumInfo?: Album) => {
+        const { downloadTrack } = get();
+
+        if (albumInfo) {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            await mobileDatabase.upsertCollectionItems('', [{
+                id: albumInfo.id,
+                type: 'album',
+                token: '',
+                purchaseDate: new Date().toISOString(),
+                album: albumInfo
+            }]);
+        }
+
+        // Use sequential or parallel downloadTrack calls which now handle resolution
+        const results = await Promise.allSettled(
+            tracks.map(track => downloadTrack(track))
+        );
+
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+            console.warn(`[MobileStore] Failed to download ${failed.length} tracks from album`);
+        }
+
         await get().loadCachedTrackIds();
     },
 
@@ -277,7 +418,7 @@ export const useStore = create<AppState>((set, get) => ({
         const newCachedIds = new Set(get().cachedTrackIds);
         newCachedIds.delete(trackId);
         set({ cachedTrackIds: newCachedIds });
-        
+
         const newSize = await mobileCacheService.getCacheSize();
         set({ cacheSize: newSize });
     },
@@ -289,18 +430,18 @@ export const useStore = create<AppState>((set, get) => ({
 
     clearAllCache: async () => {
         await mobileCacheService.clearCache();
-        set({ 
+        set({
             cachedTrackIds: new Set<string>(),
-            cacheSize: 0 
+            cacheSize: 0
         });
     },
 
     loadCachedTrackIds: async () => {
         const cachedIds = await mobileCacheService.getCachedTrackIds();
         const cacheSize = await mobileCacheService.getCacheSize();
-        set({ 
+        set({
             cachedTrackIds: cachedIds,
-            cacheSize 
+            cacheSize
         });
     },
 
@@ -346,8 +487,8 @@ export const useStore = create<AppState>((set, get) => ({
 
         // Atomic set: restored playback state
         set({
-            mode: 'standalone',
             ...initialState,
+            mode: 'standalone',
             volume: restoredVolume,
             queue: restoredQueue,
             currentTrack: restoredTrack,
@@ -402,10 +543,17 @@ export const useStore = create<AppState>((set, get) => ({
         // ── STEP 1: Snapshot before any mutations ──
         // Capture everything we need BEFORE stop() or set() modifies anything
 
-        if (currentMode === 'standalone') {
-            // Save standalone playback snapshot to AsyncStorage
-            await get().saveQueue();
+        if (currentMode === 'standalone' || currentMode === 'offline') {
+            if (currentMode === 'standalone') {
+                await get().saveQueue();
+            } else {
+                const { queue, currentTime } = get();
+                await AsyncStorage.setItem('offline_queue', JSON.stringify({ ...queue, currentTime }));
+            }
         }
+
+
+
 
         // ── STEP 2: Stop local audio without touching store state ──
         // Don't call mobilePlayerService.stop() — it sets currentTrack: null.
@@ -427,8 +575,12 @@ export const useStore = create<AppState>((set, get) => ({
         // block remote updates during the async transition below
         set({ mode });
 
-        if (mode === 'standalone') {
-            await get().restoreStandaloneState();
+        if (mode === 'standalone' || mode === 'offline') {
+            if (mode === 'standalone') {
+                await get().restoreStandaloneState();
+            } else {
+                await get().restoreOfflineState();
+            }
         } else {
             // Remote mode: only reset data collections, NOT playback state.
             // The server will provide playback state via state-changed event.
@@ -443,6 +595,8 @@ export const useStore = create<AppState>((set, get) => ({
                 collectionOffset: 0,
                 hasMoreCollection: true,
                 isCollectionLoading: false,
+                isOfflineMode: false,
+                manualOfflineOverride: false,
                 // When switching from standalone → remote without an existing connection,
                 // skip auto-login so the connect screen shows the manual Connect button
                 // instead of auto-connecting (which would cause a navigation loop).
@@ -478,8 +632,6 @@ export const useStore = create<AppState>((set, get) => ({
         mobilePlayerService.stop();
         await AsyncStorage.removeItem('standalone_queue');
         set({
-            auth: { isAuthenticated: false, user: null },
-            connectionStatus: 'disconnected',
             ...initialState,
             queue: { items: [], currentIndex: -1 }
         });
@@ -516,10 +668,9 @@ export const useStore = create<AppState>((set, get) => ({
         mobilePlayerService.stop();
 
         set({
-            connectionStatus: 'disconnected',
-            hostIp: mode === 'standalone' ? get().hostIp : '',
             ...initialState,
             mode, // Preserve current mode
+            hostIp: mode === 'standalone' ? get().hostIp : '',
             queue: { items: [], currentIndex: -1 },
             skipAutoLogin: true
         });
@@ -1300,12 +1451,30 @@ export const useStore = create<AppState>((set, get) => ({
                         set({ collectionLoadingStatus: msg || null });
                     };
 
-                    onProgress('Connecting...');
+                    if (get().mode !== 'offline') {
+                        onProgress('Connecting...');
+                    }
 
                     const { user } = get().auth;
-                    if (!user) {
+                    if (!user && get().mode !== 'offline') {
                         console.log('[MobileStore] Skipping collection fetch: user not authenticated');
                         set({ isCollectionLoading: false });
+                        return;
+                    }
+
+                    if (get().mode === 'offline') {
+                        onProgress('Loading cached items...');
+                        const items = await mobileDatabase.getOfflineCollection(query);
+                        set({
+                            collection: {
+                                items,
+                                totalCount: items.length,
+                                lastUpdated: new Date().toISOString(),
+                                isSimulated: false
+                            },
+                            isCollectionLoading: false,
+                            collectionLoadingStatus: null
+                        });
                         return;
                     }
 
@@ -1313,15 +1482,15 @@ export const useStore = create<AppState>((set, get) => ({
                         await mobileScraperService.fetchCollection(true, get().isSimulationMode, onProgress);
                     }
 
-                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
-                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+                    let items = await mobileDatabase.getCollectionGranular(user?.id || '', 0, 50, query);
+                    let totalCount = await mobileDatabase.getCollectionTotalCount(user?.id || '', query);
 
                     // Fresh start detection: if DB is empty and no search query, fetch from scraper
                     if (totalCount === 0 && !query && !forceServerRefresh) {
                         console.log('[MobileStore] Collection empty, performing initial fetch...');
                         await mobileScraperService.fetchCollection(false, get().isSimulationMode, onProgress);
-                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
-                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+                        items = await mobileDatabase.getCollectionGranular(user?.id || '', 0, 50, query);
+                        totalCount = await mobileDatabase.getCollectionTotalCount(user?.id || '', query);
                     }
 
                     set({
@@ -1419,9 +1588,9 @@ export const useStore = create<AppState>((set, get) => ({
             mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
         }
     },
-    refreshRadio: () => {
+    refreshRadio: (forceRefresh = false) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-radio-stations');
+            webSocketService.send('get-radio-stations', { forceRefresh });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
             mobileScraperService.getRadioStations().then((stations: RadioStation[]) => set({ radioStations: stations }));
@@ -1440,7 +1609,10 @@ export const useStore = create<AppState>((set, get) => ({
         } else {
             console.log('[MobileStore] Refreshing artists from DB...');
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.getArtists()
+            const isOffline = get().mode === 'offline';
+            const fetchPromise = isOffline ? mobileDatabase.getOfflineArtists() : mobileDatabase.getArtists();
+            
+            fetchPromise
                 .then((artists: any[]) => {
                     console.log(`[MobileStore] Loaded ${artists.length} artists from DB`);
                     const mappedArtists: Artist[] = artists.map(a => ({
@@ -1455,6 +1627,29 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     refreshArtistCollection: (artistId: string) => {
+        if (get().mode === 'offline') {
+            set({ isArtistCollectionLoading: true });
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            mobileDatabase.getOfflineCollection().then((items: CollectionItem[]) => {
+                const artistItems = items.filter((item: any) => {
+                    const data = item.type === 'album' ? item.album : item.track;
+                    return data && (data.artistId === artistId || data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-') === artistId.replace('name-', ''));
+                });
+                set({
+                    artistCollection: {
+                        items: artistItems,
+                        totalCount: artistItems.length,
+                        lastUpdated: new Date().toISOString()
+                    },
+                    isArtistCollectionLoading: false
+                });
+            }).catch((err: any) => {
+                console.error('[MobileStore] Failed to load offline artist collection:', err);
+                set({ isArtistCollectionLoading: false });
+            });
+            return;
+        }
+
         if (!get().auth.isAuthenticated) {
             console.log('[MobileStore] Skipping artist collection fetch: user not authenticated');
             return;

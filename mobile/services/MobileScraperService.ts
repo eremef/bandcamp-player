@@ -161,7 +161,26 @@ export class MobileScraperService {
         const userId = authState.user.id;
         const cacheId = isSimulated ? `${userId}_sim` : userId;
 
-        // Try to load from database first
+        // Check for offline mode via store
+        const { useStore } = require('../store');
+        const store = useStore.getState();
+        const isOffline = store.isOfflineMode || store.manualOfflineOverride;
+
+        if (isOffline) {
+            console.log(`[MobileScraper] Offline Mode: loading collection ${cacheId} from database.`);
+            const cached = await mobileDatabase.getCollectionCache(cacheId);
+            if (cached) {
+                this.cachedCollection = cached.data;
+                // Also reconstruct artists screen mapping while offline
+                if (cached.data.items) {
+                    await this.extractAndSaveArtists(cached.data.items);
+                }
+                return cached.data;
+            }
+            throw new Error('Collection not found in cache. Cannot fetch it while offline.');
+        }
+
+        // Try to load from database first if not forced
         if (!forceRefresh) {
             const cached = await mobileDatabase.getCollectionCache(cacheId);
             if (cached) {
@@ -564,6 +583,20 @@ export class MobileScraperService {
      * Get full album details including tracks and stream URLs
      */
     async getAlbumDetails(albumUrl: string): Promise<Album | null> {
+        // Handle Offline mode via store
+        const { useStore } = require('../store');
+        const isOffline = useStore.getState().isOfflineMode || useStore.getState().manualOfflineOverride;
+
+        if (isOffline) {
+            console.log(`[MobileScraper] Offline Mode: Resolving ${albumUrl} from DB`);
+            const album = await mobileDatabase.getAlbumByUrl(albumUrl);
+            if (album) {
+                const tracks = await mobileDatabase.getTracksByAlbumId(album.id);
+                return { ...album, tracks };
+            }
+            return null;
+        }
+
         try {
             const cookies = await mobileAuthService.getCookies();
             const config = remoteConfigService.get();
@@ -695,6 +728,15 @@ export class MobileScraperService {
      * Get Bandcamp Radio stations
      */
     async getRadioStations(): Promise<RadioStation[]> {
+        const { useStore } = require('../store');
+        const isOffline = useStore.getState().isOfflineMode || useStore.getState().manualOfflineOverride;
+
+        if (isOffline) {
+            console.log('[MobileScraper] Offline Mode: loading radio stations from cache');
+            const cached = await mobileDatabase.getRadioCache();
+            return cached || [];
+        }
+
         const config = remoteConfigService.get();
         try {
             const response = await fetch(config.endpoints.radioListApi, {
@@ -706,6 +748,7 @@ export class MobileScraperService {
             const stations: RadioStation[] = [];
 
             if (data.results) {
+                // ... same mapping logic ...
                 for (const episode of data.results) {
                     let formattedDate = undefined;
                     if (episode.published_date) {
@@ -718,7 +761,6 @@ export class MobileScraperService {
                                     year: 'numeric'
                                 });
                             } else {
-                                // Fallback: try parsing YYYYMMDD or DD MMM YYYY if needed
                                 formattedDate = episode.published_date;
                             }
                         } catch {
@@ -737,17 +779,22 @@ export class MobileScraperService {
                 }
             }
 
+            // Save to cache
+            await mobileDatabase.saveRadioCache(stations);
             return stations;
         } catch (error) {
             console.error('[MobileScraper] Error fetching radio stations:', error);
-            return [
-                {
-                    id: 'weekly',
-                    name: 'Bandcamp Weekly',
-                    description: 'The best new music on Bandcamp',
-                    streamUrl: config.endpoints.radioFallbackStream,
-                },
-            ];
+            const cached = await mobileDatabase.getRadioCache();
+            if (cached && cached.length > 0) return cached;
+            
+            // Hard fallback if all else fails
+            return [{
+                id: 'weekly',
+                name: 'Bandcamp Weekly',
+                description: 'The latest Bandcamp Weekly show',
+                date: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+                streamUrl: ''
+            }];
         }
     }
 
@@ -755,6 +802,15 @@ export class MobileScraperService {
      * Get fresh stream URL for a radio station show
      */
     async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
+        // Handle Offline mode via store
+        const { useStore } = require('../store');
+        const isOffline = useStore.getState().isOfflineMode || useStore.getState().manualOfflineOverride;
+
+        if (isOffline) {
+            console.warn(`[MobileScraper] Offline Mode: Cannot fetch stream URL for station show ${showId}`);
+            return { streamUrl: '', duration: 0 };
+        }
+
         const config = remoteConfigService.get();
         try {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);

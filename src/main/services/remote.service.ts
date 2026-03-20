@@ -412,7 +412,8 @@ export class RemoteControlService extends EventEmitter {
             }
             case 'get-radio-stations': {
                 try {
-                    const stations = await this.scraperService.getRadioStations();
+                    const forceRefresh = payload?.forceRefresh === true;
+                    const stations = await this.scraperService.getRadioStations(forceRefresh);
                     this.sendToClient(ws, 'radio-data', stations);
                 } catch (e) {
                     console.error('[RemoteService] Error processing get-radio-stations:', e);

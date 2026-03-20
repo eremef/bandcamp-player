@@ -175,7 +175,7 @@ describe('RadioScreen', () => {
             flatList.props.refreshControl.props.onRefresh();
         });
 
-        expect(mockRefreshRadio).toHaveBeenCalled();
+        expect(mockRefreshRadio).toHaveBeenCalledWith(true);
     });
 
     it('updates search query on text change', () => {

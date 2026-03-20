@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import { useStore } from '../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle, Globe, LogIn } from 'lucide-react-native';
+import { Wifi, AlertCircle, Globe, LogIn, WifiOff } from 'lucide-react-native';
 import { useTheme } from '../theme';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';
 
 export default function ConnectScreen() {
     const insets = useSafeAreaInsets();
+    const segments = useSegments();
     const {
         connect, disconnect, setHostIp, hostIp, connectionStatus, recentIps, autoConnect, removeRecentIp, startScan, isScanning,
         mode, setMode, auth
@@ -34,16 +35,20 @@ export default function ConnectScreen() {
     // Auto-redirect to player when connected or authenticated and ready
     useEffect(() => {
         if (!isAutoConnecting) {
+            const inTabs = segments[0] === '(tabs)';
+            if (inTabs) return;
+
             const canAccess =
+                (mode === 'offline') ||
                 ((mode === 'remote' || mode === 'standalone') && connectionStatus === 'connected') &&
                 (mode === 'remote' || (mode === 'standalone' && auth.isAuthenticated));
 
-            if (canAccess && useStore.getState().currentTrack) {
+            if (canAccess) {
                 console.log('[ConnectScreen] Conditions met, auto-redirecting to player');
                 router.replace('/(tabs)/player');
             }
         }
-    }, [connectionStatus, mode, auth.isAuthenticated, isAutoConnecting, router]);
+    }, [connectionStatus, mode, auth.isAuthenticated, isAutoConnecting, router, segments]);
 
     const handleConnect = (ip?: string) => {
         const targetIp = ip || ipInput;
@@ -51,9 +56,9 @@ export default function ConnectScreen() {
         connect(targetIp);
     };
 
-    const handleModeSelect = async (newMode: 'remote' | 'standalone') => {
+    const handleModeSelect = async (newMode: 'remote' | 'standalone' | 'offline') => {
         await setMode(newMode);
-        if (newMode === 'remote' && useStore.getState().connectionStatus === 'connected') {
+        if ((newMode === 'remote' && useStore.getState().connectionStatus === 'connected') || newMode === 'offline') {
             router.replace('/(tabs)/player');
         }
     };
@@ -63,11 +68,11 @@ export default function ConnectScreen() {
     };
 
     const handleStandaloneContinue = async () => {
-        await setMode('standalone');
-        // If mode was already 'standalone', setMode is a no-op and connectionStatus
-        // stays 'disconnected'. Ensure state is restored.
-        if (useStore.getState().connectionStatus !== 'connected') {
+        const currentMode = useStore.getState().mode;
+        if (currentMode === 'standalone') {
             await useStore.getState().restoreStandaloneState();
+        } else if (currentMode === 'offline') {
+            await useStore.getState().restoreOfflineState();
         }
         router.replace('/(tabs)/player');
     };
@@ -98,21 +103,25 @@ export default function ConnectScreen() {
                     <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                         {mode === 'remote' ? (
                             <Wifi size={64} color={colors.accent} />
-                        ) : (
+                        ) : mode === 'standalone' ? (
                             <Globe size={64} color={colors.accent} />
+                        ) : (
+                            <WifiOff size={64} color={colors.accent} />
                         )}
                     </View>
 
                     <Text style={[styles.title, { color: colors.text }]}>
-                        {mode === 'remote' ? 'Remote mode' : 'Standalone mode'}
+                        {mode === 'remote' ? 'Remote mode' : mode === 'standalone' ? 'Standalone mode' : 'Offline mode'}
                     </Text>
 
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                         {mode === 'remote'
                             ? 'Control your desktop player'
-                            : (auth.isAuthenticated
-                                ? `Logged in as ${auth.user?.displayName || auth.user?.username}`
-                                : 'Play your collection directly')}
+                            : mode === 'offline'
+                                ? 'Play only cached music'
+                                : (auth.isAuthenticated
+                                    ? `Logged in as ${auth.user?.displayName || auth.user?.username}`
+                                    : 'Play your collection directly')}
                     </Text>
 
                     {/* Mode Selector - Now below title for better visibility */}
@@ -135,6 +144,16 @@ export default function ConnectScreen() {
                             onPress={() => handleModeSelect('standalone')}
                         >
                             <Text style={[styles.modeTextSmall, { color: mode === 'standalone' ? colors.text : colors.textSecondary }]}>Standalone</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.modeButtonSmall,
+                                mode === 'offline' && { backgroundColor: colors.card }
+                            ]}
+                            onPress={() => handleModeSelect('offline')}
+                        >
+                            <Text style={[styles.modeTextSmall, { color: mode === 'offline' ? colors.text : colors.textSecondary }]}>Offline</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -234,7 +253,7 @@ export default function ConnectScreen() {
                         </View>
                     ) : (
                         <View style={{ width: '100%', alignItems: 'center' }}>
-                            {auth.isAuthenticated ? (
+                            {auth.isAuthenticated || mode === 'offline' ? (
                                 <TouchableOpacity
                                     style={[styles.button, { backgroundColor: colors.accent }]}
                                     onPress={handleStandaloneContinue}

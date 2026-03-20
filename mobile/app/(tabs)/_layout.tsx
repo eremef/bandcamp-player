@@ -17,8 +17,9 @@ export default function TabLayout() {
 
     const isConnected = connectionStatus === 'connected';
     const isStandaloneAuth = mode === 'standalone' && auth.isAuthenticated;
+    const isOffline = mode === 'offline';
 
-    if (!isConnected && !isStandaloneAuth) {
+    if (!isConnected && !isStandaloneAuth && !isOffline) {
         return <Redirect href="/" />;
     }
 

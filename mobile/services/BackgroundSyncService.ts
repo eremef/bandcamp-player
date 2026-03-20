@@ -17,7 +17,17 @@ TaskManager.defineTask(BACKGROUND_COLLECTION_SYNC, async () => {
             return BackgroundFetch.BackgroundFetchResult.NoData;
         }
 
-        console.log(`[BackgroundSync] Syncing collection for ${authState.user.id}...`);
+        const userId = authState.user.id;
+        
+        // Check if app is in offline mode
+        const { useStore } = require('../store');
+        const isOffline = useStore.getState().isOfflineMode || useStore.getState().manualOfflineOverride;
+        if (isOffline) {
+            console.log('[BackgroundSync] App is in offline mode, skipping sync');
+            return BackgroundFetch.BackgroundFetchResult.NoData;
+        }
+
+        console.log(`[BackgroundSync] Syncing collection for ${userId}...`);
         // Force refresh to ensure we get new items
         await mobileScraperService.fetchCollection(true);
 

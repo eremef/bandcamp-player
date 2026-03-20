@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import { CollectionItem, AppSettings, Playlist } from '@shared/types';
+import { CollectionItem, AppSettings, Playlist, Album, Track, RadioStation } from '@shared/types';
 
 const DB_NAME = 'bandcamp_mobile.db';
 
@@ -129,6 +129,12 @@ export class MobileDatabase {
                 cached_at TEXT NOT NULL,
                 last_accessed_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS radio_cache (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                cached_at TEXT NOT NULL
+            );
         `);
 
         // Migration for existing users: add position column if missing
@@ -187,6 +193,24 @@ export class MobileDatabase {
         );
     }
 
+    async getRadioCache(): Promise<RadioStation[] | null> {
+        if (!this.db) await this.init();
+        const result = await this.db!.getFirstAsync<{ data: string }>(
+            'SELECT data FROM radio_cache WHERE id = ?',
+            ['radio_stations']
+        );
+        return result ? JSON.parse(result.data) : null;
+    }
+
+    async saveRadioCache(stations: RadioStation[]) {
+        if (!this.db) await this.init();
+        const now = new Date().toISOString();
+        await this.db!.runAsync(
+            'INSERT OR REPLACE INTO radio_cache (id, data, cached_at) VALUES (?, ?, ?)',
+            ['radio_stations', JSON.stringify(stations), now]
+        );
+    }
+
     async saveCollectionGranular(userId: string, items: CollectionItem[], onProgress?: (msg: string) => void) {
         if (!this.db) await this.init();
 
@@ -236,6 +260,53 @@ export class MobileDatabase {
                 const ftsPlaceholders = ftsItems.map(() => '(?, ?, ?)').join(', ');
                 const ftsParams = ftsItems.flatMap(f => [f.id, f.title ?? 'Untitled', f.artist ?? 'Unknown Artist']);
                 await this.db!.runAsync(`INSERT INTO collection_search_fts (id, title, artist) VALUES ${ftsPlaceholders}`, ftsParams);
+            }
+        });
+    }
+
+    async upsertCollectionItems(userId: string, items: CollectionItem[], onProgress?: (msg: string) => void) {
+        if (!this.db) await this.init();
+
+        const totalItems = items.length;
+        const BATCH_SIZE = 100;
+
+        await this.db!.withTransactionAsync(async () => {
+            let position = 0;
+            // Get max position for this userId to append
+            const res = await this.db!.getFirstAsync<{ maxPos: number }>('SELECT MAX(position) as maxPos FROM collection_items WHERE user_id = ?', [userId]);
+            position = (res?.maxPos ?? -1) + 1;
+
+            for (let i = 0; i < totalItems; i += BATCH_SIZE) {
+                const batch = items.slice(i, i + BATCH_SIZE);
+                onProgress?.(`Upserting items: ${Math.min(i + BATCH_SIZE, totalItems)}/${totalItems}`);
+
+                // 1. Bulk Insert collection_items (Use REPLACE to update if item exists, but we need ID to be primary or unique to replace properly? The table schema for collection_items uses `id` as primary key!)
+                const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+                const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++]);
+                await this.db!.runAsync(`INSERT OR REPLACE INTO collection_items (id, type, token, purchase_date, user_id, position) VALUES ${itemPlaceholders}`, itemParams);
+
+                // 2. Bulk Insert albums
+                const albums = batch.filter(it => it.type === 'album' && it.album).map(it => it.album!);
+                if (albums.length > 0) {
+                    const albumPlaceholders = albums.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const albumParams = albums.flatMap(a => [a.id, a.title, a.artistId ?? null, a.artist, a.artworkUrl ?? null, a.bandcampUrl ?? null, a.trackCount ?? 0]);
+                    await this.db!.runAsync(`INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES ${albumPlaceholders}`, albumParams);
+                }
+
+                // 3. Bulk Insert tracks
+                const tracks = batch.filter(it => it.type === 'track' && it.track).map(it => it.track!);
+                if (tracks.length > 0) {
+                    const trackPlaceholders = tracks.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const trackParams = tracks.flatMap(t => [t.id, t.title, t.artistId ?? null, t.artist, t.albumId ?? null, t.album ?? null, t.artworkUrl ?? null, t.streamUrl ?? null, t.duration ?? 0, t.bandcampUrl ?? null]);
+                    await this.db!.runAsync(`INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES ${trackPlaceholders}`, trackParams);
+                }
+
+                // 4. Bulk Insert FTS
+                const ftsItems = batch.map(it => ({ id: it.id, title: it.type === 'album' ? it.album?.title : it.track?.title, artist: it.type === 'album' ? it.album?.artist : it.track?.artist }));
+                const ftsPlaceholders = ftsItems.map(() => '(?, ?, ?)').join(', ');
+                const ftsParams = ftsItems.flatMap(f => [f.id, f.title ?? 'Untitled', f.artist ?? 'Unknown Artist']);
+                // Use REPLACE to update FTS
+                await this.db!.runAsync(`INSERT OR REPLACE INTO collection_search_fts (id, title, artist) VALUES ${ftsPlaceholders}`, ftsParams);
             }
         });
     }
@@ -569,11 +640,73 @@ export class MobileDatabase {
         });
     }
 
+    async getAlbumByUrl(url: string): Promise<Album | null> {
+        if (!this.db) await this.init();
+        const row = await this.db!.getFirstAsync<any>(
+            'SELECT * FROM albums WHERE bandcamp_url = ?',
+            [url]
+        );
+        if (!row) return null;
+        return {
+            id: row.id,
+            title: row.title,
+            artist: row.artist_name,
+            artistId: row.artist_id,
+            artworkUrl: row.artwork_url,
+            bandcampUrl: row.bandcamp_url,
+            trackCount: row.track_count,
+            tracks: []
+        };
+    }
+
+    async getTracksByAlbumId(albumId: string): Promise<Track[]> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<any>(
+            `SELECT t.* FROM tracks t
+             INNER JOIN audio_cache ac ON t.id = ac.track_id
+             WHERE t.album_id = ? ORDER BY t.id ASC`,
+            [albumId]
+        );
+        return rows.map(row => ({
+            id: row.id,
+            title: row.title,
+            artist: row.artist_name,
+            artistId: row.artist_id,
+            album: row.album_title,
+            albumId: row.album_id,
+            duration: row.duration,
+            artworkUrl: row.artwork_url,
+            stream_url: row.stream_url, // Ensure field mapping matches shared Type if necessary, or DB schema
+            bandcampUrl: row.bandcamp_url,
+            isCached: false
+        } as any)); // Some shared Track props might be missing in DB, cast to avoid strict errors if needed
+    }
+
     // --- Artists ---
 
     async getArtists(): Promise<any[]> {
         if (!this.db) await this.init();
         return await this.db!.getAllAsync('SELECT * FROM artists ORDER BY name ASC');
+    }
+
+    async getOfflineArtists(): Promise<any[]> {
+        if (!this.db) await this.init();
+        const sql = `
+            SELECT DISTINCT ar.*
+            FROM artists ar
+            WHERE EXISTS (
+                SELECT 1 FROM collection_items ci
+                LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+                LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+                WHERE (
+                    (ci.type = 'album' AND a.artist_name = ar.name AND EXISTS (SELECT 1 FROM audio_cache ac WHERE ac.album_id = ci.id))
+                    OR
+                    (ci.type = 'track' AND t.artist_name = ar.name AND EXISTS (SELECT 1 FROM audio_cache ac WHERE ac.track_id = ci.id))
+                )
+            )
+            ORDER BY ar.name ASC
+        `;
+        return await this.db!.getAllAsync(sql);
     }
 
     // Simple mutex for transaction serialization
@@ -738,6 +871,72 @@ export class MobileDatabase {
             filePath: row.file_path,
             fileSize: row.file_size,
         }));
+    }
+
+    async getOfflineCollection(query?: string): Promise<CollectionItem[]> {
+        if (!this.db) await this.init();
+
+        const selectCols = `ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                    t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid`;
+
+        let sql = `
+            SELECT ${selectCols}
+            FROM collection_items ci
+            LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
+            LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
+            WHERE (
+                (ci.type = 'album' AND EXISTS (SELECT 1 FROM audio_cache ac WHERE ac.album_id = ci.id))
+                OR
+                (ci.type = 'track' AND EXISTS (SELECT 1 FROM audio_cache ac WHERE ac.track_id = ci.id))
+            )
+        `;
+
+        const params: any[] = [];
+        if (query) {
+            sql += ` AND (a.title LIKE ? OR a.artist_name LIKE ? OR t.title LIKE ? OR t.artist_name LIKE ?)`;
+            const pattern = `%${query}%`;
+            params.push(pattern, pattern, pattern, pattern);
+        }
+
+        sql += ` ORDER BY ci.position ASC`;
+
+        const rows = await this.db!.getAllAsync<any>(sql, params);
+        return rows.map(row => {
+            const item: CollectionItem = {
+                id: row.id,
+                type: row.type as 'album' | 'track',
+                token: row.token,
+                purchaseDate: row.purchase_date
+            };
+
+            if (row.type === 'album') {
+                item.album = {
+                    id: row.id,
+                    title: row.a_title,
+                    artist: row.a_artist,
+                    artistId: row.a_aid,
+                    artworkUrl: row.a_art,
+                    bandcampUrl: row.a_url,
+                    trackCount: row.a_count,
+                    tracks: []
+                };
+            } else {
+                item.track = {
+                    id: row.id,
+                    title: row.t_title,
+                    artist: row.t_artist,
+                    artistId: row.t_aid,
+                    artworkUrl: row.t_art,
+                    streamUrl: row.t_stream,
+                    duration: row.t_dur,
+                    bandcampUrl: row.t_url,
+                    album: row.t_album,
+                    albumId: row.t_alid,
+                    isCached: true
+                } as any;
+            }
+            return item;
+        });
     }
 }
 

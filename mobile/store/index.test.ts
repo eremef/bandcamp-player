@@ -728,7 +728,7 @@ describe('Mobile useStore', () => {
         it('should refreshRadio remotely and locally', () => {
             useStore.setState({ mode: 'remote' });
             act(() => useStore.getState().refreshRadio());
-            expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
+            expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations', { forceRefresh: false });
 
             jest.clearAllMocks();
 

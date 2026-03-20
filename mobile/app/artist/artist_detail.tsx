@@ -10,7 +10,7 @@ import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
 import { useTheme } from '../../theme';
-import { ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -35,8 +35,17 @@ export default function ArtistDetailScreen() {
         addAlbumToQueue,
         addTrackToPlaylist,
         addAlbumToPlaylist,
-        createPlaylist
+        createPlaylist,
+        mode,
+        cachedTrackIds,
+        downloadTrack,
+        downloadAlbum,
+        deleteTrackFromCache,
+        deleteAlbumFromCache,
+        isOfflineMode,
+        manualOfflineOverride
     } = useStore();
+    const isOffline = isOfflineMode || manualOfflineOverride;
 
     React.useEffect(() => {
         if (connectionStatus === 'connected' && id) {
@@ -94,7 +103,8 @@ export default function ArtistDetailScreen() {
     const handleLongPress = (item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         setActionSheetTitle(title || 'Item');
-        setActionSheetActions([
+        
+        const actions: Action[] = [
             {
                 text: "Play Next",
                 icon: ListEnd,
@@ -122,13 +132,75 @@ export default function ArtistDetailScreen() {
                     setSelectedItem(item);
                     setPlaylistModalVisible(true);
                 }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
             }
-        ]);
+        ];
+
+        if (mode === 'standalone') {
+            if (item.type === 'album' && item.album?.tracks && item.album.tracks.length > 0) {
+                const isFullyCached = item.album.tracks.every((t) => cachedTrackIds.has(String(t.id)));
+
+                if (isFullyCached) {
+                    actions.push({
+                        text: "Remove from Cache",
+                        icon: Trash2,
+                        onPress: async () => {
+                            if (item.album) await deleteAlbumFromCache(String(item.album.id));
+                            Alert.alert("Success", "Album removed from cache");
+                        }
+                    });
+                } else if (!isOffline) {
+                    actions.push({
+                        text: "Download for Offline",
+                        icon: Download,
+                        onPress: async () => {
+                            if (item.album) {
+                                const tracksWithProps = item.album.tracks.map((t) => ({
+                                    ...t,
+                                    albumId: item.album?.id,
+                                    album: item.album?.title
+                                }));
+                                await downloadAlbum(tracksWithProps as any[]);
+                                Alert.alert("Downloading", "Album is downloading in the background");
+                            }
+                        }
+                    });
+                }
+            } else if (item.type === 'track' && item.track) {
+                const isCached = cachedTrackIds.has(String(item.track.id));
+                if (isCached) {
+                    actions.push({
+                        text: "Remove from Cache",
+                        icon: Trash2,
+                        onPress: async () => {
+                            if (item.track) await deleteTrackFromCache(String(item.track.id));
+                            Alert.alert("Success", "Track removed from cache");
+                        }
+                    });
+                } else if (!isOffline) {
+                    actions.push({
+                        text: "Download for Offline",
+                        icon: Download,
+                        onPress: async () => {
+                            if (item.track) {
+                                const trackToDownload = {
+                                    ...item.track,
+                                };
+                                await downloadTrack(trackToDownload as any);
+                                Alert.alert("Downloading", "Track is downloading in the background");
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        });
+
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
     };
 
@@ -189,7 +261,13 @@ export default function ArtistDetailScreen() {
                     <Ionicons name="arrow-back" size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={[styles.headerTitle, { color: colors.text }]} numberOfLines={1}>{artist.name}</Text>
-                <View style={{ width: 40 }} />
+                {isOffline ? (
+                    <View style={[styles.offlineBadge, { backgroundColor: colors.accent + '20' }]}>
+                        <Text style={[styles.offlineBadgeText, { color: colors.accent }]}>OFFLINE</Text>
+                    </View>
+                ) : (
+                    <View style={{ width: 40 }} />
+                )}
             </View>
 
             <FlatList
@@ -357,5 +435,14 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#666',
         fontSize: 16,
+    },
+    offlineBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

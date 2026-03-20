@@ -23,6 +23,7 @@ export default function RadioScreen() {
     const radioSearchQuery = useStore((state) => state.radioSearchQuery);
     const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
+    const isOffline = useStore(state => state.isOfflineMode || state.manualOfflineOverride);
 
     // Per-item ActionSheet state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
@@ -47,12 +48,16 @@ export default function RadioScreen() {
     }, [radioStations, radioSearchQuery]);
 
     const onRefresh = React.useCallback(() => {
+        if (isOffline) {
+            Alert.alert("Offline Mode", "You are currently offline. Radio stations are loaded from cache.");
+            return;
+        }
         setRefreshing(true);
-        refreshRadio();
+        refreshRadio(true);
         setTimeout(() => {
             setRefreshing(false);
         }, 1500);
-    }, [refreshRadio]);
+    }, [refreshRadio, isOffline]);
 
     const handlePlayStation = (station: RadioStation) => {
         playStation(station);
@@ -203,6 +208,11 @@ export default function RadioScreen() {
                     onChangeText={setRadioSearchQuery}
                     placeholder="Search radio shows..."
                 />
+                {isOffline && (
+                    <View style={[styles.offlineBadge, { backgroundColor: colors.accent + '20' }]}>
+                        <Text style={[styles.offlineBadgeText, { color: colors.accent }]}>OFFLINE</Text>
+                    </View>
+                )}
                 {showBulkBar && (
                     <>
                         <TouchableOpacity
@@ -365,5 +375,15 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 15,
         flexShrink: 0,
+    },
+    offlineBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginLeft: 4,
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

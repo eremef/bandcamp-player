@@ -219,14 +219,23 @@ describe('PlayerScreen', () => {
         unmount();
     });
 
-    it('switches mode to remote', () => {
+    it('switches mode to offline from standalone', () => {
+        mockStore.mode = 'standalone';
         const { getByText, unmount } = render(<PlayerScreen />);
         fireEvent.press(getByText('Standalone'));
+        expect(mockStore.setMode).toHaveBeenCalledWith('offline');
+        unmount();
+    });
+
+    it('switches mode to remote from offline', () => {
+        mockStore.mode = 'offline';
+        const { getByText, unmount } = render(<PlayerScreen />);
+        fireEvent.press(getByText('Offline'));
         expect(mockStore.setMode).toHaveBeenCalledWith('remote');
         unmount();
     });
 
-    it('switches mode back to standalone', () => {
+    it('switches mode to standalone from remote', () => {
         mockStore.mode = 'remote';
         const { getByText, unmount } = render(<PlayerScreen />);
         expect(getByText('Remote')).toBeTruthy();

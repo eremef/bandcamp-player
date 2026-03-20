@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { webSocketService } from '../services/WebSocketService';
 import { Album, Track } from '@shared/types';
 import { useStore } from '../store';
-import { ArrowLeft, Play, MoreVertical, ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { ArrowLeft, Play, MoreVertical, ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 import { ActionSheet, Action } from '../components/ActionSheet';
 import { PlaylistSelectionModal } from '../components/PlaylistSelectionModal';
 import { InputModal } from '../components/InputModal';
@@ -54,6 +54,14 @@ export default function AlbumDetailScreen() {
     const addTrackToPlaylist = useStore((state) => state.addTrackToPlaylist);
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
+    const cachedTrackIds = useStore(state => state.cachedTrackIds);
+    const downloadTrack = useStore(state => state.downloadTrack);
+    const downloadAlbum = useStore(state => state.downloadAlbum);
+    const deleteTrackFromCache = useStore(state => state.deleteTrackFromCache);
+    const deleteAlbumFromCache = useStore(state => state.deleteAlbumFromCache);
+    const isOfflineMode = useStore(state => state.isOfflineMode);
+    const manualOfflineOverride = useStore(state => state.manualOfflineOverride);
+    const isOffline = isOfflineMode || manualOfflineOverride;
 
     // ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -69,8 +77,8 @@ export default function AlbumDetailScreen() {
     useEffect(() => {
         if (!url) return;
 
-        // If in standalone mode, fetch via scraper
-        if (mode === 'standalone') {
+        // If in standalone or offline mode, fetch via scraper (which handles offline DB resolution)
+        if (mode === 'standalone' || mode === 'offline') {
             // Loading state is set in the render phase above during URL/mode change
             const { mobileScraperService } = require('../services/MobileScraperService');
 
@@ -88,13 +96,15 @@ export default function AlbumDetailScreen() {
                             artist: finalArtist,
                             tracks: updatedTracks
                         });
-                    } else {
+                    } else if (mode === 'standalone') {
                         Alert.alert('Error', 'Failed to load album details');
                     }
                 })
                 .catch((err: any) => {
                     console.error('Error fetching album details:', err);
-                    Alert.alert('Error', 'Failed to load album details');
+                    if (mode === 'standalone') {
+                        Alert.alert('Error', 'Failed to load album details');
+                    }
                 })
                 .finally(() => {
                     setIsLoading(false);
@@ -145,7 +155,7 @@ export default function AlbumDetailScreen() {
     const handleAlbumMenu = () => {
         if (!album) return;
         setActionSheetTitle(album.title);
-        setActionSheetActions([
+        const actions: Action[] = [
             {
                 text: "Play Next",
                 icon: ListEnd,
@@ -173,13 +183,45 @@ export default function AlbumDetailScreen() {
                     setIsAlbumAction(true);
                     setPlaylistModalVisible(true);
                 }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
             }
-        ]);
+        ];
+
+        if (mode === 'standalone' && album.tracks && album.tracks.length > 0) {
+            const isFullyCached = album.tracks.every((t: Track) => cachedTrackIds.has(String(t.id)));
+
+            if (isFullyCached) {
+                actions.push({
+                    text: "Remove from Cache",
+                    icon: Trash2,
+                    onPress: async () => {
+                        await deleteAlbumFromCache(album.id);
+                        Alert.alert("Success", "Album removed from cache");
+                    }
+                });
+            } else if (!isOffline) {
+                actions.push({
+                    text: "Download for Offline",
+                    icon: Download,
+                    onPress: async () => {
+                        const tracksWithProps = album.tracks.map((t: Track) => ({
+                            ...t,
+                            albumId: album.id,
+                            album: album.title
+                        }));
+                        await downloadAlbum(tracksWithProps, album);
+                        Alert.alert("Downloading", "Album is downloading in the background");
+                    }
+                });
+            }
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        });
+
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
     };
 
@@ -191,7 +233,7 @@ export default function AlbumDetailScreen() {
             artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : (album?.artist || track.artist)
         };
 
-        setActionSheetActions([
+        const actions: Action[] = [
             {
                 text: "Play Next",
                 icon: ListEnd,
@@ -214,13 +256,45 @@ export default function AlbumDetailScreen() {
                     setSelectedTrack(trackWithArtist);
                     setPlaylistModalVisible(true);
                 }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
             }
-        ]);
+        ];
+
+        if (mode === 'standalone') {
+            const isCached = cachedTrackIds.has(String(track.id));
+
+            if (isCached) {
+                actions.push({
+                    text: "Remove from Cache",
+                    icon: Trash2,
+                    onPress: async () => {
+                        await deleteTrackFromCache(String(track.id));
+                        Alert.alert("Success", "Track removed from cache");
+                    }
+                });
+            } else if (!isOffline) {
+                actions.push({
+                    text: "Download for Offline",
+                    icon: Download,
+                    onPress: async () => {
+                        const trackToDownload = {
+                            ...trackWithArtist,
+                            albumId: album?.id,
+                            album: album?.title
+                        };
+                        await downloadTrack(trackToDownload as any);
+                        Alert.alert("Downloading", "Track is downloading in the background");
+                    }
+                });
+            }
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        });
+
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
     };
 
@@ -316,7 +390,14 @@ export default function AlbumDetailScreen() {
                 >
                     <ArrowLeft size={24} color={colors.text} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Album</Text>
+                <View style={styles.headerIndicatorContainer}>
+                    <Text style={[styles.headerTitle, { color: colors.text }]}>Album</Text>
+                    {isOffline && (
+                        <View style={[styles.offlineBadge, { backgroundColor: colors.accent + '20' }]}>
+                            <Text style={[styles.offlineBadgeText, { color: colors.accent }]}>OFFLINE</Text>
+                        </View>
+                    )}
+                </View>
                 <TouchableOpacity
                     onPress={handleAlbumMenu}
                     style={styles.backButton}
@@ -465,5 +546,19 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 14,
         fontVariant: ['tabular-nums'],
+    },
+    headerIndicatorContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    offlineBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

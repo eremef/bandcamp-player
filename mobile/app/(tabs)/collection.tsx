@@ -10,7 +10,7 @@ import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
-import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal, Download, Trash2 } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -35,6 +35,14 @@ export default function CollectionScreen() {
     const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
     const storeSearchQuery = useStore((state) => state.searchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
+    const mode = useStore(state => state.mode);
+    const cachedTrackIds = useStore(state => state.cachedTrackIds);
+    const downloadTrack = useStore(state => state.downloadTrack);
+    const downloadAlbum = useStore(state => state.downloadAlbum);
+    const deleteTrackFromCache = useStore(state => state.deleteTrackFromCache);
+    const deleteAlbumFromCache = useStore(state => state.deleteAlbumFromCache);
+    const isOffline = useStore(state => state.isOfflineMode || state.manualOfflineOverride);
+
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -55,7 +63,7 @@ export default function CollectionScreen() {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         const artist = item.type === 'album' ? item.album?.artist : item.track?.artist;
         setActionSheetTitle(title + ' - ' + artist || 'Item');
-        setActionSheetActions([
+        const actions: Action[] = [
             {
                 text: "Play Now",
                 icon: Play,
@@ -99,15 +107,80 @@ export default function CollectionScreen() {
                     setSelectedItem(item);
                     setPlaylistModalVisible(true);
                 }
-            },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
             }
-        ]);
+        ];
+
+        if (mode === 'standalone') {
+            if (item.type === 'album' && item.album?.tracks && item.album.tracks.length > 0) {
+                const isFullyCached = item.album.tracks.every((t) => cachedTrackIds.has(String(t.id)));
+
+                if (isFullyCached) {
+                    actions.push({
+                        text: "Remove from Cache",
+                        icon: Trash2,
+                        onPress: async () => {
+                            if (item.album) await deleteAlbumFromCache(String(item.album.id));
+                            Alert.alert("Success", "Album removed from cache");
+                        }
+                    });
+                } else {
+                    actions.push({
+                        text: "Download for Offline",
+                        icon: Download,
+                        onPress: async () => {
+                            if (item.album) {
+                                const tracksWithProps = item.album.tracks.map((t) => ({
+                                    ...t,
+                                    albumId: item.album?.id,
+                                    album: item.album?.title
+                                }));
+                                await downloadAlbum(tracksWithProps as any[]);
+                                Alert.alert("Downloading", "Album is downloading in the background");
+                            }
+                        }
+                    });
+                }
+            } else if (item.type === 'track' && item.track) {
+                const isCached = cachedTrackIds.has(String(item.track.id));
+                if (isCached) {
+                    actions.push({
+                        text: "Remove from Cache",
+                        icon: Trash2,
+                        onPress: async () => {
+                            if (item.track) await deleteTrackFromCache(String(item.track.id));
+                            Alert.alert("Success", "Track removed from cache");
+                        }
+                    });
+                } else {
+                    actions.push({
+                        text: "Download for Offline",
+                        icon: Download,
+                        onPress: async () => {
+                            if (item.track) {
+                                const trackToDownload = {
+                                    ...item.track,
+                                };
+                                await downloadTrack(trackToDownload as any);
+                                Alert.alert("Downloading", "Track is downloading in the background");
+                            }
+                        }
+                    });
+                }
+            }
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        });
+
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
-    }, [addAlbumToQueue, addTrackToQueue, clearQueue]);
+    }, [
+        addAlbumToQueue, addTrackToQueue, clearQueue, mode, cachedTrackIds,
+        downloadAlbum, downloadTrack, deleteAlbumFromCache, deleteTrackFromCache
+    ]);
 
     const handleSelectPlaylist = useCallback((playlistId: string) => {
         if (!selectedItem) return;
@@ -244,6 +317,11 @@ export default function CollectionScreen() {
     const [refreshing, setRefreshing] = useState(false);
 
     const onRefresh = React.useCallback(() => {
+        if (isOffline) {
+            Alert.alert("Offline Mode", "You are currently offline. Refreshing the collection from Bandcamp is disabled.");
+            return;
+        }
+
         const totalCount = collection?.totalCount || 0;
 
         const performRefresh = () => {
@@ -266,7 +344,7 @@ export default function CollectionScreen() {
         } else {
             performRefresh();
         }
-    }, [refreshCollection, searchQuery, collection?.totalCount]);
+    }, [refreshCollection, searchQuery, collection?.totalCount, isOffline]);
 
     useEffect(() => {
         // Skip refreshing if we already have items and the search query hasn't changed
@@ -330,6 +408,11 @@ export default function CollectionScreen() {
                     onChangeText={setSearchQuery}
                     placeholder="Search collection..."
                 />
+                {isOffline && (
+                    <View style={[styles.offlineBadge, { backgroundColor: colors.accent + '20' }]}>
+                        <Text style={[styles.offlineBadgeText, { color: colors.accent }]}>OFFLINE</Text>
+                    </View>
+                )}
                 {showBulkBar && (
                     <>
                         <TouchableOpacity
@@ -494,5 +577,15 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 15,
         flexShrink: 0,
+    },
+    offlineBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+        marginLeft: 4,
+    },
+    offlineBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
