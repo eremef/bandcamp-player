@@ -124,7 +124,11 @@ Plans:
 **Goal:** Offline mode should work fully offline, without any network or internet requests. It should show only cached albums and artists, with cached tracks, and allow to play it.
 
 **Depends on:** Phase 5 (Standalone Offline Mode for Mobile)
-**Plans:** 0 plans
+**Plans:** 2 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — OfflineEmptyState component + Collection integration
+- [ ] 06-02-PLAN.md — Artists & Album Detail offline integration
 
 ---
 
