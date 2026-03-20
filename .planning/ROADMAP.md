@@ -113,7 +113,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — CachedIndicator fix, CollectionGridItem dots, CacheFab component
+- [x] 05-01-PLAN.md — CachedIndicator fix, CollectionGridItem dots, CacheFab component
 - [ ] 05-02-PLAN.md — Screen integration: offline filter + FAB on collection, artists, artist_detail
 - [ ] 05-03-PLAN.md — Background downloads, WiFi-only setting, corrupted cache, queue clearing
 
