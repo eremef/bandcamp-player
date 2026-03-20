@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06
-current_plan: 02
+current_plan: 01
 status: unknown
-last_updated: "2026-03-20T20:09:32.560Z"
+last_updated: "2026-03-20T20:35:22.821Z"
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # State: Bandcamp Desktop Player
@@ -44,6 +44,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 - 2026-03-20: Completed Plan 05-01 - CachedIndicator accent color fix, CollectionGridItem cached dots, CacheFab component
 - 2026-03-20: Completed Plan 05-02 - Offline mode filtering + CacheFab across collection, artists, artist_detail screens
 - 2026-03-20: Completed Plan 05-03 - Background downloads, WiFi-only setting, corrupted cache detection, queue filtering
+- 2026-03-20: Completed Plan 05-04 - Gap closure: albumTrackIds prop and addPendingDownload wiring
 - 2026-03-20: Discussed Phase 6 context - Fully offline mode
 - 2026-03-20: Completed Plan 06-01 - OfflineEmptyState component + Collection integration
 - 2026-03-20: Completed Plan 06-02 - Artists & Album Detail offline integration
@@ -79,6 +80,7 @@ None.
 
 Plan 04-02 complete - player uses cached URLs, store tracks cache state, useOfflineMode hook detects network.
 Plan 04-03 complete - CachedIndicator and OfflineBanner components, cache settings in Settings screen.
+Plan 05-04 complete - albumTrackIds prop wired in collection.tsx and artist_detail.tsx for cached dots, addPendingDownload wired in downloadTrack for background processing.
 Plan 06-01 complete - OfflineEmptyState component and Collection screen integration.
 Plan 06-02 complete - Artists screen, Album Detail, and Artist Detail offline integration.
 

@@ -110,12 +110,13 @@ Plans:
 5. WiFi-only setting restricts downloads to WiFi connections
 
 **Depends on:** Phase 4 (Mobile Offline Caching)
-**Plans:** 3 plans
+**Plans:** 4 plans
 
 Plans:
 - [x] 05-01-PLAN.md — CachedIndicator fix, CollectionGridItem dots, CacheFab component
 - [x] 05-02-PLAN.md — Screen integration: offline filter + FAB on collection, artists, artist_detail
 - [x] 05-03-PLAN.md — Background downloads, WiFi-only setting, corrupted cache, queue clearing
+- [x] 05-04-PLAN.md — Gap closure: albumTrackIds prop and addPendingDownload wiring (Completed: 2026-03-20)
 
 ---
 
