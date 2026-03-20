@@ -8,6 +8,7 @@ import { Artist, CollectionItem } from '@shared/types';
 import { SearchBar } from '../../components/SearchBar';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
+import { CacheFab } from '../../components/CacheFab';
 import { InputModal } from '../../components/InputModal';
 import { Play, MoreHorizontal, ListEnd, ListPlus, ListMusic, Download, Trash2 } from 'lucide-react-native';
 
@@ -39,6 +40,7 @@ export default function ArtistsScreen() {
     const deleteAlbumFromCache = useStore(state => state.deleteAlbumFromCache);
     const isOffline = useStore(state => state.isOfflineMode || state.manualOfflineOverride);
     const cachedTrackIds = useStore(state => state.cachedTrackIds);
+    const downloadingTrackIds = useStore(state => state.downloadingTrackIds);
 
     // Per-artist ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -227,42 +229,89 @@ export default function ArtistsScreen() {
         Alert.alert("Success", `Added ${items.length} items to playlist`);
     }, [selectedArtist, getArtistsBulkItems, addAlbumToPlaylist, addTrackToPlaylist]);
 
-    // Bulk action handlers (operate on artistCollectionItems)
+    const filteredArtistItems = useMemo(() => {
+        if (mode !== 'offline') return artistCollectionItems;
+        return artistCollectionItems.filter(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [artistCollectionItems, mode, cachedTrackIds]);
+
+    const isAllCached = useMemo(() => {
+        return filteredArtistItems.every(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [filteredArtistItems, cachedTrackIds]);
+
+    const handleDownloadAll = useCallback(async () => {
+        for (const item of filteredArtistItems) {
+            if (item.type === 'album' && item.album?.tracks) {
+                const isFullyCached = item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+                if (!isFullyCached) {
+                    const tracksWithProps = item.album.tracks.map((t) => ({
+                        ...t,
+                        albumId: item.album?.id,
+                        album: item.album?.title
+                    }));
+                    await downloadAlbum(tracksWithProps as any[]);
+                }
+            } else if (item.type === 'track' && item.track) {
+                const isCached = cachedTrackIds.has(String(item.track.id));
+                if (!isCached) {
+                    await downloadTrack(item.track as any);
+                }
+            }
+        }
+        Alert.alert("Downloading", "Downloads started in the background");
+    }, [filteredArtistItems, cachedTrackIds, downloadAlbum, downloadTrack]);
+
+    const handleCancelDownloads = useCallback(() => {
+        Alert.alert("Cancel Downloads", "Download cancellation is not yet implemented");
+    }, []);
+
+    // Bulk action handlers (operate on filteredArtistItems)
     const handleBulkPlayNow = useCallback(async () => {
         clearQueue(false);
-        // addAlbumToQueue and addTrackToQueue auto-play when the queue is empty,
-        // so no explicit playQueueIndex(0) call is needed.
-        for (const item of artistCollectionItems) {
+        for (const item of filteredArtistItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-    }, [artistCollectionItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredArtistItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkPlayNext = useCallback(async () => {
-        for (const item of artistCollectionItems) {
+        for (const item of filteredArtistItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, true, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, true);
             }
         }
-    }, [artistCollectionItems, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredArtistItems, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkAddToQueue = useCallback(async () => {
-        for (const item of artistCollectionItems) {
+        for (const item of filteredArtistItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
             } else if (item.type === 'track' && item.track) {
                 await addTrackToQueue(item.track, false);
             }
         }
-    }, [artistCollectionItems, addAlbumToQueue, addTrackToQueue]);
+    }, [filteredArtistItems, addAlbumToQueue, addTrackToQueue]);
 
     const handleBulkSelectPlaylist = useCallback((playlistId: string) => {
-        for (const item of artistCollectionItems) {
+        for (const item of filteredArtistItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 addAlbumToPlaylist(playlistId, item.album.bandcampUrl);
             } else if (item.type === 'track' && item.track) {
@@ -270,8 +319,8 @@ export default function ArtistsScreen() {
             }
         }
         setBulkPlaylistModalVisible(false);
-        Alert.alert("Success", `Added ${artistCollectionItems.length} items to playlist`);
-    }, [artistCollectionItems, addAlbumToPlaylist, addTrackToPlaylist]);
+        Alert.alert("Success", `Added ${filteredArtistItems.length} items to playlist`);
+    }, [filteredArtistItems, addAlbumToPlaylist, addTrackToPlaylist]);
 
     const handleCreatePlaylist = useCallback((name: string) => {
         createPlaylist(name);
@@ -304,7 +353,7 @@ export default function ArtistsScreen() {
             style: "cancel",
             onPress: () => { },
         },
-    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
+    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue, filteredArtistItems]);
 
     const showBulkBar = searchQuery.trim().length > 0 && filteredArtists.length > 0;
 
@@ -393,6 +442,15 @@ export default function ArtistsScreen() {
                 }
             />
 
+            <CacheFab
+                visible={mode === 'standalone'}
+                isAllCached={isAllCached}
+                downloadProgress={downloadingTrackIds.size > 0 ? 0 : null}
+                onDownloadAllCached={handleDownloadAll}
+                onDownloadAllVisible={handleDownloadAll}
+                onCancelDownloads={handleCancelDownloads}
+            />
+
             <ActionSheet
                 visible={actionSheetVisible}
                 onClose={() => setActionSheetVisible(false)}
@@ -410,7 +468,7 @@ export default function ArtistsScreen() {
             <ActionSheet
                 visible={bulkActionSheetVisible}
                 onClose={() => setBulkActionSheetVisible(false)}
-                title={`${filteredArtists.length} ${filteredArtists.length === 1 ? 'artist' : 'artists'} · ${artistCollectionItems.length} items`}
+                title={`${filteredArtists.length} ${filteredArtists.length === 1 ? 'artist' : 'artists'} · ${filteredArtistItems.length} items`}
                 actions={bulkActions}
             />
             <PlaylistSelectionModal
