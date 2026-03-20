@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Trash2, HardDriveDownload } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Trash2, HardDriveDownload, Wifi } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -20,10 +20,11 @@ function formatBytes(bytes: number): string {
 export default function SettingsScreen() {
     const router = useRouter();
     const colors = useTheme();
-    const { mode, isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling, maxCacheSize, setMaxCacheSize, clearAllCache } = useStore();
+    const { mode, isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling, maxCacheSize, setMaxCacheSize, clearAllCache, wifiOnlyDownloads, setWifiOnlyDownloads, collection, downloadAlbum, downloadTrack } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
     const [cacheSize, setCacheSize] = useState(0);
     const [isClearingCache, setIsClearingCache] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
         loadCacheSize();
@@ -58,6 +59,31 @@ export default function SettingsScreen() {
                 },
             ]
         );
+    };
+
+    const handleDownloadAllCollection = async () => {
+        if (!collection) return;
+
+        setIsDownloading(true);
+        try {
+            for (const item of collection.items) {
+                if (item.type === 'album' && item.album?.tracks) {
+                    const tracksWithProps = item.album.tracks.map((t) => ({
+                        ...t,
+                        albumId: item.album?.id,
+                        album: item.album?.title
+                    }));
+                    await downloadAlbum(tracksWithProps as any, item.album);
+                } else if (item.type === 'track' && item.track) {
+                    await downloadTrack(item.track as any);
+                }
+            }
+            Alert.alert('Download Started', 'Your collection is being downloaded in the background');
+        } catch (e) {
+            Alert.alert('Error', 'Failed to start downloads');
+        } finally {
+            setIsDownloading(false);
+        }
     };
 
     const handleRefreshConfig = async () => {
@@ -153,7 +179,24 @@ export default function SettingsScreen() {
 
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Offline Cache</Text>
-                    
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <Wifi color={colors.text} size={20} style={styles.settingIcon} />
+                            <View>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>WiFi-Only Downloads</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Only download music when connected to WiFi
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={wifiOnlyDownloads}
+                            onValueChange={setWifiOnlyDownloads}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
+
                     <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
                         <View style={styles.settingLabelContainer}>
                             <HardDriveDownload color={colors.text} size={20} style={styles.settingIcon} />
@@ -185,6 +228,29 @@ export default function SettingsScreen() {
                                 </Text>
                             </View>
                         </View>
+                    </View>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <HardDriveDownload color={colors.text} size={20} style={styles.settingIcon} />
+                            <View>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Download All My Collection</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Queue entire collection for download
+                                </Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleDownloadAllCollection}
+                            disabled={isDownloading}
+                            style={styles.refreshButton}
+                        >
+                            {isDownloading ? (
+                                <ActivityIndicator size="small" color={colors.accent} />
+                            ) : (
+                                <Text style={{ color: colors.accent, fontWeight: '600' }}>Download</Text>
+                            )}
+                        </TouchableOpacity>
                     </View>
 
                     <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>

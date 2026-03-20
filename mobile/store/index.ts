@@ -127,6 +127,8 @@ interface AppState extends PlayerState {
     manualOfflineOverride: boolean;
     cacheSize: number;
     maxCacheSize: number;
+    wifiOnlyDownloads: boolean;
+    setWifiOnlyDownloads: (enabled: boolean) => Promise<void>;
 
     // Cache Actions
     setCachedTrackIds: (ids: Set<string>) => void;
@@ -172,6 +174,7 @@ const initialState: Omit<PlayerState, 'queue'> & {
     radioSearchQuery: string;
     collectionLoadingStatus: string | null;
     isSimulationMode: boolean;
+    wifiOnlyDownloads: boolean;
 } = {
     isPlaying: false,
     currentTrack: null,
@@ -206,6 +209,7 @@ const initialState: Omit<PlayerState, 'queue'> & {
     radioSearchQuery: '',
     collectionLoadingStatus: null,
     isSimulationMode: false,
+    wifiOnlyDownloads: true,
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -324,6 +328,13 @@ export const useStore = create<AppState>((set, get) => ({
     setManualOfflineOverride: (override: boolean) => set({ manualOfflineOverride: override }),
     setCacheSize: (size: number) => set({ cacheSize: size }),
     setMaxCacheSize: (size: number) => set({ maxCacheSize: size }),
+
+    wifiOnlyDownloads: true,
+    setWifiOnlyDownloads: async (enabled: boolean) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('wifi_only_downloads', enabled);
+        set({ wifiOnlyDownloads: enabled });
+    },
 
     downloadTrack: async (track: Track) => {
         let trackToDownload = track;
@@ -699,11 +710,12 @@ export const useStore = create<AppState>((set, get) => ({
 
         // Restore scrobbler state
         const scrobblingEnabled = settings.scrobbling_enabled !== false; // default true
+        const wifiOnlyDownloads = settings.wifi_only_downloads !== false; // default true
         const { mobileScrobblerService } = require('../services/MobileScrobblerService');
         await mobileScrobblerService.loadSession();
         const lastfmState = mobileScrobblerService.getState();
 
-        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus, lastfmState, scrobblingEnabled });
+        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus, lastfmState, scrobblingEnabled, wifiOnlyDownloads });
 
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.
