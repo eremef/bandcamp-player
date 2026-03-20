@@ -5,6 +5,7 @@ import { useStore } from '../../store';
 import { CollectionItem } from '@shared/types';
 import { SearchBar } from '../../components/SearchBar';
 import { CacheFab } from '../../components/CacheFab';
+import { OfflineEmptyState } from '../../components/OfflineEmptyState';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
@@ -219,6 +220,8 @@ export default function CollectionScreen() {
             return false;
         });
     }, [collectionItems, mode, cachedTrackIds]);
+
+    const isEmpty = filteredItems.length === 0 && !isCollectionLoading && mode === 'offline';
 
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
@@ -501,13 +504,28 @@ export default function CollectionScreen() {
                     loadMoreCollection();
                 }}
                 onEndReachedThreshold={0.5}
-                ListFooterComponent={() => (
-                    isCollectionLoading && !refreshing ? (
-                        <View style={{ padding: 20, alignItems: 'center' }}>
-                            <ActivityIndicator size="small" color={colors.accent} />
-                        </View>
-                    ) : null
-                )}
+                ListEmptyComponent={() => {
+                    if (isEmpty) {
+                        return <OfflineEmptyState visible={true} />;
+                    } else if (isCollectionLoading && !refreshing) {
+                        return (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <ActivityIndicator size="small" color={colors.accent} />
+                            </View>
+                        );
+                    }
+                    return null;
+                }}
+                ListFooterComponent={() => {
+                    if (filteredItems.length > 0 && isCollectionLoading && !refreshing) {
+                        return (
+                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                <ActivityIndicator size="small" color={colors.accent} />
+                            </View>
+                        );
+                    }
+                    return null;
+                }}
             />
 
             <CacheFab
