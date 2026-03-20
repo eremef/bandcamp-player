@@ -295,9 +295,16 @@ export default function ArtistDetailScreen() {
     };
 
     const renderItem = ({ item }: { item: CollectionItem }) => {
+        const trackIds: string[] = item.type === 'album' && item.album?.tracks
+            ? item.album.tracks.map(t => String(t.id))
+            : item.track
+                ? [String(item.track.id)]
+                : [];
+
         return (
             <CollectionGridItem
                 item={item}
+                albumTrackIds={trackIds}
                 onPress={handlePlayItem}
                 onLongPress={handleLongPress}
                 width={ITEM_WIDTH}
