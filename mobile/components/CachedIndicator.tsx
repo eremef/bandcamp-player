@@ -1,5 +1,6 @@
 import { View, StyleSheet } from 'react-native';
 import { useStore } from '../store';
+import { useTheme } from '../theme';
 
 interface CachedIndicatorProps {
     trackId: string;
@@ -8,6 +9,7 @@ interface CachedIndicatorProps {
 
 export function CachedIndicator({ trackId, size = 'small' }: CachedIndicatorProps) {
     const { cachedTrackIds, downloadingTrackIds } = useStore();
+    const colors = useTheme();
     
     const isCached = cachedTrackIds.has(trackId);
     const progress = downloadingTrackIds.get(trackId);
@@ -19,7 +21,7 @@ export function CachedIndicator({ trackId, size = 'small' }: CachedIndicatorProp
 
     return (
         <View style={[styles.container, styles[size]]}>
-            {isCached && <View style={styles.cachedDot} />}
+            {isCached && <View style={[styles.cachedDot, { backgroundColor: colors.accent }]} />}
             {isDownloading && (
                 <View style={[styles.downloadingRing, { 
                     borderColor: `rgba(0,122,255,${progress})` 
@@ -46,7 +48,6 @@ const styles = StyleSheet.create({
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#34C759',
     },
     downloadingRing: {
         width: 14,
