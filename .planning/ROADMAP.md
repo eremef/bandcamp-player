@@ -1,7 +1,7 @@
 # Roadmap: Bandcamp Desktop Player
 
 **Version:** 1.0
-**Total Phases:** 3
+**Total Phases:** 6
 
 ## Phase Overview
 
@@ -10,6 +10,9 @@
 | 1 | Offline Listening | Enable offline playback of cached tracks | OFFL-01 - OFFL-05 | 5 |
 | 2 | Remote Control | Control playback from mobile device | REMT-01 - REMT-04 | 4 |
 | 3 | UI/UX Improvements | Improve user interface and experience | UI-01 - UI-03 | 3 |
+| 4 | Mobile Offline Caching | Enable offline playback on mobile app | OFFL-01 - OFFL-05 | 5 |
+| 5 | Standalone Offline Mode for Mobile | Refactor and fix offline mode in mobile app | OFFL-01 - OFFL-05 | 5 |
+| 6 | Fully Offline Mode | Work fully offline showing only cached content | TBD | TBD |
 
 ## Phase Details
 
@@ -83,6 +86,45 @@ Plans:
 - [x] 04-01-PLAN.md — MobileCacheService + Database schema
 - [x] 04-02-PLAN.md — Player integration + Store updates
 - [x] 04-03-PLAN.md — UI indicators and cache management
+
+---
+
+---
+
+### Phase 5: Standalone Offline Mode for Mobile
+
+**Goal:** Refactor, clean, verify, and fix offline mode in the mobile app. Standalone mode should allow downloading/caching music in the collection, album, artist view. It should indicate with the accent color dot that the album, track, and artists are cached. When playing music in the standalone mode - it should first check if it's cached and play cached music if so.
+
+**Requirements:** OFFL-01 - OFFL-05 (same as Phase 1, applied to standalone mode for mobile)
+- OFFL-01: User can cache individual tracks for offline playback
+- OFFL-02: User can cache entire albums for offline playback
+- OFFL-03: Cached tracks play without internet connection
+- OFFL-04: User can view which tracks are cached
+- OFFL-05: User can clear cache for individual tracks or albums
+
+**Success Criteria:**
+1. CacheFab visible in standalone mode for bulk downloads
+2. Album thumbnails show cached dot when any track is cached
+3. Offline mode filters collection to cached-only content
+4. Background downloads continue when app is minimized
+5. WiFi-only setting restricts downloads to WiFi connections
+
+**Depends on:** Phase 4 (Mobile Offline Caching)
+**Plans:** 3 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — CachedIndicator fix, CollectionGridItem dots, CacheFab component
+- [ ] 05-02-PLAN.md — Screen integration: offline filter + FAB on collection, artists, artist_detail
+- [ ] 05-03-PLAN.md — Background downloads, WiFi-only setting, corrupted cache, queue clearing
+
+---
+
+### Phase 6: Fully Offline Mode
+
+**Goal:** Offline mode should work fully offline, without any network or internet requests. It should show only cached albums and artists, with cached tracks, and allow to play it.
+
+**Depends on:** Phase 5 (Standalone Offline Mode for Mobile)
+**Plans:** 0 plans
 
 ---
 
