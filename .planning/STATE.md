@@ -7,7 +7,7 @@ current_plan: Not started
 status: unknown
 last_updated: "2026-03-12T01:39:52.382Z"
 progress:
-  total_phases: 4
+  total_phases: 6
   completed_phases: 2
   total_plans: 4
   completed_plans: 4
@@ -39,6 +39,7 @@ See: .planning/PROJECT.md (updated 2026-03-10)
 - 2026-03-12: Discussed Phase 4 context - mobile offline caching decisions
 - 2026-03-12: Completed Plan 04-02 - Cache integration and offline state
 - 2026-03-12: Completed Plan 04-03 - Cache UI integration
+- 2026-03-20: Discussed Phase 5 context - Standalone/Offline mode for mobile
 
 ## Next Actions
 
@@ -66,3 +67,5 @@ Plan 04-03 complete - CachedIndicator and OfflineBanner components, cache settin
 ### Roadmap Evolution
 
 - Phase 4 added: Caching music and offline mode for mobile app - based on the desktop app solution
+- Phase 5 added: Refactor, clean, verify, and fix offline mode in the mobile app. Standalone mode should allow downloading/caching music in the collection, album, artist view. It should indicate with the accent color dot that the album, track, and artists are cached. When playing music in the standalone mode - it should first check if it's cached and play cached music if so.
+- Phase 6 added: Offline mode should work fully offline, without any network or internet requests. It should show only cached albums and artists, with cached tracks, and allow to play it.
