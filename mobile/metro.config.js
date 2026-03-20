@@ -7,11 +7,7 @@ const workspaceRoot = path.resolve(projectRoot, '..');
 const config = getDefaultConfig(projectRoot);
 
 // 1. Watch all files within the monorepo
-config.watchFolders = [
-    path.resolve(projectRoot, 'node_modules'),
-    path.resolve(workspaceRoot, 'node_modules'),
-    path.resolve(workspaceRoot, 'src/shared'),
-];
+config.watchFolders = [workspaceRoot];
 
 // 2. Let Metro know where to resolve packages and in what order
 config.resolver.nodeModulesPaths = [
@@ -25,9 +21,6 @@ config.resolver.extraNodeModules = {
     'react-native-safe-area-context': path.resolve(projectRoot, 'node_modules/react-native-safe-area-context'),
     'cheerio': path.resolve(projectRoot, 'node_modules/cheerio'),
 };
-
-// Disable the exports field resolution for packages that have broken exports
-config.resolver.conditions = ['browser', 'require'];
 
 // 4. Handle txt and hash files
 if (!config.resolver.assetExts.includes('txt')) {
