@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useStore } from '../../store';
@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CollectionItem } from '../../../src/shared/types';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
+import { CacheFab } from '../../components/CacheFab';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
@@ -42,6 +43,7 @@ export default function ArtistDetailScreen() {
         downloadAlbum,
         deleteTrackFromCache,
         deleteAlbumFromCache,
+        downloadingTrackIds,
         isOfflineMode,
         manualOfflineOverride
     } = useStore();
@@ -56,6 +58,56 @@ export default function ArtistDetailScreen() {
     const artist = artists.find(a => a.id === id);
 
     const artistItems = artistCollection?.items || [];
+
+    const filteredArtistItems = useMemo(() => {
+        if (mode !== 'offline') return artistItems;
+
+        return artistItems.filter(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [artistItems, mode, cachedTrackIds]);
+
+    const isAllCached = useMemo(() => {
+        return filteredArtistItems.every(item => {
+            if (item.type === 'album' && item.album?.tracks) {
+                return item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+            } else if (item.type === 'track' && item.track) {
+                return cachedTrackIds.has(String(item.track.id));
+            }
+            return false;
+        });
+    }, [filteredArtistItems, cachedTrackIds]);
+
+    const handleDownloadAll = useCallback(async () => {
+        for (const item of filteredArtistItems) {
+            if (item.type === 'album' && item.album?.tracks) {
+                const isFullyCached = item.album.tracks.every(t => cachedTrackIds.has(String(t.id)));
+                if (!isFullyCached) {
+                    const tracksWithProps = item.album.tracks.map((t) => ({
+                        ...t,
+                        albumId: item.album?.id,
+                        album: item.album?.title
+                    }));
+                    await downloadAlbum(tracksWithProps as any[]);
+                }
+            } else if (item.type === 'track' && item.track) {
+                const isCached = cachedTrackIds.has(String(item.track.id));
+                if (!isCached) {
+                    await downloadTrack(item.track as any);
+                }
+            }
+        }
+        Alert.alert("Downloading", "Downloads started in the background");
+    }, [filteredArtistItems, cachedTrackIds, downloadAlbum, downloadTrack]);
+
+    const handleCancelDownloads = useCallback(() => {
+        Alert.alert("Cancel Downloads", "Download cancellation is not yet implemented");
+    }, []);
 
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
@@ -271,7 +323,7 @@ export default function ArtistDetailScreen() {
             </View>
 
             <FlatList
-                data={artistItems}
+                data={filteredArtistItems}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={COLUMN_COUNT}
@@ -292,7 +344,7 @@ export default function ArtistDetailScreen() {
                             )}
                         </View>
                         <Text style={[styles.name, { color: colors.text }]}>{artist.name}</Text>
-                        <Text style={[styles.stats, { color: colors.textSecondary }]}>{artistItems.length} releases in collection</Text>
+                        <Text style={[styles.stats, { color: colors.textSecondary }]}>{filteredArtistItems.length} releases in collection</Text>
 
                         <TouchableOpacity
                             style={[styles.bandcampButton, { backgroundColor: colors.input }]}
@@ -313,6 +365,16 @@ export default function ArtistDetailScreen() {
                     </View>
                 }
             />
+
+            <CacheFab
+                visible={mode === 'standalone'}
+                isAllCached={isAllCached}
+                downloadProgress={downloadingTrackIds.size > 0 ? 0 : null}
+                onDownloadAllCached={handleDownloadAll}
+                onDownloadAllVisible={handleDownloadAll}
+                onCancelDownloads={handleCancelDownloads}
+            />
+
             <PlaylistSelectionModal
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
