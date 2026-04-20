@@ -319,6 +319,10 @@ if (!gotTheLock) {
     .whenReady()
     .then(async () => {
       const CACHE_ROOT = path.join(app.getPath("userData"), "cache");
+      // Ensure directory exists before calling realpathSync to avoid ENOENT crash
+      if (!fs.existsSync(CACHE_ROOT)) {
+        fs.mkdirSync(CACHE_ROOT, { recursive: true });
+      }
       const canonicalCacheRoot = fs.realpathSync(CACHE_ROOT);
       const cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
         const rawPath = req.url ? req.url.slice(1) : "";
