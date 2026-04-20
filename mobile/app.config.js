@@ -9,7 +9,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'beta-app',
-    version: '1.8.6-beta',
+    version: '1.8.7',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
