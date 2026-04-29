@@ -42,11 +42,17 @@ export function ItemsGrid({
         <div className={styles.grid}>
           {items.slice(0, visibleCount).map((item) =>
             item.type === "album" && item.album ? (
-              <AlbumCard key={item.id} album={item.album} isTrackItem={false} />
+              <AlbumCard
+                key={item.id}
+                album={item.album}
+                isTrackItem={false}
+                isWishlist={item.isWishlist}
+              />
             ) : item.type === "track" && item.track ? (
               <AlbumCard
                 key={item.id}
                 isTrackItem
+                isWishlist={item.isWishlist}
                 album={
                   {
                     id: item.track.id,

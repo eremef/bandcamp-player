@@ -17,7 +17,7 @@ import {
 import { ItemsGrid } from "./ItemsGrid";
 import styles from "./CollectionView.module.css";
 
-type SortKey = "default" | "artist" | "album" | "title" | "purchaseDate";
+type SortKey = "default" | "artist" | "album" | "purchaseDate";
 type SortDirection = "asc" | "desc";
 
 function getSortText(item: CollectionItem, sortKey: SortKey): string {
@@ -106,7 +106,12 @@ function dedupeCollectionItems(items: CollectionItem[]): CollectionItem[] {
       continue;
     }
 
-    preferredByKey.set(key, choosePreferredDuplicate(existing, item));
+    const preferred = choosePreferredDuplicate(existing, item);
+    // Preserve the wishlist flag if either duplicate is in the wishlist
+    if (existing.isWishlist || item.isWishlist) {
+      preferred.isWishlist = true;
+    }
+    preferredByKey.set(key, preferred);
   }
 
   return items.filter((item) => {
@@ -161,13 +166,15 @@ export function CollectionView() {
     isOnline,
     cachedTrackIds,
     cachedAlbumIds,
+    collectionSortKey: sortKey,
+    collectionSortDirection: sortDirection,
+    setCollectionSortKey: setSortKey,
+    setCollectionSortDirection: setSortDirection,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("default");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const dedupedItems = useMemo(
     () => dedupeCollectionItems(collection?.items ?? []),
     [collection?.items],
@@ -387,9 +394,7 @@ export function CollectionView() {
             <button
               className={styles.sortDirectionBtn}
               onClick={() =>
-                setSortDirection((previousDirection) =>
-                  previousDirection === "asc" ? "desc" : "asc",
-                )
+                setSortDirection(sortDirection === "asc" ? "desc" : "asc")
               }
               title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
             >

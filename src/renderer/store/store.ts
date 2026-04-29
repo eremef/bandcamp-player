@@ -63,6 +63,10 @@ interface CollectionSlice {
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
   collectionError: string | null;
+  collectionSortKey: "default" | "artist" | "album" | "purchaseDate";
+  collectionSortDirection: "asc" | "desc";
+  setCollectionSortKey: (key: "default" | "artist" | "album" | "purchaseDate") => void;
+  setCollectionSortDirection: (dir: "asc" | "desc") => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
@@ -154,13 +158,13 @@ interface RemoteSlice {
 interface UpdateSlice {
   updateStatus: {
     status:
-      | "idle"
-      | "checking"
-      | "available"
-      | "not-available"
-      | "downloading"
-      | "downloaded"
-      | "error";
+    | "idle"
+    | "checking"
+    | "available"
+    | "not-available"
+    | "downloading"
+    | "downloaded"
+    | "error";
     info?: any;
     progress?: any;
     error?: string;
@@ -400,6 +404,10 @@ export const useStore = create<StoreState>()((set, get) => ({
   selectedAlbum: null,
   isLoadingCollection: false,
   collectionError: null,
+  collectionSortKey: "default",
+  collectionSortDirection: "asc",
+  setCollectionSortKey: (key) => set({ collectionSortKey: key }),
+  setCollectionSortDirection: (dir) => set({ collectionSortDirection: dir }),
   fetchCollection: async (forceRefresh = false) => {
     const { isOnline, settings } = useStore.getState();
     const isOfflineMode = settings?.offlineMode ?? false;
@@ -648,8 +656,8 @@ export const useStore = create<StoreState>()((set, get) => ({
       `[CacheIndicator] fetchCachedTrackIds: ${tracks.length} cached tracks, albumIds in map: ${_cachedTrackCountByAlbum.size}`,
       tracks.length > 0
         ? tracks
-            .slice(0, 5)
-            .map((t) => `trackId=${t.id} albumId=${t.albumId ?? "MISSING"}`)
+          .slice(0, 5)
+          .map((t) => `trackId=${t.id} albumId=${t.albumId ?? "MISSING"}`)
         : "(empty)",
     );
 
@@ -715,7 +723,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     const includeWishlistChanged =
       typeof newSettings.includeWishlistInCollection === "boolean" &&
       newSettings.includeWishlistInCollection !==
-        (currentSettings?.includeWishlistInCollection ?? false);
+      (currentSettings?.includeWishlistInCollection ?? false);
 
     const updated = await window.electron.settings.set(newSettings);
     set({ settings: updated });

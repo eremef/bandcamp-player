@@ -158,6 +158,23 @@
     backdrop-filter: blur(2px);
 }
 
+.wishlistBadge {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    color: #ff4d4d;
+    backdrop-filter: blur(2px);
+    pointer-events: auto; /* allows tooltip on hover */
+}
+
 .title {
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-medium);

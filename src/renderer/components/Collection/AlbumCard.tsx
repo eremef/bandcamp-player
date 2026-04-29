@@ -8,15 +8,17 @@ import {
   List,
   Music,
   Download,
+  Heart,
 } from "lucide-react";
 import styles from "./AlbumCard.module.css";
 
 interface AlbumCardProps {
   album: Album;
   isTrackItem?: boolean;
+  isWishlist?: boolean;
 }
 
-export function AlbumCard({ album, isTrackItem = false }: AlbumCardProps) {
+export function AlbumCard({ album, isTrackItem = false, isWishlist = false }: AlbumCardProps) {
   const {
     getAlbumDetails,
     addAlbumToQueue,
@@ -171,6 +173,11 @@ export function AlbumCard({ album, isTrackItem = false }: AlbumCardProps) {
             alt={album.title}
             className={styles.artwork}
           />
+          {isWishlist && (
+            <div className={styles.wishlistBadge} title="Wishlist">
+              <Heart size={16} fill="currentColor" />
+            </div>
+          )}
           <div className={styles.overlay}>
             <button
               className={styles.playButton}

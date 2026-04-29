@@ -51,6 +51,7 @@ export interface CollectionItem {
   id: string;
   type: "album" | "track";
   source?: "collection" | "wishlist";
+  isWishlist?: boolean;
   token?: string;
   album?: Album;
   track?: Track;

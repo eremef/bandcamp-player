@@ -868,6 +868,7 @@ export class ScraperService extends EventEmitter {
           id,
           type: "album",
           source,
+          isWishlist: source === "wishlist",
           token: item.token || item.sale_token, // Capture token
           album: {
             id,
@@ -902,6 +903,7 @@ export class ScraperService extends EventEmitter {
           id,
           type: "track",
           source,
+          isWishlist: source === "wishlist",
           token: item.token || item.sale_token, // Capture token
           track: {
             id,
