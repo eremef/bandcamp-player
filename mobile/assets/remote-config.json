@@ -45,6 +45,7 @@
     },
     "endpoints": {
         "collectionItemsApi": "https://bandcamp.com/api/fancollection/1/collection_items",
+        "wishlistItemsApi": "https://bandcamp.com/api/fancollection/1/wishlist_items",
         "mobileTralbumDetailsApi": "https://bandcamp.com/api/mobile/24/tralbum_details?band_id={band_id}&tralbum_type=t&tralbum_id={track_id}",
         "radioListApi": "https://bandcamp.com/api/bcweekly/3/list",
         "radioShowWeb": "https://bandcamp.com/?show={showId}",

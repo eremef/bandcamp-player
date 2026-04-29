@@ -23,9 +23,11 @@ export interface RemoteConfig {
   scriptKeys: {
     collection: string[];
     album: string[];
+    wishlist: string[];
   };
   endpoints: {
     collectionItemsApi: string;
+    wishlistItemsApi?: string;
     mobileTralbumDetailsApi: string;
     radioListApi: string;
     radioShowWeb: string;
@@ -92,6 +94,11 @@ try {
       userAgents: { desktop: "", mobile: "", mobileApi: "" },
       cleaning: { artistCleanRegex: "" },
       scraping: { batchSize: 100 },
+      scriptKeys: {
+        collection: [],
+        album: [],
+        wishlist: [],
+      },
       radioData: { showIdKeys: [] },
     };
   }

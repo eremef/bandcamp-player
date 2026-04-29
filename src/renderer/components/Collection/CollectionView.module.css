@@ -2,6 +2,7 @@
     padding: var(--spacing-xl);
     min-height: 100%;
     border-top: 1px solid var(--border-subtle);
+    position: relative;
 }
 
 /* Header */
@@ -12,6 +13,12 @@
     margin-bottom: var(--spacing-2xl);
     gap: var(--spacing-xl);
     flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky, 100);
+    padding: var(--spacing-md) 0;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-subtle);
 }
 
 .headerContent h1 {
@@ -28,6 +35,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    flex-wrap: wrap;
 }
 
 .searchBox {
@@ -56,6 +64,60 @@
 .searchBox input:focus {
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.sortControls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    color: var(--text-secondary);
+}
+
+.sortControls select {
+    padding: 4px 10px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    min-width: 120px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    appearance: none;
+}
+
+.sortControls select:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-default);
+}
+
+.sortControls select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+}
+
+.sortControls select option {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.sortDirectionBtn {
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    transition: all var(--transition-fast);
+}
+
+.sortDirectionBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .clearSearch {

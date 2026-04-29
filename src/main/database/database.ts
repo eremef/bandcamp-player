@@ -187,6 +187,7 @@ export class Database {
       remoteEnabled: true,
       theme: "system",
       offlineMode: false,
+      includeWishlistInCollection: false,
     };
 
     const existing = this.db

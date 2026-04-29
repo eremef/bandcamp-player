@@ -216,6 +216,20 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <option value="dark">Dark</option>
                             </select>
                         </div>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Include Wishlist in Collection</span>
+                                <span className={styles.settingHint}>Show Bandcamp wishlist items together with purchases</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.includeWishlistInCollection ?? false}
+                                    onChange={(e) => updateSettings({ includeWishlistInCollection: e.target.checked })}
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
                     </section>
 
                     {/* Cache */}

@@ -265,7 +265,7 @@ export class CastService extends EventEmitter {
         }
     }
 
-    async stop() {
+    async stopPlayback() {
         if (!this.mediaController || !this.hasActiveSession) return;
         try {
             const res = await this.mediaController.stop();
@@ -274,7 +274,7 @@ export class CastService extends EventEmitter {
             this.hasActiveSession = false;
             this.stopStatusPolling();
         } catch (err: any) {
-            console.error('[CastService] Stop error:', err);
+            console.error('[CastService] Stop playback error:', err);
             if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
             this.hasActiveSession = false;
             this.stopStatusPolling();
@@ -317,5 +317,18 @@ export class CastService extends EventEmitter {
     getConnectedDevice(): CastDevice | null {
         if (!this.connectedDeviceName) return null;
         return this.getDevices().find(d => d.id === this.connectedDeviceName) || null;
+    }
+
+    /**
+     * Stop discovery, playback, and close connections
+     */
+    stop(): void {
+        this.stopPlayback().catch(() => {});
+        this.stopDiscovery();
+        this.disconnect();
+        if (this.bonjour) {
+            this.bonjour.destroy();
+            this.bonjour = null;
+        }
     }
 }

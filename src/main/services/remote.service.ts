@@ -169,6 +169,8 @@ export class RemoteControlService extends EventEmitter {
     stop(): void {
         if (!this.isRunning) return;
 
+        console.log('[RemoteService] Stopping remote control service...');
+
         // Remove listeners
         this.playerService.off('state-changed', this.handleStateChanged);
         this.playerService.off('track-changed', this.handleTrackChanged);
@@ -176,15 +178,38 @@ export class RemoteControlService extends EventEmitter {
         this.playerService.off('queue-updated', this.handleQueueUpdated);
         this.playlistService.off('playlists-changed', this.handlePlaylistsChanged);
 
-        this.wss?.close();
-        this.server.close();
-        this.isRunning = false;
-        this.wss = null;
-        this.server = null;
+        // Explicitly close all connected clients
+        this.clients.forEach((client) => {
+            try {
+                if (client.ws.readyState === WebSocket.OPEN || client.ws.readyState === WebSocket.CONNECTING) {
+                    client.ws.terminate(); // terminate is more aggressive than close()
+                }
+            } catch (err) {
+                console.error('[RemoteService] Error terminating client during shutdown:', err);
+            }
+        });
         this.clients.clear();
+
+        // Close WebSocket server
+        if (this.wss) {
+            this.wss.close();
+            this.wss = null;
+        }
+
+        // Close HTTP server and force-close all remaining sockets
+        if (this.server) {
+            this.server.close();
+            if (typeof this.server.closeAllConnections === 'function') {
+                this.server.closeAllConnections();
+            }
+            this.server = null;
+        }
+
+        this.isRunning = false;
         this.emit('status-changed', false);
         this.emit('connections-changed', 0);
     }
+
 
     getStatus(): { isRunning: boolean; port: number; ip: number; url: string; connections: number } {
         const ip = this.getLocalIp();

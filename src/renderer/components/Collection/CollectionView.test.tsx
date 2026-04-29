@@ -23,6 +23,14 @@ vi.mock('lucide-react', () => ({
     Search: () => <span data-testid="icon-search" />,
     X: () => <span data-testid="icon-x" />,
     RefreshCw: () => <span data-testid="icon-refresh" />,
+    ArrowUpDown: () => <span data-testid="icon-sort" />,
+    List: () => <span />,
+    SkipForward: () => <span />,
+    Play: () => <span />,
+    Music: () => <span />,
+    MoreHorizontal: () => <span />,
+    Download: () => <span />,
+    WifiOff: () => <span />,
 }));
 
 describe('CollectionView', () => {
@@ -30,23 +38,65 @@ describe('CollectionView', () => {
         collection: {
             items: [
                 {
-                    id: '1',
+                    id: 'album-1',
                     type: 'album',
-                    album: { id: '1', title: 'Album 1', artist: 'Artist 1', artworkUrl: '', bandcampUrl: '' }
+                    purchaseDate: '2024-03-03T10:00:00.000Z',
+                    album: {
+                        id: '1',
+                        title: 'Zeta Album',
+                        artist: 'Beta Artist',
+                        artworkUrl: '',
+                        bandcampUrl: '',
+                        tracks: [],
+                        trackCount: 0,
+                    },
                 },
                 {
-                    id: '2',
+                    id: 'track-1',
                     type: 'track',
-                    track: { id: '2', title: 'Track 1', artist: 'Artist 2', artworkUrl: '', bandcampUrl: '' }
-                }
+                    purchaseDate: '2024-01-01T10:00:00.000Z',
+                    track: {
+                        id: '2',
+                        title: 'Alpha Track',
+                        artist: 'Gamma Artist',
+                        album: 'Echo Album',
+                        artworkUrl: '',
+                        bandcampUrl: '',
+                    },
+                },
+                {
+                    id: 'album-2',
+                    type: 'album',
+                    purchaseDate: '2024-02-01T10:00:00.000Z',
+                    album: {
+                        id: '3',
+                        title: 'Beta Album',
+                        artist: 'Alpha Artist',
+                        artworkUrl: '',
+                        bandcampUrl: '',
+                        tracks: [],
+                        trackCount: 0,
+                    },
+                },
             ],
-            totalCount: 2
+            totalCount: 3,
         },
         isLoadingCollection: false,
         collectionError: null,
         fetchCollection: vi.fn(),
         searchQuery: '',
         setSearchQuery: vi.fn(),
+        getAlbumDetails: vi.fn(),
+        clearQueue: vi.fn(),
+        addTracksToQueue: vi.fn(),
+        playQueueIndex: vi.fn(),
+        addTracksToPlaylist: vi.fn(),
+        playlists: [],
+        downloadTrack: vi.fn(),
+        settings: { offlineMode: false },
+        isOnline: true,
+        cachedTrackIds: new Set<string>(),
+        cachedAlbumIds: new Set<string>(),
     };
 
     beforeEach(() => {
@@ -57,10 +107,10 @@ describe('CollectionView', () => {
     it('renders collection items', () => {
         render(<CollectionView />);
         expect(screen.getByText('Your Collection')).toBeInTheDocument();
-        expect(screen.getByText('2 albums & tracks')).toBeInTheDocument();
-        expect(screen.getAllByTestId('album-card')).toHaveLength(2);
-        expect(screen.getByText('Album 1')).toBeInTheDocument();
-        expect(screen.getByText('Track 1')).toBeInTheDocument();
+        expect(screen.getByText('3 albums & tracks')).toBeInTheDocument();
+        expect(screen.getAllByTestId('album-card')).toHaveLength(3);
+        expect(screen.getByText('Zeta Album')).toBeInTheDocument();
+        expect(screen.getByText('Alpha Track')).toBeInTheDocument();
     });
 
     it('shows loading state when collection is empty', () => {
@@ -120,11 +170,149 @@ describe('CollectionView', () => {
     it('shows empty state when no items match search', () => {
         (useStore as any).mockReturnValue({ ...mockStore, searchQuery: 'nothing' });
         render(<CollectionView />);
-        // Wait for filter effect? Since it's inside the component, 
-        // and we mocked the store, we need to make sure the mocked store state matches what the component expects.
-        // Actually the component does its own filtering.
-        // We need to re-render with updated store if we want to test search filtering properly if it was store-driven,
-        // but here it is component-local `filteredItems` derived from `collection` and `searchQuery`.
         expect(screen.getByText(/No results for "nothing"/)).toBeInTheDocument();
+    });
+
+    it('sorts mixed items by artist ascending', () => {
+        render(<CollectionView />);
+
+        fireEvent.change(screen.getByLabelText('Sort collection'), {
+            target: { value: 'artist' },
+        });
+
+        const orderedTitles = screen
+            .getAllByTestId('album-card')
+            .map((element) => element.textContent);
+        expect(orderedTitles).toEqual(['Beta Album', 'Zeta Album', 'Alpha Track']);
+    });
+
+    it('sorts by purchase date descending when direction is toggled', () => {
+        render(<CollectionView />);
+
+        fireEvent.change(screen.getByLabelText('Sort collection'), {
+            target: { value: 'purchaseDate' },
+        });
+        fireEvent.click(screen.getByTitle('Sort descending'));
+
+        const orderedTitles = screen
+            .getAllByTestId('album-card')
+            .map((element) => element.textContent);
+        expect(orderedTitles).toEqual(['Zeta Album', 'Beta Album', 'Alpha Track']);
+    });
+
+    it('reverses buy order when direction is set to descending', () => {
+        render(<CollectionView />);
+
+        fireEvent.click(screen.getByTitle('Sort descending'));
+
+        const orderedTitles = screen
+            .getAllByTestId('album-card')
+            .map((element) => element.textContent);
+        expect(orderedTitles).toEqual(['Beta Album', 'Alpha Track', 'Zeta Album']);
+    });
+
+    it('deduplicates album entries and keeps the latest purchase copy', () => {
+        const duplicatedStore = {
+            ...mockStore,
+            collection: {
+                items: [
+                    {
+                        id: 'old-purchase',
+                        type: 'album',
+                        purchaseDate: '2024-01-01T10:00:00.000Z',
+                        album: {
+                            id: 'dup-album-id',
+                            title: 'Duplicate Album',
+                            artist: 'Same Artist',
+                            artworkUrl: '',
+                            bandcampUrl: '',
+                            tracks: [],
+                            trackCount: 8,
+                        },
+                    },
+                    {
+                        id: 'new-purchase',
+                        type: 'album',
+                        purchaseDate: '2024-04-01T10:00:00.000Z',
+                        album: {
+                            id: 'dup-album-id',
+                            title: 'Duplicate Album',
+                            artist: 'Same Artist',
+                            artworkUrl: '',
+                            bandcampUrl: '',
+                            tracks: [],
+                            trackCount: 8,
+                        },
+                    },
+                    {
+                        id: 'track-unique',
+                        type: 'track',
+                        purchaseDate: '2024-03-01T10:00:00.000Z',
+                        track: {
+                            id: 'track-unique',
+                            title: 'Unique Track',
+                            artist: 'Track Artist',
+                            album: 'Track Album',
+                            artworkUrl: '',
+                            bandcampUrl: '',
+                        },
+                    },
+                ],
+                totalCount: 3,
+            },
+        };
+
+        (useStore as any).mockReturnValue(duplicatedStore);
+        render(<CollectionView />);
+
+        expect(screen.getByText('2 albums & tracks')).toBeInTheDocument();
+        const renderedTitles = screen.getAllByTestId('album-card').map((el) => el.textContent);
+        expect(renderedTitles).toEqual(['Duplicate Album', 'Unique Track']);
+    });
+
+    it('deduplicates albums with different ids when artist and title match', () => {
+        const duplicatedMetaStore = {
+            ...mockStore,
+            collection: {
+                items: [
+                    {
+                        id: 'album-copy-1',
+                        type: 'album',
+                        purchaseDate: '2024-02-01T10:00:00.000Z',
+                        album: {
+                            id: 'id-111',
+                            title: 'Disco Inferno',
+                            artist: 'Baaba',
+                            artworkUrl: '',
+                            bandcampUrl: 'https://baaba.bandcamp.com/album/disco-inferno',
+                            tracks: [],
+                            trackCount: 9,
+                        },
+                    },
+                    {
+                        id: 'album-copy-2',
+                        type: 'album',
+                        purchaseDate: '2024-05-01T10:00:00.000Z',
+                        album: {
+                            id: 'id-222',
+                            title: 'Disco Inferno',
+                            artist: 'Baaba',
+                            artworkUrl: '',
+                            bandcampUrl: 'https://baaba.bandcamp.com/album/disco-inferno?from=discog',
+                            tracks: [],
+                            trackCount: 9,
+                        },
+                    },
+                ],
+                totalCount: 2,
+            },
+        };
+
+        (useStore as any).mockReturnValue(duplicatedMetaStore);
+        render(<CollectionView />);
+
+        expect(screen.getByText('1 albums & tracks')).toBeInTheDocument();
+        expect(screen.getAllByTestId('album-card')).toHaveLength(1);
+        expect(screen.getByText('Disco Inferno')).toBeInTheDocument();
     });
 });

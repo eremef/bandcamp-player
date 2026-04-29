@@ -324,6 +324,8 @@ export class MobileScraperService {
         };
         if (lastToken) {
             requestBody.older_than_token = lastToken;
+        } else {
+            requestBody.older_than_token = `${Math.floor(Date.now() / 1000)}::a::`;
         }
 
         const response = await fetch(config.endpoints.collectionItemsApi, {

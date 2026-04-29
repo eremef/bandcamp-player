@@ -13,9 +13,10 @@ import styles from "./AlbumCard.module.css";
 
 interface AlbumCardProps {
   album: Album;
+  isTrackItem?: boolean;
 }
 
-export function AlbumCard({ album }: AlbumCardProps) {
+export function AlbumCard({ album, isTrackItem = false }: AlbumCardProps) {
   const {
     getAlbumDetails,
     addAlbumToQueue,
@@ -153,7 +154,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
 
   return (
     <div
-      className={styles.card}
+      className={`${styles.card} ${isTrackItem ? styles.trackCard : ""}`}
       onClick={handleCardClick}
       onMouseLeave={() => setShowMenu(false)}
       onContextMenu={(e) => {
@@ -163,6 +164,7 @@ export function AlbumCard({ album }: AlbumCardProps) {
     >
       {/* Artwork */}
       <div className={styles.artworkWrapper}>
+        {isTrackItem && <span className={styles.itemType}>Track</span>}
         <div className={styles.artworkContainer}>
           <img
             src={album.artworkUrl}

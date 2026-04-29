@@ -148,4 +148,11 @@ export class UpdaterService extends EventEmitter {
     public quitAndInstall() {
         autoUpdater.quitAndInstall();
     }
+
+    public stop() {
+        if (this.checkInterval) {
+            clearInterval(this.checkInterval);
+            this.checkInterval = null;
+        }
+    }
 }

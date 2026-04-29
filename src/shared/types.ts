@@ -50,6 +50,7 @@ export interface Artist {
 export interface CollectionItem {
   id: string;
   type: "album" | "track";
+  source?: "collection" | "wishlist";
   token?: string;
   album?: Album;
   track?: Track;
@@ -216,6 +217,7 @@ export interface AppSettings {
 
   // Offline mode
   offlineMode: boolean;
+  includeWishlistInCollection: boolean;
 
   // Scrobbling
   scrobblingEnabled: boolean;

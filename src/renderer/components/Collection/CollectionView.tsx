@@ -12,9 +12,135 @@ import {
   MoreHorizontal,
   Download,
   WifiOff,
+  ArrowUpDown,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
 import styles from "./CollectionView.module.css";
+
+type SortKey = "default" | "artist" | "album" | "title" | "purchaseDate";
+type SortDirection = "asc" | "desc";
+
+function getSortText(item: CollectionItem, sortKey: SortKey): string {
+  if (sortKey === "artist") {
+    return item.album?.artist ?? item.track?.artist ?? "";
+  }
+  if (sortKey === "album") {
+    return item.album?.title ?? item.track?.title ?? "";
+  }
+  return "";
+}
+
+function getSortDate(item: CollectionItem): number {
+  const timestamp = Date.parse(item.purchaseDate);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function normalizeDedupeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getBandcampPath(url: string | undefined): string {
+  if (!url) return "";
+  try {
+    const parsed = new URL(url);
+    return `${parsed.host}${parsed.pathname}`.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return url.replace(/\?.*$/, "").replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function getAlbumDedupeKey(item: CollectionItem): string | null {
+  if (item.type !== "album" || !item.album) {
+    return null;
+  }
+
+  const artist = normalizeDedupeText(item.album.artist);
+  const title = normalizeDedupeText(item.album.title);
+  if (artist && title) {
+    return `album-meta:${artist}::${title}`;
+  }
+
+  const bandcampPath = getBandcampPath(item.album.bandcampUrl);
+  if (bandcampPath) {
+    return `album-url:${bandcampPath}`;
+  }
+
+  if (item.album.id) {
+    return `album-id:${item.album.id}`;
+  }
+
+  return null;
+}
+
+function choosePreferredDuplicate(current: CollectionItem, next: CollectionItem): CollectionItem {
+  const currentDate = getSortDate(current);
+  const nextDate = getSortDate(next);
+  if (nextDate !== currentDate) {
+    return nextDate > currentDate ? next : current;
+  }
+
+  const currentScore =
+    (current.album?.trackCount ?? 0) + (current.token ? 1 : 0);
+  const nextScore = (next.album?.trackCount ?? 0) + (next.token ? 1 : 0);
+  return nextScore > currentScore ? next : current;
+}
+
+function dedupeCollectionItems(items: CollectionItem[]): CollectionItem[] {
+  const preferredByKey = new Map<string, CollectionItem>();
+
+  for (const item of items) {
+    const key = getAlbumDedupeKey(item);
+    if (!key) {
+      continue;
+    }
+
+    const existing = preferredByKey.get(key);
+    if (!existing) {
+      preferredByKey.set(key, item);
+      continue;
+    }
+
+    preferredByKey.set(key, choosePreferredDuplicate(existing, item));
+  }
+
+  return items.filter((item) => {
+    const key = getAlbumDedupeKey(item);
+    if (!key) {
+      return true;
+    }
+
+    return preferredByKey.get(key) === item;
+  });
+}
+
+function sortCollectionItems(
+  items: CollectionItem[],
+  sortKey: SortKey,
+  sortDirection: SortDirection,
+): CollectionItem[] {
+  if (sortKey === "default") {
+    return sortDirection === "asc" ? items : [...items].reverse();
+  }
+
+  const directionFactor = sortDirection === "asc" ? 1 : -1;
+  const sorted = [...items].sort((a, b) => {
+    if (sortKey === "purchaseDate") {
+      return (getSortDate(a) - getSortDate(b)) * directionFactor;
+    }
+
+    const left = getSortText(a, sortKey);
+    const right = getSortText(b, sortKey);
+    return left.localeCompare(right, undefined, { sensitivity: "base" }) * directionFactor;
+  });
+
+  return sorted;
+}
 
 export function CollectionView() {
   const {
@@ -40,13 +166,18 @@ export function CollectionView() {
   const isOfflineMode = settings?.offlineMode ?? false;
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [isBulkLoading, setIsBulkLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const dedupedItems = useMemo(
+    () => dedupeCollectionItems(collection?.items ?? []),
+    [collection?.items],
+  );
 
   const filteredItems = useMemo(() => {
-    if (!collection?.items) return [];
-    if (!searchQuery.trim()) return collection.items;
+    if (!searchQuery.trim()) return dedupedItems;
 
     const query = searchQuery.toLowerCase();
-    return collection.items.filter((item) => {
+    return dedupedItems.filter((item) => {
       if (item.type === "album" && item.album) {
         return (
           item.album.title.toLowerCase().includes(query) ||
@@ -61,7 +192,14 @@ export function CollectionView() {
       }
       return false;
     });
-  }, [collection, searchQuery]);
+  }, [dedupedItems, searchQuery]);
+
+  const sortedItems = useMemo(
+    () => sortCollectionItems(filteredItems, sortKey, sortDirection),
+    [filteredItems, sortKey, sortDirection],
+  );
+  const hasSearchQuery = searchQuery.trim().length > 0;
+  const headerCount = hasSearchQuery ? filteredItems.length : dedupedItems.length;
 
   const getAllFilteredTracks = useCallback(
     async (items: CollectionItem[]) => {
@@ -112,7 +250,7 @@ export function CollectionView() {
       setShowBulkMenu(false);
       setIsBulkLoading(true);
       try {
-        const tracks = await getAllFilteredTracks(filteredItems);
+        const tracks = await getAllFilteredTracks(sortedItems);
         if (tracks.length === 0) return;
 
         switch (action) {
@@ -141,7 +279,7 @@ export function CollectionView() {
       }
     },
     [
-      filteredItems,
+      sortedItems,
       getAllFilteredTracks,
       clearQueue,
       addTracksToQueue,
@@ -189,7 +327,7 @@ export function CollectionView() {
     );
   }
 
-  const showBulkActions = searchQuery.trim() && filteredItems.length > 0;
+  const showBulkActions = hasSearchQuery && filteredItems.length > 0;
 
   // Determine empty-state messaging based on connectivity / offline mode
   const emptyMessage = isOfflineMode
@@ -214,7 +352,7 @@ export function CollectionView() {
       <header className={styles.header}>
         <div className={styles.headerContent}>
           <h1>Your Collection</h1>
-          <p>{collection?.totalCount || 0} albums & tracks</p>
+          <p>{headerCount} albums & tracks</p>
         </div>
         <div className={styles.headerActions}>
           <div className={styles.searchBox}>
@@ -233,6 +371,30 @@ export function CollectionView() {
                 <X size={16} />
               </button>
             )}
+          </div>
+          <div className={styles.sortControls}>
+            <ArrowUpDown size={16} />
+            <select
+              aria-label="Sort collection"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+            >
+              <option value="default">Buy order</option>
+              <option value="artist">Artist</option>
+              <option value="album">Album</option>
+              <option value="purchaseDate">Purchase date</option>
+            </select>
+            <button
+              className={styles.sortDirectionBtn}
+              onClick={() =>
+                setSortDirection((previousDirection) =>
+                  previousDirection === "asc" ? "desc" : "asc",
+                )
+              }
+              title={`Sort ${sortDirection === "asc" ? "descending" : "ascending"}`}
+            >
+              {sortDirection === "asc" ? "A-Z" : "Z-A"}
+            </button>
           </div>
           {showBulkActions && (
             <div
@@ -305,7 +467,7 @@ export function CollectionView() {
       </header>
 
       <ItemsGrid
-        items={filteredItems}
+        items={sortedItems}
         isLoading={isLoadingCollection}
         emptyMessage={emptyMessage}
         emptyHint={emptyHint}

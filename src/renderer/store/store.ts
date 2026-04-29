@@ -712,6 +712,10 @@ export const useStore = create<StoreState>()((set, get) => ({
     const currentSettings = get().settings;
     const wasOffline = currentSettings?.offlineMode ?? false;
     const isNowOnline = newSettings.offlineMode === false;
+    const includeWishlistChanged =
+      typeof newSettings.includeWishlistInCollection === "boolean" &&
+      newSettings.includeWishlistInCollection !==
+        (currentSettings?.includeWishlistInCollection ?? false);
 
     const updated = await window.electron.settings.set(newSettings);
     set({ settings: updated });
@@ -720,6 +724,10 @@ export const useStore = create<StoreState>()((set, get) => ({
       console.log("[Store] Back online - refreshing auth and collection...");
       const authResult = await window.electron.auth.refreshUser();
       get().setAuth(authResult);
+      get().fetchCollection(true);
+    }
+
+    if (includeWishlistChanged) {
       get().fetchCollection(true);
     }
 
