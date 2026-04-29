@@ -97,6 +97,10 @@ describe('CollectionView', () => {
         isOnline: true,
         cachedTrackIds: new Set<string>(),
         cachedAlbumIds: new Set<string>(),
+        collectionSortKey: 'default',
+        collectionSortDirection: 'asc',
+        setCollectionSortKey: vi.fn(),
+        setCollectionSortDirection: vi.fn(),
     };
 
     beforeEach(() => {
@@ -174,11 +178,12 @@ describe('CollectionView', () => {
     });
 
     it('sorts mixed items by artist ascending', () => {
-        render(<CollectionView />);
-
-        fireEvent.change(screen.getByLabelText('Sort collection'), {
-            target: { value: 'artist' },
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            collectionSortKey: 'artist',
+            collectionSortDirection: 'asc',
         });
+        render(<CollectionView />);
 
         const orderedTitles = screen
             .getAllByTestId('album-card')
@@ -186,13 +191,13 @@ describe('CollectionView', () => {
         expect(orderedTitles).toEqual(['Beta Album', 'Zeta Album', 'Alpha Track']);
     });
 
-    it('sorts by purchase date descending when direction is toggled', () => {
-        render(<CollectionView />);
-
-        fireEvent.change(screen.getByLabelText('Sort collection'), {
-            target: { value: 'purchaseDate' },
+    it('sorts by purchase date descending', () => {
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            collectionSortKey: 'purchaseDate',
+            collectionSortDirection: 'desc',
         });
-        fireEvent.click(screen.getByTitle('Sort descending'));
+        render(<CollectionView />);
 
         const orderedTitles = screen
             .getAllByTestId('album-card')
@@ -201,14 +206,31 @@ describe('CollectionView', () => {
     });
 
     it('reverses buy order when direction is set to descending', () => {
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            collectionSortKey: 'default',
+            collectionSortDirection: 'desc',
+        });
         render(<CollectionView />);
-
-        fireEvent.click(screen.getByTitle('Sort descending'));
 
         const orderedTitles = screen
             .getAllByTestId('album-card')
             .map((element) => element.textContent);
         expect(orderedTitles).toEqual(['Beta Album', 'Alpha Track', 'Zeta Album']);
+    });
+
+    it('calls setCollectionSortKey on select change', () => {
+        render(<CollectionView />);
+        fireEvent.change(screen.getByLabelText('Sort collection'), {
+            target: { value: 'artist' },
+        });
+        expect(mockStore.setCollectionSortKey).toHaveBeenCalledWith('artist');
+    });
+
+    it('calls setCollectionSortDirection when direction is toggled', () => {
+        render(<CollectionView />);
+        fireEvent.click(screen.getByTitle('Sort descending'));
+        expect(mockStore.setCollectionSortDirection).toHaveBeenCalledWith('desc');
     });
 
     it('deduplicates album entries and keeps the latest purchase copy', () => {

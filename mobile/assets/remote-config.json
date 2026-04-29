@@ -1,5 +1,5 @@
 {
-    "version": "1.0.2",
+    "version": "1.0.3",
     "selectors": {
         "collection": {
             "itemContainer": ".collection-item-container",
@@ -41,6 +41,10 @@
             "tralbum_data",
             "BandData",
             "EmbedData"
+        ],
+        "wishlist": [
+            "wishlist_data",
+            "WishlistData"
         ]
     },
     "endpoints": {
