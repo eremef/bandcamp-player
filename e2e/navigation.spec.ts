@@ -29,6 +29,6 @@ test.describe('Navigation', () => {
 
         // Navigate back to Collection
         await window.getByRole('button', { name: 'Collection' }).click();
-        await expect(window.getByRole('heading', { name: 'Your Collection', level: 1 })).toBeVisible();
+        await expect(window.getByRole('heading', { name: 'Collection', level: 1 })).toBeVisible();
     });
 });

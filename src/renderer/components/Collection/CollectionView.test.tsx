@@ -110,7 +110,7 @@ describe('CollectionView', () => {
 
     it('renders collection items', () => {
         render(<CollectionView />);
-        expect(screen.getByText('Your Collection')).toBeInTheDocument();
+        expect(screen.getByText('Collection')).toBeInTheDocument();
         expect(screen.getByText('3 albums & tracks')).toBeInTheDocument();
         expect(screen.getAllByTestId('album-card')).toHaveLength(3);
         expect(screen.getByText('Zeta Album')).toBeInTheDocument();

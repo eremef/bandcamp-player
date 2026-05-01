@@ -358,7 +358,7 @@ export function CollectionView() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerContent}>
-          <h1>Your Collection</h1>
+          <h1>Collection</h1>
           <p>{headerCount} albums & tracks</p>
         </div>
         <div className={styles.headerActions}>
