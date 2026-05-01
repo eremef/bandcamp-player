@@ -22,6 +22,11 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
 - **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
 
+## Security & TypeScript Learnings
+
+- **Dependency Overrides**: Use the `overrides` field in the root `package.json` to force specific versions of transitive dependencies (e.g., `protobufjs`) when they have security vulnerabilities and parent packages (like `castv2`) are unmaintained.
+- **Axios Header Types**: Axios headers can return `string | number | boolean | string[] | AxiosHeaders`. When using values like `content-length` with `parseInt`, explicitly convert them to a string using `String()` to avoid TypeScript errors (`TS2345`). Always specify a radix (e.g., `10`) in `parseInt`.
+
 ## E2E Tests
 
 - **Framework**: Playwright with custom Electron fixtures in `e2e/fixtures.ts`. Run with `npx playwright test`.
