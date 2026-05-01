@@ -64,7 +64,7 @@ export class CacheService extends EventEmitter {
         },
       });
 
-      const totalLength = parseInt(response.headers["content-length"] || "0");
+      const totalLength = parseInt(String(response.headers["content-length"] || "0"), 10);
       let downloadedLength = 0;
 
       const writer = fs.createWriteStream(tempPath);
