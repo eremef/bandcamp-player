@@ -4,7 +4,7 @@
 
 /* Header */
 .header {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     background: linear-gradient(180deg,
             var(--bg-tertiary) 0%,
             var(--bg-primary) 100%);

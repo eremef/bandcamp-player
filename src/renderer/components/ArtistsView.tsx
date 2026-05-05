@@ -14,6 +14,7 @@ import {
   Download,
 } from "lucide-react";
 import styles from "./ArtistsView.module.css";
+import { dedupeCollectionItems } from "../utils/dedupe";
 
 export const ArtistsView: React.FC = () => {
   const {
@@ -55,11 +56,15 @@ export const ArtistsView: React.FC = () => {
     if (viewMode === "labels") return artist.isLabel;
     return true;
   });
+  const dedupedItems = React.useMemo(
+    () => dedupeCollectionItems(collection?.items ?? []),
+    [collection?.items],
+  );
 
   // Pre-calculate item counts for each artist to avoid O(N*M) complexity in render
   const artistItemCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
-    collection?.items.forEach((item) => {
+    dedupedItems.forEach((item) => {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) return;
 
@@ -77,7 +82,7 @@ export const ArtistsView: React.FC = () => {
       }
     });
     return counts;
-  }, [collection]);
+  }, [dedupedItems]);
 
   // Compute which artists have ALL their known tracks/albums cached.
   // Uses cachedAlbumIds (DB-derived, works even when album.tracks is []) as the
@@ -88,7 +93,7 @@ export const ArtistsView: React.FC = () => {
     if (!collection) return result;
 
     for (const artist of artists) {
-      const items = collection.items.filter((item) => {
+      const items = dedupedItems.filter((item) => {
         const data = item.type === "album" ? item.album : item.track;
         if (!data) return false;
         const itemArtistId =
@@ -359,7 +364,7 @@ export const ArtistsView: React.FC = () => {
     // Filter items for this artist
     // Match by artistId first, then name-based ID, then raw name (case-insensitive)
     const artistItems =
-      collection?.items.filter((item) => {
+      dedupedItems.filter((item) => {
         const data = item.type === "album" ? item.album : item.track;
         if (!data) return false;
 

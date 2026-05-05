@@ -1,6 +1,6 @@
 .container {
     border-top: 1px solid var(--border-subtle);
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     min-height: 100%;
 }
 

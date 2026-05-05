@@ -78,9 +78,9 @@ function createMainWindow(
   options: { forceShow?: boolean } = {},
 ): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1400,
+    width: 1250,
     height: 800,
-    minWidth: 900,
+    minWidth: 1100,
     minHeight: 600,
     frame: false,
     titleBarStyle: "hidden",

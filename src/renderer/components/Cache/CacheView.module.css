@@ -1,6 +1,6 @@
 .container {
     min-height: 100%;
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
 }
 
 .header {

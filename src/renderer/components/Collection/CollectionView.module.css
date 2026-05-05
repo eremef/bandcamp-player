@@ -1,40 +1,77 @@
 .container {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     min-height: 100%;
-    border-top: 1px solid var(--border-subtle);
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
 
-/* Header */
 .header {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: var(--spacing-2xl);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg-primary);
+}
+
+.headerMain {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: var(--spacing-2xl);
-    gap: var(--spacing-l);
-    flex-wrap: wrap;
-    position: sticky;
-    top: 0;
-    z-index: var(--z-sticky, 100);
-    padding: var(--spacing-md) 0;
-    background: var(--bg-primary);
-    border-bottom: 1px solid var(--border-subtle);
+    gap: var(--spacing-xl);
 }
 
-.headerContent h1 {
+.headerLeft {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.title {
     font-size: var(--font-size-2xl);
-    margin-bottom: var(--spacing-xs);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
 }
 
-.headerContent p {
-    font-size: var(--font-size-md);
-    color: var(--text-secondary);
-}
-
-.headerActions {
+.itemCount {
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.offlineBadge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-warning);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0.6;
+    }
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-lg);
     flex-wrap: wrap;
 }
 
@@ -47,58 +84,87 @@
 .searchIcon {
     position: absolute;
     left: var(--spacing-md);
-    font-size: 0.9rem;
+    color: var(--text-tertiary);
     pointer-events: none;
+    font-size: 0.9rem;
 }
 
 .searchBox input {
-    width: 280px;
-    padding: var(--spacing-sm) var(--spacing-lg);
+    width: 220px;
+    height: 38px;
+    padding: 0 var(--spacing-lg);
     padding-left: 2.5rem;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-full);
     font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
 }
 
 .searchBox input:focus {
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px var(--accent-muted);
+    box-shadow: 0 0 0 2px var(--accent-muted);
+    outline: none;
+}
+
+.clearSearch {
+    position: absolute;
+    right: var(--spacing-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    color: var(--text-tertiary);
+    transition: all var(--transition-fast);
+}
+
+.clearSearch:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .sortControls {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
+    padding: 0 var(--spacing-sm);
     background: var(--bg-tertiary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-full);
     color: var(--text-secondary);
+    height: 38px;
+    /* Matching search bar height */
+}
+
+.sortIcon {
+    color: var(--text-tertiary);
+    margin-left: var(--spacing-xs);
+    flex-shrink: 0;
 }
 
 .sortControls select {
-    padding: 4px 10px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-full);
+    padding: 0 var(--spacing-xs);
+    height: 100%;
+    background: transparent;
+    border: none;
     color: var(--text-primary);
     font-size: var(--font-size-sm);
-    min-width: 120px;
+    min-width: 100px;
     cursor: pointer;
-    transition: all var(--transition-fast);
     appearance: none;
-}
-
-.sortControls select:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-default);
-}
-
-.sortControls select:focus {
-    outline: none;
-    border-color: var(--accent-primary);
-    box-shadow: 0 0 0 2px var(--accent-muted);
 }
 
 .sortControls select option {
@@ -107,12 +173,19 @@
 }
 
 .sortDirectionBtn {
-    padding: 2px 8px;
+    padding: 0 var(--spacing-sm);
+    height: 26px;
     border-radius: var(--radius-full);
     background: var(--bg-secondary);
     color: var(--text-secondary);
     font-size: var(--font-size-xs);
+    font-weight: 700;
     transition: all var(--transition-fast);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
 }
 
 .sortDirectionBtn:hover {
@@ -120,24 +193,33 @@
     color: var(--text-primary);
 }
 
-.clearSearch {
-    position: absolute;
-    right: var(--spacing-sm);
-    width: 20px;
-    height: 20px;
+.actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.actionButton {
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-active);
+    background: var(--bg-tertiary);
     border-radius: var(--radius-full);
-    font-size: 0.7rem;
     color: var(--text-secondary);
     transition: all var(--transition-fast);
+    cursor: pointer;
 }
 
-.clearSearch:hover {
-    background: var(--accent-primary);
-    color: var(--text-on-accent);
+.actionButton:hover:not(:disabled) {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.actionButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Bulk Actions */
@@ -251,74 +333,47 @@
     letter-spacing: 0.05em;
 }
 
-.refreshBtn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-full);
-    font-size: 1rem;
-    transition: all var(--transition-fast);
-}
-
-.refreshBtn:hover {
-    background: var(--bg-hover);
-    transform: rotate(90deg);
-}
-
-/* Grid */
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: var(--spacing-xl);
-}
-
-/* Loading */
-.loading {
+.errorState {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
-    gap: var(--spacing-lg);
-    color: var(--text-secondary);
-}
-
-/* Error */
-.error {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 300px;
-    gap: var(--spacing-md);
+    min-height: 400px;
     text-align: center;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-2xl);
+    border: 1px solid var(--border-subtle);
 }
 
-.error p:first-child {
-    font-size: var(--font-size-lg);
+.errorState h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--spacing-md);
     color: var(--text-primary);
 }
 
-.errorDetails {
-    font-size: var(--font-size-sm);
-    color: var(--color-error);
+.errorState p {
+    color: var(--text-tertiary);
+    margin-bottom: var(--spacing-xl);
+    max-width: 400px;
 }
 
-.error button {
-    margin-top: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-xl);
+.refreshButton {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-2xl);
     background: var(--accent-primary);
     color: var(--text-on-accent);
-    border-radius: var(--radius-md);
-    font-weight: var(--font-weight-medium);
-    transition: all var(--transition-fast);
+    border-radius: var(--radius-lg);
+    font-weight: 600;
+    transition: all var(--transition-normal);
 }
 
-.error button:hover {
+.refreshButton:hover {
     background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Empty */

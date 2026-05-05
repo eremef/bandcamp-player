@@ -20,10 +20,10 @@ vi.mock('./AlbumCard', () => ({
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => ({
-    Search: () => <span data-testid="icon-search" />,
-    X: () => <span data-testid="icon-x" />,
-    RefreshCw: () => <span data-testid="icon-refresh" />,
-    ArrowUpDown: () => <span data-testid="icon-sort" />,
+    Search: ({ className }: any) => <span data-testid="icon-search" className={className} />,
+    X: ({ className }: any) => <span data-testid="icon-x" className={className} />,
+    RefreshCw: ({ className }: any) => <span data-testid="icon-refresh" className={className} />,
+    ArrowUpDown: ({ className }: any) => <span data-testid="icon-sort" className={className} />,
     List: () => <span />,
     SkipForward: () => <span />,
     Play: () => <span />,
@@ -127,9 +127,10 @@ describe('CollectionView', () => {
         (useStore as any).mockReturnValue({ ...mockStore, isLoadingCollection: true });
         render(<CollectionView />);
         expect(screen.queryByText('Loading your collection...')).not.toBeInTheDocument();
-        const refreshBtn = screen.getByTitle('Refresh');
+        const refreshBtn = screen.getByTitle('Refresh collection');
         expect(refreshBtn).toBeDisabled();
-        expect(refreshBtn.className).toContain('spinning');
+        const icon = screen.getByTestId('icon-refresh');
+        expect(icon.className).toContain('spinning');
     });
 
     it('shows error state when collection is empty', () => {
@@ -151,7 +152,7 @@ describe('CollectionView', () => {
 
     it('updates search query on input', () => {
         render(<CollectionView />);
-        const input = screen.getByPlaceholderText('Search your collection...');
+        const input = screen.getByPlaceholderText('Search your music...');
         fireEvent.change(input, { target: { value: 'test' } });
         expect(mockStore.setSearchQuery).toHaveBeenCalledWith('test');
     });
@@ -166,7 +167,7 @@ describe('CollectionView', () => {
 
     it('refreshes collection on button click', () => {
         render(<CollectionView />);
-        const refreshBtn = screen.getByTitle('Refresh');
+        const refreshBtn = screen.getByTitle('Refresh collection');
         fireEvent.click(refreshBtn);
         expect(mockStore.fetchCollection).toHaveBeenCalledWith(true);
     });
@@ -206,17 +207,21 @@ describe('CollectionView', () => {
         expect(orderedTitles).toEqual(['Beta Album', 'Alpha Track', 'Zeta Album']);
     });
 
-    it('calls setCollectionSortKey on select change', () => {
+    it('calls setCollectionSortKey when a sort option is selected', () => {
         render(<CollectionView />);
-        fireEvent.change(screen.getByLabelText('Sort collection'), {
-            target: { value: 'artist' },
-        });
+        const select = screen.getByRole('combobox');
+        fireEvent.change(select, { target: { value: 'artist' } });
         expect(mockStore.setCollectionSortKey).toHaveBeenCalledWith('artist');
     });
 
-    it('calls setCollectionSortDirection when direction is toggled', () => {
+    it('toggles sort direction when the sort direction button is clicked', () => {
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            collectionSortKey: 'artist',
+            collectionSortDirection: 'asc',
+        });
         render(<CollectionView />);
-        fireEvent.click(screen.getByTitle('Sort descending'));
+        fireEvent.click(screen.getByTitle('Sort Ascending'));
         expect(mockStore.setCollectionSortDirection).toHaveBeenCalledWith('desc');
     });
 
