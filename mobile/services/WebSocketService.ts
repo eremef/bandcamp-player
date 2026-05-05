@@ -13,7 +13,7 @@ class WebSocketService {
     private isExplicitlyClosed = false;
 
     connect(host: string, port: number = 9999) {
-        this.url = `ws://${host}:${port}`;
+        this.url = `wss://${host}:${port}`;
         this.isExplicitlyClosed = false;
         this.initWebSocket();
     }
@@ -83,7 +83,7 @@ class WebSocketService {
     private sendIdentify() {
         const platform = Platform.OS;
         const version = Constants.expoConfig?.version || 'unknown';
-        
+
         this.send('identify', {
             platform,
             appVersion: version,

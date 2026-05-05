@@ -22,6 +22,13 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
 - **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
 
+## Expo & Native Configuration Learnings
+
+- **Continuous Native Generation (CNG)**: Even if the `android` or `ios` directories are checked into source control (Bare workflow), they should be treated as ephemeral when encountering native build/plugin errors.
+- **Gradle Plugin Resolution Errors**: If you encounter errors like `Could not find com.facebook.react:react-native-gradle-plugin` or AGP/Kotlin version mismatches after updating `package.json` dependencies (like `expo` or `react-native`), **DO NOT** manually patch `android/build.gradle` or `android/settings.gradle`.
+- **Prebuild Recovery**: Always use `npx expo prebuild --clean -p android` (or `ios`) to delete and cleanly regenerate the native projects. This perfectly synchronizes the native configurations with the versions declared in your current `node_modules`.
+- **Expo config**: Use `app.config.js` to configure the Expo application instead of `app.json`.
+
 ## Security & TypeScript Learnings
 
 - **Dependency Overrides**: Use the `overrides` field in the root `package.json` to force specific versions of transitive dependencies (e.g., `protobufjs`) when they have security vulnerabilities and parent packages (like `castv2`) are unmaintained.

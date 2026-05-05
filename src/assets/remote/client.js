@@ -48,7 +48,7 @@ function sanitizeUrl(url) {
 function connect() {
     isExplicitlyDisconnected = false;
     const host = window.location.host;
-    ws = new WebSocket('ws://' + host);
+    ws = new WebSocket('wss://' + host);
 
     ws.onopen = () => {
         document.getElementById('status-bar').innerText = 'Connected';

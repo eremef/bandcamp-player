@@ -1,10 +1,3 @@
-const getPackageName = () => {
-  if (process.env.EXPO_DEV_PACKAGE) {
-    return process.env.EXPO_DEV_PACKAGE;
-  }
-  return 'xyz.eremef.beta';
-};
-
 module.exports = {
   expo: {
     name: 'Beta Player',
@@ -25,7 +18,7 @@ module.exports = {
       bundleIdentifier: 'xyz.eremef.beta',
     },
     android: {
-      package: getPackageName(),
+      package: 'xyz.eremef.beta',
       permissions: [
         'INTERNET',
         'ACCESS_NETWORK_STATE',
