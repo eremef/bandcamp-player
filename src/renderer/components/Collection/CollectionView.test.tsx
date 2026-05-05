@@ -111,7 +111,7 @@ describe('CollectionView', () => {
     it('renders collection items', () => {
         render(<CollectionView />);
         expect(screen.getByText('Collection')).toBeInTheDocument();
-        expect(screen.getByText('3 albums & tracks')).toBeInTheDocument();
+        expect(screen.getByText('3 items')).toBeInTheDocument();
         expect(screen.getAllByTestId('album-card')).toHaveLength(3);
         expect(screen.getByText('Zeta Album')).toBeInTheDocument();
         expect(screen.getByText('Alpha Track')).toBeInTheDocument();
@@ -279,7 +279,7 @@ describe('CollectionView', () => {
         (useStore as any).mockReturnValue(duplicatedStore);
         render(<CollectionView />);
 
-        expect(screen.getByText('2 albums & tracks')).toBeInTheDocument();
+        expect(screen.getByText('2 items')).toBeInTheDocument();
         const renderedTitles = screen.getAllByTestId('album-card').map((el) => el.textContent);
         expect(renderedTitles).toEqual(['Duplicate Album', 'Unique Track']);
     });
@@ -325,7 +325,7 @@ describe('CollectionView', () => {
         (useStore as any).mockReturnValue(duplicatedMetaStore);
         render(<CollectionView />);
 
-        expect(screen.getByText('1 albums & tracks')).toBeInTheDocument();
+        expect(screen.getByText('1 item')).toBeInTheDocument();
         expect(screen.getAllByTestId('album-card')).toHaveLength(1);
         expect(screen.getByText('Disco Inferno')).toBeInTheDocument();
     });

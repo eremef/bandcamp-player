@@ -164,7 +164,7 @@ export function CollectionView() {
           <div className={styles.headerLeft}>
             <h1 className={styles.title}>Collection</h1>
             <div className={styles.itemCount}>
-              {dedupedItems.length} albums & tracks
+              {dedupedItems.length} {dedupedItems.length === 1 ? "item" : "items"}
               {isOfflineMode && (
                 <span className={styles.offlineBadge} title="Offline Mode">
                   <WifiOff size={14} />

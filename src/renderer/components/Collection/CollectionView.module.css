@@ -1,25 +1,23 @@
 .container {
-    padding: var(--spacing-lg);
-    min-height: 100%;
-    position: relative;
+    height: 100%;
     display: flex;
     flex-direction: column;
+    padding: var(--spacing-lg);
+    overflow: hidden;
+    position: relative;
 }
 
 .header {
     display: flex;
     flex-direction: column;
-    margin-bottom: var(--spacing-2xl);
-    padding: 0;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+    padding-bottom: var(--spacing-lg);
     background: var(--bg-primary);
+    flex-shrink: 0;
 }
 
 .headerMain {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: var(--spacing-xl);
 }
@@ -91,7 +89,7 @@
 
 .searchBox input {
     width: 220px;
-    height: 38px;
+    height: 35px;
     padding: 0 var(--spacing-lg);
     padding-left: 2.5rem;
     background: var(--bg-tertiary);
@@ -145,7 +143,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-full);
     color: var(--text-secondary);
-    height: 38px;
+    height: 35px;
     /* Matching search bar height */
 }
 
@@ -474,4 +472,28 @@
     border-radius: 50%;
     border-top-color: var(--accent-primary);
     animation: spin 1s ease-in-out infinite;
+}
+
+.scrollContainer {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: var(--spacing-xs);
+    margin-right: calc(var(--spacing-xs) * -1);
+}
+
+.scrollContainer::-webkit-scrollbar {
+    width: 8px;
+}
+
+.scrollContainer::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:hover {
+    background: var(--bg-active);
 }

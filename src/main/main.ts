@@ -80,7 +80,7 @@ function createMainWindow(
   const window = new BrowserWindow({
     width: 1250,
     height: 800,
-    minWidth: 1100,
+    minWidth: 1180,
     minHeight: 600,
     frame: false,
     titleBarStyle: "hidden",
