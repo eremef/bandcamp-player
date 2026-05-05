@@ -148,7 +148,7 @@ export const ArtistsView: React.FC = () => {
     }
 
     return result;
-  }, [artists, collection, cachedTrackIds, cachedAlbumIds]);
+  }, [artists, collection, cachedTrackIds, cachedAlbumIds, dedupedItems]);
 
   // Compute which artists have any content currently downloading.
   const downloadingArtistIds = React.useMemo(() => {

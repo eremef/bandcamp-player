@@ -10,6 +10,7 @@ interface ItemsGridProps {
   emptyMessage?: string;
   emptyHint?: string;
   emptyIcon?: React.ReactNode;
+  onItemClick?: (item: CollectionItem) => void;
 }
 
 export function ItemsGrid({
@@ -18,6 +19,7 @@ export function ItemsGrid({
   emptyMessage = "No items found",
   emptyHint,
   emptyIcon,
+  onItemClick,
 }: ItemsGridProps) {
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -47,12 +49,14 @@ export function ItemsGrid({
                 album={item.album}
                 isTrackItem={false}
                 isWishlist={item.isWishlist}
+                onClick={() => onItemClick?.(item)}
               />
             ) : item.type === "track" && item.track ? (
               <AlbumCard
                 key={item.id}
                 isTrackItem
                 isWishlist={item.isWishlist}
+                onClick={() => onItemClick?.(item)}
                 album={
                   {
                     id: item.track.id,

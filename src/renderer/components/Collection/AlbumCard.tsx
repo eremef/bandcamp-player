@@ -16,9 +16,15 @@ interface AlbumCardProps {
   album: Album;
   isTrackItem?: boolean;
   isWishlist?: boolean;
+  onClick?: () => void;
 }
 
-export function AlbumCard({ album, isTrackItem = false, isWishlist = false }: AlbumCardProps) {
+export function AlbumCard({
+  album,
+  isTrackItem = false,
+  isWishlist = false,
+  onClick,
+}: AlbumCardProps) {
   const {
     getAlbumDetails,
     addAlbumToQueue,
@@ -110,6 +116,10 @@ export function AlbumCard({ album, isTrackItem = false, isWishlist = false }: Al
   };
 
   const handleCardClick = async () => {
+    if (onClick) {
+      onClick();
+    }
+
     // If tracks > 1, open details. If 1 (single), just play?
     // User request: "for albums with more than 1 track when you click on it, it should open a new view"
     // Implies single track albums might be treated differently or just ignored.

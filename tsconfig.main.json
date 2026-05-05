@@ -5,7 +5,7 @@
             "ES2022"
         ],
         "module": "CommonJS",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "esModuleInterop": true,
         "strict": true,
         "skipLibCheck": true,
@@ -15,14 +15,14 @@
         "declarationMap": true,
         "outDir": "./dist",
         "rootDir": "./src",
-        "baseUrl": ".",
+        //"baseUrl": ".",
         "paths": {
             "@shared/*": [
                 "./src/shared/*"
             ]
         },
         "composite": true,
-        "ignoreDeprecations": "6.0"
+        // "ignoreDeprecations": "6.0"
     },
     "include": [
         "src/main/**/*",

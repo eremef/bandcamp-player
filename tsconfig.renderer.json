@@ -14,7 +14,7 @@
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "jsx": "react-jsx",
-        "baseUrl": ".",
+        // "baseUrl": ".",
         "paths": {
             "@shared/*": [
                 "./src/shared/*"
@@ -25,7 +25,7 @@
         },
         "composite": true,
         "noEmit": true,
-        "ignoreDeprecations": "6.0"
+        //"ignoreDeprecations": "6.0"
     },
     "include": [
         "src/renderer/**/*",

@@ -1,16 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useStore } from "../../store/store";
-import type { CollectionItem, Track } from "../../../shared/types";
+import type { CollectionItem } from "../../../shared/types";
 import {
   Search,
   X,
   RefreshCw,
-  List,
-  SkipForward,
-  Play,
-  Music,
-  MoreHorizontal,
-  Download,
   WifiOff,
   ArrowUpDown,
 } from "lucide-react";
@@ -59,16 +53,6 @@ export function CollectionView() {
     searchQuery,
     setSearchQuery,
     getAlbumDetails,
-    clearQueue,
-    addTracksToQueue,
-    playQueueIndex,
-    addTracksToPlaylist,
-    playlists,
-    downloadTrack,
-    cachedTrackIds,
-    cachedAlbumIds,
-    downloadingTracks,
-    downloadingAlbumIds,
     settings,
     collectionSortKey: sortKey,
     collectionSortDirection: sortDirection,
@@ -121,7 +105,6 @@ export function CollectionView() {
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const headerCount = hasSearchQuery ? filteredItems.length : dedupedItems.length;
 
   const handleRefresh = () => {
     fetchCollection(true);
