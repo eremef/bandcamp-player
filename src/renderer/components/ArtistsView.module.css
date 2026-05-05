@@ -9,9 +9,45 @@
 
 .header {
     display: flex;
+    flex-direction: column;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.headerTop {
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: var(--spacing-2xl);
+    width: 100%;
+    margin-bottom: var(--spacing-lg);
+}
+
+.viewModeTabs {
+    display: flex;
+    gap: var(--spacing-xs);
+    background: var(--bg-tertiary);
+    padding: var(--spacing-2xs);
+    border-radius: var(--radius-lg);
+    align-self: flex-start;
+}
+
+.tabButton {
+    padding: var(--spacing-xs) var(--spacing-md);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-secondary);
+    background: transparent;
+    transition: all var(--transition-fast);
+}
+
+.tabButton:hover {
+    color: var(--text-primary);
+}
+
+.activeTab {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
 }
 
 .title {
@@ -171,6 +207,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: var(--spacing-2xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2xs);
+}
+
+.labelBadge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--accent-muted);
+    color: var(--accent-primary);
+    line-height: 1;
+    letter-spacing: 0.05em;
 }
 
 .itemCount {

@@ -22,6 +22,8 @@ export interface Track {
   cachedPath?: string;
   playlistEntryId?: string;
   radioStationId?: string; // For radio stations added to playlists - resolved lazily
+  label?: string;
+  labelId?: string;
 }
 
 export interface Album {
@@ -34,6 +36,8 @@ export interface Album {
   releaseDate?: string;
   tracks: Track[];
   trackCount: number;
+  label?: string;
+  labelId?: string;
 }
 
 export interface Artist {
@@ -41,6 +45,7 @@ export interface Artist {
   name: string;
   bandcampUrl: string;
   imageUrl?: string;
+  isLabel?: boolean;
 }
 
 // ============================================================================

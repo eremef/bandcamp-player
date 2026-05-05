@@ -39,6 +39,7 @@ export const ArtistsView: React.FC = () => {
 
   const isOfflineMode = settings?.offlineMode ?? false;
   const [filter, setFilter] = useState("");
+  const [viewMode, setViewMode] = useState<"all" | "artists" | "labels">("all");
   const [isActionsLoading, setIsActionsLoading] = useState(false);
   const [showDetailMenu, setShowDetailMenu] = useState(false);
   const [cardMenuArtistId, setCardMenuArtistId] = useState<string | null>(null);
@@ -47,9 +48,13 @@ export const ArtistsView: React.FC = () => {
     fetchArtists();
   }, [fetchArtists]);
 
-  const filteredArtists = artists.filter((artist) =>
-    artist.name.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const filteredArtists = artists.filter((artist) => {
+    const matchesSearch = artist.name.toLowerCase().includes(filter.toLowerCase());
+    if (!matchesSearch) return false;
+    if (viewMode === "artists") return !artist.isLabel;
+    if (viewMode === "labels") return artist.isLabel;
+    return true;
+  });
 
   // Pre-calculate item counts for each artist to avoid O(N*M) complexity in render
   const artistItemCounts = React.useMemo(() => {
@@ -564,17 +569,41 @@ export const ArtistsView: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Artists</h1>
-        <div className={styles.searchContainer}>
-          <Search className={styles.searchIcon} size={18} />
-          <input
-            type="text"
-            placeholder="Search artists.."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className={styles.input}
-          />
+        <div className={styles.headerTop}>
+          <h1 className={styles.title}>Artists</h1>
+          <div className={styles.searchContainer}>
+            <Search className={styles.searchIcon} size={18} />
+            <input
+              type="text"
+              placeholder="Search.."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className={styles.input}
+            />
+          </div>
         </div>
+        {artists.some((artist) => artist.isLabel) && (
+          <div className={styles.viewModeTabs}>
+            <button
+              className={`${styles.tabButton} ${viewMode === "all" ? styles.activeTab : ""}`}
+              onClick={() => setViewMode("all")}
+            >
+              All
+            </button>
+            <button
+              className={`${styles.tabButton} ${viewMode === "artists" ? styles.activeTab : ""}`}
+              onClick={() => setViewMode("artists")}
+            >
+              Artists
+            </button>
+            <button
+              className={`${styles.tabButton} ${viewMode === "labels" ? styles.activeTab : ""}`}
+              onClick={() => setViewMode("labels")}
+            >
+              Labels
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={`${styles.scrollContainer} custom-scrollbar`}>
@@ -646,6 +675,7 @@ export const ArtistsView: React.FC = () => {
                   </button>
                   <div className={styles.artistName} title={artist.name}>
                     {artist.name}
+                    {artist.isLabel && <span className={styles.labelBadge}>LABEL</span>}
                   </div>
                   <div className={styles.itemCount}>
                     {artistItemCounts[artist.id] || 0}{" "}

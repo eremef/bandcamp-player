@@ -101,6 +101,7 @@ export class Database {
         url TEXT,
         image_url TEXT,
         is_simulated INTEGER DEFAULT 0,
+        is_label INTEGER DEFAULT 0,
         cached_at TEXT NOT NULL,
         PRIMARY KEY (id, is_simulated)
       );
@@ -159,6 +160,7 @@ export class Database {
                     url TEXT,
                     image_url TEXT,
                     is_simulated INTEGER DEFAULT 0,
+                    is_label INTEGER DEFAULT 0,
                     cached_at TEXT NOT NULL,
                     PRIMARY KEY (id, is_simulated)
                 );
@@ -166,6 +168,16 @@ export class Database {
                 SELECT id, name, url, image_url, cached_at, 0 FROM artists_old;
                 DROP TABLE artists_old;
             `);
+    }
+
+    // Migration: Add is_label to artists if it doesn't exist
+    try {
+      this.db.prepare("SELECT is_label FROM artists LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating artists table to include is_label column...",
+      );
+      this.db.exec(`ALTER TABLE artists ADD COLUMN is_label INTEGER DEFAULT 0;`);
     }
 
     // Initialize default settings if not exists
@@ -778,7 +790,7 @@ export class Database {
   }
 
   replaceArtists(
-    artists: { id: string; name: string; url: string; imageUrl?: string }[],
+    artists: { id: string; name: string; url: string; imageUrl?: string; isLabel?: boolean }[],
     isSimulated = false,
   ): void {
     const now = new Date().toISOString();
@@ -788,8 +800,8 @@ export class Database {
       "DELETE FROM artists WHERE is_simulated = ?",
     );
     const insertStmt = this.db.prepare(`
-            INSERT INTO artists (id, name, url, image_url, is_simulated, cached_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO artists (id, name, url, image_url, is_simulated, is_label, cached_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
     const transaction = this.db.transaction(() => {
@@ -804,6 +816,7 @@ export class Database {
           artist.url,
           artist.imageUrl || null,
           simulatedVal,
+          artist.isLabel ? 1 : 0,
           now,
         );
       }
@@ -814,7 +827,7 @@ export class Database {
 
   getArtists(
     isSimulated = false,
-  ): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
+  ): { id: string; name: string; bandcampUrl: string; imageUrl?: string; isLabel?: boolean }[] {
     const simulatedVal = isSimulated ? 1 : 0;
     const rows = this.db
       .prepare(
@@ -825,6 +838,7 @@ export class Database {
         name: string;
         url: string;
         image_url: string | null;
+        is_label: number;
       }>;
 
     return rows.map((row) => ({
@@ -832,6 +846,7 @@ export class Database {
       name: row.name,
       bandcampUrl: row.url,
       imageUrl: row.image_url || undefined,
+      isLabel: row.is_label === 1,
     }));
   }
 

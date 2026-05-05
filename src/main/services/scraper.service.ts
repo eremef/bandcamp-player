@@ -743,15 +743,14 @@ export class ScraperService extends EventEmitter {
 
     const artistsMap = new Map<
       string,
-      { id: string; name: string; url: string; imageUrl?: string }
+      { id: string; name: string; url: string; imageUrl?: string; isLabel?: boolean }
     >();
 
     for (const item of items) {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) continue;
 
-      // Use aristId if available, fallback to a name-based ID if missing
-      // This ensures artists with singles or limited DOM info still appear
+      // Extract actual Artist
       const artistId =
         data.artistId ||
         `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
@@ -773,7 +772,31 @@ export class ScraperService extends EventEmitter {
           name: data.artist,
           url: artistUrl,
           imageUrl: data.artworkUrl || undefined,
+          isLabel: false,
         });
+      }
+
+      // Extract Label as an Artist entity if present
+      if (data.label && data.labelId) {
+        if (!artistsMap.has(data.labelId)) {
+          let labelUrl = "";
+          if (data.bandcampUrl) {
+            try {
+              const urlObj = new URL(data.bandcampUrl);
+              labelUrl = `${urlObj.protocol}//${urlObj.host}`;
+            } catch {
+              // ignore invalid urls
+            }
+          }
+
+          artistsMap.set(data.labelId, {
+            id: data.labelId,
+            name: data.label,
+            url: labelUrl,
+            imageUrl: data.artworkUrl || undefined,
+            isLabel: true,
+          });
+        }
       }
     }
 
@@ -853,15 +876,27 @@ export class ScraperService extends EventEmitter {
         item.tralbum_type === "a" ||
         item.type === "album";
       const id = String(item.item_id || item.tralbum_id || item.id);
-      const artist = this.cleanArtistName(
-        item.band_name || item.artist || item.artist_name || "",
-      );
+      const rawTitle = (item.album_title || item.item_title || item.title || "").trim();
+      const rawBandName = item.band_name || item.artist || item.artist_name || "";
+      
+      let actualArtist = this.cleanArtistName(rawBandName);
+      let label: string | undefined = undefined;
+      let labelId: string | undefined = undefined;
+      let artistId = item.band_id ? String(item.band_id) : undefined;
+
+      const byIndex = rawTitle.lastIndexOf(" by ");
+      if (byIndex !== -1) {
+        const artistFromTitle = this.cleanArtistName(rawTitle.slice(byIndex + 4));
+        if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+           label = actualArtist;
+           labelId = artistId;
+           actualArtist = artistFromTitle;
+           artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        }
+      }
 
       // Use shared helper for title cleaning
-      const title = this.cleanTitle(
-        item.album_title || item.item_title || item.title || "",
-        artist,
-      );
+      const title = this.cleanTitle(rawTitle, actualArtist);
 
       if (isAlbum) {
         return {
@@ -873,8 +908,10 @@ export class ScraperService extends EventEmitter {
           album: {
             id,
             title,
-            artist,
-            artistId: String(item.band_id),
+            artist: actualArtist,
+            artistId,
+            label,
+            labelId,
             artworkUrl:
               item.item_art_url ||
               item.art_url ||
@@ -896,7 +933,7 @@ export class ScraperService extends EventEmitter {
         // Also clean track title using shared helper
         const trackTitle = this.cleanTitle(
           item.item_title || item.track_title || "",
-          artist,
+          actualArtist,
         );
 
         return {
@@ -908,8 +945,10 @@ export class ScraperService extends EventEmitter {
           track: {
             id,
             title: trackTitle,
-            artist,
-            artistId: item.band_id ? String(item.band_id) : undefined,
+            artist: actualArtist,
+            artistId,
+            label,
+            labelId,
             album: item.album_title || "",
             duration: item.duration || 0,
             artworkUrl:
@@ -946,9 +985,20 @@ export class ScraperService extends EventEmitter {
     try {
       const config = remoteConfigService.get().selectors.collection;
       const artistDOM = $item.find(config.artist).text().replace("by ", "");
-      const artist = this.cleanArtistName(artistDOM || config.fallbackArtist);
+      let actualArtist = this.cleanArtistName(artistDOM || config.fallbackArtist);
       const titleDOM = $item.find(config.title).text();
-      const title = this.cleanTitle(titleDOM || config.fallbackTitle, artist);
+      let label: string | undefined = undefined;
+
+      const byIndex = titleDOM.lastIndexOf(" by ");
+      if (byIndex !== -1) {
+        const artistFromTitle = this.cleanArtistName(titleDOM.slice(byIndex + 4));
+        if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+           label = actualArtist;
+           actualArtist = artistFromTitle;
+        }
+      }
+
+      const title = this.cleanTitle(titleDOM || config.fallbackTitle, actualArtist);
       const url = $item.find(config.link).attr("href") || "";
       const artworkUrl = $item.find(config.artwork).attr("src") || "";
       const id =
@@ -967,8 +1017,10 @@ export class ScraperService extends EventEmitter {
           album: {
             id,
             title,
-            artist,
+            artist: actualArtist,
             artistId,
+            label,
+            labelId: undefined, // DOM parse doesn't usually supply labelId easily, we could try to guess or just leave undefined
             artworkUrl: artworkUrl.replace("_9.jpg", "_10.jpg"),
             bandcampUrl: url,
             tracks: [],
@@ -984,8 +1036,10 @@ export class ScraperService extends EventEmitter {
           track: {
             id,
             title,
-            artist,
+            artist: actualArtist,
             artistId,
+            label,
+            labelId: undefined,
             album: "", // DOM doesn't always have album name for tracks easily accessible
             duration: 0,
             artworkUrl: artworkUrl.replace("_9.jpg", "_10.jpg"),
