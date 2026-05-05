@@ -13,7 +13,7 @@ class WebSocketService {
     private isExplicitlyClosed = false;
 
     connect(host: string, port: number = 9999) {
-        this.url = `wss://${host}:${port}`;
+        this.url = `ws://${host}:${port}`;
         this.isExplicitlyClosed = false;
         this.initWebSocket();
     }
