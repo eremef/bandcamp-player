@@ -63,9 +63,9 @@ interface CollectionSlice {
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
   collectionError: string | null;
-  collectionSortKey: "default" | "artist" | "album" | "purchaseDate";
+  collectionSortKey: "default" | "artist" | "album";
   collectionSortDirection: "asc" | "desc";
-  setCollectionSortKey: (key: "default" | "artist" | "album" | "purchaseDate") => void;
+  setCollectionSortKey: (key: "default" | "artist" | "album") => void;
   setCollectionSortDirection: (dir: "asc" | "desc") => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;

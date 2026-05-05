@@ -17,7 +17,7 @@ import {
 import { ItemsGrid } from "./ItemsGrid";
 import styles from "./CollectionView.module.css";
 
-type SortKey = "default" | "artist" | "album" | "purchaseDate";
+type SortKey = "default" | "artist" | "album";
 type SortDirection = "asc" | "desc";
 
 function getSortText(item: CollectionItem, sortKey: SortKey): string {
@@ -135,10 +135,6 @@ function sortCollectionItems(
 
   const directionFactor = sortDirection === "asc" ? 1 : -1;
   const sorted = [...items].sort((a, b) => {
-    if (sortKey === "purchaseDate") {
-      return (getSortDate(a) - getSortDate(b)) * directionFactor;
-    }
-
     const left = getSortText(a, sortKey);
     const right = getSortText(b, sortKey);
     return left.localeCompare(right, undefined, { sensitivity: "base" }) * directionFactor;
@@ -389,7 +385,6 @@ export function CollectionView() {
               <option value="default">Buy order</option>
               <option value="artist">Artist</option>
               <option value="album">Album</option>
-              <option value="purchaseDate">Purchase date</option>
             </select>
             <button
               className={styles.sortDirectionBtn}

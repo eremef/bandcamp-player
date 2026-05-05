@@ -11,7 +11,7 @@
     align-items: flex-start;
     justify-content: space-between;
     margin-bottom: var(--spacing-2xl);
-    gap: var(--spacing-xl);
+    gap: var(--spacing-l);
     flex-wrap: wrap;
     position: sticky;
     top: 0;

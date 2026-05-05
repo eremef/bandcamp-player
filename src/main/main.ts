@@ -78,7 +78,7 @@ function createMainWindow(
   options: { forceShow?: boolean } = {},
 ): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1200,
+    width: 1400,
     height: 800,
     minWidth: 900,
     minHeight: 600,
@@ -436,33 +436,33 @@ if (!gotTheLock) {
 
   app.on("before-quit", () => {
     if (appIsQuitting && process.platform === 'win32') {
-        // Fallback: if we are already quitting but something is taking too long,
-        // force exit after a timeout to prevent the process from hanging and blocking installers.
-        setTimeout(() => {
-            console.log("[Main] Shutdown timeout reached. Forcing exit.");
-            process.exit(0);
-        }, 2000).unref(); // unref() so the timer itself doesn't keep the process alive
+      // Fallback: if we are already quitting but something is taking too long,
+      // force exit after a timeout to prevent the process from hanging and blocking installers.
+      setTimeout(() => {
+        console.log("[Main] Shutdown timeout reached. Forcing exit.");
+        process.exit(0);
+      }, 2000).unref(); // unref() so the timer itself doesn't keep the process alive
     }
 
     appIsQuitting = true;
-    
+
     console.log("[Main] Shutting down services...");
 
     // Stop all services and servers for a clean exit
     // This prevents the process from hanging and blocking uninstallation
     try {
-        remoteService?.stop();
-        castService?.stop();
-        updaterService?.stop();
-        if (cacheServer) {
-            cacheServer.close();
-            if (typeof (cacheServer as any).closeAllConnections === 'function') {
-                (cacheServer as any).closeAllConnections();
-            }
-            cacheServer = null;
+      remoteService?.stop();
+      castService?.stop();
+      updaterService?.stop();
+      if (cacheServer) {
+        cacheServer.close();
+        if (typeof (cacheServer as any).closeAllConnections === 'function') {
+          (cacheServer as any).closeAllConnections();
         }
+        cacheServer = null;
+      }
     } catch (err) {
-        console.error("Error during clean shutdown:", err);
+      console.error("Error during clean shutdown:", err);
     }
 
     trayService?.destroy();

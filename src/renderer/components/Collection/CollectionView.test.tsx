@@ -191,19 +191,6 @@ describe('CollectionView', () => {
         expect(orderedTitles).toEqual(['Beta Album', 'Zeta Album', 'Alpha Track']);
     });
 
-    it('sorts by purchase date descending', () => {
-        (useStore as any).mockReturnValue({
-            ...mockStore,
-            collectionSortKey: 'purchaseDate',
-            collectionSortDirection: 'desc',
-        });
-        render(<CollectionView />);
-
-        const orderedTitles = screen
-            .getAllByTestId('album-card')
-            .map((element) => element.textContent);
-        expect(orderedTitles).toEqual(['Zeta Album', 'Beta Album', 'Alpha Track']);
-    });
 
     it('reverses buy order when direction is set to descending', () => {
         (useStore as any).mockReturnValue({
