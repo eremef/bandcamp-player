@@ -1208,7 +1208,14 @@ export const useStore = create<AppState>((set, get) => ({
                     forceRefresh: forceServerRefresh,
                     offset: 0,
                     limit: 50,
-                    query
+                    query,
+                    sortKey: get().collectionSortKey,
+                    sortDirection: get().collectionSortDirection,
+                    includeWishlist: get().includeWishlistInCollection,
+                    dedupeEnabled: get().dedupeEnabled,
+                    filterAlbums: get().collectionFilterAlbums,
+                    filterTracks: get().collectionFilterTracks,
+                    filterWishlist: get().collectionFilterWishlist
                 });
                 if (forceServerRefresh) {
                     webSocketService.send('get-artists');
@@ -1246,8 +1253,10 @@ export const useStore = create<AppState>((set, get) => ({
                     let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
                     let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
 
-                    // Fresh start detection: if DB is empty and no search query, fetch from scraper
-                    if (totalCount === 0 && !query && !forceServerRefresh) {
+                    // Fresh start detection: if DB is truly empty (ignoring filters) and no search query, fetch from scraper
+                    // We check unfiltered count to avoid infinite loop when all filters are unchecked
+                    const unfilteredCount = await mobileDatabase.getCollectionTotalCount(user.id, '', true, true, true, true);
+                    if (unfilteredCount === 0 && !query && !forceServerRefresh) {
                         console.log('[MobileStore] Collection empty, performing initial fetch...');
                         await mobileScraperService.fetchCollection(false, get().isSimulationMode, onProgress);
                         items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
@@ -1297,7 +1306,10 @@ export const useStore = create<AppState>((set, get) => ({
                     sortKey: get().collectionSortKey,
                     sortDirection: get().collectionSortDirection,
                     includeWishlist: get().includeWishlistInCollection,
-                    dedupeEnabled: get().dedupeEnabled
+                    dedupeEnabled: get().dedupeEnabled,
+                    filterAlbums: get().collectionFilterAlbums,
+                    filterTracks: get().collectionFilterTracks,
+                    filterWishlist: get().collectionFilterWishlist
                 });
                 return Promise.resolve();
             } else {
@@ -1321,7 +1333,10 @@ export const useStore = create<AppState>((set, get) => ({
                 sortKey: get().collectionSortKey,
                 sortDirection: get().collectionSortDirection,
                 includeWishlist: get().includeWishlistInCollection,
-                dedupeEnabled: get().dedupeEnabled
+                dedupeEnabled: get().dedupeEnabled,
+                filterAlbums: get().collectionFilterAlbums,
+                filterTracks: get().collectionFilterTracks,
+                filterWishlist: get().collectionFilterWishlist
             });
             return Promise.resolve();
         } else {
@@ -1462,14 +1477,29 @@ export const useStore = create<AppState>((set, get) => ({
                         resolve(data?.items || []);
                     };
                     webSocketService.on('collection-data', handler);
-                    webSocketService.send('get-collection', {});
+                    webSocketService.send('get-collection', {
+                        forceRefresh: false,
+                        offset: 0,
+                        limit: 10000, // Large limit to get everything for filtering
+                        query: '',
+                        sortKey: 'default',
+                        sortDirection: 'asc',
+                        includeWishlist: true, // Get everything
+                        dedupeEnabled: false // Don't dedupe before local filtering
+                    });
                 });
             }
 
             const nameSet = new Set(artistNames.map(n => n.toLowerCase()));
             return itemsToFilter.filter(item => {
                 const artist = (item.type === 'album' ? item.album?.artist : item.track?.artist) || '';
-                return nameSet.has(artist.toLowerCase());
+                const artistMatches = nameSet.has(artist.toLowerCase());
+                if (!artistMatches) return false;
+                
+                // Respect global wishlist toggle
+                if (item.isWishlist && !get().includeWishlistInCollection) return false;
+                
+                return true;
             });
         } else {
             if (!auth.user) return [];
@@ -1482,6 +1512,12 @@ export const useStore = create<AppState>((set, get) => ({
         const newValue = !get().includeWishlistInCollection;
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('includeWishlistInCollection', newValue);
+        
+        if (!newValue) {
+            set({ collectionFilterWishlist: true });
+            await mobileDatabase.setSetting('collection_filter_wishlist', true);
+        }
+        
         set({ includeWishlistInCollection: newValue });
 
         // Refresh collection to reflect wishlist visibility

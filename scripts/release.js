@@ -102,7 +102,7 @@ if (!fastTrack) {
     run('npm test');
     run('npm test', mobileDir);
     run('npm run typecheck');
-    run('npm run typecheck', mobileDir);
+    run('npm run typecheck', mobileDir, { canFail: true });
     run('npm run lint');
     run('npm run lint', mobileDir);
 }

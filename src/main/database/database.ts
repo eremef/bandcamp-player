@@ -25,6 +25,7 @@ export class Database {
 
     this.db = new BetterSqlite3(dbPath);
     this.db.pragma("journal_mode = WAL");
+    this.db.pragma("foreign_keys = ON");
     this.initialize();
   }
 
@@ -422,6 +423,15 @@ export class Database {
 
   addTracksToPlaylist(playlistId: string, tracks: Track[]): void {
     if (tracks.length === 0) return;
+
+    // Verify playlist exists to avoid foreign key error
+    const exists = this.db
+      .prepare("SELECT id FROM playlists WHERE id = ?")
+      .get(playlistId);
+    if (!exists) {
+      console.error(`[Database] Cannot add tracks: Playlist ${playlistId} not found`);
+      throw new Error(`Playlist ${playlistId} not found`);
+    }
 
     const now = new Date().toISOString();
 

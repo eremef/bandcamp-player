@@ -49,6 +49,7 @@ export default function CollectionScreen() {
     const setCollectionFilterAlbums = useStore((state) => state.setCollectionFilterAlbums);
     const setCollectionFilterTracks = useStore((state) => state.setCollectionFilterTracks);
     const setCollectionFilterWishlist = useStore((state) => state.setCollectionFilterWishlist);
+    const includeWishlistInCollection = useStore((state) => state.includeWishlistInCollection);
 
     const insets = useSafeAreaInsets();
 
@@ -70,7 +71,7 @@ export default function CollectionScreen() {
     const [sortSheetVisible, setSortSheetVisible] = useState(false);
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
-    const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || !collectionFilterWishlist;
+    const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (includeWishlistInCollection && !collectionFilterWishlist);
 
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
@@ -210,35 +211,43 @@ export default function CollectionScreen() {
         }
     ], [collectionSortKey, collectionSortDirection, setCollectionSortKey, setCollectionSortDirection]);
 
-    const filterActions: Action[] = useMemo(() => [
-        { text: "Show", type: "label", onPress: () => { } },
-        {
-            text: "Albums",
-            icon: Disc,
-            checked: collectionFilterAlbums,
-            keepOpen: true,
-            onPress: () => setCollectionFilterAlbums(!collectionFilterAlbums)
-        },
-        {
-            text: "Tracks",
-            icon: Music,
-            checked: collectionFilterTracks,
-            keepOpen: true,
-            onPress: () => setCollectionFilterTracks(!collectionFilterTracks)
-        },
-        {
-            text: "Wishlist",
-            icon: Heart,
-            checked: collectionFilterWishlist,
-            keepOpen: true,
-            onPress: () => setCollectionFilterWishlist(!collectionFilterWishlist)
-        },
-        {
+    const filterActions: Action[] = useMemo(() => {
+        const baseActions: Action[] = [
+            { text: "Show", type: "label", onPress: () => { } },
+            {
+                text: "Albums",
+                icon: Disc,
+                checked: collectionFilterAlbums,
+                keepOpen: true,
+                onPress: () => setCollectionFilterAlbums(!collectionFilterAlbums)
+            },
+            {
+                text: "Tracks",
+                icon: Music,
+                checked: collectionFilterTracks,
+                keepOpen: true,
+                onPress: () => setCollectionFilterTracks(!collectionFilterTracks)
+            }
+        ];
+
+        if (includeWishlistInCollection) {
+            baseActions.push({
+                text: "Wishlist",
+                icon: Heart,
+                checked: collectionFilterWishlist,
+                keepOpen: true,
+                onPress: () => setCollectionFilterWishlist(!collectionFilterWishlist)
+            });
+        }
+
+        baseActions.push({
             text: "Cancel",
             style: "cancel",
             onPress: () => { }
-        }
-    ], [collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, setCollectionFilterAlbums, setCollectionFilterTracks, setCollectionFilterWishlist]);
+        });
+
+        return baseActions;
+    }, [collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, setCollectionFilterAlbums, setCollectionFilterTracks, setCollectionFilterWishlist, includeWishlistInCollection]);
 
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
@@ -350,7 +359,7 @@ export default function CollectionScreen() {
     }, [refreshCollection, searchQuery, collection?.totalCount]);
 
     useEffect(() => {
-        if (searchQuery === storeSearchQuery && collection && collection.items.length > 0) return;
+        if (searchQuery === storeSearchQuery && collection) return;
         const timer = setTimeout(() => {
             refreshCollection(true, searchQuery, false);
         }, 500);

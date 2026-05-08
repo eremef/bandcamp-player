@@ -35,6 +35,12 @@ vi.mock('lucide-react', () => ({
     Check: () => <span />,
     Disc: () => <span />,
     Heart: () => <span />,
+    Calendar: () => <span />,
+    Drum: () => <span />,
+    Quote: () => <span />,
+    ArrowUp: () => <span />,
+    ArrowDown: () => <span />,
+    Disc3: () => <span />,
 }));
 
 describe('CollectionView', () => {

@@ -340,10 +340,20 @@ export class RemoteControlService extends EventEmitter {
                     const sortKey = payload?.sortKey || 'default';
                     const sortDirection = payload?.sortDirection || 'desc';
                     const dedupeEnabled = payload?.dedupeEnabled ?? true;
+                    const filterAlbums = payload?.filterAlbums ?? true;
+                    const filterTracks = payload?.filterTracks ?? true;
+                    const filterWishlist = payload?.filterWishlist ?? true;
+
                     const collection = await this.scraperService.fetchCollection(forceRefresh, includeWishlist);
 
-                    // 1. Filter first (if query exists)
-                    let allItems = [...collection.items];
+                    // 1. Filter first (by flags and query)
+                    let allItems = [...collection.items].filter((item: any) => {
+                        if (item.isWishlist) return includeWishlist && filterWishlist;
+                        if (item.type === 'album') return filterAlbums;
+                        if (item.type === 'track') return filterTracks;
+                        return true;
+                    });
+
                     if (query) {
                         allItems = allItems.filter((item: any) => {
                             // Check item generic title/artist

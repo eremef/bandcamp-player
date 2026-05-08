@@ -13,14 +13,17 @@ import {
   Check,
   Calendar,
   Drum,
-  Disc3,
   ArrowUp,
   ArrowDown,
   Quote,
+  MoreHorizontal,
+  Play,
+  SkipForward,
+  List,
+  Download,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
 import styles from "./CollectionView.module.css";
-import type { SortKey } from "../../../shared/types";
 import { dedupeCollectionItems, sortCollectionItems } from "../../utils/collection-utils";
 
 
@@ -44,6 +47,14 @@ export function CollectionView() {
     setCollectionFilterAlbums,
     setCollectionFilterTracks,
     setCollectionFilterWishlist,
+    clearQueue,
+    addAlbumToQueue,
+    addTracksToQueue,
+    playQueueIndex,
+    playlists,
+    addTracksToPlaylist,
+    downloadAlbum,
+    downloadTrack,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -114,12 +125,16 @@ export function CollectionView() {
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || !collectionFilterWishlist;
+  const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (settings?.includeWishlistInCollection && !collectionFilterWishlist);
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
+  const [showBulkMenu, setShowBulkMenu] = useState(false);
+  const [isBulkOperating, setIsBulkOperating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const bulkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!filterOpen && !sortOpen) return;
@@ -130,10 +145,13 @@ export function CollectionView() {
       if (sortOpen && sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setSortOpen(false);
       }
+      if (showBulkMenu && bulkRef.current && !bulkRef.current.contains(e.target as Node)) {
+        setShowBulkMenu(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [filterOpen, sortOpen]);
+  }, [filterOpen, sortOpen, showBulkMenu]);
 
   const handleRefresh = () => {
     fetchCollection(true);
@@ -141,6 +159,104 @@ export function CollectionView() {
 
   const handleClearSearch = () => {
     setSearchQuery("");
+  };
+
+  const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist' | 'download', playlistId?: string) => {
+    setShowBulkMenu(false);
+    if (sortedItems.length === 0 || isBulkOperating) return;
+
+    setBulkProgress({ current: 0, total: sortedItems.length });
+    setIsBulkOperating(true);
+    try {
+      switch (action) {
+        case 'play':
+          await clearQueue(false);
+          let playIndex = 0;
+          for (const item of sortedItems) {
+            setBulkProgress(p => ({ ...p, current: playIndex + 1 }));
+            if (item.type === 'album' && item.album) {
+              await addAlbumToQueue(item.album, false);
+            } else if (item.type === 'track' && item.track) {
+              await addTracksToQueue([item.track], false);
+            }
+            playIndex++;
+          }
+          await playQueueIndex(0);
+          break;
+        case 'playNext':
+          // Reverse to maintain order when adding "playNext" multiple times
+          let nextIndex = 0;
+          for (const item of [...sortedItems].reverse()) {
+            setBulkProgress(p => ({ ...p, current: nextIndex + 1 }));
+            if (item.type === 'album' && item.album) {
+              await addAlbumToQueue(item.album, true);
+            } else if (item.type === 'track' && item.track) {
+              await addTracksToQueue([item.track], true);
+            }
+            nextIndex++;
+          }
+          break;
+        case 'addToQueue':
+          let queueIndex = 0;
+          for (const item of sortedItems) {
+            setBulkProgress(p => ({ ...p, current: queueIndex + 1 }));
+            if (item.type === 'album' && item.album) {
+              await addAlbumToQueue(item.album, false);
+            } else if (item.type === 'track' && item.track) {
+              await addTracksToQueue([item.track], false);
+            }
+            queueIndex++;
+          }
+          break;
+        case 'addToPlaylist':
+          if (playlistId) {
+            const allTracks: any[] = [];
+            let playlistIndex = 0;
+            for (const item of sortedItems) {
+              setBulkProgress(p => ({ ...p, current: playlistIndex + 1 }));
+              if (item.type === 'track' && item.track) {
+                allTracks.push(item.track);
+              } else if (item.type === 'album' && item.album) {
+                let albumWithTracks = item.album;
+                // If album has no tracks, try to fetch them
+                if (!albumWithTracks.tracks || albumWithTracks.tracks.length === 0) {
+                  if (albumWithTracks.bandcampUrl) {
+                    const details = await getAlbumDetails(albumWithTracks.bandcampUrl);
+                    if (details) {
+                      albumWithTracks = details;
+                    }
+                  }
+                }
+                if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
+                  allTracks.push(...albumWithTracks.tracks);
+                }
+              }
+              playlistIndex++;
+            }
+            if (allTracks.length > 0) {
+              await addTracksToPlaylist(playlistId, allTracks);
+            }
+          }
+          break;
+        case 'download':
+          let downloadIndex = 0;
+          for (const item of sortedItems) {
+            setBulkProgress(p => ({ ...p, current: downloadIndex + 1 }));
+            if (item.type === 'album' && item.album) {
+              await downloadAlbum(item.album);
+            } else if (item.type === 'track' && item.track) {
+              await downloadTrack(item.track);
+            }
+            downloadIndex++;
+          }
+          break;
+      }
+    } catch (err) {
+      console.error('Bulk action failed:', err);
+    } finally {
+      setIsBulkOperating(false);
+      setBulkProgress({ current: 0, total: 0 });
+    }
   };
 
   if (isLoadingCollection && !collection?.items.length) {
@@ -172,7 +288,7 @@ export function CollectionView() {
           <div className={styles.headerLeft}>
             <h1 className={styles.title}>Collection</h1>
             <div className={styles.itemCount}>
-              {dedupedItems.length} {dedupedItems.length === 1 ? "item" : "items"}
+              {sortedItems.length} {sortedItems.length === 1 ? "item" : "items"}
               {isOfflineMode && (
                 <span className={styles.offlineBadge} title="Offline Mode">
                   <WifiOff size={14} />
@@ -227,16 +343,18 @@ export function CollectionView() {
                     <Music size={13} />
                     <span>Tracks</span>
                   </button>
-                  <button
-                    className={styles.filterRow}
-                    onClick={() => setCollectionFilterWishlist(!collectionFilterWishlist)}
-                  >
-                    <span className={`${styles.filterCheck} ${collectionFilterWishlist ? styles.checked : ""}`}>
-                      {collectionFilterWishlist && <Check size={10} strokeWidth={3} />}
-                    </span>
-                    <Heart size={13} />
-                    <span>Wishlist</span>
-                  </button>
+                  {settings?.includeWishlistInCollection && (
+                    <button
+                      className={styles.filterRow}
+                      onClick={() => setCollectionFilterWishlist(!collectionFilterWishlist)}
+                    >
+                      <span className={`${styles.filterCheck} ${collectionFilterWishlist ? styles.checked : ""}`}>
+                        {collectionFilterWishlist && <Check size={10} strokeWidth={3} />}
+                      </span>
+                      <Heart size={13} />
+                      <span>Wishlist</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -325,6 +443,56 @@ export function CollectionView() {
                 data-testid="icon-refresh"
               />
             </button>
+
+            {sortedItems.length > 0 && (
+              <div className={styles.bulkMenuContainer} ref={bulkRef}>
+                <button
+                  className={`${styles.bulkMoreButton} ${isBulkOperating ? styles.isBulkOperating : ''}`}
+                  onClick={() => setShowBulkMenu(!showBulkMenu)}
+                  title={isBulkOperating ? `Processing ${bulkProgress.current} of ${bulkProgress.total}...` : "Bulk actions for current view"}
+                  disabled={isBulkOperating}
+                >
+                  {isBulkOperating ? (
+                    <div className={styles.bulkProgressContainer}>
+                      <RefreshCw size={14} className={styles.spinning} />
+                      <span className={styles.bulkProgressText}>
+                        {bulkProgress.current}/{bulkProgress.total}
+                      </span>
+                    </div>
+                  ) : (
+                    <MoreHorizontal size={18} />
+                  )}
+                </button>
+                {showBulkMenu && (
+                  <div className={styles.bulkMenu} onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => handleBulkAction('play')}>
+                      <Play size={16} /> Play All ({sortedItems.length})
+                    </button>
+                    <button onClick={() => handleBulkAction('playNext')}>
+                      <SkipForward size={16} /> Play Next ({sortedItems.length})
+                    </button>
+                    <button onClick={() => handleBulkAction('addToQueue')}>
+                      <List size={16} /> Add to Queue ({sortedItems.length})
+                    </button>
+                    {playlists.length > 0 && (
+                      <>
+                        <div className={styles.bulkMenuDivider} />
+                        <span className={styles.bulkMenuLabel}>Add to Playlist ({sortedItems.length})</span>
+                        {playlists.map((playlist) => (
+                          <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
+                            <Music size={14} /> {playlist.name}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    <div className={styles.bulkMenuDivider} />
+                    <button onClick={() => handleBulkAction('download')}>
+                      <Download size={16} /> Download All ({sortedItems.length})
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

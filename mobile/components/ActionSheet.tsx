@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, Animated, Dimensions, Keyboard } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../theme';
 import type { LucideIcon } from 'lucide-react-native';
 import { Check } from 'lucide-react-native';
@@ -75,7 +74,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
 
     const cardBg = colors.card === '#1a1a1a' ? '#2a2a2e' : colors.card;
     const destructiveColor = colors.card === '#1a1a1a' ? '#FF453A' : '#d32f2f';
-    const insets = useSafeAreaInsets();
+
 
     return (
         <Modal

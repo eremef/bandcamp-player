@@ -427,6 +427,27 @@
     color: var(--text-primary);
 }
 
+.bulkMoreButton.isBulkOperating {
+    width: auto;
+    padding: 0 var(--spacing-sm);
+    min-width: 80px;
+    background: var(--accent-muted);
+    color: var(--accent-primary);
+    border: 1px solid var(--accent-muted);
+}
+
+.bulkProgressContainer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.bulkProgressText {
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
 .bulkMenu {
     position: absolute;
     top: 100%;

@@ -516,7 +516,14 @@ describe('Mobile useStore', () => {
                 forceRefresh: false,
                 query: '',
                 offset: 0,
-                limit: 50
+                limit: 50,
+                sortKey: 'default',
+                sortDirection: 'asc',
+                includeWishlist: false,
+                dedupeEnabled: true,
+                filterAlbums: true,
+                filterTracks: true,
+                filterWishlist: true
             });
 
             jest.clearAllMocks();
@@ -527,7 +534,14 @@ describe('Mobile useStore', () => {
                 forceRefresh: true,
                 offset: 0,
                 limit: 50,
-                query: ''
+                query: '',
+                sortKey: 'default',
+                sortDirection: 'asc',
+                includeWishlist: false,
+                dedupeEnabled: true,
+                filterAlbums: true,
+                filterTracks: true,
+                filterWishlist: true
             });
 
             jest.clearAllMocks();
@@ -538,7 +552,14 @@ describe('Mobile useStore', () => {
                 forceRefresh: false,
                 offset: 0,
                 limit: 50,
-                query: 'test'
+                query: 'test',
+                sortKey: 'default',
+                sortDirection: 'asc',
+                includeWishlist: false,
+                dedupeEnabled: true,
+                filterAlbums: true,
+                filterTracks: true,
+                filterWishlist: true
             });
         });
 
@@ -552,9 +573,10 @@ describe('Mobile useStore', () => {
                 connectionStatus: 'connected'
             });
 
-            // Mock DB to return empty
+            // Mock DB to return empty (both filtered and unfiltered)
             (mobileDatabase.getCollectionGranular as jest.Mock).mockResolvedValueOnce([]);
-            (mobileDatabase.getCollectionTotalCount as jest.Mock).mockResolvedValueOnce(0);
+            (mobileDatabase.getCollectionTotalCount as jest.Mock).mockResolvedValueOnce(0); // filtered totalCount
+            (mobileDatabase.getCollectionTotalCount as jest.Mock).mockResolvedValueOnce(0); // unfilteredCount
 
             // After fetch, return items
             (mobileDatabase.getCollectionGranular as jest.Mock).mockResolvedValueOnce([{ id: 'item1' } as any]);
@@ -705,7 +727,14 @@ describe('Mobile useStore', () => {
                 forceRefresh: false,
                 offset: 0,
                 limit: 50,
-                query: ''
+                query: '',
+                sortKey: 'default',
+                sortDirection: 'asc',
+                includeWishlist: false,
+                dedupeEnabled: true,
+                filterAlbums: true,
+                filterTracks: true,
+                filterWishlist: true
             });
         });
 

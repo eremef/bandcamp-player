@@ -772,8 +772,18 @@ export const useStore = create<StoreState>()((set, get) => ({
       newSettings.includeWishlistInCollection !==
       (currentSettings?.includeWishlistInCollection ?? false);
 
-    const updated = await window.electron.settings.set(newSettings);
+    // If disabling wishlist, also reset the filter to "Show All" (inactive)
+    const settingsToUpdate = { ...newSettings };
+    if (includeWishlistChanged && !newSettings.includeWishlistInCollection) {
+      settingsToUpdate.collectionFilterWishlist = true;
+    }
+
+    const updated = await window.electron.settings.set(settingsToUpdate);
     set({ settings: updated });
+
+    if (includeWishlistChanged && !newSettings.includeWishlistInCollection) {
+      set({ collectionFilterWishlist: true });
+    }
 
     if (wasOffline && isNowOnline) {
       console.log("[Store] Back online - refreshing auth and collection...");
