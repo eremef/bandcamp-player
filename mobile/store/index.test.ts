@@ -746,10 +746,46 @@ describe('Mobile useStore', () => {
 
             jest.clearAllMocks();
 
-            useStore.setState({ mode: 'standalone' });
+            useStore.setState({ mode: 'standalone', auth: { isAuthenticated: true, user: { id: 'u1' } as any } });
             const { mobileDatabase } = require('../services/MobileDatabase');
             act(() => useStore.getState().refreshArtists());
             expect(mobileDatabase.getArtists).toHaveBeenCalled();
+        });
+
+        it('should handle setDedupeEnabled', async () => {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            
+            await act(async () => {
+                await useStore.getState().setDedupeEnabled(true);
+            });
+            expect(useStore.getState().dedupeEnabled).toBe(true);
+            expect(mobileDatabase.setSetting).toHaveBeenCalledWith('dedupe_enabled', true);
+
+            await act(async () => {
+                await useStore.getState().setDedupeEnabled(false);
+            });
+            expect(useStore.getState().dedupeEnabled).toBe(false);
+            expect(mobileDatabase.setSetting).toHaveBeenCalledWith('dedupe_enabled', false);
+        });
+
+        it('should handle setCollectionSortKey', async () => {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            
+            await act(async () => {
+                await useStore.getState().setCollectionSortKey('artist');
+            });
+            expect(useStore.getState().collectionSortKey).toBe('artist');
+            expect(mobileDatabase.setSetting).toHaveBeenCalledWith('collection_sort_key', 'artist');
+        });
+
+        it('should handle setCollectionSortDirection', async () => {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            
+            await act(async () => {
+                await useStore.getState().setCollectionSortDirection('desc');
+            });
+            expect(useStore.getState().collectionSortDirection).toBe('desc');
+            expect(mobileDatabase.setSetting).toHaveBeenCalledWith('collection_sort_direction', 'desc');
         });
     });
 

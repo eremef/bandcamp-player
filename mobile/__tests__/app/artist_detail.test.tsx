@@ -61,12 +61,13 @@ describe('ArtistDetailScreen', () => {
     const mockAddTrackToPlaylist = jest.fn();
     const mockRefreshArtistCollection = jest.fn();
 
-    const mockArtist = { id: 'a1', name: 'Test Artist', imageUrl: 'http://img.com' };
+    const mockArtistId = 'name-test-artist';
+    const mockArtist = { id: mockArtistId, name: 'Test Artist', imageUrl: 'http://img.com' };
     const mockCollectionItems = [
         {
             id: '1',
             type: 'album',
-            album: { artistId: 'a1', title: 'Album 1', bandcampUrl: 'url1', artworkUrl: 'art1', tracks: [] }
+            album: { artistId: mockArtistId, artist: 'Test Artist', title: 'Album 1', bandcampUrl: 'url1', artworkUrl: 'art1', tracks: [] }
         },
         {
             id: '2',
@@ -86,11 +87,13 @@ describe('ArtistDetailScreen', () => {
             addTrackToPlaylist: mockAddTrackToPlaylist,
             refreshArtistCollection: mockRefreshArtistCollection,
             artistCollection: { items: mockCollectionItems },
+            collection: { items: mockCollectionItems },
             isArtistCollectionLoading: false,
             connectionStatus: 'connected',
             playlists: [{ id: 'p1', name: 'Playlist 1' }],
+            dedupeEnabled: false,
         });
-        (useLocalSearchParams as jest.Mock).mockReturnValue({ id: 'a1' });
+        (useLocalSearchParams as jest.Mock).mockReturnValue({ id: mockArtistId });
         (useRouter as jest.Mock).mockReturnValue({
             back: mockRouterBack,
             replace: mockRouterReplace,
@@ -106,7 +109,7 @@ describe('ArtistDetailScreen', () => {
         expect(getAllByText('Test Artist')).toBeTruthy();
         expect(getByText('Album 1')).toBeTruthy();
         expect(getByText('Track 1')).toBeTruthy();
-        expect(mockRefreshArtistCollection).toHaveBeenCalledWith('a1');
+        expect(mockRefreshArtistCollection).toHaveBeenCalledWith(mockArtistId);
     });
 
     it('handles interaction with album - navigates to detail', () => {
@@ -114,7 +117,12 @@ describe('ArtistDetailScreen', () => {
         fireEvent.press(getByText('Album 1'));
         expect(mockRouterPush).toHaveBeenCalledWith({
             pathname: '/album_detail',
-            params: { url: 'url1' }
+            params: {
+                url: 'url1',
+                artist: 'Test Artist',
+                title: 'Album 1',
+                artworkUrl: 'art1'
+            }
         });
     });
 

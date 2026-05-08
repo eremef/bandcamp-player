@@ -21,6 +21,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Persistent Remote Connection**: The mobile app attempts to maintain or re-establish its WebSocket connection to the desktop server even when in Standalone mode, allowing seamless switching back to Remote.
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
 - **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
+- **Collection Sorting Persistence**: The desktop and mobile apps persist `collectionSortKey` and `collectionSortDirection` in their respective `settings` tables. These are restored automatically on startup to maintain the user's preferred view.
 
 ## Expo & Native Configuration Learnings
 
@@ -28,6 +29,12 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Gradle Plugin Resolution Errors**: If you encounter errors like `Could not find com.facebook.react:react-native-gradle-plugin` or AGP/Kotlin version mismatches after updating `package.json` dependencies (like `expo` or `react-native`), **DO NOT** manually patch `android/build.gradle` or `android/settings.gradle`.
 - **Prebuild Recovery**: Always use `npx expo prebuild --clean -p android` (or `ios`) to delete and cleanly regenerate the native projects. This perfectly synchronizes the native configurations with the versions declared in your current `node_modules`.
 - **Expo config**: Use `app.config.js` to configure the Expo application instead of `app.json`.
+
+## Expo Web Build Learnings
+
+- **React Native Track Player Path Fix**: In nightly/alpha versions of `react-native-track-player`, the `NativeTrackPlayer.web.js` (in `lib/module/`) may have a broken relative import `require('../web')`. This should be patched to `require('../../web')` to correctly point to the root `web` directory, allowing its own relative imports to `../src` to resolve correctly.
+- **WASM Support**: If using `expo-sqlite` on web, Metro must be configured to handle `.wasm` files. Add `wasm` to `config.resolver.assetExts` in `metro.config.js`.
+- **Missing Peer Dependencies**: `react-native-track-player` web support requires `shaka-player`. Ensure it is installed in the dependencies if web support is enabled.
 
 ## Security & TypeScript Learnings
 
@@ -51,6 +58,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Obstructed Elements**: Electron UI elements near absolute-positioned sliders or overlays (like in the PlayerBar) may require `{ force: true }` or `element.evaluate(el => el.click())` if Playwright thinks they are obstructed.
 - **Native Module Rebuilds**: If E2E tests fail with "The specified module could not be found" (e.g., `better-sqlite3`), run `npm rebuild` or delete `node_modules` and re-install to ensure native bindings match the Electron version.
 - **V8 Coverage Merging**: When generating E2E coverage from V8 data, ensure hits from *all* test runs are merged. Filtering by unique `scriptId` across different JSON files can lead to 0% reporting if the same bundled script (e.g., `index.js`) is targetted by different tests with varying coverage requirements.
+- **Scraper Purchase Dates**: The `ScraperService` uses `new Date().toISOString()` as a fallback when parsing items from the DOM if the real purchase date is missing. This can lead to incorrect "current" dates in the collection for items that were not included in the initial data script on the page. Updated the code to use `undefined` instead of a fallback date to maintain data integrity.
 - **Strict Mode violations**: `getByTitle` and `getByLabel` can easily match multiple elements if titles are substrings (e.g., "Queue" matching both a "Queue" toggle and a "Clear queue" button). Always use `{ exact: true }` or scope lookups to parent containers (e.g., `locator('footer')` or `locator('div[class*="playerBar"]')`).
 - **Conditional Toggling**: When testing UI panels (Queue, Settings, Playlists), avoid blind clicks. Check if the panel is already open (e.g., via `classList.contains('active')`) to prevent the test from accidentally closing it.
 - **Robust Item Counting**: When adding albums to the queue, the number of tracks can vary. Use `expect(count).toBeGreaterThan(0)` or loop through items instead of hardcoding expected counts (like `toHaveCount(1)`), unless the mock data is strictly fixed.
@@ -63,7 +71,20 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Asynchronous Synchronization**: `connect()` calls that update the store should be `await`ed within the store logic, and tests should use `waitFor()` for assertions on state values that are updated asynchronously (like `hostIp`).
 - **Mock Implementation Leakage**: When methods (e.g., `play()`) fetch data multiple times (like calling `useStore.getState()` or `TrackPlayer.getQueue()`), using `mockReturnValueOnce()` or `mockResolvedValueOnce()` restricts the mock to the first invocation only, causing subsequent internal calls to return default/undefined states and failing the test. Only use `*Once` mock modifiers when specifically testing sequential behavior differences; use `mockReturnValue()` and `mockResolvedValue()` by default.
 - **Mock Cleanup Isolation**: Use `jest.clearAllMocks()` alongside `jest.restoreAllMocks()` inside `beforeEach()` to fully reset mocked implementations (like `jest.spyOn`) and prevent test bleeding.
-- **Partial Type Mocking**: When partial objects are supplied as mocks to complex type parameters (e.g., passing `{ id, streamUrl }` to a `Track` parameter), you can safely cast it using `track as any` or `as unknown as Track` in unit tests, provided the inner logic only interacts with those specific properties.
+- **Mobile Wishlist Integration**: Mirroring the desktop feature, the mobile app now supports wishlist visibility in the collection. This required adding an `is_wishlist` column to the `collection_items` table (with migration), updating the `MobileScraperService` to fetch from both collection and wishlist endpoints, and adding a `Heart` icon badge to `CollectionGridItem`.
+- **Database Settings Consistency**: User preferences persisted in the `settings` table should use **camelCase** keys (e.g., `includeWishlistInCollection`, `scrobblingEnabled`, `deduplicateCollection`)
+- **Collection Settings**: Desktop `SettingsModal` organizes collection-related preferences (Deduplication, Wishlist integration) into a dedicated **Collection** section for better visibility.
+- **Store-Database Sync**: When adding new persistent settings to the mobile `useStore`, ensure they are:
+    1. Initialized in `initialState`.
+    2. Restored in `restoreStandaloneState` by calling `mobileDatabase.getSettings()`.
+    3. Saved in their toggle/setter actions using `mobileDatabase.setSetting('key', value)`.
+- **Standard Sorting Comparator**: When implementing sort logic with `asc/desc` toggles, always use a standard `a - b` comparator for ascending order. Then, return `-comparison` for descending order. This ensures consistent behavior across all data types (numbers, dates, strings).
+- **Mobile Collection Sorting**: To ensure stable, deterministic sorting that aligns with desktop, the database uses a multi-tiered `ORDER BY` clause. For "Purchase Date" sorting, `NULL` dates are treated as the oldest. In SQLite, `NULL` is the smallest value, so `ci.purchase_date ASC` puts them first (Oldest first), and `ci.purchase_date DESC` puts them last (Newest first). This matches the desktop app's behavior of treating missing dates as timestamp `0`.
+- **Artist Metadata Derivation**: `ArtistDetailScreen` now derives artist info by checking the store's `artists` array first (populated by the Artists screen) and falling back to `collection.items`. This resolves "Artist not found" errors when navigating between screens where the full collection might not be loaded in the store. Also ensured that the `artistId` (or `id`) passed via the router is consistently used for lookups, avoiding mismatches between numeric IDs and URI-encoded strings.
+- **Test Matching Sensitivity**: When using `getAllByText` with regex (e.g. `/Album/`), be aware of header text or sort labels that might match the pattern and appear before the actual list items. Use `.filter()` to exclude UI boilerplate from data assertions.
+- **Artist Grouping by Name**: To ensure that artist aliases (e.g., "Aphex Twin" vs. "AFX") are treated as separate entities in the UI, use name-based IDs (`name-xxx`) for the `artists` table and collection items' `artistId`. This prevents merging based on Bandcamp's internal `band_id` when the user wants them separated by name. Use `/\p{L}/u` regex for alphabet headers to correctly support national characters (Ś, Ł, etc.) instead of restricted `[A-Z]` ranges.
+- **Scraper Date Integrity**: Removed `new Date().toISOString()` fallbacks from `ScraperService` to prevent "fake" recent dates for items missing metadata. Missing dates are now correctly handled as `undefined`/`null` by the database sorting logic. In the mobile `MobileScraperService`, added validation (`!isNaN(dateObj.getTime())`) before calling `toISOString()` to prevent `RangeError: Date value out of bounds` crashes when Bandcamp returns invalid date strings.
+- **React Hook Order**: Always declare all React Hooks (useState, useMemo, useCallback, etc.) at the top level of the component, *before* any conditional early returns (e.g., `if (!data) return ...`). Defining hooks after a conditional return violates the "Rules of Hooks" because it changes the order/number of hooks between renders, leading to runtime errors and linting failures.
 
 ## Desktop Test Learnings
 

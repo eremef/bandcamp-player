@@ -155,14 +155,14 @@ export function AlbumCard({
     await addTracksToPlaylist(playlistId, albumWithTracks.tracks);
   };
 
-    const handleDownload = async () => {
-        setShowMenu(false);
-        const albumWithTracks = await ensureAlbumTracks();
-        console.debug(
-            `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
-        );
-        await downloadAlbum(albumWithTracks);
-    };
+  const handleDownload = async () => {
+    setShowMenu(false);
+    const albumWithTracks = await ensureAlbumTracks();
+    console.debug(
+      `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
+    );
+    await downloadAlbum(albumWithTracks);
+  };
 
   return (
     <div

@@ -22,8 +22,6 @@ export interface Track {
   cachedPath?: string;
   playlistEntryId?: string;
   radioStationId?: string; // For radio stations added to playlists - resolved lazily
-  label?: string;
-  labelId?: string;
 }
 
 export interface Album {
@@ -36,8 +34,6 @@ export interface Album {
   releaseDate?: string;
   tracks: Track[];
   trackCount: number;
-  label?: string;
-  labelId?: string;
 }
 
 export interface Artist {
@@ -45,7 +41,6 @@ export interface Artist {
   name: string;
   bandcampUrl: string;
   imageUrl?: string;
-  isLabel?: boolean;
 }
 
 // ============================================================================
@@ -60,7 +55,8 @@ export interface CollectionItem {
   token?: string;
   album?: Album;
   track?: Track;
-  purchaseDate: string;
+  purchaseDate?: string;
+  index?: number;
 }
 
 export interface Collection {
@@ -204,10 +200,13 @@ export interface ScrobbleData {
 // Settings Types
 // ============================================================================
 
+export type SortKey = "default" | "artist" | "album";
+export type SortDirection = "asc" | "desc";
+
 export interface AppSettings {
   // Cache settings
   cacheEnabled: boolean;
-  cacheMaxSizeGB: number;
+  cacheMaxSizeGb: number;
   cacheLocation: string;
 
   // Playback settings
@@ -220,6 +219,14 @@ export interface AppSettings {
   showNotifications: boolean;
   remoteEnabled: boolean;
   theme: Theme;
+
+  // Collection settings
+  deduplicateCollection: boolean;
+  collectionSortKey: SortKey;
+  collectionSortDirection: SortDirection;
+  collectionFilterAlbums: boolean;
+  collectionFilterTracks: boolean;
+  collectionFilterWishlist: boolean;
 
   // Offline mode
   offlineMode: boolean;

@@ -216,6 +216,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <option value="dark">Dark</option>
                             </select>
                         </div>
+                    </section>
+
+                    {/* Collection */}
+                    <section className={styles.section}>
+                        <h3>Collection</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Deduplicate Collection</span>
+                                <span className={styles.settingHint}>Hide duplicate albums and tracks from the collection view</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.deduplicateCollection ?? true}
+                                    onChange={(e) => updateSettings({ deduplicateCollection: e.target.checked })}
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Include Wishlist in Collection</span>
@@ -267,15 +286,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Max Cache Size</span>
-                                <span className={styles.settingValue}>{settings?.cacheMaxSizeGB || 5} GB</span>
+                                <span className={styles.settingValue}>{settings?.cacheMaxSizeGb || 5} GB</span>
                             </div>
                             <input
                                 type="range"
                                 min="1"
                                 max="100"
                                 step="1"
-                                value={settings?.cacheMaxSizeGB || 5}
-                                onChange={(e) => updateSettings({ cacheMaxSizeGB: parseInt(e.target.value) })}
+                                value={settings?.cacheMaxSizeGb || 5}
+                                onChange={(e) => updateSettings({ cacheMaxSizeGb: parseInt(e.target.value) })}
                             />
                         </div>
                         {cacheStats && (

@@ -502,26 +502,63 @@ describe("useStore", () => {
   });
 
   // --- Settings Slice Tests ---
-  it("should fetch and update settings", async () => {
+  it("should update settings", async () => {
     const mockSettings = { startMinimized: false, remoteEnabled: false };
-    mockElectron.settings.get.mockResolvedValue(mockSettings);
-    mockElectron.settings.set.mockResolvedValue({
+    const updatedSettings = {
       ...mockSettings,
       startMinimized: true,
-    });
-
-    await act(async () => {
-      await useStore.getState().fetchSettings();
-    });
-    expect(useStore.getState().settings).toEqual(mockSettings);
+    };
+    mockElectron.settings.set.mockResolvedValue(updatedSettings);
 
     await act(async () => {
       await useStore.getState().updateSettings({ startMinimized: true });
     });
+
     expect(mockElectron.settings.set).toHaveBeenCalledWith({
       startMinimized: true,
     });
     expect(useStore.getState().settings?.startMinimized).toBe(true);
+  });
+
+  it("should restore sort settings on fetchSettings", async () => {
+    const mockSettings = {
+      collectionSortKey: "artist",
+      collectionSortDirection: "asc",
+    } as any;
+    mockElectron.settings.get.mockResolvedValue(mockSettings);
+
+    await act(async () => {
+      await useStore.getState().fetchSettings();
+    });
+
+    expect(useStore.getState().collection_sort_key).toBe("artist");
+    expect(useStore.getState().collection_sort_direction).toBe("asc");
+  });
+
+  it("should persist sort key change", async () => {
+    mockElectron.settings.set.mockResolvedValue({});
+
+    await act(async () => {
+      await useStore.getState().setCollectionSortKey("album");
+    });
+
+    expect(useStore.getState().collection_sort_key).toBe("album");
+    expect(mockElectron.settings.set).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionSortKey: "album" }),
+    );
+  });
+
+  it("should persist sort direction change", async () => {
+    mockElectron.settings.set.mockResolvedValue({});
+
+    await act(async () => {
+      await useStore.getState().setCollectionSortDirection("asc");
+    });
+
+    expect(useStore.getState().collection_sort_direction).toBe("asc");
+    expect(mockElectron.settings.set).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionSortDirection: "asc" }),
+    );
   });
 
   it("should toggle remote based on settings", async () => {

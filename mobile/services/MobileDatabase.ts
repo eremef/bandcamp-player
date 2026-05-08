@@ -48,7 +48,8 @@ export class MobileDatabase {
                 token TEXT,
                 purchase_date TEXT,
                 user_id TEXT NOT NULL,
-                position INTEGER
+                position INTEGER,
+                is_wishlist INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS albums (
@@ -131,7 +132,19 @@ export class MobileDatabase {
                 await this.db.execAsync("ALTER TABLE collection_items ADD COLUMN position INTEGER");
             }
         } catch (e) {
-            console.error('[MobileDatabase] Migration failed:', e);
+            console.error('[MobileDatabase] Migration failed (position):', e);
+        }
+
+        // Migration: add is_wishlist column to collection_items if missing
+        try {
+            const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(collection_items)");
+            const hasWishlist = tableInfo.some(col => col.name === 'is_wishlist');
+            if (!hasWishlist) {
+                console.log('[MobileDatabase] Migrating: Adding is_wishlist column to collection_items');
+                await this.db.execAsync("ALTER TABLE collection_items ADD COLUMN is_wishlist INTEGER DEFAULT 0");
+            }
+        } catch (e) {
+            console.error('[MobileDatabase] Migration failed (is_wishlist):', e);
         }
 
         // Migration for FTS5: Drop and recreate if it was incorrectly created with external content
@@ -202,9 +215,9 @@ export class MobileDatabase {
                 onProgress?.(`Consolidating items: ${Math.min(i + BATCH_SIZE, totalItems)}/${totalItems}`);
 
                 // 1. Bulk Insert collection_items
-                const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
-                const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++]);
-                await this.db!.runAsync(`INSERT INTO collection_items (id, type, token, purchase_date, user_id, position) VALUES ${itemPlaceholders}`, itemParams);
+                const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+                const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++, item.isWishlist ? 1 : 0]);
+                await this.db!.runAsync(`INSERT INTO collection_items (id, type, token, purchase_date, user_id, position, is_wishlist) VALUES ${itemPlaceholders}`, itemParams);
 
                 // 2. Bulk Insert albums
                 const albums = batch.filter(it => it.type === 'album' && it.album).map(it => it.album!);
@@ -231,16 +244,49 @@ export class MobileDatabase {
         });
     }
 
-    async getCollectionGranular(userId: string, offset: number = 0, limit: number = 50, query?: string): Promise<CollectionItem[]> {
+    async getCollectionGranular(
+        userId: string, 
+        offset: number = 0, 
+        limit: number = 50, 
+        query?: string, 
+        includeWishlist: boolean = false,
+        sortKey: 'default' | 'artist' | 'album' = 'default',
+        sortDirection: 'asc' | 'desc' = 'asc',
+        filterAlbums: boolean = true,
+        filterTracks: boolean = true,
+        filterWishlist: boolean = true
+    ): Promise<CollectionItem[]> {
         if (!this.db) await this.init();
 
         let sql = '';
         let params: any[] = [];
+        
+        let orderBy = '';
+        if (sortKey === 'artist') {
+            orderBy = `COALESCE(a.artist_name, t.artist_name) COLLATE NOCASE ${sortDirection.toUpperCase()}, ci.position ASC, ci.id ASC`;
+        } else if (sortKey === 'album') {
+            orderBy = `COALESCE(a.title, t.title) COLLATE NOCASE ${sortDirection.toUpperCase()}, ci.position ASC, ci.id ASC`;
+        } else {
+            // default is purchase date
+            // Owned items always before wishlist, regardless of direction
+            const posDir = sortDirection === 'asc' ? 'DESC' : 'ASC';
+            orderBy = `ci.is_wishlist ASC, 
+                       ci.purchase_date ${sortDirection === 'asc' ? 'ASC' : 'DESC'}, 
+                       ci.position ${posDir}, 
+                       ci.id ASC`;
+        }
+
+        const filterParts = [];
+        if (filterAlbums) filterParts.push("(ci.type = 'album' AND ci.is_wishlist = 0)");
+        if (filterTracks) filterParts.push("(ci.type = 'track' AND ci.is_wishlist = 0)");
+        if (filterWishlist && includeWishlist) filterParts.push("(ci.is_wishlist = 1)");
+
+        const filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
+
+        const selectCols = `ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
+                   t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid`;
 
         if (query) {
-            const selectCols = `ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
-                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid`;
-
             if (this.needsLikeFallback(query)) {
                 // LIKE fallback for queries with special characters that FTS5 tokenizer strips
                 const likePattern = `%${query}%`;
@@ -249,11 +295,11 @@ export class MobileDatabase {
                     FROM collection_items ci
                     LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                     LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
-                    WHERE ci.user_id = ? AND (
+                    WHERE ci.user_id = ? ${filterSql} AND (
                         a.title LIKE ? OR a.artist_name LIKE ? OR
                         t.title LIKE ? OR t.artist_name LIKE ?
                     )
-                    ORDER BY ci.position ASC
+                    ORDER BY ${orderBy}
                     LIMIT ? OFFSET ?
                 `;
                 params = [userId, likePattern, likePattern, likePattern, likePattern, limit, offset];
@@ -265,21 +311,20 @@ export class MobileDatabase {
                     JOIN collection_search_fts fts ON ci.id = fts.id
                     LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                     LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
-                    WHERE ci.user_id = ? AND collection_search_fts MATCH ?
-                    ORDER BY ci.position ASC
+                    WHERE ci.user_id = ? ${filterSql} AND collection_search_fts MATCH ?
+                    ORDER BY ${orderBy}
                     LIMIT ? OFFSET ?
                 `;
                 params = [userId, this.fts5Escape(query), limit, offset];
             }
         } else {
             sql = `
-                SELECT ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
-                       t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid
+                SELECT ${selectCols}
                 FROM collection_items ci
                 LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                 LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
-                WHERE ci.user_id = ?
-                ORDER BY ci.position ASC
+                WHERE ci.user_id = ? ${filterSql}
+                ORDER BY ${orderBy}
                 LIMIT ? OFFSET ?
             `;
             params = [userId, limit, offset];
@@ -303,8 +348,9 @@ export class MobileDatabase {
                         bandcampUrl: row.a_url,
                         trackCount: row.a_count,
                         tracks: []
-                    }
-                };
+                    },
+                    isWishlist: !!row.is_wishlist
+                } as CollectionItem;
             } else {
                 return {
                     id: row.id,
@@ -323,14 +369,29 @@ export class MobileDatabase {
                         streamUrl: row.t_stream,
                         bandcampUrl: row.t_url,
                         isCached: false
-                    }
-                };
+                    },
+                    isWishlist: !!row.is_wishlist
+                } as CollectionItem;
             }
         });
     }
 
-    async getCollectionTotalCount(userId: string, query?: string): Promise<number> {
+    async getCollectionTotalCount(
+        userId: string, 
+        query?: string, 
+        includeWishlist: boolean = false,
+        filterAlbums: boolean = true,
+        filterTracks: boolean = true,
+        filterWishlist: boolean = true
+    ): Promise<number> {
         if (!this.db) await this.init();
+
+        const filterParts = [];
+        if (filterAlbums) filterParts.push("(ci.type = 'album' AND ci.is_wishlist = 0)");
+        if (filterTracks) filterParts.push("(ci.type = 'track' AND ci.is_wishlist = 0)");
+        if (filterWishlist && includeWishlist) filterParts.push("(ci.is_wishlist = 1)");
+
+        const filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
 
         if (query) {
             let result;
@@ -340,7 +401,7 @@ export class MobileDatabase {
                     `SELECT COUNT(*) as count FROM collection_items ci
                      LEFT JOIN albums a ON ci.id = a.id AND ci.type = 'album'
                      LEFT JOIN tracks t ON ci.id = t.id AND ci.type = 'track'
-                     WHERE ci.user_id = ? AND (
+                     WHERE ci.user_id = ? ${filterSql} AND (
                          a.title LIKE ? OR a.artist_name LIKE ? OR
                          t.title LIKE ? OR t.artist_name LIKE ?
                      )`,
@@ -348,14 +409,14 @@ export class MobileDatabase {
                 );
             } else {
                 result = await this.db!.getFirstAsync<{ count: number }>(
-                    'SELECT COUNT(*) as count FROM collection_items ci JOIN collection_search_fts fts ON ci.id = fts.id WHERE ci.user_id = ? AND collection_search_fts MATCH ?',
+                    `SELECT COUNT(*) as count FROM collection_items ci JOIN collection_search_fts fts ON ci.id = fts.id WHERE ci.user_id = ? ${filterSql} AND collection_search_fts MATCH ?`,
                     [userId, this.fts5Escape(query)]
                 );
             }
             return result?.count ?? 0;
         } else {
             const result = await this.db!.getFirstAsync<{ count: number }>(
-                'SELECT COUNT(*) as count FROM collection_items WHERE user_id = ?',
+                `SELECT COUNT(*) as count FROM collection_items ci WHERE ci.user_id = ? ${filterSql}`,
                 [userId]
             );
             return result?.count ?? 0;
@@ -534,7 +595,8 @@ export class MobileDatabase {
                         bandcampUrl: row.a_url,
                         trackCount: row.a_count,
                         tracks: []
-                    }
+                    },
+                    isWishlist: !!row.is_wishlist
                 } as CollectionItem;
             } else {
                 return {
@@ -554,7 +616,8 @@ export class MobileDatabase {
                         streamUrl: row.t_stream,
                         bandcampUrl: row.t_url,
                         isCached: false
-                    }
+                    },
+                    isWishlist: !!row.is_wishlist
                 } as CollectionItem;
             }
         });
@@ -562,9 +625,21 @@ export class MobileDatabase {
 
     // --- Artists ---
 
-    async getArtists(): Promise<any[]> {
+    async getArtists(userId: string, includeWishlist: boolean = false): Promise<any[]> {
         if (!this.db) await this.init();
-        return await this.db!.getAllAsync('SELECT * FROM artists ORDER BY name ASC');
+        return await this.db!.getAllAsync(
+            `SELECT DISTINCT a.* FROM artists a
+             WHERE EXISTS (
+                 SELECT 1 FROM collection_items ci
+                 LEFT JOIN albums al ON ci.id = al.id AND ci.type = 'album'
+                 LEFT JOIN tracks tr ON ci.id = tr.id AND ci.type = 'track'
+                 WHERE ci.user_id = ? 
+                 AND (ci.is_wishlist = 0 OR ? = 1)
+                 AND (al.artist_id = a.id OR tr.artist_id = a.id OR al.artist_name = a.name OR tr.artist_name = a.name)
+             )
+             ORDER BY a.name ASC`,
+            [userId, includeWishlist ? 1 : 0]
+        );
     }
 
     // Simple mutex for transaction serialization

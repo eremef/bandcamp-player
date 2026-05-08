@@ -7,7 +7,7 @@ export const Colors = {
         card: '#1a1a1a',
         text: '#ffffff',
         textSecondary: '#888888',
-        accent: '#0896afff',
+        accent: '#0896af',
         border: '#333333',
         input: '#1e1e1e',
         header: '#1a1a1a',

@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ScraperService } from "./scraper.service";
 import { AuthService } from "./auth.service";
 import { Collection } from "../../shared/types";
+import { remoteConfigService } from "../../shared/remote-config.service";
 import axios from "axios";
 
 // Mock dependencies
@@ -28,6 +29,60 @@ describe("ScraperService", () => {
       create: vi.fn().mockReturnThis(),
     };
     (axios.create as any).mockReturnValue(mockAxios);
+
+    // Mock remote config
+    vi.spyOn(remoteConfigService, 'get').mockReturnValue({
+      selectors: {
+        collection: {
+          itemContainer: ".collection-item-container",
+          artist: ".collection-item-artist",
+          title: ".collection-item-title",
+          link: "a.item-link",
+          artwork: "img.collection-item-art",
+          fallbackArtist: "Unknown Artist",
+          fallbackTitle: "Untitled"
+        },
+        album: { artistDOM: [] },
+        radio: { dataBlobElements: [], scriptRegexes: [] }
+      },
+      scriptKeys: {
+        collection: ["collection_data", "CollectionData"],
+        wishlist: ["wishlist_data", "WishlistData"],
+        album: ["TralbumData"]
+      },
+      endpoints: {
+        collectionItemsApi: "https://bandcamp.com/api/fancollection/1/collection_items",
+        wishlistItemsApi: "https://bandcamp.com/api/fancollection/1/wishlist_items",
+        mobileTralbumDetailsApi: "https://bandcamp.com/api/mobile/24/tralbum_details",
+        radioListApi: "https://bandcamp.com/api/bcweekly/3/list",
+        radioShowWeb: "https://bandcamp.com/?show={showId}",
+        radioWeeklyWeb: "https://bandcamp.com/weekly?show={showId}",
+        radioFallbackStream: "https://bandcamp.com/bcweekly",
+        artworkFormat: "https://f4.bcbits.com/img/a{art_id}_10.jpg",
+        radioImageFormat: "https://f4.bcbits.com/img/{image_id}_16.jpg"
+      },
+      userAgents: {
+        desktop: "desktop-ua",
+        mobile: "mobile-ua",
+        mobileApi: "mobile-api-ua"
+      },
+      cleaning: {
+        artistCleanRegex: "\\s*by\\s+.+$",
+        artistPrefixCleanRegex: "^by\\s+",
+        titleCleanRegex: "\\s*\\(gift given\\)\\s*",
+        dedupeRegex: "^(.*?)\\s*\\(gift given\\)\\s*\\1$"
+      },
+      scraping: {
+        batchSize: 100,
+        maxBatches: 100,
+        rateLimitDelay: 0,
+        rateLimitJitter: 0
+      },
+      radioData: {
+        showIdKeys: ["showId", "show_id", "itemId", "id"],
+        trackIdKeys: ["audioTrackId", "track_id", "trackId"]
+      }
+    } as any);
 
     scraper = new ScraperService(mockAuthService);
   });
@@ -222,6 +277,26 @@ describe("ScraperService", () => {
       expect(collection.items).toHaveLength(2);
       expect(collection.items[0].album?.title).toBe("Page 1 Item");
       expect(collection.items[1].track?.title).toBe("Page 2 Item");
+    });
+    it("should honor includeWishlistOverride", async () => {
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { profileUrl: "https://bandcamp.com/testuser" },
+      });
+      const mockHtml = `
+                <html>
+                <script>var collection_data = { "items": [] };</script>
+                <script>var wishlist_data = { "items": [{"item_type": "album", "item_id": 777, "item_title": "Wishlist Item"}] };</script>
+                </html>
+            `;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      // Call with override true
+      const collection = await scraper.fetchCollection(true, true);
+
+      expect(collection.items.some(i => i.isWishlist)).toBe(true);
+      expect(collection.items.find(i => i.isWishlist)?.album?.title).toBe("Wishlist Item");
     });
   });
 
@@ -434,6 +509,104 @@ describe("ScraperService", () => {
       expect(collection.items[0].album?.title).toBe("Spaced Title");
     });
   });
+
+  describe('Label catalog "Artist - Title" format parsing', () => {
+    beforeEach(() => {
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { profileUrl: 'https://bandcamp.com/testuser' },
+      });
+      mockAuthService.getSessionCookies.mockResolvedValue('session=123');
+    });
+
+    it('should extract real artist from "Artist - Title" when band_name differs', async () => {
+      const mockHtml = `<html><script>
+        var collection_data = { "items": [{
+          "item_type": "album", "item_id": 801,
+          "item_title": "Mirt - Fold",
+          "band_name": "John Lake", "band_id": 12345, "token": "t1"
+        }] };
+      </script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const collection = await scraper.fetchCollection(true);
+      const album = collection.items[0].album!;
+      expect(album.artist).toBe('Mirt');
+      expect(album.title).toBe('Fold');
+    });
+
+    it('should NOT split on dash when prefix matches band_name', async () => {
+      const mockHtml = `<html><script>
+        var collection_data = { "items": [{
+          "item_type": "album", "item_id": 802,
+          "item_title": "Mirt - Fold",
+          "band_name": "Mirt", "token": "t2"
+        }] };
+      </script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const collection = await scraper.fetchCollection(true);
+      const album = collection.items[0].album!;
+      // Band is already the artist - no label extraction
+      expect(album.artist).toBe('Mirt');
+      // Title still stripped of redundant prefix
+      expect(album.title).toBe('Fold');
+    });
+
+    it('should NOT split when prefix is longer than 40 chars', async () => {
+      const mockHtml = `<html><script>
+        var collection_data = { "items": [{
+          "item_type": "album", "item_id": 803,
+          "item_title": "A Very Long Artist Name That Exceeds Limit - Album",
+          "band_name": "SomeBand", "token": "t3"
+        }] };
+      </script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const collection = await scraper.fetchCollection(true);
+      const album = collection.items[0].album!;
+      // Prefix >40 chars so no split; artist stays as band_name
+      expect(album.artist).toBe('SomeBand');
+    });
+
+    it('should NOT split when prefix contains parentheses (e.g. date range in title)', async () => {
+      const mockHtml = `<html><script>
+        var collection_data = { "items": [{
+          "item_type": "album", "item_id": 804,
+          "item_title": "Music From The Merch Desk (2016 - 2023)",
+          "band_name": "Aphex Twin", "token": "t4"
+        }] };
+      </script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const collection = await scraper.fetchCollection(true);
+      const album = collection.items[0].album!;
+      expect(album.artist).toBe('Aphex Twin');
+      expect(album.title).toBe('Music From The Merch Desk (2016 - 2023)');
+    });
+
+    it('should NOT split when prefix contains a 4-digit year', async () => {
+      const mockHtml = `<html><script>
+        var collection_data = { "items": [{
+          "item_type": "album", "item_id": 805,
+          "item_title": "Live 2019 - Amsterdam",
+          "band_name": "Some Artist", "token": "t5"
+        }] };
+      </script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const collection = await scraper.fetchCollection(true);
+      const album = collection.items[0].album!;
+      expect(album.artist).toBe('Some Artist');
+    });
+  });
+
+
 
   describe("Caching Logic", () => {
     let mockDatabase: any;

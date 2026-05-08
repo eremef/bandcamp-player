@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, SectionList, TouchableOpacity, Image, Alert, Dimensions } from 'react-native';
 import { useStore } from '../../store';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { Artist, CollectionItem } from '@shared/types';
@@ -10,15 +10,15 @@ import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
 import { Play, MoreHorizontal, ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
+import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 
 const COLUMN_COUNT = 3;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const ITEM_WIDTH = (SCREEN_WIDTH - 40) / COLUMN_COUNT; // 20 padding on each side
 
-import { useFocusEffect } from 'expo-router';
-
 export default function ArtistsScreen() {
-    const { artists, refreshArtists } = useStore();
+    const artists = useStore(state => state.artists);
+    const refreshArtists = useStore(state => state.refreshArtists);
     const colors = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
@@ -32,6 +32,7 @@ export default function ArtistsScreen() {
     const addAlbumToPlaylist = useStore((state) => state.addAlbumToPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const clearQueue = useStore((state) => state.clearQueue);
+    const dedupeEnabled = useStore((state) => state.dedupeEnabled);
 
     // Per-artist ActionSheet state
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -45,19 +46,22 @@ export default function ArtistsScreen() {
     const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
 
-    // Refresh artists when the screen is focused to ensure it's in sync with collection
+    // Refresh artists when screen comes into focus
     useFocusEffect(
-        React.useCallback(() => {
+        useCallback(() => {
             refreshArtists();
         }, [refreshArtists])
     );
 
-    const filteredArtists = useMemo(() =>
-        artists.filter(artist =>
+    const filteredArtists = useMemo(() => {
+        const list = artists || [];
+        return list.filter(artist =>
             artist.name && artist.name.trim().length > 0 &&
             artist.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ), [artists, searchQuery]
-    );
+        ).sort((a, b) =>
+            a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+    }, [artists, searchQuery]);
 
     // Collection items belonging to any of the filtered artists (for bulk actions)
     const [artistCollectionItems, setArtistCollectionItems] = useState<CollectionItem[]>([]);
@@ -65,8 +69,10 @@ export default function ArtistsScreen() {
         const artistNames = (!searchQuery.trim() || filteredArtists.length === 0)
             ? []
             : filteredArtists.map(a => a.name);
-        getArtistsBulkItems(artistNames).then(setArtistCollectionItems);
-    }, [searchQuery, filteredArtists, getArtistsBulkItems]);
+        getArtistsBulkItems(artistNames).then(items => {
+            setArtistCollectionItems(dedupeEnabled ? dedupeCollectionItems(items) : items);
+        });
+    }, [searchQuery, filteredArtists, getArtistsBulkItems, dedupeEnabled]);
 
     const sections = useMemo(() => {
         const groups: { [key: string]: Artist[] } = {};
@@ -75,7 +81,7 @@ export default function ArtistsScreen() {
             const cleanName = artist.name.trim();
 
             const firstLetter = cleanName.charAt(0).toUpperCase();
-            const key = /[A-Z]/.test(firstLetter) ? firstLetter : '#';
+            const key = /\p{L}/u.test(firstLetter) ? firstLetter : '#';
 
             if (!groups[key]) {
                 groups[key] = [];
@@ -111,7 +117,10 @@ export default function ArtistsScreen() {
         setSelectedArtist(artist);
         setActionSheetTitle(artist.name);
         const queueArtistItems = async (playNext: boolean, clearFirst: boolean) => {
-            const items = await getArtistsBulkItems([artist.name]);
+            let items = await getArtistsBulkItems([artist.name]);
+            if (dedupeEnabled) {
+                items = dedupeCollectionItems(items);
+            }
             if (clearFirst) clearQueue(false);
             for (const item of items) {
                 if (item.type === 'album' && item.album?.bandcampUrl) {
@@ -149,11 +158,14 @@ export default function ArtistsScreen() {
             },
         ]);
         setActionSheetVisible(true);
-    }, [getArtistsBulkItems, clearQueue, addAlbumToQueue, addTrackToQueue]);
+    }, [getArtistsBulkItems, clearQueue, addAlbumToQueue, addTrackToQueue, dedupeEnabled]);
 
     const handleSelectPlaylist = useCallback(async (playlistId: string) => {
         if (!selectedArtist) return;
-        const items = await getArtistsBulkItems([selectedArtist.name]);
+        let items = await getArtistsBulkItems([selectedArtist.name]);
+        if (dedupeEnabled) {
+            items = dedupeCollectionItems(items);
+        }
         for (const item of items) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 addAlbumToPlaylist(playlistId, item.album.bandcampUrl);
@@ -163,7 +175,7 @@ export default function ArtistsScreen() {
         }
         setPlaylistModalVisible(false);
         Alert.alert("Success", `Added ${items.length} items to playlist`);
-    }, [selectedArtist, getArtistsBulkItems, addAlbumToPlaylist, addTrackToPlaylist]);
+    }, [selectedArtist, getArtistsBulkItems, addAlbumToPlaylist, addTrackToPlaylist, dedupeEnabled]);
 
     // Bulk action handlers (operate on artistCollectionItems)
     const handleBulkPlayNow = useCallback(async () => {
@@ -464,5 +476,19 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         padding: 15,
         flexShrink: 0,
+    },
+    labelBadge: {
+        position: 'absolute',
+        bottom: 0,
+        width: '100%',
+        paddingVertical: 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    labelBadgeText: {
+        color: '#000',
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
     },
 });

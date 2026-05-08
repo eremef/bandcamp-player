@@ -187,7 +187,7 @@ export class Database {
   private initializeDefaultSettings() {
     const defaultSettings: AppSettings = {
       cacheEnabled: true,
-      cacheMaxSizeGB: 5,
+      cacheMaxSizeGb: 5,
       cacheLocation: "",
       defaultVolume: 0.8,
       crossfadeDuration: 0,
@@ -198,6 +198,12 @@ export class Database {
       scrobbleThreshold: 50,
       remoteEnabled: true,
       theme: "system",
+      deduplicateCollection: true,
+      collectionSortKey: "default",
+      collectionSortDirection: "desc",
+      collectionFilterAlbums: true,
+      collectionFilterTracks: true,
+      collectionFilterWishlist: true,
       offlineMode: false,
       includeWishlistInCollection: false,
     };

@@ -134,61 +134,217 @@
     justify-content: flex-end;
 }
 
-.sortControls {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: 0 var(--spacing-sm);
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-full);
-    color: var(--text-secondary);
-    height: 35px;
-    /* Matching search bar height */
+.filterDropdownWrapper {
+    position: relative;
 }
 
-.sortIcon {
-    color: var(--text-tertiary);
-    margin-left: var(--spacing-xs);
+.filterToggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 var(--spacing-sm);
+    height: 35px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.filterToggleBtn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.filterToggleBtn.active {
+    border-color: var(--border-subtle);
+    color: var(--text-secondary);
+}
+
+.filterDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-primary);
     flex-shrink: 0;
 }
 
-.sortControls select {
-    padding: 0 var(--spacing-xs);
-    height: 100%;
+.filterDropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xs);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+    animation: filterMenuIn var(--transition-fast) ease-out;
+}
+
+@keyframes filterMenuIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.filterRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: 5px var(--spacing-sm);
     background: transparent;
     border: none;
-    color: var(--text-primary);
-    font-size: var(--font-size-sm);
-    min-width: 100px;
-    cursor: pointer;
-    appearance: none;
-}
-
-.sortControls select option {
-    background: var(--bg-elevated);
-    color: var(--text-primary);
-}
-
-.sortDirectionBtn {
-    padding: 0 var(--spacing-sm);
-    height: 26px;
-    border-radius: var(--radius-full);
-    background: var(--bg-secondary);
     color: var(--text-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    transition: all var(--transition-fast);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    border-radius: var(--radius-md);
     cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.filterRow:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.filterCheck {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1.5px solid var(--border-default);
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 40px;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
 }
 
-.sortDirectionBtn:hover {
+.filterCheck.checked {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+
+.sortDropdownWrapper {
+    position: relative;
+}
+
+.sortToggleBtn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 var(--spacing-md);
+    height: 35px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+
+.sortToggleBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.sortLabel {
+    flex: 1;
+    text-align: left;
+}
+
+.sortDirectionBadge {
+    font-size: var(--font-size-xs);
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    color: var(--text-tertiary);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.sortDropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 180px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xs);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+    animation: filterMenuIn var(--transition-fast) ease-out;
+}
+
+.dropdownLabel {
+    padding: 5px var(--spacing-sm) 4px;
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+.dropdownRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    padding: 5px var(--spacing-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.dropdownRow:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.dropdownCheck {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-default);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+}
+
+.dropdownCheck.checked {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: white;
+}
+
+.dropdownDivider {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: var(--spacing-xs) 0;
 }
 
 .actions {

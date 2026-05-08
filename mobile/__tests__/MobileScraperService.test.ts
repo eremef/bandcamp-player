@@ -12,6 +12,13 @@ describe('MobileScraperService', () => {
         jest.clearAllMocks();
         global.fetch = jest.fn();
 
+        // Default settings mock
+        (mobileDatabase.getSettings as jest.Mock).mockResolvedValue({
+            includeWishlistInCollection: false,
+            scrobblingEnabled: true,
+            theme: 'system'
+        });
+
         // Reset internal cache
         (mobileScraperService as any).cachedCollection = null;
     });
@@ -105,6 +112,21 @@ describe('MobileScraperService', () => {
             expect(result.items[0].type).toBe('track');
             expect(result.items[0].track?.title).toBe('Track Title');
             expect(result.items[0].track?.artist).toBe('Artist'); // "by " cleaned
+        });
+
+        it('should handle invalid purchase dates gracefully', async () => {
+            (mobileAuthService.checkSession as jest.Mock).mockResolvedValue({ isAuthenticated: true, user: { id: 'user1' } });
+            
+            const mockData = {
+                items: [
+                    { item_id: 1, item_type: "album", band_name: "Artist", item_title: "Title", purchased: "invalid-date-string" }
+                ]
+            };
+
+            // Inject mockData into a private parser to test the specific logic
+            const result = (mobileScraperService as any).parseCollectionItem(mockData.items[0], 'collection');
+            
+            expect(result.purchaseDate).toBeUndefined();
         });
     });
 

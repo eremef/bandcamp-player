@@ -116,7 +116,7 @@ export class RemoteConfigService {
   private offlineMode = false;
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): RemoteConfigService {
     if (!RemoteConfigService.instance) {

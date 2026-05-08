@@ -71,6 +71,14 @@ export class ScraperService extends EventEmitter {
       title = title.slice(0, -` by ${artist}`.length);
     }
 
+    // 1b. Remove "Artist - " prefix if present (label catalog format)
+    if (artist) {
+      const prefix = `${artist} - `;
+      if (title.toLowerCase().startsWith(prefix.toLowerCase())) {
+        title = title.slice(prefix.length);
+      }
+    }
+
     // 2. Remove "(gift given)" infix/suffix
     // Enhanced regex to capture the part before " (gift given)" for deduplication
     // Matches: "Title (gift given) Title" -> captures "Title"
@@ -200,7 +208,10 @@ export class ScraperService extends EventEmitter {
   /**
    * Fetch user's collection (purchased music)
    */
-  async fetchCollection(forceRefresh = false): Promise<Collection> {
+  async fetchCollection(
+    forceRefresh = false,
+    includeWishlistOverride?: boolean,
+  ): Promise<Collection> {
     // ── Offline-first guard ──────────────────────────────────────────────────
     // Check offline mode BEFORE consulting fetchPromise so we never return a
     // stale/failing network promise when the user is in offline mode.
@@ -217,7 +228,9 @@ export class ScraperService extends EventEmitter {
         const userId = user.user?.id;
         const isSimulating = simulationService.shouldSimulate();
         const includeWishlistInCollection =
-          this.database?.getSettings()?.includeWishlistInCollection ?? false;
+          includeWishlistOverride ??
+          this.database?.getSettings()?.includeWishlistInCollection ??
+          false;
         const cacheBaseId = isSimulating ? `${userId}_sim` : userId || "anonymous";
         const cacheId = includeWishlistInCollection
           ? `${cacheBaseId}_withWishlist`
@@ -289,7 +302,9 @@ export class ScraperService extends EventEmitter {
     }
 
     const includeWishlistInCollection =
-      this.database?.getSettings()?.includeWishlistInCollection ?? false;
+      includeWishlistOverride ??
+      this.database?.getSettings()?.includeWishlistInCollection ??
+      false;
     const user = this.authService.getUser();
     const userId = user.user?.id;
     const isSimulating = simulationService.shouldSimulate();
@@ -304,7 +319,7 @@ export class ScraperService extends EventEmitter {
       console.log(`[Scraper] Returning memory-cached collection for cacheId: ${cacheId}`);
       return this.cachedCollection;
     }
-    
+
     this.lastCacheId = cacheId;
 
     // Try to load from database first if not forcing refresh.
@@ -624,6 +639,11 @@ export class ScraperService extends EventEmitter {
           }
         }
 
+        // Assign original sequence index for stable tie-breaking during sorting
+        items.forEach((item, idx) => {
+          item.index = idx;
+        });
+
         this.consolidateArtistIds(items);
 
         this.cachedCollection = {
@@ -741,73 +761,58 @@ export class ScraperService extends EventEmitter {
   ): void {
     if (!this.database) return;
 
-    const artistsMap = new Map<
-      string,
-      { id: string; name: string; url: string; imageUrl?: string; isLabel?: boolean }
-    >();
+    // Collect unique artists by name, using frequency to pick the best name for a given numeric ID
+    const nameFrequency = new Map<string, Map<string, number>>();
+    const artistsMap = new Map<string, { id: string; name: string; url: string; imageUrl?: string }>();
 
     for (const item of items) {
       const data = item.type === "album" ? item.album : item.track;
-      if (!data) continue;
+      if (!data || !data.artist?.trim()) continue;
 
-      // Extract actual Artist
-      const artistId =
+      const id =
         data.artistId ||
-        `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+        `name-${data.artist.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-")}`;
 
-      if (!artistsMap.has(artistId)) {
-        // Try to extract artist URL from item URL
-        let artistUrl = "";
+      if (!nameFrequency.has(id)) nameFrequency.set(id, new Map());
+      const names = nameFrequency.get(id)!;
+      names.set(data.artist, (names.get(data.artist) || 0) + 1);
+
+      if (!artistsMap.has(id)) {
+        let url = "";
         if (data.bandcampUrl) {
           try {
             const urlObj = new URL(data.bandcampUrl);
-            artistUrl = `${urlObj.protocol}//${urlObj.host}`;
+            url = `${urlObj.protocol}//${urlObj.host}`;
           } catch {
-            // ignore invalid urls
+            url = data.bandcampUrl;
           }
         }
-
-        artistsMap.set(artistId, {
-          id: artistId,
-          name: data.artist,
-          url: artistUrl,
-          imageUrl: data.artworkUrl || undefined,
-          isLabel: false,
-        });
+        if (!url) url = `https://bandcamp.com/search?q=${encodeURIComponent(data.artist)}`;
+        artistsMap.set(id, { id, name: data.artist, url, imageUrl: data.artworkUrl || undefined });
+      } else {
+        const entry = artistsMap.get(id)!;
+        if (!entry.imageUrl && data.artworkUrl) entry.imageUrl = data.artworkUrl;
       }
+    }
 
-      // Extract Label as an Artist entity if present
-      if (data.label && data.labelId) {
-        if (!artistsMap.has(data.labelId)) {
-          let labelUrl = "";
-          if (data.bandcampUrl) {
-            try {
-              const urlObj = new URL(data.bandcampUrl);
-              labelUrl = `${urlObj.protocol}//${urlObj.host}`;
-            } catch {
-              // ignore invalid urls
-            }
-          }
-
-          artistsMap.set(data.labelId, {
-            id: data.labelId,
-            name: data.label,
-            url: labelUrl,
-            imageUrl: data.artworkUrl || undefined,
-            isLabel: true,
-          });
-        }
+    // Apply most-frequent name for each ID
+    for (const [id, entry] of artistsMap) {
+      const names = nameFrequency.get(id);
+      if (!names || names.size <= 1) continue;
+      let bestName = entry.name;
+      let bestCount = 0;
+      for (const [name, count] of names) {
+        if (count > bestCount) { bestCount = count; bestName = name; }
       }
+      if (bestName !== entry.name) entry.name = bestName;
     }
 
     const artists = Array.from(artistsMap.values());
     if (artists.length > 0) {
       this.database.replaceArtists(artists, isSimulated);
-      console.log(
-        `[Scraper] Replaced ${artists.length} artists in database (isSimulated: ${isSimulated})`,
-      );
     }
   }
+
 
   /**
    * Fetch additional collection items via Bandcamp's API
@@ -878,20 +883,33 @@ export class ScraperService extends EventEmitter {
       const id = String(item.item_id || item.tralbum_id || item.id);
       const rawTitle = (item.album_title || item.item_title || item.title || "").trim();
       const rawBandName = item.band_name || item.artist || item.artist_name || "";
-      
+
       let actualArtist = this.cleanArtistName(rawBandName);
-      let label: string | undefined = undefined;
-      let labelId: string | undefined = undefined;
       let artistId = item.band_id ? String(item.band_id) : undefined;
 
       const byIndex = rawTitle.lastIndexOf(" by ");
       if (byIndex !== -1) {
         const artistFromTitle = this.cleanArtistName(rawTitle.slice(byIndex + 4));
         if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
-           label = actualArtist;
-           labelId = artistId;
-           actualArtist = artistFromTitle;
-           artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          actualArtist = artistFromTitle;
+          artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        }
+      } else {
+        // Check for "Artist - Title" format common on label catalog pages (e.g. "Mirt - Album")
+        // Guards: prefix ≤40 chars, not a pure number, no parens/brackets, no 4-digit years
+        const dashIndex = rawTitle.indexOf(" - ");
+        if (dashIndex > 0 && dashIndex <= 40) {
+          const possibleArtist = this.cleanArtistName(rawTitle.slice(0, dashIndex));
+          if (
+            possibleArtist &&
+            possibleArtist.toLowerCase() !== actualArtist.toLowerCase() &&
+            !/^\d+$/.test(possibleArtist.trim()) &&
+            !/[()[]]/.test(possibleArtist) &&
+            !/\d{4}/.test(possibleArtist)
+          ) {
+            actualArtist = possibleArtist;
+            artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          }
         }
       }
 
@@ -910,8 +928,6 @@ export class ScraperService extends EventEmitter {
             title,
             artist: actualArtist,
             artistId,
-            label,
-            labelId,
             artworkUrl:
               item.item_art_url ||
               item.art_url ||
@@ -926,8 +942,7 @@ export class ScraperService extends EventEmitter {
             tracks: [],
             trackCount: item.num_tracks || 0,
           },
-          purchaseDate:
-            item.purchased || item.added || new Date().toISOString(),
+          purchaseDate: item.purchased || item.added,
         };
       } else {
         // Also clean track title using shared helper
@@ -947,8 +962,6 @@ export class ScraperService extends EventEmitter {
             title: trackTitle,
             artist: actualArtist,
             artistId,
-            label,
-            labelId,
             album: item.album_title || "",
             duration: item.duration || 0,
             artworkUrl:
@@ -965,8 +978,7 @@ export class ScraperService extends EventEmitter {
             bandcampUrl: item.item_url || item.bandcamp_url || item.url,
             isCached: false,
           },
-          purchaseDate:
-            item.purchased || item.added || new Date().toISOString(),
+          purchaseDate: item.purchased || item.added,
         };
       }
     } catch (error) {
@@ -987,14 +999,11 @@ export class ScraperService extends EventEmitter {
       const artistDOM = $item.find(config.artist).text().replace("by ", "");
       let actualArtist = this.cleanArtistName(artistDOM || config.fallbackArtist);
       const titleDOM = $item.find(config.title).text();
-      let label: string | undefined = undefined;
-
       const byIndex = titleDOM.lastIndexOf(" by ");
       if (byIndex !== -1) {
         const artistFromTitle = this.cleanArtistName(titleDOM.slice(byIndex + 4));
         if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
-           label = actualArtist;
-           actualArtist = artistFromTitle;
+          actualArtist = artistFromTitle;
         }
       }
 
@@ -1019,14 +1028,12 @@ export class ScraperService extends EventEmitter {
             title,
             artist: actualArtist,
             artistId,
-            label,
-            labelId: undefined, // DOM parse doesn't usually supply labelId easily, we could try to guess or just leave undefined
             artworkUrl: artworkUrl.replace("_9.jpg", "_10.jpg"),
             bandcampUrl: url,
             tracks: [],
             trackCount: 0,
           },
-          purchaseDate: new Date().toISOString(),
+          purchaseDate: undefined,
         };
       } else {
         return {
@@ -1038,8 +1045,6 @@ export class ScraperService extends EventEmitter {
             title,
             artist: actualArtist,
             artistId,
-            label,
-            labelId: undefined,
             album: "", // DOM doesn't always have album name for tracks easily accessible
             duration: 0,
             artworkUrl: artworkUrl.replace("_9.jpg", "_10.jpg"),
@@ -1047,7 +1052,7 @@ export class ScraperService extends EventEmitter {
             bandcampUrl: url,
             isCached: false,
           },
-          purchaseDate: new Date().toISOString(),
+          purchaseDate: undefined,
         };
       }
     } catch (error) {
@@ -1327,7 +1332,7 @@ export class ScraperService extends EventEmitter {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) continue;
 
-      const name = data.artist.toLowerCase();
+      const name = data.artist.trim().toLowerCase();
       const currentBest = artistMap.get(name);
       const id = data.artistId;
 
@@ -1349,7 +1354,7 @@ export class ScraperService extends EventEmitter {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) continue;
 
-      const name = data.artist.toLowerCase();
+      const name = data.artist.trim().toLowerCase();
       const bestId = artistMap.get(name);
 
       if (bestId && data.artistId !== bestId) {

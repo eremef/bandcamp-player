@@ -17,6 +17,8 @@ import type {
   CastDevice,
   CastStatus,
   Artist,
+  SortKey,
+  SortDirection,
 } from "../../shared/types";
 import { RemoteConfig } from "../../shared/remote-config.service";
 
@@ -63,10 +65,16 @@ interface CollectionSlice {
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
   collectionError: string | null;
-  collectionSortKey: "default" | "artist" | "album";
-  collectionSortDirection: "asc" | "desc";
-  setCollectionSortKey: (key: "default" | "artist" | "album") => void;
+  collection_sort_key: SortKey;
+  collection_sort_direction: "asc" | "desc";
+  collectionFilterAlbums: boolean;
+  collectionFilterTracks: boolean;
+  collectionFilterWishlist: boolean;
+  setCollectionSortKey: (key: SortKey) => void;
   setCollectionSortDirection: (dir: "asc" | "desc") => void;
+  setCollectionFilterAlbums: (show: boolean) => void;
+  setCollectionFilterTracks: (show: boolean) => void;
+  setCollectionFilterWishlist: (show: boolean) => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
@@ -404,10 +412,31 @@ export const useStore = create<StoreState>()((set, get) => ({
   selectedAlbum: null,
   isLoadingCollection: false,
   collectionError: null,
-  collectionSortKey: "default",
-  collectionSortDirection: "asc",
-  setCollectionSortKey: (key) => set({ collectionSortKey: key }),
-  setCollectionSortDirection: (dir) => set({ collectionSortDirection: dir }),
+  collection_sort_key: "default",
+  collection_sort_direction: "desc",
+  collectionFilterAlbums: true,
+  collectionFilterTracks: true,
+  collectionFilterWishlist: true,
+  setCollectionSortKey: (key: SortKey) => {
+    set({ collection_sort_key: key });
+    get().updateSettings({ collectionSortKey: key });
+  },
+  setCollectionSortDirection: (dir: SortDirection) => {
+    set({ collection_sort_direction: dir });
+    get().updateSettings({ collectionSortDirection: dir });
+  },
+  setCollectionFilterAlbums: (show: boolean) => {
+    set({ collectionFilterAlbums: show });
+    get().updateSettings({ collectionFilterAlbums: show });
+  },
+  setCollectionFilterTracks: (show: boolean) => {
+    set({ collectionFilterTracks: show });
+    get().updateSettings({ collectionFilterTracks: show });
+  },
+  setCollectionFilterWishlist: (show: boolean) => {
+    set({ collectionFilterWishlist: show });
+    get().updateSettings({ collectionFilterWishlist: show });
+  },
   fetchCollection: async (forceRefresh = false) => {
     const { isOnline, settings } = useStore.getState();
     const isOfflineMode = settings?.offlineMode ?? false;
@@ -714,7 +743,25 @@ export const useStore = create<StoreState>()((set, get) => ({
   settings: null,
   fetchSettings: async () => {
     const settings = await window.electron.settings.get();
-    set({ settings });
+    if (settings) {
+      set({
+        settings,
+        collection_sort_key: settings.collectionSortKey || "default",
+        collection_sort_direction: settings.collectionSortDirection || "desc",
+        collectionFilterAlbums:
+          settings.collectionFilterAlbums !== undefined
+            ? settings.collectionFilterAlbums
+            : true,
+        collectionFilterTracks:
+          settings.collectionFilterTracks !== undefined
+            ? settings.collectionFilterTracks
+            : true,
+        collectionFilterWishlist:
+          settings.collectionFilterWishlist !== undefined
+            ? settings.collectionFilterWishlist
+            : true,
+      });
+    }
   },
   updateSettings: async (newSettings) => {
     const currentSettings = get().settings;

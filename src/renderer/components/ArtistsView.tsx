@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useStore } from "../store/store";
-import type { Artist, CollectionItem, Track } from "../../shared/types";
+import type { CollectionItem, Track } from "../../shared/types";
 import { ItemsGrid } from "./Collection/ItemsGrid";
 import {
   ArrowLeft,
@@ -14,13 +14,17 @@ import {
   Download,
 } from "lucide-react";
 import styles from "./ArtistsView.module.css";
-import { dedupeCollectionItems } from "../utils/dedupe";
+import { dedupeCollectionItems } from "../utils/collection-utils";
+
+interface DerivedArtist {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  items: CollectionItem[];
+}
 
 export const ArtistsView: React.FC = () => {
   const {
-    artists,
-    fetchArtists,
-    isLoadingArtists,
     collection,
     selectedArtistId,
     selectArtist,
@@ -40,89 +44,59 @@ export const ArtistsView: React.FC = () => {
 
   const isOfflineMode = settings?.offlineMode ?? false;
   const [filter, setFilter] = useState("");
-  const [viewMode, setViewMode] = useState<"all" | "artists" | "labels">("all");
   const [isActionsLoading, setIsActionsLoading] = useState(false);
   const [showDetailMenu, setShowDetailMenu] = useState(false);
   const [cardMenuArtistId, setCardMenuArtistId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchArtists();
-  }, [fetchArtists]);
-
-  const filteredArtists = artists.filter((artist) => {
-    const matchesSearch = artist.name.toLowerCase().includes(filter.toLowerCase());
-    if (!matchesSearch) return false;
-    if (viewMode === "artists") return !artist.isLabel;
-    if (viewMode === "labels") return artist.isLabel;
-    return true;
-  });
   const dedupedItems = React.useMemo(
-    () => dedupeCollectionItems(collection?.items ?? []),
-    [collection?.items],
+    () => (settings?.deduplicateCollection ? dedupeCollectionItems(collection?.items ?? []) : (collection?.items ?? [])),
+    [collection?.items, settings?.deduplicateCollection],
   );
 
-  // Pre-calculate item counts for each artist to avoid O(N*M) complexity in render
-  const artistItemCounts = React.useMemo(() => {
-    const counts: Record<string, number> = {};
+  // Derive artists directly from collection items, keyed by artist name
+  const derivedArtists = React.useMemo((): DerivedArtist[] => {
+    const artistMap = new Map<string, DerivedArtist>();
     dedupedItems.forEach((item) => {
       const data = item.type === "album" ? item.album : item.track;
-      if (!data) return;
-
-      // Use aristId if available, fallback to a name-based ID if missing
-      // This matches the logic used in the scraper service
-      const artistId =
-        data.artistId ||
-        `name-${data.artist
-          .toLowerCase()
-          .trim()
-          .replace(/[^a-z0-9]/g, "-")}`;
-
-      if (artistId) {
-        counts[artistId] = (counts[artistId] || 0) + 1;
+      if (!data || !data.artist?.trim()) return;
+      const name = data.artist.trim();
+      const id = `name-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      if (!artistMap.has(id)) {
+        artistMap.set(id, { id, name, imageUrl: data.artworkUrl || undefined, items: [] });
       }
+      const entry = artistMap.get(id)!;
+      entry.items.push(item);
+      if (!entry.imageUrl && data.artworkUrl) entry.imageUrl = data.artworkUrl;
     });
-    return counts;
+    return Array.from(artistMap.values()).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+    );
   }, [dedupedItems]);
 
-  // Compute which artists have ALL their known tracks/albums cached.
-  // Uses cachedAlbumIds (DB-derived, works even when album.tracks is []) as the
-  // primary signal for album items, falling back to per-track cachedTrackIds when
-  // tracks are already loaded.
+  const filteredArtists = React.useMemo(
+    () =>
+      filter
+        ? derivedArtists.filter((a) =>
+          a.name.toLowerCase().includes(filter.toLowerCase()),
+        )
+        : derivedArtists,
+    [derivedArtists, filter],
+  );
+
+  // Compute which artists have ALL their items fully cached
   const cachedArtistIds = React.useMemo(() => {
     const result = new Set<string>();
-    if (!collection) return result;
-
-    for (const artist of artists) {
-      const items = dedupedItems.filter((item) => {
-        const data = item.type === "album" ? item.album : item.track;
-        if (!data) return false;
-        const itemArtistId =
-          data.artistId ||
-          `name-${data.artist
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]/g, "-")}`;
-        return (
-          itemArtistId === artist.id ||
-          data.artist.toLowerCase().trim() === artist.name.toLowerCase().trim()
-        );
-      });
-
-      if (items.length === 0) continue;
-
+    for (const artist of derivedArtists) {
+      if (artist.items.length === 0) continue;
       let allCached = true;
       let hasAtLeastOneTrack = false;
-
-      outer: for (const item of items) {
+      outer: for (const item of artist.items) {
         if (item.type === "album" && item.album) {
-          // Primary check: DB-derived album cache status (no need for tracks[])
           if (cachedAlbumIds.has(item.album.id)) {
             hasAtLeastOneTrack = true;
             continue;
           }
-          // Fallback: check individual loaded tracks
           if (item.album.tracks.length === 0) {
-            // Neither DB nor tracks[] can confirm — treat as not cached
             allCached = false;
             break;
           }
@@ -141,37 +115,16 @@ export const ArtistsView: React.FC = () => {
           }
         }
       }
-
-      if (allCached && hasAtLeastOneTrack) {
-        result.add(artist.id);
-      }
+      if (allCached && hasAtLeastOneTrack) result.add(artist.id);
     }
-
     return result;
-  }, [artists, collection, cachedTrackIds, cachedAlbumIds, dedupedItems]);
+  }, [derivedArtists, cachedTrackIds, cachedAlbumIds]);
 
-  // Compute which artists have any content currently downloading.
+  // Compute which artists have content currently downloading
   const downloadingArtistIds = React.useMemo(() => {
     const result = new Set<string>();
-    if (!collection) return result;
-
-    for (const artist of artists) {
-      const items = collection.items.filter((item) => {
-        const data = item.type === "album" ? item.album : item.track;
-        if (!data) return false;
-        const itemArtistId =
-          data.artistId ||
-          `name-${data.artist
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]/g, "-")}`;
-        return (
-          itemArtistId === artist.id ||
-          data.artist.toLowerCase().trim() === artist.name.toLowerCase().trim()
-        );
-      });
-
-      for (const item of items) {
+    for (const artist of derivedArtists) {
+      for (const item of artist.items) {
         if (item.type === "album" && item.album) {
           if (
             downloadingAlbumIds.has(item.album.id) ||
@@ -188,45 +141,25 @@ export const ArtistsView: React.FC = () => {
         }
       }
     }
-
     return result;
-  }, [artists, collection, downloadingTracks, downloadingAlbumIds]);
+  }, [derivedArtists, downloadingTracks, downloadingAlbumIds]);
 
-  // Group artists by first letter
+  // Group filtered artists by first letter
   const groupedArtists = React.useMemo(() => {
-    try {
-      const groups: { [key: string]: Artist[] } = {};
-
-      filteredArtists.forEach((artist) => {
-        if (!artist || !artist.name) return;
-        // Trim logic to ensure clean first letter
-        const cleanName = artist.name.trim();
-        if (!cleanName) return;
-
-        const firstLetter = cleanName.charAt(0).toUpperCase();
-        const key = /[A-Z]/.test(firstLetter) ? firstLetter : "#";
-        if (!groups[key]) {
-          groups[key] = [];
-        }
-        groups[key].push(artist);
-      });
-
-      const sortedGroups = Object.keys(groups)
-        .sort((a, b) => {
-          if (a === "#") return 1;
-          if (b === "#") return -1;
-          return a.localeCompare(b);
-        })
-        .map((key) => ({
-          letter: key,
-          artists: groups[key],
-        }));
-
-      return sortedGroups;
-    } catch (e) {
-      console.error("Error grouping artists:", e);
-      return [];
-    }
+    const groups: Record<string, DerivedArtist[]> = {};
+    filteredArtists.forEach((artist) => {
+      const firstLetter = artist.name.trim().charAt(0).toUpperCase();
+      const key = /\p{L}/u.test(firstLetter) ? firstLetter : "#";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(artist);
+    });
+    return Object.keys(groups)
+      .sort((a, b) => {
+        if (a === "#") return 1;
+        if (b === "#") return -1;
+        return a.localeCompare(b);
+      })
+      .map((letter) => ({ letter, artists: groups[letter] }));
   }, [filteredArtists]);
 
   const getArtistTracks = useCallback(
@@ -235,14 +168,10 @@ export const ArtistsView: React.FC = () => {
       for (const item of items) {
         if (item.type === "album" && item.album) {
           const isAlbumFullyCached = cachedAlbumIds.has(item.album.id);
-
-          // If album has loaded tracks with valid streamUrls, use them
           if (item.album.tracks.length > 0 && item.album.tracks.every((t) => !!t.streamUrl)) {
             allTracks.push(...item.album.tracks);
             continue;
           }
-
-          // In offline mode with fully cached album, get tracks from cache
           if (isOfflineMode && isAlbumFullyCached) {
             const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(item.album.id);
             if (cachedTracks.length > 0) {
@@ -250,8 +179,6 @@ export const ArtistsView: React.FC = () => {
               continue;
             }
           }
-
-          // Otherwise try network fetch
           if (item.album.bandcampUrl) {
             const details = await getAlbumDetails(item.album.bandcampUrl);
             if (details) allTracks.push(...details.tracks);
@@ -271,28 +198,8 @@ export const ArtistsView: React.FC = () => {
   );
 
   const getItemsForArtist = useCallback(
-    (artistId: string) => {
-      const artist = artists.find((a) => a.id === artistId);
-      return (
-        collection?.items.filter((item) => {
-          const data = item.type === "album" ? item.album : item.track;
-          if (!data) return false;
-          const itemArtistId =
-            data.artistId ||
-            `name-${data.artist
-              .toLowerCase()
-              .trim()
-              .replace(/[^a-z0-9]/g, "-")}`;
-          const matchesId = itemArtistId === artistId;
-          const matchesName =
-            artist &&
-            data.artist.toLowerCase().trim() ===
-            artist.name.toLowerCase().trim();
-          return matchesId || matchesName;
-        }) || []
-      );
-    },
-    [artists, collection],
+    (artistId: string) => derivedArtists.find((a) => a.id === artistId)?.items ?? [],
+    [derivedArtists],
   );
 
   const handleCardAction = useCallback(
@@ -341,46 +248,12 @@ export const ArtistsView: React.FC = () => {
     ],
   );
 
-  const handleArtistClick = (artist: Artist) => {
-    selectArtist(artist.id);
-  };
-
-  const handleBackClick = () => {
-    selectArtist(null);
-  };
-
-  if (isLoadingArtists && artists.length === 0) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.emptyState}>Loading artists...</div>
-      </div>
-    );
-  }
+  const handleBackClick = () => selectArtist(null);
 
   // Detail View
   if (selectedArtistId) {
-    const artist = artists.find((a) => a.id === selectedArtistId);
-
-    // Filter items for this artist
-    // Match by artistId first, then name-based ID, then raw name (case-insensitive)
-    const artistItems =
-      dedupedItems.filter((item) => {
-        const data = item.type === "album" ? item.album : item.track;
-        if (!data) return false;
-
-        const artistId =
-          data.artistId ||
-          `name-${data.artist
-            .toLowerCase()
-            .trim()
-            .replace(/[^a-z0-9]/g, "-")}`;
-        const matchesId = artistId === selectedArtistId;
-        const matchesName =
-          artist &&
-          data.artist.toLowerCase().trim() === artist.name.toLowerCase().trim();
-
-        return matchesId || matchesName;
-      }) || [];
+    const artist = derivedArtists.find((a) => a.id === selectedArtistId);
+    const artistItems = artist?.items ?? [];
 
     if (!artist) {
       return (
@@ -427,12 +300,12 @@ export const ArtistsView: React.FC = () => {
               </span>
               <span className={styles.dot}>•</span>
               <a
-                href={artist.bandcampUrl}
+                href={`https://bandcamp.com/search?q=${encodeURIComponent(artist.name)}`}
                 target="_blank"
                 rel="noreferrer"
                 className={styles.link}
               >
-                View on Bandcamp <ExternalLink size={12} className="ml-1" />
+                Search on Bandcamp <ExternalLink size={12} className="ml-1" />
               </a>
             </div>
           </div>
@@ -480,8 +353,7 @@ export const ArtistsView: React.FC = () => {
                         setIsActionsLoading(true);
                         try {
                           const tracks = await getArtistTracks(artistItems);
-                          if (tracks.length > 0)
-                            await addTracksToQueue(tracks, true);
+                          if (tracks.length > 0) await addTracksToQueue(tracks, true);
                         } finally {
                           setIsActionsLoading(false);
                         }
@@ -506,9 +378,7 @@ export const ArtistsView: React.FC = () => {
                     {playlists.length > 0 && (
                       <>
                         <div className={styles.menuDivider} />
-                        <span className={styles.menuLabel}>
-                          Add to Playlist
-                        </span>
+                        <span className={styles.menuLabel}>Add to Playlist</span>
                         {playlists.map((playlist) => (
                           <button
                             key={playlist.id}
@@ -516,13 +386,9 @@ export const ArtistsView: React.FC = () => {
                               setShowDetailMenu(false);
                               setIsActionsLoading(true);
                               try {
-                                const tracks =
-                                  await getArtistTracks(artistItems);
+                                const tracks = await getArtistTracks(artistItems);
                                 if (tracks.length > 0)
-                                  await addTracksToPlaylist(
-                                    playlist.id,
-                                    tracks,
-                                  );
+                                  await addTracksToPlaylist(playlist.id, tracks);
                               } finally {
                                 setIsActionsLoading(false);
                               }
@@ -542,8 +408,7 @@ export const ArtistsView: React.FC = () => {
                             setIsActionsLoading(true);
                             try {
                               const tracks = await getArtistTracks(artistItems);
-                              for (const track of tracks)
-                                await downloadTrack(track);
+                              for (const track of tracks) await downloadTrack(track);
                             } finally {
                               setIsActionsLoading(false);
                             }
@@ -587,28 +452,6 @@ export const ArtistsView: React.FC = () => {
             />
           </div>
         </div>
-        {artists.some((artist) => artist.isLabel) && (
-          <div className={styles.viewModeTabs}>
-            <button
-              className={`${styles.tabButton} ${viewMode === "all" ? styles.activeTab : ""}`}
-              onClick={() => setViewMode("all")}
-            >
-              All
-            </button>
-            <button
-              className={`${styles.tabButton} ${viewMode === "artists" ? styles.activeTab : ""}`}
-              onClick={() => setViewMode("artists")}
-            >
-              Artists
-            </button>
-            <button
-              className={`${styles.tabButton} ${viewMode === "labels" ? styles.activeTab : ""}`}
-              onClick={() => setViewMode("labels")}
-            >
-              Labels
-            </button>
-          </div>
-        )}
       </div>
 
       <div className={`${styles.scrollContainer} custom-scrollbar`}>
@@ -620,10 +463,9 @@ export const ArtistsView: React.FC = () => {
                 <div
                   key={artist.id}
                   className={styles.artistCard}
-                  onClick={() => handleArtistClick(artist)}
+                  onClick={() => selectArtist(artist.id)}
                   onMouseLeave={() => {
-                    if (cardMenuArtistId === artist.id)
-                      setCardMenuArtistId(null);
+                    if (cardMenuArtistId === artist.id) setCardMenuArtistId(null);
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
@@ -654,12 +496,7 @@ export const ArtistsView: React.FC = () => {
                           }}
                           title="Play"
                         >
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M8 5v14l11-7z" />
                           </svg>
                         </button>
@@ -670,9 +507,7 @@ export const ArtistsView: React.FC = () => {
                     className={styles.cardMenuButton}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCardMenuArtistId(
-                        cardMenuArtistId === artist.id ? null : artist.id,
-                      );
+                      setCardMenuArtistId(cardMenuArtistId === artist.id ? null : artist.id);
                     }}
                     title="More options"
                   >
@@ -680,11 +515,10 @@ export const ArtistsView: React.FC = () => {
                   </button>
                   <div className={styles.artistName} title={artist.name}>
                     {artist.name}
-                    {artist.isLabel && <span className={styles.labelBadge}>LABEL</span>}
                   </div>
                   <div className={styles.itemCount}>
-                    {artistItemCounts[artist.id] || 0}{" "}
-                    {artistItemCounts[artist.id] === 1 ? "item" : "items"}
+                    {artist.items.length}{" "}
+                    {artist.items.length === 1 ? "item" : "items"}
                   </div>
                   {downloadingArtistIds.has(artist.id) ? (
                     <div
@@ -702,38 +536,24 @@ export const ArtistsView: React.FC = () => {
                       className={styles.cardMenu}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        onClick={() => handleCardAction(artist.id, "play")}
-                      >
+                      <button onClick={() => handleCardAction(artist.id, "play")}>
                         <Play size={16} /> Play Now
                       </button>
-                      <button
-                        onClick={() => handleCardAction(artist.id, "playNext")}
-                      >
+                      <button onClick={() => handleCardAction(artist.id, "playNext")}>
                         <SkipForward size={16} /> Play Next
                       </button>
-                      <button
-                        onClick={() =>
-                          handleCardAction(artist.id, "addToQueue")
-                        }
-                      >
+                      <button onClick={() => handleCardAction(artist.id, "addToQueue")}>
                         <List size={16} /> Add to Queue
                       </button>
                       {playlists.length > 0 && (
                         <>
                           <div className={styles.menuDivider} />
-                          <span className={styles.menuLabel}>
-                            Add to Playlist
-                          </span>
+                          <span className={styles.menuLabel}>Add to Playlist</span>
                           {playlists.map((playlist) => (
                             <button
                               key={playlist.id}
                               onClick={() =>
-                                handleCardAction(
-                                  artist.id,
-                                  "addToPlaylist",
-                                  playlist.id,
-                                )
+                                handleCardAction(artist.id, "addToPlaylist", playlist.id)
                               }
                             >
                               <Music size={14} /> {playlist.name}
@@ -744,11 +564,7 @@ export const ArtistsView: React.FC = () => {
                       {!cachedArtistIds.has(artist.id) && (
                         <>
                           <div className={styles.menuDivider} />
-                          <button
-                            onClick={() =>
-                              handleCardAction(artist.id, "download")
-                            }
-                          >
+                          <button onClick={() => handleCardAction(artist.id, "download")}>
                             <Download size={16} /> Download for Offline
                           </button>
                         </>

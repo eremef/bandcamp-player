@@ -1,4 +1,5 @@
-import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState } from '@shared/types';
+import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState, SortKey, SortDirection } from '@shared/types';
+import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
 
@@ -120,6 +121,24 @@ interface AppState extends PlayerState {
 
     // Persistence Helpers
     saveQueue: () => Promise<void>;
+
+    // Wishlist Setting
+    includeWishlistInCollection: boolean;
+    toggleIncludeWishlistInCollection: () => Promise<void>;
+
+    // Sort & Dedupe State
+    collectionSortKey: SortKey;
+    collectionSortDirection: SortDirection;
+    collectionFilterAlbums: boolean;
+    collectionFilterTracks: boolean;
+    collectionFilterWishlist: boolean;
+    dedupeEnabled: boolean;
+    setCollectionSortKey: (key: SortKey) => Promise<void>;
+    setCollectionSortDirection: (direction: SortDirection) => Promise<void>;
+    setCollectionFilterAlbums: (show: boolean) => Promise<void>;
+    setCollectionFilterTracks: (show: boolean) => Promise<void>;
+    setCollectionFilterWishlist: (show: boolean) => Promise<void>;
+    setDedupeEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
@@ -161,6 +180,13 @@ export const useStore = create<AppState>((set, get) => ({
     setRadioSearchQuery: (query) => set({ radioSearchQuery: query }),
     collectionLoadingStatus: null,
     theme: 'system',
+    includeWishlistInCollection: false,
+    collectionSortKey: 'default',
+    collectionSortDirection: 'asc',
+    collectionFilterAlbums: true,
+    collectionFilterTracks: true,
+    collectionFilterWishlist: true,
+    dedupeEnabled: true,
     setTheme: async (theme: Theme) => {
         await AsyncStorage.setItem('app_theme', theme);
         set({ theme });
@@ -180,7 +206,7 @@ export const useStore = create<AppState>((set, get) => ({
     toggleScrobbling: async () => {
         const newValue = !get().scrobblingEnabled;
         const { mobileDatabase } = require('../services/MobileDatabase');
-        await mobileDatabase.setSetting('scrobbling_enabled', newValue);
+        await mobileDatabase.setSetting('scrobblingEnabled', newValue);
         set({ scrobblingEnabled: newValue });
     },
     toggleSimulationMode: async () => {
@@ -234,6 +260,15 @@ export const useStore = create<AppState>((set, get) => ({
             currentTime: restoredTime,
             isPlaying: false,
             skipAutoLogin: false,
+            theme: settings.theme || 'system',
+            scrobblingEnabled: settings.scrobblingEnabled !== false,
+            includeWishlistInCollection: settings.includeWishlistInCollection === true,
+            collectionSortKey: settings.collection_sort_key || 'default',
+            collectionSortDirection: settings.collection_sort_direction || 'asc',
+            collectionFilterAlbums: settings.collection_filter_albums !== false,
+            collectionFilterTracks: settings.collection_filter_tracks !== false,
+            collectionFilterWishlist: settings.collection_filter_wishlist !== false,
+            dedupeEnabled: settings.dedupe_enabled !== false
         });
 
         // Ensure TrackPlayer volume is restored (might have been set to 0 in remote mode)
@@ -425,13 +460,22 @@ export const useStore = create<AppState>((set, get) => ({
         // Check auth status early
         const authStatus = await mobileAuthService.checkSession();
 
+        // Restore settings
+        set({
+            theme: settings.theme || 'system',
+            scrobblingEnabled: settings.scrobblingEnabled !== false,
+            includeWishlistInCollection: settings.includeWishlistInCollection === true,
+            collectionSortKey: settings.collection_sort_key || 'default',
+            collectionSortDirection: settings.collection_sort_direction || 'asc',
+            dedupeEnabled: settings.dedupe_enabled !== false
+        });
+
         // Restore scrobbler state
-        const scrobblingEnabled = settings.scrobbling_enabled !== false; // default true
         const { mobileScrobblerService } = require('../services/MobileScrobblerService');
         await mobileScrobblerService.loadSession();
         const lastfmState = mobileScrobblerService.getState();
 
-        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus, lastfmState, scrobblingEnabled });
+        set({ recentIps, theme: savedTheme, mode: savedMode, volume, isSimulationMode, auth: authStatus, lastfmState });
 
         // Always attempt connection to last known IP if available,
         // so remote state is tracked even in standalone mode.
@@ -1192,20 +1236,32 @@ export const useStore = create<AppState>((set, get) => ({
                         await mobileScraperService.fetchCollection(true, get().isSimulationMode, onProgress);
                     }
 
-                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
-                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+                    const includeWishlist = get().includeWishlistInCollection;
+                    const sortKey = get().collectionSortKey;
+                    const sortDirection = get().collectionSortDirection;
+                    const filterAlbums = get().collectionFilterAlbums;
+                    const filterTracks = get().collectionFilterTracks;
+                    const filterWishlist = get().collectionFilterWishlist;
+                    
+                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
+                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
 
                     // Fresh start detection: if DB is empty and no search query, fetch from scraper
                     if (totalCount === 0 && !query && !forceServerRefresh) {
                         console.log('[MobileStore] Collection empty, performing initial fetch...');
                         await mobileScraperService.fetchCollection(false, get().isSimulationMode, onProgress);
-                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query);
-                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query);
+                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
+                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
+                    }
+
+                    let finalItems = items;
+                    if (get().dedupeEnabled) {
+                        finalItems = dedupeCollectionItems(items);
                     }
 
                     set({
                         collection: {
-                            items,
+                            items: finalItems,
                             totalCount,
                             lastUpdated: new Date().toISOString(),
                             isSimulated: get().isSimulationMode
@@ -1237,7 +1293,11 @@ export const useStore = create<AppState>((set, get) => ({
                     forceRefresh: forceServerRefresh,
                     query: searchQuery,
                     offset: get().collectionOffset,
-                    limit: 50
+                    limit: 50,
+                    sortKey: get().collectionSortKey,
+                    sortDirection: get().collectionSortDirection,
+                    includeWishlist: get().includeWishlistInCollection,
+                    dedupeEnabled: get().dedupeEnabled
                 });
                 return Promise.resolve();
             } else {
@@ -1257,7 +1317,11 @@ export const useStore = create<AppState>((set, get) => ({
                 forceRefresh: false,
                 offset: collectionOffset,
                 limit: 50,
-                query: searchQuery
+                query: searchQuery,
+                sortKey: get().collectionSortKey,
+                sortDirection: get().collectionSortDirection,
+                includeWishlist: get().includeWishlistInCollection,
+                dedupeEnabled: get().dedupeEnabled
             });
             return Promise.resolve();
         } else {
@@ -1268,18 +1332,29 @@ export const useStore = create<AppState>((set, get) => ({
                 return Promise.resolve();
             }
 
-            return mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery)
+            const includeWishlist = get().includeWishlistInCollection;
+            const sortKey = get().collectionSortKey;
+            const sortDirection = get().collectionSortDirection;
+            const filterAlbums = get().collectionFilterAlbums;
+            const filterTracks = get().collectionFilterTracks;
+            const filterWishlist = get().collectionFilterWishlist;
+
+            return mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist)
                 .then((newItems: CollectionItem[]) => {
                     const updatedItems = [...collection.items, ...newItems];
-                    const uniqueItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
+                    let finalItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
+                    
+                    if (get().dedupeEnabled) {
+                        finalItems = dedupeCollectionItems(finalItems);
+                    }
 
                     set({
                         collection: {
                             ...collection,
-                            items: uniqueItems
+                            items: finalItems
                         },
                         collectionOffset: collectionOffset + newItems.length,
-                        hasMoreCollection: uniqueItems.length < collection.totalCount,
+                        hasMoreCollection: finalItems.length < collection.totalCount,
                         isCollectionLoading: false
                     });
                 })
@@ -1317,9 +1392,10 @@ export const useStore = create<AppState>((set, get) => ({
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-artists');
         } else {
-            console.log('[MobileStore] Refreshing artists from DB...');
+            const { user } = get().auth;
+            if (!user) return;
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.getArtists()
+            mobileDatabase.getArtists(user.id, get().includeWishlistInCollection)
                 .then((artists: any[]) => {
                     console.log(`[MobileStore] Loaded ${artists.length} artists from DB`);
                     const mappedArtists: Artist[] = artists.map(a => ({
@@ -1346,9 +1422,11 @@ export const useStore = create<AppState>((set, get) => ({
             mobileScraperService.fetchCollection(false)
                 .then((collection: any) => {
                     const items = collection.items || [];
+                    const includeWishlist = get().includeWishlistInCollection;
                     const artistItems = items.filter((item: any) => {
                         const data = item.type === 'album' ? item.album : item.track;
-                        return data && (data.artistId === artistId || data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-') === artistId.replace('name-', ''));
+                        const artistMatch = data && (data.artistId === artistId || data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-') === artistId.replace('name-', ''));
+                        return artistMatch && (!item.isWishlist || includeWishlist);
                     });
                     set({
                         artistCollection: {
@@ -1398,6 +1476,58 @@ export const useStore = create<AppState>((set, get) => ({
             const { mobileDatabase } = require('../services/MobileDatabase');
             return mobileDatabase.getCollectionByArtistNames(auth.user.id, artistNames);
         }
+    },
+
+    toggleIncludeWishlistInCollection: async () => {
+        const newValue = !get().includeWishlistInCollection;
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('includeWishlistInCollection', newValue);
+        set({ includeWishlistInCollection: newValue });
+
+        // Refresh collection to reflect wishlist visibility
+        get().refreshCollection(true, '', true);
+    },
+
+    setCollectionSortKey: async (key) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collection_sort_key', key);
+        set({ collectionSortKey: key });
+        get().refreshCollection(true);
+    },
+
+    setCollectionSortDirection: async (direction) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collection_sort_direction', direction);
+        set({ collectionSortDirection: direction });
+        get().refreshCollection(true);
+    },
+
+    setCollectionFilterAlbums: async (show) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collection_filter_albums', show);
+        set({ collectionFilterAlbums: show });
+        get().refreshCollection(true);
+    },
+
+    setCollectionFilterTracks: async (show) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collection_filter_tracks', show);
+        set({ collectionFilterTracks: show });
+        get().refreshCollection(true);
+    },
+
+    setCollectionFilterWishlist: async (show) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collection_filter_wishlist', show);
+        set({ collectionFilterWishlist: show });
+        get().refreshCollection(true);
+    },
+
+    setDedupeEnabled: async (enabled) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('dedupe_enabled', enabled);
+        set({ dedupeEnabled: enabled });
+        get().refreshCollection(true);
     },
 }));
 

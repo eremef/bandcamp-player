@@ -16,6 +16,7 @@ import {
     MoreVertical, ListOrdered,
     IconNode
 } from 'lucide';
+import { sortCollectionItems } from '../../shared/utils/collection-utils';
 
 export class RemoteControlService extends EventEmitter {
     private server: any;
@@ -335,10 +336,14 @@ export class RemoteControlService extends EventEmitter {
 
                     console.log(`[RemoteService] Get Collection: offset=${offset}, limit=${limit}, query="${query}", forceRefresh=${forceRefresh}`);
 
-                    const collection = await this.scraperService.fetchCollection(forceRefresh);
+                    const includeWishlist = payload?.includeWishlist;
+                    const sortKey = payload?.sortKey || 'default';
+                    const sortDirection = payload?.sortDirection || 'desc';
+                    const dedupeEnabled = payload?.dedupeEnabled ?? true;
+                    const collection = await this.scraperService.fetchCollection(forceRefresh, includeWishlist);
 
                     // 1. Filter first (if query exists)
-                    let allItems = collection.items;
+                    let allItems = [...collection.items];
                     if (query) {
                         allItems = allItems.filter((item: any) => {
                             // Check item generic title/artist
@@ -349,7 +354,11 @@ export class RemoteControlService extends EventEmitter {
                         });
                     }
 
-                    // 2. Slice for pagination
+                    // 2. Sort according to requested key/direction
+                    // This ensures pagination (slice) works on correctly ordered list
+                    allItems = sortCollectionItems(allItems, sortKey, sortDirection, dedupeEnabled);
+
+                    // 3. Slice for pagination
                     // If no payload is provided (legacy clients), returns full collection (offset 0, limit undefined -> slice(0))
                     let itemsToSend = allItems;
                     if (payload && (payload.offset !== undefined || payload.limit !== undefined)) {

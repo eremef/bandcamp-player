@@ -10,7 +10,8 @@ import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
-import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal, ArrowUpDown, Calendar, SlidersHorizontal, Disc, Music, Heart, Drum, ArrowUp, ArrowDown, Quote } from 'lucide-react-native';
+import { sortCollectionItems } from '@shared/utils/collection-utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_COUNT = 3;
@@ -35,6 +36,20 @@ export default function CollectionScreen() {
     const collectionLoadingStatus = useStore((state) => state.collectionLoadingStatus);
     const storeSearchQuery = useStore((state) => state.searchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
+
+    // Sort & Dedupe state from store
+    const collectionSortKey = useStore((state) => state.collectionSortKey);
+    const collectionSortDirection = useStore((state) => state.collectionSortDirection);
+    const dedupeEnabled = useStore((state) => state.dedupeEnabled);
+    const setCollectionSortKey = useStore((state) => state.setCollectionSortKey);
+    const setCollectionSortDirection = useStore((state) => state.setCollectionSortDirection);
+    const collectionFilterAlbums = useStore((state) => state.collectionFilterAlbums);
+    const collectionFilterTracks = useStore((state) => state.collectionFilterTracks);
+    const collectionFilterWishlist = useStore((state) => state.collectionFilterWishlist);
+    const setCollectionFilterAlbums = useStore((state) => state.setCollectionFilterAlbums);
+    const setCollectionFilterTracks = useStore((state) => state.setCollectionFilterTracks);
+    const setCollectionFilterWishlist = useStore((state) => state.setCollectionFilterWishlist);
+
     const insets = useSafeAreaInsets();
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +65,12 @@ export default function CollectionScreen() {
     // Bulk ActionSheet state
     const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
     const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
+
+    // Sort & Filter ActionSheet state
+    const [sortSheetVisible, setSortSheetVisible] = useState(false);
+    const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+
+    const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || !collectionFilterWishlist;
 
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
@@ -126,17 +147,102 @@ export default function CollectionScreen() {
     const handleCreatePlaylist = useCallback((name: string) => {
         createPlaylist(name);
         setCreatePlaylistModalVisible(false);
-        // After creating, the playlists in store will update.
-        // We stay in the PlaylistSelectionModal so user can select the newly created playlist.
     }, [createPlaylist]);
 
-    const collectionItems = useMemo(() => collection?.items || [], [collection?.items]);
+    const collectionItems = useMemo(() => {
+        let items = collection?.items || [];
+
+        // Apply filters
+        items = items.filter(item => {
+            if (item.isWishlist) return collectionFilterWishlist;
+            if (item.type === 'album') return collectionFilterAlbums;
+            if (item.type === 'track') return collectionFilterTracks;
+            return true;
+        });
+
+        // Use the unified sorting function which handles stable deduplication internally
+        return sortCollectionItems(
+            items,
+            collectionSortKey,
+            collectionSortDirection,
+            dedupeEnabled
+        );
+    }, [collection?.items, dedupeEnabled, collectionSortKey, collectionSortDirection, collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist]);
+
+    const sortActions: Action[] = useMemo(() => [
+        { text: "Sort By", type: "label", onPress: () => { } },
+        {
+            text: "Purchase Date",
+            icon: Calendar,
+            checked: collectionSortKey === 'default',
+            onPress: () => setCollectionSortKey('default')
+        },
+        {
+            text: "Artist Name",
+            icon: Drum,
+            checked: collectionSortKey === 'artist',
+            onPress: () => setCollectionSortKey('artist')
+        },
+        {
+            text: "Album Title",
+            icon: Quote,
+            checked: collectionSortKey === 'album',
+            onPress: () => setCollectionSortKey('album')
+        },
+        { text: "", type: "separator", onPress: () => { } },
+        { text: "Order", type: "label", onPress: () => { } },
+        {
+            text: "Ascending (A-Z)",
+            icon: ArrowUp,
+            checked: collectionSortDirection === 'asc',
+            onPress: () => setCollectionSortDirection('asc')
+        },
+        {
+            text: "Descending (Z-A)",
+            icon: ArrowDown,
+            checked: collectionSortDirection === 'desc',
+            onPress: () => setCollectionSortDirection('desc')
+        },
+        {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        }
+    ], [collectionSortKey, collectionSortDirection, setCollectionSortKey, setCollectionSortDirection]);
+
+    const filterActions: Action[] = useMemo(() => [
+        { text: "Show", type: "label", onPress: () => { } },
+        {
+            text: "Albums",
+            icon: Disc,
+            checked: collectionFilterAlbums,
+            keepOpen: true,
+            onPress: () => setCollectionFilterAlbums(!collectionFilterAlbums)
+        },
+        {
+            text: "Tracks",
+            icon: Music,
+            checked: collectionFilterTracks,
+            keepOpen: true,
+            onPress: () => setCollectionFilterTracks(!collectionFilterTracks)
+        },
+        {
+            text: "Wishlist",
+            icon: Heart,
+            checked: collectionFilterWishlist,
+            keepOpen: true,
+            onPress: () => setCollectionFilterWishlist(!collectionFilterWishlist)
+        },
+        {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        }
+    ], [collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, setCollectionFilterAlbums, setCollectionFilterTracks, setCollectionFilterWishlist]);
 
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {
         clearQueue(false);
-        // addAlbumToQueue and addTrackToQueue auto-play when the queue is empty,
-        // so no explicit playQueueIndex(0) call is needed.
         for (const item of collectionItems) {
             if (item.type === 'album' && item.album?.bandcampUrl) {
                 await addAlbumToQueue(item.album.bandcampUrl, false, item.album.tracks, item.album.artist);
@@ -179,31 +285,11 @@ export default function CollectionScreen() {
     }, [collectionItems, addAlbumToPlaylist, addTrackToPlaylist]);
 
     const bulkActions: Action[] = useMemo(() => [
-        {
-            text: "Play Now",
-            icon: Play,
-            onPress: handleBulkPlayNow,
-        },
-        {
-            text: "Play Next",
-            icon: ListEnd,
-            onPress: handleBulkPlayNext,
-        },
-        {
-            text: "Add to Queue",
-            icon: ListPlus,
-            onPress: handleBulkAddToQueue,
-        },
-        {
-            text: "Add to Playlist",
-            icon: ListMusic,
-            onPress: () => setBulkPlaylistModalVisible(true),
-        },
-        {
-            text: "Cancel",
-            style: "cancel",
-            onPress: () => { },
-        },
+        { text: "Play Now", icon: Play, onPress: handleBulkPlayNow },
+        { text: "Play Next", icon: ListEnd, onPress: handleBulkPlayNext },
+        { text: "Add to Queue", icon: ListPlus, onPress: handleBulkAddToQueue },
+        { text: "Add to Playlist", icon: ListMusic, onPress: () => setBulkPlaylistModalVisible(true) },
+        { text: "Cancel", style: "cancel", onPress: () => { } },
     ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
 
     const handlePlayItem = useCallback(async (item: CollectionItem) => {
@@ -215,14 +301,12 @@ export default function CollectionScreen() {
                         url: item.album.bandcampUrl,
                         artist: item.album.artist,
                         title: item.album.title,
-                        artworkUrl: item.album.artworkUrl
+                        artworkUrl: item.album.artworkUrl,
                     }
                 });
                 return;
             }
         } else if (item.type === 'track' && item.track) {
-            // For tracks in collection, we already have the artist name.
-            // playTrack handles details resolution if needed while preserving the artist.
             await playTrack(item.track);
         }
     }, [playTrack]);
@@ -245,13 +329,10 @@ export default function CollectionScreen() {
 
     const onRefresh = React.useCallback(() => {
         const totalCount = collection?.totalCount || 0;
-
         const performRefresh = () => {
             setRefreshing(true);
             refreshCollection(true, searchQuery, true);
-            setTimeout(() => {
-                setRefreshing(false);
-            }, 1500);
+            setTimeout(() => { setRefreshing(false); }, 1500);
         };
 
         if (totalCount > 1000) {
@@ -269,17 +350,12 @@ export default function CollectionScreen() {
     }, [refreshCollection, searchQuery, collection?.totalCount]);
 
     useEffect(() => {
-        // Skip refreshing if we already have items and the search query hasn't changed
         if (searchQuery === storeSearchQuery && collection && collection.items.length > 0) return;
-
         const timer = setTimeout(() => {
             refreshCollection(true, searchQuery, false);
         }, 500);
-
         return () => clearTimeout(timer);
-        // collection intentionally omitted to avoid infinite reload loop
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, storeSearchQuery, refreshCollection]);
+    }, [searchQuery, storeSearchQuery, refreshCollection, collection]);
 
     if (!collection) {
         if (collectionError) {
@@ -305,7 +381,6 @@ export default function CollectionScreen() {
                     </View>
                     <Text style={[styles.loadingTitle, { color: colors.text }]}>Loading Your Music</Text>
                     <Text style={[styles.loadingSubtitle, { color: colors.textSecondary }]}>Syncing with Bandcamp...</Text>
-
                     {collectionLoadingStatus && (
                         <View style={[styles.statusBadge, { backgroundColor: colors.accent + '20', borderColor: colors.accent }]}>
                             <Text style={[styles.statusText, { color: colors.accent }]}>
@@ -318,36 +393,54 @@ export default function CollectionScreen() {
         );
     }
 
-    const showBulkBar = searchQuery.trim().length > 0 && collectionItems.length > 0;
-
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
+            <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <Text style={[styles.title, { color: colors.text }]}>Collection</Text>
+                    <View style={styles.headerButtons}>
+                        <TouchableOpacity
+                            testID="sort-button"
+                            onPress={() => setSortSheetVisible(true)}
+                            style={[
+                                styles.headerButton,
+                                { backgroundColor: colors.border + '40' }
+                            ]}
+                        >
+                            <ArrowUpDown size={14} color={colors.textSecondary} />
+                            <Text style={[styles.headerButtonText, { color: colors.textSecondary }]}>
+                                {collectionSortKey === 'default' ? 'Date' : collectionSortKey === 'artist' ? 'Artist' : 'Album'}
+                                {` (${collectionSortDirection === 'asc' ? 'A-Z' : 'Z-A'})`}
+                            </Text>
+                        </TouchableOpacity>
 
-            <View style={styles.searchRow}>
+                        <TouchableOpacity
+                            onPress={() => setFilterSheetVisible(true)}
+                            style={[
+                                styles.headerButton,
+                                { backgroundColor: colors.border + '40' },
+                                hasActiveFilter && { borderColor: colors.accent, borderWidth: 1 },
+                            ]}
+                        >
+                            <SlidersHorizontal size={14} color={hasActiveFilter ? colors.accent : colors.textSecondary} />
+                            {hasActiveFilter && <View style={[styles.filterDot, { backgroundColor: colors.accent }]} />}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => setBulkActionSheetVisible(true)}
+                            style={styles.iconButton}
+                        >
+                            <MoreHorizontal size={24} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
                 <SearchBar
-                    style={styles.searchBarInRow}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="Search collection..."
                 />
-                {showBulkBar && (
-                    <>
-                        <TouchableOpacity
-                            onPress={() => setBulkActionSheetVisible(true)}
-                            style={[styles.bulkButton, { backgroundColor: colors.card }]}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                            <MoreHorizontal size={18} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                    </>
-                )}
             </View>
-
-            {collectionError && (
-                <TouchableOpacity onPress={() => refreshCollection(true, searchQuery, true)} style={{ padding: 8, backgroundColor: '#330000' }}>
-                    <Text style={{ color: 'red', textAlign: 'center' }}>Sync Error: {collectionError}. Tap to retry.</Text>
-                </TouchableOpacity>
-            )}
 
             <FlatList
                 testID="collection-list"
@@ -355,7 +448,7 @@ export default function CollectionScreen() {
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}
                 numColumns={COLUMN_COUNT}
-                key={COLUMN_COUNT} // Force re-render when columns change
+                key={COLUMN_COUNT}
                 contentContainerStyle={styles.listContent}
                 columnWrapperStyle={styles.columnWrapper}
                 initialNumToRender={12}
@@ -364,9 +457,7 @@ export default function CollectionScreen() {
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
-                onEndReached={() => {
-                    loadMoreCollection();
-                }}
+                onEndReached={() => { loadMoreCollection(); }}
                 onEndReachedThreshold={0.5}
                 ListFooterComponent={() => (
                     isCollectionLoading && !refreshing ? (
@@ -377,7 +468,6 @@ export default function CollectionScreen() {
                 )}
             />
 
-            {/* Per-item modals */}
             <PlaylistSelectionModal
                 visible={playlistModalVisible}
                 onClose={() => setPlaylistModalVisible(false)}
@@ -399,13 +489,23 @@ export default function CollectionScreen() {
                 title={actionSheetTitle}
                 actions={actionSheetActions}
             />
-
-            {/* Bulk search result modals */}
             <ActionSheet
                 visible={bulkActionSheetVisible}
                 onClose={() => setBulkActionSheetVisible(false)}
-                title={`${collectionItems.length} ${collectionItems.length === 1 ? 'result' : 'results'}`}
                 actions={bulkActions}
+                title="Bulk Actions"
+            />
+            <ActionSheet
+                visible={sortSheetVisible}
+                onClose={() => setSortSheetVisible(false)}
+                actions={sortActions}
+                title="Sort Options"
+            />
+            <ActionSheet
+                visible={filterSheetVisible}
+                onClose={() => setFilterSheetVisible(false)}
+                actions={filterActions}
+                title="Filter Collection"
             />
             <PlaylistSelectionModal
                 visible={bulkPlaylistModalVisible}
@@ -421,7 +521,41 @@ export default function CollectionScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#121212',
+    },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconButton: {
+        padding: 8,
+        marginLeft: 8,
+    },
+    title: {
+        fontSize: 24,
+        fontWeight: 'bold',
+    },
+    headerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        marginLeft: 8,
+    },
+    headerButtonText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    header: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
     },
     center: {
         flex: 1,
@@ -473,26 +607,10 @@ const styles = StyleSheet.create({
     columnWrapper: {
         gap: GAP,
     },
-    searchRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        marginBottom: 15,
-        gap: 6,
-    },
-    searchBarInRow: {
-        flex: 1,
-        marginHorizontal: 0,
-        marginBottom: 0,
-    },
-    bulkCount: {
-        fontSize: 12,
-        fontWeight: '500',
-        flexShrink: 1,
-    },
-    bulkButton: {
-        borderRadius: 12,
-        padding: 15,
-        flexShrink: 0,
+    filterDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        marginLeft: 2,
     },
 });

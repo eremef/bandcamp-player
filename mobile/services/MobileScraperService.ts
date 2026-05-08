@@ -227,11 +227,11 @@ export class MobileScraperService {
                 // Parse initial page items using collection_data var
                 const collectionScript = $('script').filter((_, el) => {
                     const text = $(el).html() || '';
-                    return config.scriptKeys.collection.some(k => text.includes(k));
+                    return (config.scriptKeys?.collection || []).some(k => text.includes(k));
                 }).first().html();
 
                 if (collectionScript) {
-                    const collectionData = this.extractJsonObject(collectionScript, config.scriptKeys.collection);
+                    const collectionData = this.extractJsonObject(collectionScript, config.scriptKeys?.collection || []);
                     if (collectionData?.items) {
                         for (const item of collectionData.items) {
                             const parsed = this.parseCollectionItem(item);
@@ -287,9 +287,84 @@ export class MobileScraperService {
                         break;
                     }
                 }
+
+                // Fetch wishlist items if enabled
+                const includeWishlist = await mobileDatabase.getSettings().then(s => s.includeWishlistInCollection ?? false);
+                console.log(`[MobileScraper] Wishlist enabled: ${includeWishlist}`);
+                if (includeWishlist) {
+                    onProgress?.(`Loading wishlist...`);
+                    const wishlistItems: CollectionItem[] = [];
+
+                    // Find and parse wishlist script
+                    const wishlistScript = $('script').filter((_, el) => {
+                        const text = $(el).html() || '';
+                        return (config.scriptKeys?.wishlist || []).some(k => text.includes(k));
+                    }).first().html();
+
+                    if (wishlistScript) {
+                        const wishlistData = this.extractJsonObject(wishlistScript, config.scriptKeys?.wishlist || []);
+                        if (wishlistData?.items) {
+                            console.log(`[MobileScraper] Found ${wishlistData.items.length} wishlist items in page script`);
+                            for (const item of wishlistData.items) {
+                                const parsed = this.parseCollectionItem(item, 'wishlist');
+                                if (parsed) wishlistItems.push(parsed);
+                            }
+                        }
+                    }
+
+                    const wishlistEndpoint = config.endpoints.wishlistItemsApi || "https://bandcamp.com/api/fancollection/1/wishlist_items";
+
+                    if (wishlistItems.length === 0) {
+                        console.log(`[MobileScraper] No wishlist items in script, fetching from API: ${wishlistEndpoint}`);
+                        const initialWishlistBatch = await this.fetchMoreCollectionItems(activeFanId, undefined, cookies, wishlistEndpoint, 'wishlist');
+                        console.log(`[MobileScraper] API returned ${initialWishlistBatch.length} wishlist items`);
+                        wishlistItems.push(...initialWishlistBatch);
+                    }
+
+                    let hasMoreWishlist = wishlistItems.length > 0;
+                    let wishlistBatchCount = 0;
+                    const scrapingConfig = remoteConfigService.get().scraping;
+
+                    while (hasMoreWishlist && wishlistBatchCount < scrapingConfig.maxBatches) {
+                        const lastWishlistItem = wishlistItems[wishlistItems.length - 1];
+                        if (!lastWishlistItem?.token) break;
+
+                        try {
+                            const batch = await this.fetchMoreCollectionItems(activeFanId, lastWishlistItem.token, cookies, wishlistEndpoint, 'wishlist');
+                            if (batch.length === 0) {
+                                hasMoreWishlist = false;
+                            } else {
+                                const newItems = batch.filter(b => !wishlistItems.some(e => e.id === b.id));
+                                if (newItems.length === 0) {
+                                    hasMoreWishlist = false;
+                                } else {
+                                    wishlistItems.push(...newItems);
+                                    onProgress?.(`Loading wishlist: ${wishlistItems.length} items...`);
+                                }
+                            }
+                            wishlistBatchCount++;
+                        } catch (e) {
+                            console.warn('[MobileScraper] Wishlist batch fetch error:', e);
+                            break;
+                        }
+                    }
+
+                    // Merge wishlist items into main collection
+                    console.log(`[MobileScraper] Merging ${wishlistItems.length} wishlist items into collection`);
+                    for (const item of wishlistItems) {
+                        if (!items.some(e => e.id === item.id)) {
+                            items.push(item);
+                        }
+                    }
+                }
             }
 
             console.log(`[MobileScraper] Finished fetching. Total items: ${items.length}. Consolidating...`);
+
+            // Assign original sequence index for stable tie-breaking during sorting
+            items.forEach((item, idx) => {
+                item.index = idx;
+            });
 
             this.consolidateArtistIds(items);
 
@@ -315,7 +390,7 @@ export class MobileScraperService {
         }
     }
 
-    private async fetchMoreCollectionItems(fanId: string, lastToken: string | undefined, cookies: string): Promise<CollectionItem[]> {
+    private async fetchMoreCollectionItems(fanId: string, lastToken: string | undefined, cookies: string, apiUrl?: string, source: 'collection' | 'wishlist' = 'collection'): Promise<CollectionItem[]> {
         const config = remoteConfigService.get();
         const items: CollectionItem[] = [];
         const requestBody: any = {
@@ -328,7 +403,8 @@ export class MobileScraperService {
             requestBody.older_than_token = `${Math.floor(Date.now() / 1000)}::a::`;
         }
 
-        const response = await fetch(config.endpoints.collectionItemsApi, {
+        const endpoint = apiUrl || config.endpoints.collectionItemsApi;
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Cookie': cookies,
@@ -340,7 +416,7 @@ export class MobileScraperService {
         const data = await response.json();
         if (data.items) {
             for (const item of data.items) {
-                const parsed = this.parseCollectionItem(item);
+                const parsed = this.parseCollectionItem(item, source);
                 if (parsed) items.push(parsed);
             }
         }
@@ -351,22 +427,55 @@ export class MobileScraperService {
         return items;
     }
 
-    private parseCollectionItem(item: any): CollectionItem | null {
+    private parseCollectionItem(item: any, source: 'collection' | 'wishlist' = 'collection'): CollectionItem | null {
         try {
             const config = remoteConfigService.get();
-            // Skip wishlist items if they accidentally appeared 
-            if (item.is_wishlist || item.why === 'wishlist') {
-                return null;
-            }
+            const isWishlist = source === 'wishlist' || item.is_wishlist || item.why === 'wishlist';
 
             const isAlbum = item.item_type === 'album' || item.tralbum_type === 'a';
             const id = String(item.item_id || item.tralbum_id);
-            // Aligned with desktop: use band_name, with fallbacks for mobile API variations
-            const artist = this.cleanArtistName(item.band_name || item.artist || item.artist_name) || 'Unknown Artist';
-
-            // Aligned with desktop: for tracks use item_title or track_title
+            const rawArtist = item.band_name || item.artist || item.artist_name || 'Unknown Artist';
             const rawTitle = isAlbum ? (item.album_title || item.item_title || '') : (item.item_title || item.track_title || item.title || '');
-            const title = this.cleanTitle(rawTitle, artist);
+
+            let actualArtist = this.cleanArtistName(rawArtist);
+            let artistId = item.band_id ? String(item.band_id) : undefined;
+
+            const byIndex = rawTitle.lastIndexOf(' by ');
+            if (byIndex !== -1) {
+                const artistFromTitle = this.cleanArtistName(rawTitle.slice(byIndex + 4));
+                if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+                    actualArtist = artistFromTitle;
+                    artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+                }
+            } else {
+                // Check for "Artist - Title" format common on label catalog pages (e.g. "Mirt - Album")
+                // Guards: prefix ≤40 chars, not a pure number, no parens/brackets, no 4-digit years
+                const dashIndex = rawTitle.indexOf(' - ');
+                if (dashIndex > 0 && dashIndex <= 40) {
+                    const possibleArtist = this.cleanArtistName(rawTitle.slice(0, dashIndex));
+                    if (
+                        possibleArtist &&
+                        possibleArtist.toLowerCase() !== actualArtist.toLowerCase() &&
+                        !/^\d+$/.test(possibleArtist.trim()) &&
+                        !/[()[]]/.test(possibleArtist) &&
+                        !/\d{4}/.test(possibleArtist)
+                    ) {
+                        actualArtist = possibleArtist;
+                        artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+                    }
+                }
+            }
+
+            const title = this.cleanTitle(rawTitle, actualArtist);
+
+            const purchaseDate = item.purchased || item.added;
+            let normalizedDate = undefined;
+            if (purchaseDate) {
+                const dateObj = new Date(purchaseDate);
+                if (!isNaN(dateObj.getTime())) {
+                    normalizedDate = dateObj.toISOString();
+                }
+            }
 
             if (isAlbum) {
                 return {
@@ -376,17 +485,18 @@ export class MobileScraperService {
                     album: {
                         id,
                         title,
-                        artist,
-                        artistId: String(item.band_id),
+                        artist: actualArtist,
+                        artistId,
                         artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
                         bandcampUrl: item.item_url || item.bandcamp_url,
                         tracks: [],
                         trackCount: item.num_tracks || 0,
                     },
-                    purchaseDate: item.purchased || item.added || new Date().toISOString(),
+                    purchaseDate: normalizedDate,
+                    isWishlist,
                 };
             } else {
-                const trackTitle = this.cleanTitle(item.item_title || item.track_title || '', artist);
+                const trackTitle = this.cleanTitle(item.item_title || item.track_title || '', actualArtist);
                 return {
                     id,
                     type: 'track',
@@ -394,8 +504,8 @@ export class MobileScraperService {
                     track: {
                         id,
                         title: trackTitle,
-                        artist,
-                        artistId: item.band_id ? String(item.band_id) : undefined,
+                        artist: actualArtist,
+                        artistId,
                         album: item.album_title || '',
                         duration: typeof item.duration === 'number' ? item.duration : parseFloat(item.duration || '0'),
                         artworkUrl: item.item_art_url || (item.art_id ? config.endpoints.artworkFormat.replace('{art_id}', item.art_id.toString()) : ''),
@@ -403,7 +513,8 @@ export class MobileScraperService {
                         bandcampUrl: item.item_url || '',
                         isCached: false,
                     },
-                    purchaseDate: item.purchased || item.added || new Date().toISOString(),
+                    purchaseDate: normalizedDate,
+                    isWishlist,
                 };
             }
         } catch (e) {
@@ -416,9 +527,18 @@ export class MobileScraperService {
         try {
             const config = remoteConfigService.get().selectors.collection;
             const artistDOM = $item.find(config.artist).text().replace('by ', '');
-            const artist = this.cleanArtistName(artistDOM || config.fallbackArtist) || config.fallbackArtist;
+            let actualArtist = this.cleanArtistName(artistDOM || config.fallbackArtist) || config.fallbackArtist;
             const titleDOM = $item.find(config.title).text();
-            const title = this.cleanTitle(titleDOM || config.fallbackTitle, artist) || config.fallbackTitle;
+
+            const byIndex = titleDOM.lastIndexOf(' by ');
+            if (byIndex !== -1) {
+                const artistFromTitle = this.cleanArtistName(titleDOM.slice(byIndex + 4));
+                if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+                    actualArtist = artistFromTitle;
+                }
+            }
+
+            const title = this.cleanTitle(titleDOM || config.fallbackTitle, actualArtist) || config.fallbackTitle;
             const url = $item.find(config.link).attr('href') || '';
             const artworkUrl = $item.find(config.artwork).attr('src') || '';
             const id = $item.attr('data-tralbumid') || url.split('/').pop() || String(Date.now());
@@ -434,14 +554,14 @@ export class MobileScraperService {
                     album: {
                         id,
                         title,
-                        artist,
+                        artist: actualArtist,
                         artistId: artistId || '',
                         artworkUrl: artworkUrl.replace('_9.jpg', '_10.jpg'),
                         bandcampUrl: url,
                         tracks: [],
                         trackCount: 0,
                     },
-                    purchaseDate: new Date().toISOString(),
+                    purchaseDate: undefined,
                 };
             } else {
                 return {
@@ -451,7 +571,7 @@ export class MobileScraperService {
                     track: {
                         id,
                         title,
-                        artist,
+                        artist: actualArtist,
                         artistId: artistId || '',
                         album: '',
                         duration: 0,
@@ -460,7 +580,7 @@ export class MobileScraperService {
                         bandcampUrl: url,
                         isCached: false,
                     },
-                    purchaseDate: new Date().toISOString(),
+                    purchaseDate: undefined,
                 };
             }
         } catch {
@@ -469,59 +589,51 @@ export class MobileScraperService {
     }
 
     private consolidateArtistIds(items: CollectionItem[]): void {
-        const artistMap = new Map<string, string>();
         for (const item of items) {
             const data = item.type === 'album' ? item.album : item.track;
-            if (!data) continue;
-            const name = data.artist.toLowerCase();
-            const id = data.artistId;
-            if (id) {
-                if (!artistMap.has(name) || (/^\d+$/.test(id) && !/^\d+$/.test(artistMap.get(name)!))) {
-                    artistMap.set(name, id);
-                }
-            }
-        }
-        for (const item of items) {
-            const data = item.type === 'album' ? item.album : item.track;
-            if (!data) continue;
-            const bestId = artistMap.get(data.artist.toLowerCase());
-            if (bestId) data.artistId = bestId;
+            if (!data || !data.artist) continue;
+            
+            // Force name-based ID to ensure artists with different names are separate,
+            // even if they share the same Bandcamp band_id (aliases like Aphex Twin / AFX)
+            const name = data.artist.trim().toLowerCase();
+            data.artistId = `name-${name.replace(/[^a-z0-9]+/g, "-")}`;
         }
     }
 
     private async extractAndSaveArtists(items: CollectionItem[], onProgress?: (msg: string) => void): Promise<void> {
         onProgress?.('Extracting artists...');
+
         const artistsMap = new Map<string, { id: string; name: string; url: string; image_url?: string }>();
 
         for (const item of items) {
             const data = item.type === 'album' ? item.album : item.track;
-            if (!data) continue;
+            if (!data || !data.artist?.trim()) continue;
 
-            const artistId = data.artistId || `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-            let artistUrl = '';
-            if (data.bandcampUrl) {
-                const urlObj = new URL(data.bandcampUrl);
-                artistUrl = `${urlObj.protocol}//${urlObj.host}`;
-            }
+            const artistName = data.artist.trim();
+            const artistId = `name-${artistName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
 
-            const existing = artistsMap.get(artistId);
-            if (existing) {
-                // Merge better data
-                if (!existing.image_url && data.artworkUrl) {
-                    existing.image_url = data.artworkUrl;
+            if (!artistsMap.has(artistId)) {
+                let artistUrl = '';
+                if (data.bandcampUrl) {
+                    try {
+                        const urlObj = new URL(data.bandcampUrl);
+                        artistUrl = `${urlObj.protocol}//${urlObj.host}`;
+                    } catch { /* ignore invalid urls */ }
                 }
-                if (!existing.url && artistUrl) {
-                    existing.url = artistUrl;
-                }
-            } else {
+                if (!artistUrl) artistUrl = `https://bandcamp.com/search?q=${encodeURIComponent(artistName)}`;
+
                 artistsMap.set(artistId, {
                     id: artistId,
-                    name: data.artist,
+                    name: artistName,
                     url: artistUrl,
-                    image_url: data.artworkUrl // Note: MobileDatabase expects image_url (snake_case)
+                    image_url: data.artworkUrl,
                 });
+            } else {
+                const entry = artistsMap.get(artistId)!;
+                if (!entry.image_url && data.artworkUrl) entry.image_url = data.artworkUrl;
             }
         }
+
 
         const artists = Array.from(artistsMap.values());
         console.log(`[MobileScraper] Extracted ${artists.length} unique artists.`);

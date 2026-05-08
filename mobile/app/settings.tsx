@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
 import { remoteConfigService } from '@shared/remote-config.service';
@@ -11,7 +11,19 @@ import { remoteConfigService } from '@shared/remote-config.service';
 export default function SettingsScreen() {
     const router = useRouter();
     const colors = useTheme();
-    const { mode, isSimulationMode, toggleSimulationMode, lastfmState, scrobblingEnabled, disconnectLastfm, toggleScrobbling } = useStore();
+    const {
+        mode,
+        isSimulationMode,
+        toggleSimulationMode,
+        lastfmState,
+        scrobblingEnabled,
+        disconnectLastfm,
+        toggleScrobbling,
+        includeWishlistInCollection,
+        toggleIncludeWishlistInCollection,
+        dedupeEnabled,
+        setDedupeEnabled
+    } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
     const handleRefreshConfig = async () => {
@@ -104,6 +116,45 @@ export default function SettingsScreen() {
                         )}
                     </View>
                 )}
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Collection Preferences</Text>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <Heart color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Include Wishlist</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Show wishlist items in your collection
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={includeWishlistInCollection}
+                            onValueChange={toggleIncludeWishlistInCollection}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
+
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <RefreshCcw color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Deduplicate Collection</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Hide duplicate albums and releases
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={dedupeEnabled}
+                            onValueChange={setDedupeEnabled}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
+                </View>
+
 
                 {__DEV__ && (
                     <View style={styles.section}>
