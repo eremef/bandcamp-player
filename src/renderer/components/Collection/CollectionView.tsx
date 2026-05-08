@@ -169,7 +169,7 @@ export function CollectionView() {
     setIsBulkOperating(true);
     try {
       switch (action) {
-        case 'play':
+        case 'play': {
           await clearQueue(false);
           let playIndex = 0;
           for (const item of sortedItems) {
@@ -183,7 +183,8 @@ export function CollectionView() {
           }
           await playQueueIndex(0);
           break;
-        case 'playNext':
+        }
+        case 'playNext': {
           // Reverse to maintain order when adding "playNext" multiple times
           let nextIndex = 0;
           for (const item of [...sortedItems].reverse()) {
@@ -196,7 +197,8 @@ export function CollectionView() {
             nextIndex++;
           }
           break;
-        case 'addToQueue':
+        }
+        case 'addToQueue': {
           let queueIndex = 0;
           for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: queueIndex + 1 }));
@@ -208,7 +210,8 @@ export function CollectionView() {
             queueIndex++;
           }
           break;
-        case 'addToPlaylist':
+        }
+        case 'addToPlaylist': {
           if (playlistId) {
             const allTracks: any[] = [];
             let playlistIndex = 0;
@@ -238,7 +241,8 @@ export function CollectionView() {
             }
           }
           break;
-        case 'download':
+        }
+        case 'download': {
           let downloadIndex = 0;
           for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: downloadIndex + 1 }));
@@ -250,6 +254,7 @@ export function CollectionView() {
             downloadIndex++;
           }
           break;
+        }
       }
     } catch (err) {
       console.error('Bulk action failed:', err);
