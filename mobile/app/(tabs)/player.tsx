@@ -461,6 +461,11 @@ const styles = StyleSheet.create({
         marginBottom: 4,
         textAlign: 'center',
     },
+    label: {
+        fontSize: 16,
+        color: '#888',
+        fontWeight: 'normal',
+    },
     album: {
         fontSize: 16,
         color: '#888',

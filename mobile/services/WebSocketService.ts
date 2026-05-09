@@ -9,12 +9,12 @@ class WebSocketService {
     private ws: WebSocket | null = null;
     private url: string | null = null;
     private listeners: Record<string, MessageHandler[]> = {};
-    private reconnectInterval: NodeJS.Timeout | null = null;
     private isExplicitlyClosed = false;
 
     connect(host: string, port: number = 9999) {
         this.url = `ws://${host}:${port}`;
         this.isExplicitlyClosed = false;
+        this.reconnectAttempts = 0;
         this.initWebSocket();
     }
 
@@ -27,7 +27,9 @@ class WebSocketService {
             this.ws.close();
         }
 
-        console.log(`Connecting to ${this.url}`);
+        if (this.reconnectAttempts === 0) {
+            console.log(`Connecting to ${this.url}`);
+        }
         const socket = new WebSocket(this.url);
         this.ws = socket;
         let isThisSocketClosed = false;
@@ -64,7 +66,6 @@ class WebSocketService {
             isThisSocketClosed = true;
 
             if (this.ws === socket) {
-                console.log('Disconnected');
                 this.emit('connection-status', 'disconnected', this.isExplicitlyClosed);
                 if (!this.isExplicitlyClosed) {
                     this.startReconnect();
@@ -72,18 +73,16 @@ class WebSocketService {
             }
         };
 
-        socket.onerror = (e) => {
+        socket.onerror = (_e) => {
             if (isThisSocketClosed || this.isExplicitlyClosed) return;
-            if (this.ws === socket) {
-                console.error('WebSocket error', e);
-            }
+            // Silent error during connection attempts to avoid spamming logs
         };
     }
 
     private sendIdentify() {
         const platform = Platform.OS;
         const version = Constants.expoConfig?.version || 'unknown';
-        
+
         this.send('identify', {
             platform,
             appVersion: version,
@@ -122,19 +121,34 @@ class WebSocketService {
         }
     }
 
+    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private reconnectAttempts = 0;
+    private readonly MAX_RECONNECT_DELAY = 120000; // 2 minutes
+
     private startReconnect() {
-        if (this.reconnectInterval) return;
-        console.log('Starting reconnect loop...');
-        this.reconnectInterval = setInterval(() => {
-            console.log('Attempting reconnect...');
+        if (this.reconnectTimeout || this.isExplicitlyClosed) return;
+
+        // Exponential backoff: 2s, 4s, 8s, 16s, 32s, 64s, 120s...
+        const delay = Math.min(Math.pow(2, this.reconnectAttempts) * 1000, this.MAX_RECONNECT_DELAY);
+        
+        this.reconnectTimeout = setTimeout(() => {
+            this.reconnectTimeout = null;
+            this.reconnectAttempts++;
+            // Log first 3 attempts, then every 10th
+            if (this.reconnectAttempts <= 3 || this.reconnectAttempts % 10 === 0) {
+                console.log(`[WebSocket] Reconnect attempt #${this.reconnectAttempts} (delay ${delay}ms)`);
+            }
             this.initWebSocket();
-        }, 5000);
+        }, delay);
     }
 
     private stopReconnect() {
-        if (this.reconnectInterval) {
-            clearInterval(this.reconnectInterval);
-            this.reconnectInterval = null;
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        if (this.isConnected()) {
+            this.reconnectAttempts = 0;
         }
     }
 

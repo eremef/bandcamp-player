@@ -21,6 +21,7 @@ export class ScraperService extends EventEmitter {
   private database?: Database;
   private http: AxiosInstance;
   private cachedCollection: Collection | null = null;
+  private lastCacheId: string | null = null;
 
   constructor(authService: AuthService, database?: Database) {
     super();
@@ -68,6 +69,14 @@ export class ScraperService extends EventEmitter {
     // 1. Remove " by Artist" suffix if present
     if (artist && title.toLowerCase().endsWith(` by ${artist.toLowerCase()}`)) {
       title = title.slice(0, -` by ${artist}`.length);
+    }
+
+    // 1b. Remove "Artist - " prefix if present (label catalog format)
+    if (artist) {
+      const prefix = `${artist} - `;
+      if (title.toLowerCase().startsWith(prefix.toLowerCase())) {
+        title = title.slice(prefix.length);
+      }
     }
 
     // 2. Remove "(gift given)" infix/suffix
@@ -199,7 +208,10 @@ export class ScraperService extends EventEmitter {
   /**
    * Fetch user's collection (purchased music)
    */
-  async fetchCollection(forceRefresh = false): Promise<Collection> {
+  async fetchCollection(
+    forceRefresh = false,
+    includeWishlistOverride?: boolean,
+  ): Promise<Collection> {
     // ── Offline-first guard ──────────────────────────────────────────────────
     // Check offline mode BEFORE consulting fetchPromise so we never return a
     // stale/failing network promise when the user is in offline mode.
@@ -215,7 +227,14 @@ export class ScraperService extends EventEmitter {
         const user = this.authService.getUser();
         const userId = user.user?.id;
         const isSimulating = simulationService.shouldSimulate();
-        const cacheId = isSimulating ? `${userId}_sim` : userId || "anonymous";
+        const includeWishlistInCollection =
+          includeWishlistOverride ??
+          this.database?.getSettings()?.includeWishlistInCollection ??
+          false;
+        const cacheBaseId = isSimulating ? `${userId}_sim` : userId || "anonymous";
+        const cacheId = includeWishlistInCollection
+          ? `${cacheBaseId}_withWishlist`
+          : cacheBaseId;
 
         // Also try to get fan_id directly from cookie (more reliable in some cases)
         const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
@@ -232,18 +251,24 @@ export class ScraperService extends EventEmitter {
 
           // If user-specific cache not found, try fanId from cookie as fallback
           // (handles case where menubar API returned different ID than cookie)
-          if (!cached && fanIdFromCookie && fanIdFromCookie !== userId) {
-            cached = this.database.getCollectionCache(fanIdFromCookie);
+          const fanCacheId = includeWishlistInCollection
+            ? `${fanIdFromCookie}_withWishlist`
+            : fanIdFromCookie;
+          if (!cached && fanCacheId && fanIdFromCookie !== userId) {
+            cached = this.database.getCollectionCache(fanCacheId);
             console.log(
-              `[Scraper] Offline mode: fallback to fanIdFromCookie="${fanIdFromCookie}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+              `[Scraper] Offline mode: fallback to fanIdFromCookie="${fanCacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
             );
           }
 
           // If still not found, try anonymous fallback
           if (!cached) {
-            cached = this.database.getCollectionCache("anonymous");
+            const anonymousCacheId = includeWishlistInCollection
+              ? "anonymous_withWishlist"
+              : "anonymous";
+            cached = this.database.getCollectionCache(anonymousCacheId);
             console.log(
-              `[Scraper] Offline mode: fallback to "anonymous" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+              `[Scraper] Offline mode: fallback to "${anonymousCacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
             );
           }
 
@@ -276,16 +301,26 @@ export class ScraperService extends EventEmitter {
       return this.fetchPromise;
     }
 
-    if (this.cachedCollection && !forceRefresh) {
-      return this.cachedCollection;
-    }
-
+    const includeWishlistInCollection =
+      includeWishlistOverride ??
+      this.database?.getSettings()?.includeWishlistInCollection ??
+      false;
     const user = this.authService.getUser();
     const userId = user.user?.id;
     const isSimulating = simulationService.shouldSimulate();
 
     // Use a different cache ID for simulation to avoid clobbering real data
-    const cacheId = isSimulating ? `${userId}_sim` : userId || "anonymous";
+    const cacheBaseId = isSimulating ? `${userId}_sim` : userId || "anonymous";
+    const cacheId = includeWishlistInCollection
+      ? `${cacheBaseId}_withWishlist`
+      : cacheBaseId;
+
+    if (this.cachedCollection && !forceRefresh && this.lastCacheId === cacheId) {
+      console.log(`[Scraper] Returning memory-cached collection for cacheId: ${cacheId}`);
+      return this.cachedCollection;
+    }
+
+    this.lastCacheId = cacheId;
 
     // Try to load from database first if not forcing refresh.
     // cacheId already falls back to 'anonymous' when userId is null, so no userId guard needed.
@@ -295,8 +330,9 @@ export class ScraperService extends EventEmitter {
       if (cached) {
         const hasMissingArtwork =
           isSimulating &&
+          cached.data?.items &&
           cached.data.items.length > 0 &&
-          !cached.data.items.some(
+          !(cached.data.items || []).some(
             (item: any) => item.track?.artworkUrl || item.album?.artworkUrl,
           );
 
@@ -356,44 +392,80 @@ export class ScraperService extends EventEmitter {
 
           // Parse initial page items
           const config = remoteConfigService.get();
-          const collectionScript = $("script")
-            .filter((_, el) => {
-              const text = $(el).html() || "";
-              return config.scriptKeys.collection.some((k) => text.includes(k));
-            })
-            .first()
-            .html();
+          const scripts = $("script")
+            .map((_, el) => $(el).html() || "")
+            .get();
+
+          // Find and parse collection script
+          const collectionScript = scripts.find((s) =>
+            (config.scriptKeys?.collection || []).some((k) => s.includes(k)),
+          );
 
           if (collectionScript) {
             const collectionData = this.extractJsonObject(
               collectionScript,
-              config.scriptKeys.collection,
+              config.scriptKeys?.collection || [],
             );
             if (collectionData?.items) {
+              console.log(
+                `[Scraper] Found ${collectionData.items.length} initial collection items in page script`,
+              );
               for (const item of collectionData.items) {
-                const parsed = this.parseCollectionItem(item);
+                const parsed = this.parseCollectionItem(item, "collection");
                 if (parsed) items.push(parsed);
               }
             }
           }
 
+          // Find and parse wishlist script if enabled
+          const wishlistItems: CollectionItem[] = [];
+          if (includeWishlistInCollection) {
+            const wishlistScript = scripts.find((s) =>
+              (config.scriptKeys?.wishlist || []).some((k) => s.includes(k)),
+            );
+            if (wishlistScript) {
+              const wishlistData = this.extractJsonObject(
+                wishlistScript,
+                config.scriptKeys?.wishlist || [],
+              );
+              if (wishlistData) {
+                const blobItems = wishlistData.items || wishlistData.tracklist || wishlistData.collection_items;
+                if (blobItems && Array.isArray(blobItems)) {
+                  console.log(
+                    `[Scraper] Found ${blobItems.length} initial wishlist items in page script`,
+                  );
+                  for (const raw of blobItems) {
+                    const parsed = this.parseCollectionItem(raw, "wishlist");
+                    if (parsed) wishlistItems.push(parsed);
+                  }
+                } else {
+                  console.log(`[Scraper] Wishlist script found but no items/tracklist array. Keys: ${Object.keys(wishlistData).join(", ")}`);
+                }
+              }
+            }
+          }
+
           if (items.length === 0) {
-            const config = remoteConfigService.get();
+            console.log("[Scraper] No collection items in script, falling back to DOM parsing");
             $(config.selectors.collection.itemContainer).each((_, el) => {
               const parsed = this.parseCollectionItemFromDOM($, $(el));
               if (parsed) items.push(parsed);
             });
+            console.log(`[Scraper] DOM parsing found ${items.length} items`);
           }
 
           // Fetch more via API
           const pageFanId = this.extractFanId(response.data);
           const activeFanId = pageFanId ? String(pageFanId) : user!.id;
+          console.log(`[Scraper] Using activeFanId: ${activeFanId} (from page: ${!!pageFanId})`);
 
           // Initial API fetch
           const initialBatch = await this.fetchMoreCollectionItems(
             activeFanId,
             undefined,
             cookies,
+            config.endpoints.collectionItemsApi,
+            "collection",
           );
           for (const item of initialBatch) {
             if (!items.some((existing) => existing.id === item.id))
@@ -416,6 +488,8 @@ export class ScraperService extends EventEmitter {
                 activeFanId,
                 lastItem.token,
                 cookies,
+                config.endpoints.collectionItemsApi,
+                "collection",
               );
               if (batch.length === 0) {
                 hasMore = false;
@@ -445,6 +519,90 @@ export class ScraperService extends EventEmitter {
               await new Promise((resolve) =>
                 setTimeout(resolve, 1000 * retryCount),
               );
+            }
+          }
+
+          if (includeWishlistInCollection) {
+            console.log(`[Scraper] Fetching more wishlist items for fan ${activeFanId}...`);
+            const wishlistEndpoint =
+              config.endpoints.wishlistItemsApi ||
+              "https://bandcamp.com/api/fancollection/1/wishlist_items";
+
+            // If we have no wishlist items yet, fetch the first batch from API
+            if (wishlistItems.length === 0) {
+              const initialWishlistBatch = await this.fetchMoreCollectionItems(
+                activeFanId,
+                undefined,
+                cookies,
+                wishlistEndpoint,
+                "wishlist",
+              );
+              console.log(`[Scraper] Initial wishlist API batch returned ${initialWishlistBatch.length} items`);
+              wishlistItems.push(...initialWishlistBatch);
+            }
+
+            let hasMoreWishlist = wishlistItems.length > 0;
+            let wishlistBatchCount = 0;
+            let wishlistRetryCount = 0;
+
+            while (
+              hasMoreWishlist &&
+              wishlistBatchCount < scrapingConfig.maxBatches
+            ) {
+              const lastWishlistItem = wishlistItems[wishlistItems.length - 1];
+              if (!lastWishlistItem?.token) break;
+
+              try {
+                const batch = await this.fetchMoreCollectionItems(
+                  activeFanId,
+                  lastWishlistItem.token,
+                  cookies,
+                  wishlistEndpoint,
+                  "wishlist",
+                );
+                if (batch.length === 0) {
+                  hasMoreWishlist = false;
+                } else {
+                  const newItems = batch.filter(
+                    (b) => !wishlistItems.some((e) => e.id === b.id),
+                  );
+                  if (newItems.length === 0) {
+                    hasMoreWishlist = false;
+                  } else {
+                    wishlistItems.push(...newItems);
+                    wishlistRetryCount = 0;
+                  }
+                }
+                wishlistBatchCount++;
+              } catch {
+                wishlistRetryCount++;
+                if (wishlistRetryCount > MAX_RETRIES) {
+                  console.error(
+                    `[Scraper] Max retries reached for wishlist batch ${wishlistBatchCount}, stopping.`,
+                  );
+                  break;
+                }
+                console.warn(
+                  `[Scraper] Error fetching wishlist batch ${wishlistBatchCount}, retry ${wishlistRetryCount}/${MAX_RETRIES}...`,
+                );
+                await new Promise((resolve) =>
+                  setTimeout(resolve, 1000 * wishlistRetryCount),
+                );
+              }
+            }
+
+            for (const item of wishlistItems) {
+              const existingIndex = items.findIndex(
+                (existing) => existing.id === item.id,
+              );
+              if (existingIndex === -1) {
+                items.push(item);
+              } else if (
+                item.source === "wishlist" &&
+                items[existingIndex].source !== "collection"
+              ) {
+                items[existingIndex] = item;
+              }
             }
           }
         } else {
@@ -481,6 +639,11 @@ export class ScraperService extends EventEmitter {
           }
         }
 
+        // Assign original sequence index for stable tie-breaking during sorting
+        items.forEach((item, idx) => {
+          item.index = idx;
+        });
+
         this.consolidateArtistIds(items);
 
         this.cachedCollection = {
@@ -494,6 +657,9 @@ export class ScraperService extends EventEmitter {
 
         if (this.database && items.length > 0) {
           const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
+          const fanCacheId = includeWishlistInCollection
+            ? `${fanIdFromCookie}_withWishlist`
+            : fanIdFromCookie;
           console.log(
             `[Scraper] Saving collection to cache with userId=${userId}, fanIdFromCookie=${fanIdFromCookie}, cacheId=${cacheId}, items=${items.length}`,
           );
@@ -504,9 +670,9 @@ export class ScraperService extends EventEmitter {
             this.cachedCollection,
           );
           // Also save with fanIdFromCookie if different (handles cookie format changes)
-          if (fanIdFromCookie && fanIdFromCookie !== cacheId) {
+          if (fanCacheId && fanCacheId !== cacheId) {
             this.database.saveCollectionCache(
-              fanIdFromCookie,
+              fanCacheId,
               "collection",
               this.cachedCollection,
             );
@@ -525,10 +691,13 @@ export class ScraperService extends EventEmitter {
         console.error("[Scraper] Collection fetch failed:", error.message);
         // On network failure, try to fall back to any available DB cache before throwing
         if (this.database) {
+          const anonymousCacheId = includeWishlistInCollection
+            ? "anonymous_withWishlist"
+            : "anonymous";
           const fallback =
             this.database.getCollectionCache(cacheId) ||
-            (cacheId !== "anonymous"
-              ? this.database.getCollectionCache("anonymous")
+            (cacheId !== anonymousCacheId
+              ? this.database.getCollectionCache(anonymousCacheId)
               : null);
           if (fallback) {
             console.log(
@@ -592,50 +761,58 @@ export class ScraperService extends EventEmitter {
   ): void {
     if (!this.database) return;
 
-    const artistsMap = new Map<
-      string,
-      { id: string; name: string; url: string; imageUrl?: string }
-    >();
+    // Collect unique artists by name, using frequency to pick the best name for a given numeric ID
+    const nameFrequency = new Map<string, Map<string, number>>();
+    const artistsMap = new Map<string, { id: string; name: string; url: string; imageUrl?: string }>();
 
     for (const item of items) {
       const data = item.type === "album" ? item.album : item.track;
-      if (!data) continue;
+      if (!data || !data.artist?.trim()) continue;
 
-      // Use aristId if available, fallback to a name-based ID if missing
-      // This ensures artists with singles or limited DOM info still appear
-      const artistId =
+      const id =
         data.artistId ||
-        `name-${data.artist.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+        `name-${data.artist.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-")}`;
 
-      if (!artistsMap.has(artistId)) {
-        // Try to extract artist URL from item URL
-        let artistUrl = "";
+      if (!nameFrequency.has(id)) nameFrequency.set(id, new Map());
+      const names = nameFrequency.get(id)!;
+      names.set(data.artist, (names.get(data.artist) || 0) + 1);
+
+      if (!artistsMap.has(id)) {
+        let url = "";
         if (data.bandcampUrl) {
           try {
             const urlObj = new URL(data.bandcampUrl);
-            artistUrl = `${urlObj.protocol}//${urlObj.host}`;
+            url = `${urlObj.protocol}//${urlObj.host}`;
           } catch {
-            // ignore invalid urls
+            url = data.bandcampUrl;
           }
         }
-
-        artistsMap.set(artistId, {
-          id: artistId,
-          name: data.artist,
-          url: artistUrl,
-          imageUrl: data.artworkUrl || undefined,
-        });
+        if (!url) url = `https://bandcamp.com/search?q=${encodeURIComponent(data.artist)}`;
+        artistsMap.set(id, { id, name: data.artist, url, imageUrl: data.artworkUrl || undefined });
+      } else {
+        const entry = artistsMap.get(id)!;
+        if (!entry.imageUrl && data.artworkUrl) entry.imageUrl = data.artworkUrl;
       }
+    }
+
+    // Apply most-frequent name for each ID
+    for (const [id, entry] of artistsMap) {
+      const names = nameFrequency.get(id);
+      if (!names || names.size <= 1) continue;
+      let bestName = entry.name;
+      let bestCount = 0;
+      for (const [name, count] of names) {
+        if (count > bestCount) { bestCount = count; bestName = name; }
+      }
+      if (bestName !== entry.name) entry.name = bestName;
     }
 
     const artists = Array.from(artistsMap.values());
     if (artists.length > 0) {
       this.database.replaceArtists(artists, isSimulated);
-      console.log(
-        `[Scraper] Replaced ${artists.length} artists in database (isSimulated: ${isSimulated})`,
-      );
     }
   }
+
 
   /**
    * Fetch additional collection items via Bandcamp's API
@@ -644,6 +821,8 @@ export class ScraperService extends EventEmitter {
     fanId: string,
     lastToken: string | undefined,
     cookies: string,
+    endpoint: string,
+    source: "collection" | "wishlist",
   ): Promise<CollectionItem[]> {
     // Check for simulation mode
     if (simulationService.shouldSimulate()) {
@@ -660,21 +839,19 @@ export class ScraperService extends EventEmitter {
     };
     if (lastToken) {
       requestBody.older_than_token = lastToken;
+    } else {
+      requestBody.older_than_token = `${Math.floor(Date.now() / 1000)}::a::`;
     }
-    const response = await this.http.post(
-      config.endpoints.collectionItemsApi,
-      requestBody,
-      {
-        headers: {
-          Cookie: cookies,
-          "Content-Type": "application/json",
-        },
+    const response = await this.http.post(endpoint, requestBody, {
+      headers: {
+        Cookie: cookies,
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     if (response.data.items) {
       for (const item of response.data.items) {
-        const collectionItem = this.parseCollectionItem(item);
+        const collectionItem = this.parseCollectionItem(item, source);
         if (collectionItem) {
           items.push(collectionItem);
         }
@@ -693,76 +870,115 @@ export class ScraperService extends EventEmitter {
   /**
    * Parse a collection item from API response
    */
-  private parseCollectionItem(item: any): CollectionItem | null {
+  private parseCollectionItem(
+    item: any,
+    source: "collection" | "wishlist" = "collection",
+  ): CollectionItem | null {
     try {
       const config = remoteConfigService.get();
-      const isAlbum = item.item_type === "album" || item.tralbum_type === "a";
-      const id = String(item.item_id || item.tralbum_id);
-      const artist = this.cleanArtistName(item.band_name);
+      const isAlbum =
+        item.item_type === "album" ||
+        item.tralbum_type === "a" ||
+        item.type === "album";
+      const id = String(item.item_id || item.tralbum_id || item.id);
+      const rawTitle = (item.album_title || item.item_title || item.title || "").trim();
+      const rawBandName = item.band_name || item.artist || item.artist_name || "";
+
+      let actualArtist = this.cleanArtistName(rawBandName);
+      let artistId = item.band_id ? String(item.band_id) : undefined;
+
+      const byIndex = rawTitle.lastIndexOf(" by ");
+      if (byIndex !== -1) {
+        const artistFromTitle = this.cleanArtistName(rawTitle.slice(byIndex + 4));
+        if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+          actualArtist = artistFromTitle;
+          artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        }
+      } else {
+        // Check for "Artist - Title" format common on label catalog pages (e.g. "Mirt - Album")
+        // Guards: prefix ≤40 chars, not a pure number, no parens/brackets, no 4-digit years
+        const dashIndex = rawTitle.indexOf(" - ");
+        if (dashIndex > 0 && dashIndex <= 40) {
+          const possibleArtist = this.cleanArtistName(rawTitle.slice(0, dashIndex));
+          if (
+            possibleArtist &&
+            possibleArtist.toLowerCase() !== actualArtist.toLowerCase() &&
+            !/^\d+$/.test(possibleArtist.trim()) &&
+            !/[()[]]/.test(possibleArtist) &&
+            !/\d{4}/.test(possibleArtist)
+          ) {
+            actualArtist = possibleArtist;
+            artistId = `name-${actualArtist.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          }
+        }
+      }
 
       // Use shared helper for title cleaning
-      const title = this.cleanTitle(
-        item.album_title || item.item_title || "",
-        artist,
-      );
+      const title = this.cleanTitle(rawTitle, actualArtist);
 
       if (isAlbum) {
         return {
           id,
           type: "album",
+          source,
+          isWishlist: source === "wishlist",
           token: item.token || item.sale_token, // Capture token
           album: {
             id,
             title,
-            artist,
-            artistId: String(item.band_id),
+            artist: actualArtist,
+            artistId,
             artworkUrl:
               item.item_art_url ||
-              (item.art_id
+              item.art_url ||
+              item.image_url ||
+              (item.art_id || item.item_art_id || item.image_id
                 ? config.endpoints.artworkFormat.replace(
                   "{art_id}",
-                  item.art_id.toString(),
+                  (item.art_id || item.item_art_id || item.image_id).toString(),
                 )
                 : ""),
-            bandcampUrl: item.item_url || item.bandcamp_url,
+            bandcampUrl: item.item_url || item.bandcamp_url || item.url,
             tracks: [],
             trackCount: item.num_tracks || 0,
           },
-          purchaseDate:
-            item.purchased || item.added || new Date().toISOString(),
+          purchaseDate: item.purchased || item.added,
         };
       } else {
         // Also clean track title using shared helper
         const trackTitle = this.cleanTitle(
           item.item_title || item.track_title || "",
-          artist,
+          actualArtist,
         );
 
         return {
           id,
           type: "track",
+          source,
+          isWishlist: source === "wishlist",
           token: item.token || item.sale_token, // Capture token
           track: {
             id,
             title: trackTitle,
-            artist,
-            artistId: item.band_id ? String(item.band_id) : undefined,
+            artist: actualArtist,
+            artistId,
             album: item.album_title || "",
             duration: item.duration || 0,
             artworkUrl:
               item.item_art_url ||
-              (item.art_id
+              item.art_url ||
+              item.image_url ||
+              (item.art_id || item.item_art_id || item.image_id
                 ? config.endpoints.artworkFormat.replace(
                   "{art_id}",
-                  item.art_id.toString(),
+                  (item.art_id || item.item_art_id || item.image_id).toString(),
                 )
                 : ""),
             streamUrl: "", // Will be fetched separately
-            bandcampUrl: item.item_url || "",
+            bandcampUrl: item.item_url || item.bandcamp_url || item.url,
             isCached: false,
           },
-          purchaseDate:
-            item.purchased || item.added || new Date().toISOString(),
+          purchaseDate: item.purchased || item.added,
         };
       }
     } catch (error) {
@@ -781,9 +997,17 @@ export class ScraperService extends EventEmitter {
     try {
       const config = remoteConfigService.get().selectors.collection;
       const artistDOM = $item.find(config.artist).text().replace("by ", "");
-      const artist = this.cleanArtistName(artistDOM || config.fallbackArtist);
+      let actualArtist = this.cleanArtistName(artistDOM || config.fallbackArtist);
       const titleDOM = $item.find(config.title).text();
-      const title = this.cleanTitle(titleDOM || config.fallbackTitle, artist);
+      const byIndex = titleDOM.lastIndexOf(" by ");
+      if (byIndex !== -1) {
+        const artistFromTitle = this.cleanArtistName(titleDOM.slice(byIndex + 4));
+        if (artistFromTitle.toLowerCase() !== actualArtist.toLowerCase()) {
+          actualArtist = artistFromTitle;
+        }
+      }
+
+      const title = this.cleanTitle(titleDOM || config.fallbackTitle, actualArtist);
       const url = $item.find(config.link).attr("href") || "";
       const artworkUrl = $item.find(config.artwork).attr("src") || "";
       const id =
@@ -802,14 +1026,14 @@ export class ScraperService extends EventEmitter {
           album: {
             id,
             title,
-            artist,
+            artist: actualArtist,
             artistId,
             artworkUrl: artworkUrl.replace("_9.jpg", "_10.jpg"),
             bandcampUrl: url,
             tracks: [],
             trackCount: 0,
           },
-          purchaseDate: new Date().toISOString(),
+          purchaseDate: undefined,
         };
       } else {
         return {
@@ -819,7 +1043,7 @@ export class ScraperService extends EventEmitter {
           track: {
             id,
             title,
-            artist,
+            artist: actualArtist,
             artistId,
             album: "", // DOM doesn't always have album name for tracks easily accessible
             duration: 0,
@@ -828,7 +1052,7 @@ export class ScraperService extends EventEmitter {
             bandcampUrl: url,
             isCached: false,
           },
-          purchaseDate: new Date().toISOString(),
+          purchaseDate: undefined,
         };
       }
     } catch (error) {
@@ -1108,7 +1332,7 @@ export class ScraperService extends EventEmitter {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) continue;
 
-      const name = data.artist.toLowerCase();
+      const name = data.artist.trim().toLowerCase();
       const currentBest = artistMap.get(name);
       const id = data.artistId;
 
@@ -1130,7 +1354,7 @@ export class ScraperService extends EventEmitter {
       const data = item.type === "album" ? item.album : item.track;
       if (!data) continue;
 
-      const name = data.artist.toLowerCase();
+      const name = data.artist.trim().toLowerCase();
       const bestId = artistMap.get(name);
 
       if (bestId && data.artistId !== bestId) {

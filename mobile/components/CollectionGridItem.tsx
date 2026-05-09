@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Heart } from 'lucide-react-native';
 import { CollectionItem } from '@shared/types';
 import { useTheme } from '../theme';
 
@@ -50,10 +51,17 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
                         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
                 )}
+                {item.isWishlist && (
+                    <View style={styles.wishlistBadge}>
+                        <Heart size={14} color={colors.error} fill={colors.error} />
+                    </View>
+                )}
             </View>
             <View style={styles.info}>
                 <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-                <Text style={[styles.artist, { color: colors.textSecondary }]} numberOfLines={1}>{artist}</Text>
+                <Text style={[styles.artist, { color: colors.textSecondary }]} numberOfLines={1}>
+                    {artist}
+                </Text>
             </View>
         </TouchableOpacity>
     );
@@ -72,6 +80,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         backgroundColor: '#1a1a1a',
         marginBottom: 4,
+        position: 'relative',
+    },
+    wishlistBadge: {
+        position: 'absolute',
+        top: 6,
+        right: 6,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 12,
+        padding: 4,
     },
     artwork: {
         width: '100%',
@@ -98,5 +115,9 @@ const styles = StyleSheet.create({
     artist: {
         color: '#888',
         fontSize: 10,
+    },
+    label: {
+        fontSize: 9,
+        opacity: 0.8,
     },
 });

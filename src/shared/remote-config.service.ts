@@ -23,9 +23,11 @@ export interface RemoteConfig {
   scriptKeys: {
     collection: string[];
     album: string[];
+    wishlist: string[];
   };
   endpoints: {
     collectionItemsApi: string;
+    wishlistItemsApi?: string;
     mobileTralbumDetailsApi: string;
     radioListApi: string;
     radioShowWeb: string;
@@ -92,6 +94,11 @@ try {
       userAgents: { desktop: "", mobile: "", mobileApi: "" },
       cleaning: { artistCleanRegex: "" },
       scraping: { batchSize: 100 },
+      scriptKeys: {
+        collection: [],
+        album: [],
+        wishlist: [],
+      },
       radioData: { showIdKeys: [] },
     };
   }
@@ -109,7 +116,7 @@ export class RemoteConfigService {
   private offlineMode = false;
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): RemoteConfigService {
     if (!RemoteConfigService.instance) {

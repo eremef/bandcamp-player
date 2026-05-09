@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Alert, ActivityIndicator, Linking } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useStore } from '../../store';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CollectionItem } from '../../../src/shared/types';
+import { CollectionItem, Artist } from '../../../src/shared/types';
+import { dedupeCollectionItems } from '../../../src/shared/utils/collection-utils';
 import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { ActionSheet, Action } from '../../components/ActionSheet';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
@@ -23,6 +24,7 @@ export default function ArtistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const {
+        collection,
         artists,
         artistCollection,
         isArtistCollectionLoading,
@@ -35,16 +37,46 @@ export default function ArtistDetailScreen() {
         addAlbumToQueue,
         addTrackToPlaylist,
         addAlbumToPlaylist,
-        createPlaylist
+        createPlaylist,
+        dedupeEnabled
     } = useStore();
 
-    React.useEffect(() => {
+    // Derive the artist info from the store
+    const artist = useMemo((): Artist | null => {
+        if (!id) return null;
+
+        // 1. Try finding in the artists list first (populated by refreshArtists)
+        const storeArtist = artists.find(a => a.id === id);
+        if (storeArtist) return storeArtist;
+
+        // 2. Fallback: derive from collection items if not in artists list (e.g. navigation from collection)
+        if (!collection?.items) return null;
+
+        const items = collection.items || [];
+        const sourceItems = dedupeEnabled ? dedupeCollectionItems(items) : items;
+        const item = sourceItems.find((i: CollectionItem) => {
+            const data = i.type === 'album' ? i.album : i.track;
+            if (!data) return false;
+            const artistId = `name-${data.artist.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+            return artistId === id;
+        });
+
+        if (!item) return null;
+        const data = item.type === 'album' ? item.album! : item.track!;
+
+        return {
+            id,
+            name: data.artist,
+            imageUrl: data.artworkUrl,
+            bandcampUrl: data.bandcampUrl ? new URL(data.bandcampUrl).origin : ''
+        };
+    }, [collection, artists, id, dedupeEnabled]);
+
+    useEffect(() => {
         if (connectionStatus === 'connected' && id) {
             refreshArtistCollection(id);
         }
     }, [connectionStatus, id, refreshArtistCollection]);
-
-    const artist = artists.find(a => a.id === id);
 
     const artistItems = artistCollection?.items || [];
 
@@ -79,7 +111,15 @@ export default function ArtistDetailScreen() {
     const handlePlayItem = (item: CollectionItem) => {
         if (item.type === 'album' && item.album) {
             if (item.album.bandcampUrl) {
-                router.push({ pathname: '/album_detail', params: { url: item.album.bandcampUrl } });
+                router.push({
+                    pathname: '/album_detail',
+                    params: {
+                        url: item.album.bandcampUrl,
+                        artist: item.album.artist,
+                        title: item.album.title,
+                        artworkUrl: item.album.artworkUrl
+                    }
+                });
                 return;
             }
         } else if (item.type === 'track' && item.track) {
@@ -357,5 +397,17 @@ const styles = StyleSheet.create({
     emptyText: {
         color: '#666',
         fontSize: 16,
+    },
+    detailLabelBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12,
+        marginBottom: 10,
+    },
+    detailLabelBadgeText: {
+        color: '#000',
+        fontSize: 12,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
     },
 });

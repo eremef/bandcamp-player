@@ -38,7 +38,7 @@ describe("CacheService", () => {
     mockDatabase = {
       getSettings: vi
         .fn()
-        .mockReturnValue({ cacheEnabled: true, cacheMaxSizeGB: 1 }),
+        .mockReturnValue({ cacheEnabled: true, cacheMaxSizeGb: 1 }),
       getCacheEntry: vi.fn().mockReturnValue(null),
       addCacheEntry: vi.fn(),
       deleteCacheEntry: vi.fn(),
@@ -51,7 +51,7 @@ describe("CacheService", () => {
 
     // Mock fs default behaviors
     (fs.existsSync as any).mockReturnValue(false);
-    (fs.mkdirSync as any).mockImplementation(() => {});
+    (fs.mkdirSync as any).mockImplementation(() => { });
 
     cacheService = new CacheService(
       mockDatabase as unknown as Database,
@@ -111,7 +111,7 @@ describe("CacheService", () => {
 
       mockDatabase.getCacheEntry.mockReturnValue(mockEntry);
       (fs.existsSync as any).mockReturnValue(true);
-      (fs.unlinkSync as any).mockImplementation(() => {});
+      (fs.unlinkSync as any).mockImplementation(() => { });
 
       cacheService.deleteTrack(trackId);
 
@@ -126,7 +126,7 @@ describe("CacheService", () => {
       ];
       mockDatabase.getAllCacheEntries.mockReturnValue(mockEntries);
       (fs.existsSync as any).mockReturnValue(true);
-      (fs.unlinkSync as any).mockImplementation(() => {});
+      (fs.unlinkSync as any).mockImplementation(() => { });
 
       cacheService.clearCache();
 
@@ -192,7 +192,7 @@ describe("CacheService", () => {
       });
       (fs.createWriteStream as any).mockReturnValue(mockWriter);
       (fs.statSync as any).mockReturnValue({ size: 100 });
-      (fs.renameSync as any).mockImplementation(() => {});
+      (fs.renameSync as any).mockImplementation(() => { });
 
       const downloadPromise = cacheService.downloadTrack(mockTrack);
 
@@ -228,7 +228,7 @@ describe("CacheService", () => {
       });
       (fs.createWriteStream as any).mockReturnValue(mockWriter);
       (fs.existsSync as any).mockReturnValue(true);
-      (fs.unlinkSync as any).mockImplementation(() => {});
+      (fs.unlinkSync as any).mockImplementation(() => { });
 
       const downloadPromise = cacheService.downloadTrack(mockTrack);
 
@@ -245,7 +245,7 @@ describe("CacheService", () => {
       // Mock cache full scenario
       mockDatabase.getSettings.mockReturnValue({
         cacheEnabled: true,
-        cacheMaxSizeGB: 0.00001,
+        cacheMaxSizeGb: 0.00001,
       }); // very small limit
       mockDatabase.getCacheTotalSize.mockReturnValue(20 * 1024 * 1024); // 20MB currently used
       mockDatabase.getOldestCacheEntries.mockReturnValueOnce([
@@ -253,7 +253,7 @@ describe("CacheService", () => {
       ]);
 
       (fs.existsSync as any).mockReturnValue(true);
-      (fs.unlinkSync as any).mockImplementation(() => {});
+      (fs.unlinkSync as any).mockImplementation(() => { });
 
       // Mock successful download setup
       const mockStream = new EventEmitter();

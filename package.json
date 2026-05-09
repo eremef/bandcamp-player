@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.7",
+  "version": "1.8.8-beta",
   "productName": "Beta-Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
@@ -48,6 +48,9 @@
     "uuid": "^14.0.0",
     "ws": "^8.20.0",
     "zustand": "^5.0.12"
+  },
+  "overrides": {
+    "protobufjs": "^7.5.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

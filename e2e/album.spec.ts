@@ -37,7 +37,7 @@ test.describe('Album Detail Navigation', () => {
         await backButton.click();
 
         // 4. Verify we are back in the Collection view
-        await expect(window.getByRole('heading', { name: 'Your Collection', level: 1 })).toBeVisible({ timeout: 10000 });
+        await expect(window.getByRole('heading', { name: 'Collection', level: 1 })).toBeVisible({ timeout: 10000 });
     });
 
     test('should navigate to album detail from search and back to search results', async ({ window }) => {

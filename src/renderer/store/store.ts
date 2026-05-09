@@ -17,6 +17,8 @@ import type {
   CastDevice,
   CastStatus,
   Artist,
+  SortKey,
+  SortDirection,
 } from "../../shared/types";
 import { RemoteConfig } from "../../shared/remote-config.service";
 
@@ -63,6 +65,16 @@ interface CollectionSlice {
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
   collectionError: string | null;
+  collection_sort_key: SortKey;
+  collection_sort_direction: "asc" | "desc";
+  collectionFilterAlbums: boolean;
+  collectionFilterTracks: boolean;
+  collectionFilterWishlist: boolean;
+  setCollectionSortKey: (key: SortKey) => void;
+  setCollectionSortDirection: (dir: "asc" | "desc") => void;
+  setCollectionFilterAlbums: (show: boolean) => void;
+  setCollectionFilterTracks: (show: boolean) => void;
+  setCollectionFilterWishlist: (show: boolean) => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
@@ -154,13 +166,13 @@ interface RemoteSlice {
 interface UpdateSlice {
   updateStatus: {
     status:
-      | "idle"
-      | "checking"
-      | "available"
-      | "not-available"
-      | "downloading"
-      | "downloaded"
-      | "error";
+    | "idle"
+    | "checking"
+    | "available"
+    | "not-available"
+    | "downloading"
+    | "downloaded"
+    | "error";
     info?: any;
     progress?: any;
     error?: string;
@@ -400,6 +412,31 @@ export const useStore = create<StoreState>()((set, get) => ({
   selectedAlbum: null,
   isLoadingCollection: false,
   collectionError: null,
+  collection_sort_key: "default",
+  collection_sort_direction: "desc",
+  collectionFilterAlbums: true,
+  collectionFilterTracks: true,
+  collectionFilterWishlist: true,
+  setCollectionSortKey: (key: SortKey) => {
+    set({ collection_sort_key: key });
+    get().updateSettings({ collectionSortKey: key });
+  },
+  setCollectionSortDirection: (dir: SortDirection) => {
+    set({ collection_sort_direction: dir });
+    get().updateSettings({ collectionSortDirection: dir });
+  },
+  setCollectionFilterAlbums: (show: boolean) => {
+    set({ collectionFilterAlbums: show });
+    get().updateSettings({ collectionFilterAlbums: show });
+  },
+  setCollectionFilterTracks: (show: boolean) => {
+    set({ collectionFilterTracks: show });
+    get().updateSettings({ collectionFilterTracks: show });
+  },
+  setCollectionFilterWishlist: (show: boolean) => {
+    set({ collectionFilterWishlist: show });
+    get().updateSettings({ collectionFilterWishlist: show });
+  },
   fetchCollection: async (forceRefresh = false) => {
     const { isOnline, settings } = useStore.getState();
     const isOfflineMode = settings?.offlineMode ?? false;
@@ -648,8 +685,8 @@ export const useStore = create<StoreState>()((set, get) => ({
       `[CacheIndicator] fetchCachedTrackIds: ${tracks.length} cached tracks, albumIds in map: ${_cachedTrackCountByAlbum.size}`,
       tracks.length > 0
         ? tracks
-            .slice(0, 5)
-            .map((t) => `trackId=${t.id} albumId=${t.albumId ?? "MISSING"}`)
+          .slice(0, 5)
+          .map((t) => `trackId=${t.id} albumId=${t.albumId ?? "MISSING"}`)
         : "(empty)",
     );
 
@@ -706,20 +743,56 @@ export const useStore = create<StoreState>()((set, get) => ({
   settings: null,
   fetchSettings: async () => {
     const settings = await window.electron.settings.get();
-    set({ settings });
+    if (settings) {
+      set({
+        settings,
+        collection_sort_key: settings.collectionSortKey || "default",
+        collection_sort_direction: settings.collectionSortDirection || "desc",
+        collectionFilterAlbums:
+          settings.collectionFilterAlbums !== undefined
+            ? settings.collectionFilterAlbums
+            : true,
+        collectionFilterTracks:
+          settings.collectionFilterTracks !== undefined
+            ? settings.collectionFilterTracks
+            : true,
+        collectionFilterWishlist:
+          settings.collectionFilterWishlist !== undefined
+            ? settings.collectionFilterWishlist
+            : true,
+      });
+    }
   },
   updateSettings: async (newSettings) => {
     const currentSettings = get().settings;
     const wasOffline = currentSettings?.offlineMode ?? false;
     const isNowOnline = newSettings.offlineMode === false;
+    const includeWishlistChanged =
+      typeof newSettings.includeWishlistInCollection === "boolean" &&
+      newSettings.includeWishlistInCollection !==
+      (currentSettings?.includeWishlistInCollection ?? false);
 
-    const updated = await window.electron.settings.set(newSettings);
+    // If disabling wishlist, also reset the filter to "Show All" (inactive)
+    const settingsToUpdate = { ...newSettings };
+    if (includeWishlistChanged && !newSettings.includeWishlistInCollection) {
+      settingsToUpdate.collectionFilterWishlist = true;
+    }
+
+    const updated = await window.electron.settings.set(settingsToUpdate);
     set({ settings: updated });
+
+    if (includeWishlistChanged && !newSettings.includeWishlistInCollection) {
+      set({ collectionFilterWishlist: true });
+    }
 
     if (wasOffline && isNowOnline) {
       console.log("[Store] Back online - refreshing auth and collection...");
       const authResult = await window.electron.auth.refreshUser();
       get().setAuth(authResult);
+      get().fetchCollection(true);
+    }
+
+    if (includeWishlistChanged) {
       get().fetchCollection(true);
     }
 

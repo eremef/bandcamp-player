@@ -64,7 +64,7 @@ export class CacheService extends EventEmitter {
         },
       });
 
-      const totalLength = parseInt(response.headers["content-length"] || "0");
+      const totalLength = parseInt(String(response.headers["content-length"] || "0"), 10);
       let downloadedLength = 0;
 
       const writer = fs.createWriteStream(tempPath);
@@ -191,7 +191,7 @@ export class CacheService extends EventEmitter {
     const settings = this.database.getSettings();
     const totalSize = this.database.getCacheTotalSize();
     const entries = this.database.getAllCacheEntries();
-    const maxSize = (settings?.cacheMaxSizeGB || 5) * 1024 * 1024 * 1024; // GB to bytes
+    const maxSize = (settings?.cacheMaxSizeGb || 5) * 1024 * 1024 * 1024; // GB to bytes
 
     return {
       totalSize,
@@ -373,7 +373,7 @@ export class CacheService extends EventEmitter {
 
   private async ensureCacheSpace(_track: Track): Promise<void> {
     const settings = this.database.getSettings();
-    const maxSize = (settings?.cacheMaxSizeGB || 5) * 1024 * 1024 * 1024;
+    const maxSize = (settings?.cacheMaxSizeGb || 5) * 1024 * 1024 * 1024;
     const estimatedTrackSize = 10 * 1024 * 1024; // Estimate 10MB per track
 
     let currentSize = this.database.getCacheTotalSize();

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Pressable, Animated, Dimensions, Keyboard } from 'react-native';
 import { useTheme } from '../theme';
 import type { LucideIcon } from 'lucide-react-native';
+import { Check } from 'lucide-react-native';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
@@ -10,6 +11,9 @@ export interface Action {
     onPress: () => void;
     style?: 'default' | 'cancel' | 'destructive';
     icon?: LucideIcon;
+    type?: 'action' | 'label' | 'separator';
+    keepOpen?: boolean;
+    checked?: boolean;
 }
 
 interface ActionSheetProps {
@@ -71,6 +75,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
     const cardBg = colors.card === '#1a1a1a' ? '#2a2a2e' : colors.card;
     const destructiveColor = colors.card === '#1a1a1a' ? '#FF453A' : '#d32f2f';
 
+
     return (
         <Modal
             animationType="none"
@@ -93,7 +98,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                 >
                     <View style={[styles.group, { backgroundColor: cardBg }]}>
                         {(title || subtitle) && (
-                            <View style={[styles.header, { borderBottomColor: colors.border + '40' }]}>
+                            <View style={[styles.header, { borderBottomColor: colors.textSecondary + '40' }]}>
                                 {title && (
                                     <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
                                         {title}
@@ -108,9 +113,25 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                         )}
 
                         {mainActions.map((action, index) => {
+                            if (action.type === 'separator') {
+                                return <View key={index} style={[styles.separator, { backgroundColor: colors.border + '40' }]} />;
+                            }
+
+                            if (action.type === 'label') {
+                                return (
+                                    <View key={index} style={styles.labelContainer}>
+                                        <Text style={[styles.labelText, { color: colors.textSecondary }]}>{action.text}</Text>
+                                    </View>
+                                );
+                            }
+
                             const isDestructive = action.style === 'destructive';
                             const actionColor = isDestructive ? destructiveColor : colors.text;
                             const IconComponent = action.icon;
+
+                            const showBorder = index < mainActions.length - 1 &&
+                                mainActions[index + 1].type !== 'separator' &&
+                                mainActions[index + 1].type !== 'label';
 
                             return (
                                 <TouchableOpacity
@@ -118,16 +139,29 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                                     activeOpacity={0.6}
                                     style={[
                                         styles.actionButton,
-                                        index < mainActions.length - 1 && {
+                                        showBorder && {
                                             borderBottomWidth: StyleSheet.hairlineWidth,
                                             borderBottomColor: colors.border + '40',
                                         },
                                     ]}
                                     onPress={() => {
-                                        handleClose();
-                                        setTimeout(() => action.onPress(), 220);
+                                        if (!action.keepOpen) {
+                                            handleClose();
+                                            setTimeout(() => action.onPress(), 220);
+                                        } else {
+                                            action.onPress();
+                                        }
                                     }}
                                 >
+                                    {typeof action.checked === 'boolean' && (
+                                        <View style={[
+                                            styles.checkbox,
+                                            { borderColor: action.checked ? colors.accent : colors.border + '80' },
+                                            action.checked && { backgroundColor: colors.accent }
+                                        ]}>
+                                            {action.checked && <Check size={12} color="white" strokeWidth={3} />}
+                                        </View>
+                                    )}
                                     {IconComponent && (
                                         <IconComponent
                                             size={20}
@@ -171,14 +205,15 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         justifyContent: 'flex-end',
+        paddingBottom: 50
     },
     backdrop: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.6)',
+        backgroundColor: 'rgba(0, 0, 0, 0.75)',
     },
     sheetContainer: {
         paddingHorizontal: 10,
-        paddingBottom: 34,
+        paddingBottom: 0,
     },
     group: {
         borderRadius: 14,
@@ -208,7 +243,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        paddingVertical: 16,
+        paddingVertical: 10,
         paddingHorizontal: 20,
     },
     actionIcon: {
@@ -228,5 +263,28 @@ const styles = StyleSheet.create({
     cancelText: {
         fontSize: 18,
         fontWeight: '600',
+    },
+    labelContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 14,
+        paddingBottom: 6,
+    },
+    labelText: {
+        fontSize: 12,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    separator: {
+        height: StyleSheet.hairlineWidth,
+    },
+    checkbox: {
+        width: 20,
+        height: 20,
+        borderRadius: 4,
+        borderWidth: 2,
+        marginRight: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });

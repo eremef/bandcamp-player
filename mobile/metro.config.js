@@ -29,6 +29,9 @@ if (!config.resolver.assetExts.includes('txt')) {
 if (!config.resolver.assetExts.includes('hash')) {
     config.resolver.assetExts.push('hash');
 }
+if (!config.resolver.assetExts.includes('wasm')) {
+    config.resolver.assetExts.push('wasm');
+}
 
 // 5. BlockList to prevent resolving root cheerio
 const rootCheerioPath = path.resolve(workspaceRoot, 'node_modules', 'cheerio');

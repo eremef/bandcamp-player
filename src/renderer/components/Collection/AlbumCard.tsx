@@ -8,14 +8,23 @@ import {
   List,
   Music,
   Download,
+  Heart,
 } from "lucide-react";
 import styles from "./AlbumCard.module.css";
 
 interface AlbumCardProps {
   album: Album;
+  isTrackItem?: boolean;
+  isWishlist?: boolean;
+  onClick?: () => void;
 }
 
-export function AlbumCard({ album }: AlbumCardProps) {
+export function AlbumCard({
+  album,
+  isTrackItem = false,
+  isWishlist = false,
+  onClick,
+}: AlbumCardProps) {
   const {
     getAlbumDetails,
     addAlbumToQueue,
@@ -107,6 +116,10 @@ export function AlbumCard({ album }: AlbumCardProps) {
   };
 
   const handleCardClick = async () => {
+    if (onClick) {
+      onClick();
+    }
+
     // If tracks > 1, open details. If 1 (single), just play?
     // User request: "for albums with more than 1 track when you click on it, it should open a new view"
     // Implies single track albums might be treated differently or just ignored.
@@ -142,18 +155,18 @@ export function AlbumCard({ album }: AlbumCardProps) {
     await addTracksToPlaylist(playlistId, albumWithTracks.tracks);
   };
 
-    const handleDownload = async () => {
-        setShowMenu(false);
-        const albumWithTracks = await ensureAlbumTracks();
-        console.debug(
-            `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
-        );
-        await downloadAlbum(albumWithTracks);
-    };
+  const handleDownload = async () => {
+    setShowMenu(false);
+    const albumWithTracks = await ensureAlbumTracks();
+    console.debug(
+      `[AlbumCard] downloading album id="${album.id}", title="${album.title}"`,
+    );
+    await downloadAlbum(albumWithTracks);
+  };
 
   return (
     <div
-      className={styles.card}
+      className={`${styles.card} ${isTrackItem ? styles.trackCard : ""}`}
       onClick={handleCardClick}
       onMouseLeave={() => setShowMenu(false)}
       onContextMenu={(e) => {
@@ -163,12 +176,18 @@ export function AlbumCard({ album }: AlbumCardProps) {
     >
       {/* Artwork */}
       <div className={styles.artworkWrapper}>
+        {isTrackItem && <span className={styles.itemType}>Track</span>}
         <div className={styles.artworkContainer}>
           <img
             src={album.artworkUrl}
             alt={album.title}
             className={styles.artwork}
           />
+          {isWishlist && (
+            <div className={styles.wishlistBadge} title="Wishlist">
+              <Heart size={16} fill="currentColor" />
+            </div>
+          )}
           <div className={styles.overlay}>
             <button
               className={styles.playButton}

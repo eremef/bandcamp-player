@@ -5,7 +5,7 @@ import { mobileDatabase } from './MobileDatabase';
 import { useStore } from '../store';
 import type { Track, LastfmState, LastfmUser } from '@shared/types';
 
-const LASTFM_SESSION_KEY = 'lastfm_session_key';
+const LASTFM_SESSION_KEY = 'lastfmSessionKey';
 
 // ============================================================================
 // Mobile Last.fm Scrobbler Service (Standalone Mode)

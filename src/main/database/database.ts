@@ -25,6 +25,7 @@ export class Database {
 
     this.db = new BetterSqlite3(dbPath);
     this.db.pragma("journal_mode = WAL");
+    this.db.pragma("foreign_keys = ON");
     this.initialize();
   }
 
@@ -101,6 +102,7 @@ export class Database {
         url TEXT,
         image_url TEXT,
         is_simulated INTEGER DEFAULT 0,
+        is_label INTEGER DEFAULT 0,
         cached_at TEXT NOT NULL,
         PRIMARY KEY (id, is_simulated)
       );
@@ -159,6 +161,7 @@ export class Database {
                     url TEXT,
                     image_url TEXT,
                     is_simulated INTEGER DEFAULT 0,
+                    is_label INTEGER DEFAULT 0,
                     cached_at TEXT NOT NULL,
                     PRIMARY KEY (id, is_simulated)
                 );
@@ -168,6 +171,16 @@ export class Database {
             `);
     }
 
+    // Migration: Add is_label to artists if it doesn't exist
+    try {
+      this.db.prepare("SELECT is_label FROM artists LIMIT 1").get();
+    } catch {
+      console.log(
+        "[Database] Migrating artists table to include is_label column...",
+      );
+      this.db.exec(`ALTER TABLE artists ADD COLUMN is_label INTEGER DEFAULT 0;`);
+    }
+
     // Initialize default settings if not exists
     this.initializeDefaultSettings();
   }
@@ -175,7 +188,7 @@ export class Database {
   private initializeDefaultSettings() {
     const defaultSettings: AppSettings = {
       cacheEnabled: true,
-      cacheMaxSizeGB: 5,
+      cacheMaxSizeGb: 5,
       cacheLocation: "",
       defaultVolume: 0.8,
       crossfadeDuration: 0,
@@ -186,7 +199,14 @@ export class Database {
       scrobbleThreshold: 50,
       remoteEnabled: true,
       theme: "system",
+      deduplicateCollection: true,
+      collectionSortKey: "default",
+      collectionSortDirection: "desc",
+      collectionFilterAlbums: true,
+      collectionFilterTracks: true,
+      collectionFilterWishlist: true,
       offlineMode: false,
+      includeWishlistInCollection: false,
     };
 
     const existing = this.db
@@ -403,6 +423,15 @@ export class Database {
 
   addTracksToPlaylist(playlistId: string, tracks: Track[]): void {
     if (tracks.length === 0) return;
+
+    // Verify playlist exists to avoid foreign key error
+    const exists = this.db
+      .prepare("SELECT id FROM playlists WHERE id = ?")
+      .get(playlistId);
+    if (!exists) {
+      console.error(`[Database] Cannot add tracks: Playlist ${playlistId} not found`);
+      throw new Error(`Playlist ${playlistId} not found`);
+    }
 
     const now = new Date().toISOString();
 
@@ -777,7 +806,7 @@ export class Database {
   }
 
   replaceArtists(
-    artists: { id: string; name: string; url: string; imageUrl?: string }[],
+    artists: { id: string; name: string; url: string; imageUrl?: string; isLabel?: boolean }[],
     isSimulated = false,
   ): void {
     const now = new Date().toISOString();
@@ -787,8 +816,8 @@ export class Database {
       "DELETE FROM artists WHERE is_simulated = ?",
     );
     const insertStmt = this.db.prepare(`
-            INSERT INTO artists (id, name, url, image_url, is_simulated, cached_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO artists (id, name, url, image_url, is_simulated, is_label, cached_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         `);
 
     const transaction = this.db.transaction(() => {
@@ -803,6 +832,7 @@ export class Database {
           artist.url,
           artist.imageUrl || null,
           simulatedVal,
+          artist.isLabel ? 1 : 0,
           now,
         );
       }
@@ -813,7 +843,7 @@ export class Database {
 
   getArtists(
     isSimulated = false,
-  ): { id: string; name: string; bandcampUrl: string; imageUrl?: string }[] {
+  ): { id: string; name: string; bandcampUrl: string; imageUrl?: string; isLabel?: boolean }[] {
     const simulatedVal = isSimulated ? 1 : 0;
     const rows = this.db
       .prepare(
@@ -824,6 +854,7 @@ export class Database {
         name: string;
         url: string;
         image_url: string | null;
+        is_label: number;
       }>;
 
     return rows.map((row) => ({
@@ -831,6 +862,7 @@ export class Database {
       name: row.name,
       bandcampUrl: row.url,
       imageUrl: row.image_url || undefined,
+      isLabel: row.is_label === 1,
     }));
   }
 

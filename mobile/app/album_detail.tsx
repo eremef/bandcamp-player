@@ -278,7 +278,9 @@ export default function AlbumDetailScreen() {
         <View style={styles.albumHeader}>
             <Image source={{ uri: album.artworkUrl }} style={[styles.artwork, { backgroundColor: colors.card }]} />
             <Text style={[styles.title, { color: colors.text }]}>{album.title}</Text>
-            <Text style={[styles.artist, { color: colors.accent }]}>{album.artist}</Text>
+            <Text style={[styles.artist, { color: colors.accent }]}>
+                {album.artist}
+            </Text>
             <TouchableOpacity style={[styles.playButton, { backgroundColor: colors.accent }]} onPress={handlePlayAll}>
                 <Play size={20} color="#fff" fill="#fff" />
                 <Text style={[styles.playButtonText, { color: '#fff' }]}>Play Album</Text>
@@ -456,5 +458,10 @@ const styles = StyleSheet.create({
         color: '#666',
         fontSize: 14,
         fontVariant: ['tabular-nums'],
+    },
+    label: {
+        fontSize: 14,
+        color: '#888',
+        fontWeight: 'normal',
     },
 });

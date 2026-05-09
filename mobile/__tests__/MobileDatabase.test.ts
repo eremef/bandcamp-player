@@ -27,7 +27,8 @@ describe('MobileDatabase', () => {
 
     describe('init and setupTables', () => {
         it('should initialize and execute setup schema', async () => {
-            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]); // collection_items pragma
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]); // position check
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]); // is_wishlist check
             mockDb.getAllAsync.mockResolvedValueOnce([{ sql: 'CREATE VIRTUAL TABLE collection_search_fts USING fts5' }]); // fts info
 
             await dbInstance.init();
@@ -38,6 +39,7 @@ describe('MobileDatabase', () => {
 
         it('should migrate adding position column if missing', async () => {
             mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'id' }]); // Missing position
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]); // Has wishlist
             mockDb.getAllAsync.mockResolvedValueOnce([]); // No fts info
 
             await dbInstance.init();
@@ -46,8 +48,9 @@ describe('MobileDatabase', () => {
         });
 
         it('should migrate FTS table if incorrectly created', async () => {
-            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]);
-            mockDb.getAllAsync.mockResolvedValueOnce([{ sql: "CREATE VIRTUAL TABLE collection_search_fts USING fts5(content='collection_items')" }]);
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]); // position check
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]); // is_wishlist check
+            mockDb.getAllAsync.mockResolvedValueOnce([{ sql: "CREATE VIRTUAL TABLE collection_search_fts USING fts5(content='collection_items')" }]); // fts check
 
             await dbInstance.init();
 
@@ -61,7 +64,8 @@ describe('MobileDatabase', () => {
 
             await dbInstance.init();
 
-            expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed:', expect.any(Error));
+            expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed (position):', expect.any(Error));
+            expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed (is_wishlist):', expect.any(Error));
             expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] FTS Migration failed:', expect.any(Error));
             consoleSpy.mockRestore();
         });
@@ -151,6 +155,27 @@ describe('MobileDatabase', () => {
             expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.stringContaining('LIKE'), ['u1', '%#2%', '%#2%', '%#2%', '%#2%', 10, 0]);
         });
 
+        it('should use correct ORDER BY for default sort (Oldest first)', async () => {
+            await dbInstance.getCollectionGranular('u1', 0, 50, undefined, false, 'default', 'asc');
+            const lastCallSql = (mockDb.getAllAsync as jest.Mock).mock.calls[0][0];
+            
+            // Should NOT contain the CASE WHEN ... IS NULL THEN 1 ELSE 0 END
+            expect(lastCallSql).not.toContain('CASE WHEN ci.purchase_date IS NULL THEN 1 ELSE 0 END');
+            
+            // Should contain basic sort
+            expect(lastCallSql).toContain('ORDER BY ci.is_wishlist ASC,');
+            expect(lastCallSql).toContain('ci.purchase_date ASC,');
+            expect(lastCallSql).toContain('ci.position DESC,');
+            expect(lastCallSql).toContain('ci.id ASC');
+        });
+
+        it('should use correct ORDER BY for default sort (Newest first)', async () => {
+            await dbInstance.getCollectionGranular('u1', 0, 50, undefined, false, 'default', 'desc');
+            const lastCallSql = (mockDb.getAllAsync as jest.Mock).mock.calls[0][0];
+            
+            expect(lastCallSql).toContain('ci.purchase_date DESC,');
+        });
+
         it('should handle getCollectionTotalCount', async () => {
             mockDb.getFirstAsync.mockResolvedValueOnce({ count: 42 });
             const count = await dbInstance.getCollectionTotalCount('u1', 'query');
@@ -159,6 +184,7 @@ describe('MobileDatabase', () => {
 
             mockDb.getFirstAsync.mockResolvedValueOnce({ count: 99 });
             const countNoQ = await dbInstance.getCollectionTotalCount('u1');
+            expect(mockDb.getFirstAsync).toHaveBeenLastCalledWith(expect.stringContaining('SELECT COUNT(*)'), ['u1']);
             expect(countNoQ).toBe(99);
         });
 
@@ -222,7 +248,8 @@ describe('MobileDatabase', () => {
 
         it('should get all artists', async () => {
             mockDb.getAllAsync.mockResolvedValueOnce([{ id: 'a1', name: 'Art1' }]);
-            const res = await dbInstance.getArtists();
+            const res = await dbInstance.getArtists('user1');
+            expect(mockDb.getAllAsync).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT'), ['user1', 0]);
             expect(res).toEqual([{ id: 'a1', name: 'Art1' }]);
         });
 

@@ -50,10 +50,13 @@ export interface Artist {
 export interface CollectionItem {
   id: string;
   type: "album" | "track";
+  source?: "collection" | "wishlist";
+  isWishlist?: boolean;
   token?: string;
   album?: Album;
   track?: Track;
-  purchaseDate: string;
+  purchaseDate?: string;
+  index?: number;
 }
 
 export interface Collection {
@@ -197,10 +200,13 @@ export interface ScrobbleData {
 // Settings Types
 // ============================================================================
 
+export type SortKey = "default" | "artist" | "album";
+export type SortDirection = "asc" | "desc";
+
 export interface AppSettings {
   // Cache settings
   cacheEnabled: boolean;
-  cacheMaxSizeGB: number;
+  cacheMaxSizeGb: number;
   cacheLocation: string;
 
   // Playback settings
@@ -214,8 +220,17 @@ export interface AppSettings {
   remoteEnabled: boolean;
   theme: Theme;
 
+  // Collection settings
+  deduplicateCollection: boolean;
+  collectionSortKey: SortKey;
+  collectionSortDirection: SortDirection;
+  collectionFilterAlbums: boolean;
+  collectionFilterTracks: boolean;
+  collectionFilterWishlist: boolean;
+
   // Offline mode
   offlineMode: boolean;
+  includeWishlistInCollection: boolean;
 
   // Scrobbling
   scrobblingEnabled: boolean;

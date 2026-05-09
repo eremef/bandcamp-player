@@ -59,6 +59,7 @@ let scrobblerService: ScrobblerService;
 let remoteService: RemoteControlService;
 let updaterService: UpdaterService;
 let castService: CastService;
+let cacheServer: http.Server | null = null;
 
 // ============================================================================
 // Window Creation
@@ -77,9 +78,9 @@ function createMainWindow(
   options: { forceShow?: boolean } = {},
 ): BrowserWindow {
   const window = new BrowserWindow({
-    width: 1200,
+    width: 1250,
     height: 800,
-    minWidth: 900,
+    minWidth: 1180,
     minHeight: 600,
     frame: false,
     titleBarStyle: "hidden",
@@ -138,6 +139,7 @@ function createMainWindow(
       if (settings?.minimizeToTray) {
         event.preventDefault();
         window.hide();
+        return;
       }
     } catch (error) {
       // Fallback if database access fails
@@ -324,7 +326,7 @@ if (!gotTheLock) {
         fs.mkdirSync(CACHE_ROOT, { recursive: true });
       }
       const canonicalCacheRoot = fs.realpathSync(CACHE_ROOT);
-      const cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
+      cacheServer = http.createServer((req: IncomingMessage, res: ServerResponse) => {
         const rawPath = req.url ? req.url.slice(1) : "";
         const requestedPath = decodeURIComponent(rawPath);
 
@@ -384,11 +386,15 @@ if (!gotTheLock) {
           res.end("File not found");
         }
       });
-      cacheServer.listen(0, "127.0.0.1", () => {
-        const addr = cacheServer.address() as { port: number };
-        (global as any).cacheServerPort = addr.port;
-        console.log("[cache-server] Listening on port", addr.port);
-      });
+      if (cacheServer) {
+        cacheServer.listen(0, "127.0.0.1", () => {
+          const addr = cacheServer?.address() as { port: number };
+          if (addr) {
+            (global as any).cacheServerPort = addr.port;
+            console.log("[cache-server] Listening on port", addr.port);
+          }
+        });
+      }
 
       await initializeServices();
       mainWindow = createMainWindow();
@@ -429,7 +435,36 @@ if (!gotTheLock) {
   });
 
   app.on("before-quit", () => {
+    if (appIsQuitting && process.platform === 'win32') {
+      // Fallback: if we are already quitting but something is taking too long,
+      // force exit after a timeout to prevent the process from hanging and blocking installers.
+      setTimeout(() => {
+        console.log("[Main] Shutdown timeout reached. Forcing exit.");
+        process.exit(0);
+      }, 2000).unref(); // unref() so the timer itself doesn't keep the process alive
+    }
+
     appIsQuitting = true;
+
+    console.log("[Main] Shutting down services...");
+
+    // Stop all services and servers for a clean exit
+    // This prevents the process from hanging and blocking uninstallation
+    try {
+      remoteService?.stop();
+      castService?.stop();
+      updaterService?.stop();
+      if (cacheServer) {
+        cacheServer.close();
+        if (typeof (cacheServer as any).closeAllConnections === 'function') {
+          (cacheServer as any).closeAllConnections();
+        }
+        cacheServer = null;
+      }
+    } catch (err) {
+      console.error("Error during clean shutdown:", err);
+    }
+
     trayService?.destroy();
     database?.close();
   });

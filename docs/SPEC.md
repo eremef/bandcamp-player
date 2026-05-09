@@ -186,8 +186,8 @@ Application configuration.
 - `cacheMaxSizeGB`: number
 - `cacheLocation`: string
 - `defaultVolume`: number (Persisted "last used" volume)
-- `crossfadeDuration`: number
-- `crossfadeDuration`: number
+- `defaultVolume`: number
+- `defaultVolume`: number
 - `startMinimized`: boolean
 - `minimizeToTray`: boolean
 - `showNotifications`: boolean

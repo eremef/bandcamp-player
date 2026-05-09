@@ -16,6 +16,7 @@ import {
     MoreVertical, ListOrdered,
     IconNode
 } from 'lucide';
+import { sortCollectionItems } from '../../shared/utils/collection-utils';
 
 export class RemoteControlService extends EventEmitter {
     private server: any;
@@ -169,6 +170,8 @@ export class RemoteControlService extends EventEmitter {
     stop(): void {
         if (!this.isRunning) return;
 
+        console.log('[RemoteService] Stopping remote control service...');
+
         // Remove listeners
         this.playerService.off('state-changed', this.handleStateChanged);
         this.playerService.off('track-changed', this.handleTrackChanged);
@@ -176,15 +179,38 @@ export class RemoteControlService extends EventEmitter {
         this.playerService.off('queue-updated', this.handleQueueUpdated);
         this.playlistService.off('playlists-changed', this.handlePlaylistsChanged);
 
-        this.wss?.close();
-        this.server.close();
-        this.isRunning = false;
-        this.wss = null;
-        this.server = null;
+        // Explicitly close all connected clients
+        this.clients.forEach((client) => {
+            try {
+                if (client.ws.readyState === WebSocket.OPEN || client.ws.readyState === WebSocket.CONNECTING) {
+                    client.ws.terminate(); // terminate is more aggressive than close()
+                }
+            } catch (err) {
+                console.error('[RemoteService] Error terminating client during shutdown:', err);
+            }
+        });
         this.clients.clear();
+
+        // Close WebSocket server
+        if (this.wss) {
+            this.wss.close();
+            this.wss = null;
+        }
+
+        // Close HTTP server and force-close all remaining sockets
+        if (this.server) {
+            this.server.close();
+            if (typeof this.server.closeAllConnections === 'function') {
+                this.server.closeAllConnections();
+            }
+            this.server = null;
+        }
+
+        this.isRunning = false;
         this.emit('status-changed', false);
         this.emit('connections-changed', 0);
     }
+
 
     getStatus(): { isRunning: boolean; port: number; ip: number; url: string; connections: number } {
         const ip = this.getLocalIp();
@@ -310,10 +336,24 @@ export class RemoteControlService extends EventEmitter {
 
                     console.log(`[RemoteService] Get Collection: offset=${offset}, limit=${limit}, query="${query}", forceRefresh=${forceRefresh}`);
 
-                    const collection = await this.scraperService.fetchCollection(forceRefresh);
+                    const includeWishlist = payload?.includeWishlist;
+                    const sortKey = payload?.sortKey || 'default';
+                    const sortDirection = payload?.sortDirection || 'desc';
+                    const dedupeEnabled = payload?.dedupeEnabled ?? true;
+                    const filterAlbums = payload?.filterAlbums ?? true;
+                    const filterTracks = payload?.filterTracks ?? true;
+                    const filterWishlist = payload?.filterWishlist ?? true;
 
-                    // 1. Filter first (if query exists)
-                    let allItems = collection.items;
+                    const collection = await this.scraperService.fetchCollection(forceRefresh, includeWishlist);
+
+                    // 1. Filter first (by flags and query)
+                    let allItems = [...collection.items].filter((item: any) => {
+                        if (item.isWishlist) return includeWishlist && filterWishlist;
+                        if (item.type === 'album') return filterAlbums;
+                        if (item.type === 'track') return filterTracks;
+                        return true;
+                    });
+
                     if (query) {
                         allItems = allItems.filter((item: any) => {
                             // Check item generic title/artist
@@ -324,7 +364,11 @@ export class RemoteControlService extends EventEmitter {
                         });
                     }
 
-                    // 2. Slice for pagination
+                    // 2. Sort according to requested key/direction
+                    // This ensures pagination (slice) works on correctly ordered list
+                    allItems = sortCollectionItems(allItems, sortKey, sortDirection, dedupeEnabled);
+
+                    // 3. Slice for pagination
                     // If no payload is provided (legacy clients), returns full collection (offset 0, limit undefined -> slice(0))
                     let itemsToSend = allItems;
                     if (payload && (payload.offset !== undefined || payload.limit !== undefined)) {

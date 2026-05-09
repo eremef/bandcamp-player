@@ -1,5 +1,5 @@
 .panel {
-    width: 320px;
+    width: 300px;
     background: var(--bg-secondary);
     border-left: 1px solid var(--border-subtle);
     display: flex;

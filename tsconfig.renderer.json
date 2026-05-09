@@ -14,7 +14,7 @@
         "forceConsistentCasingInFileNames": true,
         "resolveJsonModule": true,
         "jsx": "react-jsx",
-        "baseUrl": ".",
+        // "baseUrl": ".",
         "paths": {
             "@shared/*": [
                 "./src/shared/*"

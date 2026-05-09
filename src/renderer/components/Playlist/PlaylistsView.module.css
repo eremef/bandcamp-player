@@ -1,5 +1,5 @@
 .container {
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg);
     min-height: 100%;
     border-top: 1px solid var(--border-subtle);
 }
@@ -8,7 +8,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: var(--spacing-2xl);
+    margin-bottom: var(--spacing-lg);
 }
 
 .headerContent h1 {

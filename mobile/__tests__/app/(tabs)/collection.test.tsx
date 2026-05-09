@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { render, fireEvent, waitFor, act, within } from '@testing-library/react-native';
 import CollectionScreen from '../../../app/(tabs)/collection';
 import { useStore } from '../../../store';
 import { router } from 'expo-router';
@@ -19,6 +19,12 @@ jest.mock('lucide-react-native', () => ({
     ListMusic: () => 'ListMusic',
     Play: () => 'Play',
     MoreHorizontal: () => 'MoreHorizontal',
+    ArrowUpDown: () => 'ArrowUpDown',
+    Check: () => 'Check',
+    SlidersHorizontal: () => 'SlidersHorizontal',
+    Disc: () => 'Disc',
+    Music: () => 'Music',
+    Heart: () => 'Heart',
 }));
 
 // Mock WebSocketService
@@ -142,6 +148,12 @@ describe('CollectionScreen', () => {
         queue: { currentIndex: -1, tracks: [] },
         clearQueue: jest.fn(),
         playQueueIndex: jest.fn(),
+        collectionFilterAlbums: true,
+        collectionFilterTracks: true,
+        collectionFilterWishlist: true,
+        setCollectionFilterAlbums: jest.fn(),
+        setCollectionFilterTracks: jest.fn(),
+        setCollectionFilterWishlist: jest.fn(),
     };
 
     beforeEach(() => {
@@ -381,5 +393,112 @@ describe('CollectionScreen', () => {
         fireEvent.press(getByText('Create'));
 
         expect(mockStore.createPlaylist).toHaveBeenCalledWith('Super Hits');
+    });
+
+    describe('Sorting', () => {
+        const sortingCollection = {
+            items: [
+                {
+                    id: '1',
+                    type: 'album',
+                    purchaseDate: '2024-02-01T10:00:00.000Z',
+                    album: { title: 'Beta Album', artist: 'Artist B', artworkUrl: 'url1' },
+                },
+                {
+                    id: '2',
+                    type: 'album',
+                    purchaseDate: '2024-03-01T10:00:00.000Z',
+                    album: { title: 'Alpha Album', artist: 'Artist C', artworkUrl: 'url2' },
+                },
+                {
+                    id: '3',
+                    type: 'album',
+                    purchaseDate: '2024-01-01T10:00:00.000Z',
+                    album: { title: 'Zeta Album', artist: 'Artist A', artworkUrl: 'url3' },
+                },
+            ],
+            totalCount: 3,
+        };
+
+        const setupSortingStore = (key: string, direction: string) => {
+            (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+                const state = {
+                    ...mockStore,
+                    collection: sortingCollection,
+                    collectionSortKey: key,
+                    collectionSortDirection: direction,
+                    setCollectionSortKey: jest.fn(),
+                    setCollectionSortDirection: jest.fn(),
+                };
+                return selector(state);
+            });
+        };
+
+        it('sorts by Purchase Date (Newest First) by default', () => {
+            setupSortingStore('default', 'desc');
+            const { getAllByText } = render(<CollectionScreen />);
+            const items = getAllByText(/Album/).filter(el => el.props.children !== 'Album' && el.props.children !== 'Albums');
+            // Dates DESC: 03-01 (Alpha), 02-01 (Beta), 01-01 (Zeta)
+            expect(items[0].props.children).toBe('Alpha Album');
+            expect(items[1].props.children).toBe('Beta Album');
+            expect(items[2].props.children).toBe('Zeta Album');
+        });
+
+        it('sorts by Artist Name', () => {
+            setupSortingStore('artist', 'asc');
+            const { getByTestId } = render(<CollectionScreen />);
+            const list = getByTestId('collection-list');
+            const items = within(list).getAllByText(/Artist/);
+            // Artists: Artist A (Zeta), Artist B (Beta), Artist C (Alpha)
+            expect(items[0].props.children).toBe('Artist A');
+            expect(items[1].props.children).toBe('Artist B');
+            expect(items[2].props.children).toBe('Artist C');
+        });
+
+        it('sorts by Album Title', () => {
+            setupSortingStore('album', 'asc');
+            const { getByTestId } = render(<CollectionScreen />);
+            const list = getByTestId('collection-list');
+            const items = within(list).getAllByText(/Album/);
+            // Titles: Alpha Album, Beta Album, Zeta Album
+            expect(items[0].props.children).toBe('Alpha Album');
+            expect(items[1].props.children).toBe('Beta Album');
+            expect(items[2].props.children).toBe('Zeta Album');
+        });
+
+        it('reverses order when direction is desc', () => {
+            setupSortingStore('album', 'desc');
+            const { getByTestId } = render(<CollectionScreen />);
+            const list = getByTestId('collection-list');
+            const items = within(list).getAllByText(/Album/);
+            // Titles DESC: Zeta Album, Beta Album, Alpha Album
+            expect(items[0].props.children).toBe('Zeta Album');
+            expect(items[1].props.children).toBe('Beta Album');
+            expect(items[2].props.children).toBe('Alpha Album');
+        });
+
+        it('toggles direction via ActionSheet option', async () => {
+            const setDirection = jest.fn();
+            (useStore as unknown as jest.Mock).mockImplementation((selector) => {
+                const state = {
+                    ...mockStore,
+                    collectionSortKey: 'default',
+                    collectionSortDirection: 'asc',
+                    setCollectionSortDirection: setDirection,
+                };
+                return selector(state);
+            });
+
+            const { getByText, getByTestId } = render(<CollectionScreen />);
+            
+            // Open ActionSheet
+            fireEvent.press(getByTestId('sort-button'));
+
+            await waitFor(() => expect(getByText('ActionSheet: Sort Options')).toBeTruthy());
+
+            // Press Descending option
+            fireEvent.press(getByText('Descending (Z-A)'));
+            expect(setDirection).toHaveBeenCalledWith('desc');
+        });
     });
 });

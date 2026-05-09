@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
 import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
@@ -10,6 +10,33 @@ export function PlaylistsView() {
     const [newPlaylistName, setNewPlaylistName] = useState('');
     const [isEditingId, setIsEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
+    const createInputRef = useRef<HTMLInputElement>(null);
+    const editInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (isCreating) {
+            // Use setTimeout to ensure the element is in the DOM and ready to be focused
+            const timer = setTimeout(() => {
+                if (createInputRef.current) {
+                    createInputRef.current.focus();
+                    createInputRef.current.select();
+                }
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isCreating]);
+
+    useEffect(() => {
+        if (isEditingId) {
+            const timer = setTimeout(() => {
+                if (editInputRef.current) {
+                    editInputRef.current.focus();
+                    editInputRef.current.select();
+                }
+            }, 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isEditingId]);
 
     const handleCreate = () => {
         setIsCreating(true);
@@ -70,12 +97,12 @@ export function PlaylistsView() {
                 {isCreating ? (
                     <form className={styles.createForm} onSubmit={handleSubmit}>
                         <input
+                            ref={createInputRef}
                             className={styles.createInput}
                             type="text"
                             placeholder="Playlist Name"
                             value={newPlaylistName}
                             onChange={(e) => setNewPlaylistName(e.target.value)}
-                            autoFocus
                             onKeyDown={(e) => {
                                 if (e.key === 'Escape') handleCancel();
                             }}
@@ -131,6 +158,7 @@ export function PlaylistsView() {
                                 {isEditingId === playlist.id ? (
                                     <div className={styles.cardEditInfo} onClick={e => e.stopPropagation()}>
                                         <input
+                                            ref={editInputRef}
                                             className={styles.cardEditInput}
                                             value={editName}
                                             onChange={e => setEditName(e.target.value)}
@@ -138,7 +166,6 @@ export function PlaylistsView() {
                                                 if (e.key === 'Enter') handleSaveRename(e, playlist.id);
                                                 if (e.key === 'Escape') handleCancelRename(e as any);
                                             }}
-                                            autoFocus
                                         />
                                         <div className={styles.cardEditActions}>
                                             <button className={styles.saveBtnSmall} onClick={e => handleSaveRename(e, playlist.id)}>Save</button>

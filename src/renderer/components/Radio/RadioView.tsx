@@ -153,7 +153,7 @@ export function RadioView() {
         <div className={styles.container}>
             <header className={styles.header}>
                 <div className={styles.headerContent}>
-                    <h1><Radio size={32} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '12px' }} /> Bandcamp Radio</h1>
+                    <h1><Radio size={32} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bandcamp Radio</h1>
                     <p>Discover new music curated by Bandcamp</p>
                 </div>
                 <div className={styles.headerActions}>
