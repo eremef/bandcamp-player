@@ -42,8 +42,8 @@ The Beta Player is a desktop application built with **Electron**, leveraging a *
 - **Mobile App**:
   - **Player**: Current playback control (synchronized via WebSocket).
   - **Native Integration**: `react-native-track-player` for background audio and system media controls (Lock Screen, Notification Center).
-  - **Collection**: Browse user's collection (Grid view) with real-time search. Supports bulk actions (Play Now, Play Next, Add to Queue, Add to Playlist) when filtering results.
-  - **Artists**: Browse collection by Artist with detailed views. Search filtering reveals a bulk actions bar to operate on all matching items at once.
+  - **Collection**: Browse user's collection (Grid view) with real-time search. Supports bulk actions (Play Now, Play Next, Add to Queue, Add to Playlist) when filtering results. Supports synchronized sorting and filtering with the desktop host.
+  - **Artists**: Browse collection by Artist with detailed views. Search filtering reveals a bulk actions bar to operate on all matching items at once. Support for national characters in alphabet headers.
   - **Playlists**: Manage and play playlists.
   - **Radio**: Listen to Bandcamp Weekly shows (displaying broadcast dates).
   - **Queue**: View and manage the playback queue with remove and reorder support.
@@ -177,6 +177,9 @@ Current status of audio playback.
 - `isCasting`: boolean
 - `castDevice`: CastDevice | undefined
 - `error`: string | null
+- `collectionSortKey`: string
+- `collectionSortDirection`: 'asc' | 'desc'
+- `collectionFilters`: { albums: boolean, tracks: boolean, wishlist: boolean }
 
 #### AppSettings
 
@@ -320,11 +323,12 @@ When playing a cached album in offline mode:
 
 1. **Discovery**: Mobile app scans local network or User inputs IP. Web client is accessed directly via browser at `http://<host-ip>:9999`.
 2. **Connection**: Establishes WebSocket connection to Desktop on port `9999` (default). The port can be configured via the `REMOTE_PORT` environment variable.
-3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status).
+3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status). This includes the current **Collection Sort and Filter** state, ensuring both platforms show the same view.
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
-5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`).
-6. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
-7. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
+5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`). Changes to sorting or filtering on either platform are synchronized in real-time.
+6. **Paginated Sorting**: When the Mobile app requests a paginated collection view, the `RemoteService` on the Desktop host performs server-side sorting and deduplication based on the synchronized state before returning items.
+7. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
+8. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
 
 ### Hybrid Remote/Standalone Architecture (Mobile)
 
@@ -372,6 +376,8 @@ The mobile application operates in two distinct modes, managed via a unified `Mo
     - **Visual Feedback**: Provides explicit loading states (spinners and overlays) for both initial data fetching and background updates.
 5. **Real-Time Indexing**: Search queries for Title and Artist are executed against the local collection array (or filtered server-side for mobile).
 6. **Optimized Rendering**: UI uses virtualization (FlatList on Mobile, Grid with optimized React render cycles on Desktop) to handle large lists.
+7. **Bulk Operations (Desktop)**: The collection view supports multi-selection and bulk operations (Play, Queue, Download, Add to Playlist). When a filter is active, a "Bulk Actions" bar allows operating on all currently visible items. Operations are guarded by database existence checks and PRAGMA foreign_keys for data integrity.
+8. **Artist/Label Categorization**: Users can browse collection items grouped by Label or Artist. Label categorization allows exploring discographies grouped by publisher.
 
 ### Desktop Auto-Updates
 

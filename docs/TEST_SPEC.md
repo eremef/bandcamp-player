@@ -135,8 +135,8 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 | `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
 | `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
 | `src/main/services/remote.test.ts` | Remote Interface Logic | 10 | ~85% |
-| `src/renderer/store/store.test.ts` | Zustand State & IPC | 25 | ~95% |
-| `src/renderer/components/Collection/CollectionView.test.tsx` | Grid, Search, Loading | 8 | ~91% |
+| `src/renderer/store/store.test.ts` | Zustand State & IPC | 28 | ~95% |
+| `src/renderer/components/Collection/CollectionView.test.tsx` | Grid, Search, Bulk Actions | 12 | ~92% |
 | `src/renderer/components/Playlist/PlaylistsView.test.tsx` | List, Create, Delete | 6 | ~90% |
 | `src/renderer/components/Player/QueuePanel.test.tsx` | Queue Management UI | 7 | ~86% |
 | `src/renderer/components/Layout/PlayerBar.test.tsx` | Playback Controls UI | 9 | ~59% |
@@ -151,8 +151,10 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 | --- | --- | --- |
 | `e2e/album.spec.ts` | Album detail navigation, search→detail→back | 2 |
 | `e2e/album-detail.spec.ts` | Track table display, Add to Queue button | 2 |
+| `e2e/artist-bulk-actions.spec.ts` | Bulk Play, Queue, Playlist from Artist view | 4 |
 | `e2e/artist-view.spec.ts` | Artist list + search, detail navigation + back | 2 |
 | `e2e/auth.spec.ts` | Login prompt or authenticated state | 1 |
+| `e2e/collection-bulk-actions.spec.ts` | Multi-selection, Bulk Play/Queue/Download | 5 |
 | `e2e/collection-search.spec.ts` | Filter, clear, nonexistent query (0 results) | 3 |
 | `e2e/navigation.spec.ts` | Sidebar navigation between all 4 views | 1 |
 | `e2e/player-controls.spec.ts` | Shuffle toggle, Repeat cycling, Mute/Unmute, Queue toggle | 4 |
@@ -162,10 +164,11 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 | `e2e/queue.spec.ts` | Empty state, add via context menu, clear | 3 |
 | `e2e/radio.spec.ts` | Radio search input | 1 |
 | `e2e/radio-player.spec.ts` | Radio station listing | 1 |
-| `e2e/remote.spec.ts` | Remote control toggle, URL + QR code | 1 |
+| `e2e/remote.spec.ts` | Remote control toggle, URL + QR code, sync status | 2 |
 | `e2e/settings.spec.ts` | Open/close modal, setting persistence across sessions | 2 |
 | `e2e/sidebar.spec.ts` | Nav items, user info, playlists section, inline create | 4 |
 | `e2e/theme.spec.ts` | Dark/Light/System theme switching via dropdown | 1 |
+| `e2e/updater.spec.ts` | Check for updates, download progress, release info | 3 |
 
 #### E2E Best Practices
 

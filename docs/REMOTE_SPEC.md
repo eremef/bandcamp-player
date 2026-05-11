@@ -94,6 +94,20 @@ Result of a `get-playlists` request.
 
 - **Payload**: [`Playlist[]`](#playlist)
 
+### `collection-state-changed`
+
+Sent when the host's collection sorting or filtering state changes.
+
+- **Payload**:
+
+  ```json
+  {
+    "sortKey": "string",
+    "sortDirection": "asc | desc",
+    "filters": { "albums": "boolean", "tracks": "boolean", "wishlist": "boolean" }
+  }
+  ```
+
 ---
 
 ## Inbound Messages (Client -> Desktop)
@@ -121,12 +135,22 @@ Clients send these messages to control the player.
 ### Data Requests
 
 - `get-collection`: Requests the user's collection. Result comes via `collection-data`.
-  - **Payload**: `{ forceRefresh?: boolean, offset?: number, limit?: number, query?: string }` (Optional)
+- **Payload**: `{ forceRefresh?: boolean, offset?: number, limit?: number, query?: string, sortKey?: string, sortDirection?: string, filters?: object }` (Optional)
     > [!NOTE]
     > `forceRefresh` defaults to `false`. If `true`, it triggers a fresh scrape from Bandcamp. If `false`, it returns cached data (much faster), filtering by `query` if provided.
-    > If the user is not authenticated, this will return an empty collection state rather than an error.
+    > The host uses the provided `sortKey`, `sortDirection`, and `filters` to return paginated results correctly sorted on the server.
 - `get-radio-stations`: Requests available radio stations. Result comes via `radio-data`.
 - `get-playlists`: Requests user playlists. Result comes via `playlists-data`.
+- `set-collection-state`: Updates the host's collection sorting and filtering state.
+  - **Payload**:
+ 
+    ```json
+    {
+      "sortKey": "string",
+      "sortDirection": "asc | desc",
+      "filters": { "albums": "boolean", "tracks": "boolean", "wishlist": "boolean" }
+    }
+    ```
 
 ### Playback Initiation
 
@@ -178,6 +202,9 @@ Clients send these messages to control the player.
   isCasting: boolean;
   castDevice?: { name: string; id: string }; // Simplified CastDevice
   error?: string | null;
+  collectionSortKey: string;
+  collectionSortDirection: 'asc' | 'desc';
+  collectionFilters: { albums: boolean; tracks: boolean; wishlist: boolean };
 }
 ```
 
