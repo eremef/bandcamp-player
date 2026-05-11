@@ -64,3 +64,7 @@ mobile/*test_*.txt
 test_logs/
 mobile/test_logs/
 AGENTS.md
+
+# MemPalace per-project files (issue #185)
+mempalace.yaml
+entities.json

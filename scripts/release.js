@@ -122,4 +122,8 @@ if (forceTag) {
 run(`git tag v${newVersion}`);
 run(`git push origin v${newVersion}`);
 
+// 7. MemPalace Checkpoint
+log('Step 7: Creating MemPalace checkpoint...');
+run('node scripts/memory-checkpoint.js');
+
 log(`\x1b[32mSuccessfully released v${newVersion}!\x1b[0m`);
