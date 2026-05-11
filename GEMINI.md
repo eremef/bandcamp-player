@@ -22,6 +22,9 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Improved Player Engine**: `MobilePlayerService` supports `loadTrack` for initializing the player (track info + URL) without auto-playing. Android notifications now support Stop, Jump Forward, and Jump Backward capabilities.
 - **Remote Config Pattern**: CSS selectors, regexes, and script keys used by `ScraperService` and `MobileScraperService` are defined in `remote-config.json` at the root. `RemoteConfigService` falls back to the local file but fetches the live version from GitHub `main` in the background to instantly fix broken scraping without redeployments.
 - **Collection Sorting Persistence**: The desktop and mobile apps persist `collectionSortKey` and `collectionSortDirection` in their respective `settings` tables. These are restored automatically on startup to maintain the user's preferred view.
+- **Cross-Platform Sync**: Collection sorting and filtering (Albums/Tracks/Wishlist) are synchronized in real-time between Desktop and Mobile via WebSocket. This ensures a consistent view when switching between devices.
+- **Bulk Operations**: The Desktop Collection view supports multi-selection and bulk actions (Play, Queue, Download, Add to Playlist). When a filter is active, users can operate on all matching items simultaneously.
+- **Database Integrity**: Bulk operations that affect multiple records (like deletions or playlist updates) should always ensure `PRAGMA foreign_keys = ON` is set to prevent orphaned records and maintain constraint integrity. Scoping switch cases with `{}` prevents `no-case-declarations` ESLint errors when declaring constants inside bulk action handlers.
 
 ## Expo & Native Configuration Learnings
 

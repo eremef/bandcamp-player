@@ -1,4 +1,5 @@
 ![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red)
+
 # Bandcamp Experimental Transport Assistant
 
 The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
@@ -24,7 +25,9 @@ AI-generated\* feature-rich Electron desktop application for playing Bandcamp mu
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
 - 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
-- 🔍 **Smart Search** - Filter your collection instantly
+- 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, and Wishlist
+- ↕️ **Synchronized Sorting** - Persistent and cross-platform sorting (Date, Title, Artist) synchronized between devices
+- 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
 - 🎛️ **Windows Media Controls** - Control playback with system media keys
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
@@ -152,8 +155,9 @@ src/
 4. **Play Music** - Click on an album to start playing
 5. **Create Playlists** - Use the + button in the sidebar to create playlists
 6. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
-7. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
-8. **Offline Mode** - Download tracks via the context menu for offline playback
+7. **Bulk Actions** - When a filter is active, use the "Bulk Actions" bar to operate on all matching items (Play, Queue, Download, Add to Playlist)
+8. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
+9. **Offline Mode** - Download tracks via the context menu for offline playback
 
 ## Mobile App (Remote control & Standalone Player)
 
@@ -169,7 +173,8 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
-- 🔍 **Auto Discovery** - Automatic local network discovery
+- 🔍 **Auto Discovery & Sync** - Automatic local network discovery with real-time sorting/filtering synchronization with Host
+- ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist) and filter by Albums, Tracks, or Wishlist
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
 - 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
@@ -276,7 +281,7 @@ mobile/
 
 Since the application only allows users to stream and cache music they have already collected, I don't see any risk in using it. Below is Bandcamp's stance on much more questionable behaviors for comparison:
 
-https://get.bandcamp.help/hc/en-us/articles/23020694039575-I-heard-you-can-steal-music-on-Bandcamp-What-are-you-doing-about-this
+<https://get.bandcamp.help/hc/en-us/articles/23020694039575-I-heard-you-can-steal-music-on-Bandcamp-What-are-you-doing-about-this>
 
 ## License
 
