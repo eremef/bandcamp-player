@@ -1,25 +1,19 @@
 name: Semgrep
-
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
 
 jobs:
   semgrep:
-    name: Run Semgrep
+    name: Scan
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    container:
+      image: semgrep/semgrep:1.164.0 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-      
-      - name: Run Semgrep scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: 'p/ci'
-          publishResults: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Run Semgrep CI
+        run: semgrep ci
