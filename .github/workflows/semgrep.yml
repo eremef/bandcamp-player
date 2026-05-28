@@ -16,4 +16,4 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run Semgrep scan
-        run: semgrep scan --config auto
+        run: semgrep scan --config p/typescript --config p/react --config p/secrets --config p/eslint
