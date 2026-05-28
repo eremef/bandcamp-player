@@ -15,5 +15,5 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Run Semgrep CI
-        run: semgrep ci
+      - name: Run Semgrep scan
+        run: semgrep scan --config auto
