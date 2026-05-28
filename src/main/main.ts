@@ -28,7 +28,7 @@ app.disableHardwareAcceleration();
 
 // Set App User Model ID for Windows (required for proper app name in SMTC)
 if (process.platform === "win32") {
-  app.setAppUserModelId("xyz.eremef.bandcamp.player");
+  app.setAppUserModelId("xyz.eremef.beta.app");
 }
 
 const isDev =
@@ -94,7 +94,12 @@ function createMainWindow(
       sandbox: false, // Required for better-sqlite3
     },
     show: false,
-    icon: path.join(__dirname, "../assets/icons/icon.png"),
+    icon: path.join(
+      __dirname,
+      process.platform === "win32"
+        ? "../assets/icons/icon.ico"
+        : "../assets/icons/icon.png"
+    ),
   });
 
   // Load the app

@@ -25,6 +25,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Cross-Platform Sync**: Collection sorting and filtering (Albums/Tracks/Wishlist) are synchronized in real-time between Desktop and Mobile via WebSocket. This ensures a consistent view when switching between devices.
 - **Bulk Operations**: The Desktop Collection view supports multi-selection and bulk actions (Play, Queue, Download, Add to Playlist). When a filter is active, users can operate on all matching items simultaneously.
 - **Database Integrity**: Bulk operations that affect multiple records (like deletions or playlist updates) should always ensure `PRAGMA foreign_keys = ON` is set to prevent orphaned records and maintain constraint integrity. Scoping switch cases with `{}` prevents `no-case-declarations` ESLint errors when declaring constants inside bulk action handlers.
+- **Windows Taskbar Icon**: On Windows, the AppUserModelID set via `app.setAppUserModelId()` MUST match the packaged application's `appId` defined in `package.json` (`xyz.eremef.beta.app`). If they don't match, Windows won't map the running window to the shortcut, causing the taskbar to display the default Electron/fallback icon. Additionally, use `.ico` format natively for the main window class on Windows and `.png` on other platforms.
 
 ## Expo & Native Configuration Learnings
 
