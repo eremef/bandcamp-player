@@ -167,8 +167,10 @@ jobs:
           ./gradlew assembleRelease
 
       - name: Rename Artifacts
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/beta-player-${{ github.ref_name }}-android.apk
+          mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/beta-player-"$REF_NAME"-android.apk
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
@@ -243,11 +245,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Create IPA
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           cd mobile/ios/build/Build/Products/Release-iphoneos
           mkdir Payload
           cp -r ${{ steps.ios-project.outputs.name }}.app Payload/
-          zip -r beta-player-${{ github.ref_name }}-ios.ipa Payload
+          zip -r beta-player-"$REF_NAME"-ios.ipa Payload
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
@@ -276,8 +280,10 @@ jobs:
 
       - name: Determine if pre-release
         id: prerelease
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          if [[ '${{ github.ref_name }}' == *-alpha* ]]; then
+          if [[ "$REF_NAME" == *-alpha* ]]; then
             echo "is_prerelease=true" >> $GITHUB_OUTPUT
           else
             echo "is_prerelease=false" >> $GITHUB_OUTPUT

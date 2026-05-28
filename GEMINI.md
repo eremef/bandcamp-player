@@ -44,6 +44,8 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 
 - **Dependency Overrides**: Use the `overrides` field in the root `package.json` to force specific versions of transitive dependencies (e.g., `protobufjs`) when they have security vulnerabilities and parent packages (like `castv2`) are unmaintained.
 - **Axios Header Types**: Axios headers can return `string | number | boolean | string[] | AxiosHeaders`. When using values like `content-length` with `parseInt`, explicitly convert them to a string using `String()` to avoid TypeScript errors (`TS2345`). Always specify a radix (e.g., `10`) in `parseInt`.
+- **Shell Injection Prevention in Workflows**: In GitHub Actions (`.github/workflows/*.yml`), never use direct string interpolation like `${{ github.ref_name }}` or other untrusted variables in a `run:` block. Always declare them as environment variables in the step's `env:` block (e.g., `REF_NAME: ${{ github.ref_name }}`) and reference them safely using double quotes (e.g., `"$REF_NAME"`) to prevent malicious command execution.
+- **ESLint Typeless package.json Warning**: If ESLint throws a `MODULE_TYPELESS_PACKAGE_JSON` warning because the root `package.json` is missing `"type": "module"` but the ESLint configuration uses ES module syntax, rename the configuration file to `eslint.config.mjs` instead of modifying `package.json` (which would force ESM compilation on the entire project, breaking CommonJS compilation for Electron main process).
 
 ## E2E Tests
 
