@@ -1,7 +1,7 @@
 {
   "name": "xyz.eremef.beta",
   "version": "1.8.8-beta",
-  "productName": "Beta-Player",
+  "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
   "author": "eremef.xyz",
@@ -95,7 +95,7 @@
   "build": {
     "generateUpdatesFilesForAllChannels": true,
     "appId": "xyz.eremef.beta.app",
-    "productName": "Beta-Player",
+    "productName": "Beta Player",
     "directories": {
       "output": "release"
     },
@@ -130,7 +130,7 @@
         }
       ],
       "icon": "src/assets/icons/icon.ico",
-      "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
+      "artifactName": "beta-player-${version}-windows-${arch}.${ext}"
     },
     "linux": {
       "target": [
@@ -157,8 +157,8 @@
         }
       ],
       "icon": "src/assets/icons",
-      "maintainer": "eremef.xyz <eremef.xyz@gmail.com>",
-      "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
+      "maintainer": "eremef.xyz <contact@eremef.xyz>",
+      "artifactName": "beta-player-${version}-linux-${arch}.${ext}"
     },
     "mac": {
       "target": [
@@ -166,7 +166,7 @@
         "zip"
       ],
       "icon": "src/assets/icons/icon.png",
-      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+      "artifactName": "beta-player-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

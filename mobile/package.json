@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "productName": "Beta-Player",
+  "productName": "Beta Player",
   "main": "index.js",
   "expo": {
     "autolinking": {
