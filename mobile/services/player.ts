@@ -1,13 +1,29 @@
-import TrackPlayer from '@rntp/player';
+import TrackPlayer, { PlayerCommand } from '@rntp/player';
 import { Track } from '@shared/types';
 
 export async function setupPlayer() {
     let isSetup = false;
     try {
-        await TrackPlayer.setupPlayer();
+        await TrackPlayer.setupPlayer({
+            android: {
+                taskRemovedBehavior: 'stop',
+            }
+        });
+        await TrackPlayer.setCommands({
+            capabilities: [
+                PlayerCommand.PlayPause,
+                PlayerCommand.Next,
+                PlayerCommand.Previous,
+                PlayerCommand.Seek,
+                PlayerCommand.Stop,
+                PlayerCommand.SkipForward,
+                PlayerCommand.SkipBackward,
+            ],
+            handling: 'js'
+        });
         isSetup = true;
     } catch (e: any) {
-        if (e?.message?.includes('already been initialized')) {
+        if (e?.message?.includes('already been initialized') || e?.message?.includes('already initialized') || e?.message?.includes('already set up')) {
             isSetup = true;
         } else {
             console.error('Error setting up player:', e);
@@ -31,26 +47,15 @@ export async function addTrack(track: Track, hostIp?: string) {
         streamUrl = streamUrl.replace(/localhost|127\.0\.0\.1/g, hostIp);
     }
 
-    // Seamlessly transition by adding and then skipping
-    const tracks = await TrackPlayer.getQueue();
-    const newTrackIndex = tracks.length;
-
-    await TrackPlayer.add({
-        id: track.id,
+    await TrackPlayer.setMediaItem({
+        mediaId: track.id,
         url: streamUrl, // Use executable URL
         title: track.title || 'Untitled',
         artist: track.artist || 'Unknown Artist',
-        album: track.album,
-        artwork: track.artworkUrl,
+        albumTitle: track.album,
+        artworkUrl: track.artworkUrl,
         duration: track.duration,
     });
-
-    if (newTrackIndex > 0) {
-        await TrackPlayer.skip(newTrackIndex);
-        // Clean up previous tracks to keep the queue small
-        const indicesToRemove = Array.from({ length: newTrackIndex }, (_, i) => i);
-        await TrackPlayer.remove(indicesToRemove);
-    }
 
     // Set volume to 0 on the mobile device so we only hear the desktop.
     // The phone still "plays" the track to keep the media session active

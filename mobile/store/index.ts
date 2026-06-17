@@ -333,7 +333,7 @@ export const useStore = create<AppState>((set, get) => ({
         // Reset TrackPlayer for BOTH directions:
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
-        await TrackPlayer.reset();
+        await TrackPlayer.clear();
 
         if (mode === 'remote') {
             await TrackPlayer.setVolume(0);

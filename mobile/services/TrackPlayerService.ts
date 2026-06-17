@@ -1,105 +1,117 @@
-import TrackPlayer, { Event, Capability, AppKilledPlaybackBehavior, State } from '@rntp/player';
+import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 
-export async function PlaybackService() {
-    // Initial configuration
-    await TrackPlayer.updateOptions({
-        android: {
-            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-        },
-        capabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.SeekTo,
-            Capability.Stop,
-            Capability.JumpForward,
-            Capability.JumpBackward,
-        ],
-        notificationCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.SeekTo,
-            Capability.Stop,
-        ],
-        progressUpdateEventInterval: 1,
-    });
-
-    // Progress and state listeners for Standalone mode
-    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, (event) => {
-        if (useStore.getState().mode !== 'standalone') return;
-        // Only update duration from the event if valid — streaming URLs often
-        // report duration=0 until fully buffered, which would clobber the correct
-        // duration set from the scraper response.
-        const update: { currentTime: number; duration?: number } = {
-            currentTime: event.position,
-        };
-        if (event.duration > 0) {
-            update.duration = event.duration;
-        }
-        useStore.setState(update);
-
-        // Scrobble tracking
-        const { mobileScrobblerService } = require('./MobileScrobblerService');
-        mobileScrobblerService.handleProgressUpdate(event.position, event.duration);
-    });
-
-    TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
-        if (useStore.getState().mode !== 'standalone') return;
-        const isPlaying = event.state === State.Playing;
-        useStore.setState({ isPlaying });
-    });
-
-    TrackPlayer.addEventListener(Event.RemotePlay, () => {
-        useStore.getState().play();
-    });
-
-    TrackPlayer.addEventListener(Event.RemotePause, () => {
-        useStore.getState().pause();
-    });
-
-    TrackPlayer.addEventListener(Event.RemotePlayPause, () => {
-        if (useStore.getState().isPlaying) {
-            useStore.getState().pause();
-        } else {
-            useStore.getState().play();
-        }
-    });
-
-    TrackPlayer.addEventListener(Event.RemoteNext, () => {
-        useStore.getState().next();
-    });
-
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => {
-        useStore.getState().previous();
-    });
-
-    TrackPlayer.addEventListener(Event.RemoteSeek, (event) => {
-        useStore.getState().seek(event.position);
-    });
-
-    TrackPlayer.addEventListener(Event.RemoteJumpForward, async (event) => {
-        const progress = await TrackPlayer.getProgress();
-        useStore.getState().seek(progress.position + event.interval);
-    });
-
-    TrackPlayer.addEventListener(Event.RemoteJumpBackward, async (event) => {
-        const progress = await TrackPlayer.getProgress();
-        useStore.getState().seek(progress.position - event.interval);
-    });
-
-    TrackPlayer.addEventListener(Event.RemoteStop, () => {
-        TrackPlayer.reset();
-    });
-
-    TrackPlayer.addEventListener(Event.PlaybackQueueEnded, async (_event) => {
-        // Only handle track end in standalone mode
-        // In remote mode, TrackPlayer.reset() in addTrack() fires this event spuriously
-        if (useStore.getState().mode !== 'standalone') return;
-        const { mobilePlayerService } = require('./MobilePlayerService');
-        await mobilePlayerService.handleTrackEnd();
-    });
+function handleIsPlayingChanged(event: any) {
+    if (useStore.getState().mode !== 'standalone') return;
+    useStore.setState({ isPlaying: event.playing });
 }
+
+async function handleTrackEnd() {
+    if (useStore.getState().mode !== 'standalone') return;
+    const { mobilePlayerService } = require('./MobilePlayerService');
+    await mobilePlayerService.handleTrackEnd();
+}
+
+async function handleStateChanged(event: any) {
+    if (useStore.getState().mode !== 'standalone') return;
+    if (event.state === PlaybackState.Ended) {
+        const state = useStore.getState();
+        const { currentTime, duration } = state;
+        
+        // RNTP v5 triggers Ended when the final track naturally finishes.
+        // It does not trigger on dummy tracks because those throw PlaybackError.
+        const store = useStore.getState();
+        const { queue, repeatMode } = store;
+        
+        if (queue.items.length > 0) {
+            if (queue.currentIndex === queue.items.length - 1) {
+                if (repeatMode === 'all') {
+                    console.log('[MobilePlayer] Queue ended. Looping to start.');
+                    await useStore.getState().playQueueIndex(0);
+                } else {
+                    console.log('[MobilePlayer] Queue ended.');
+                    // Just reset the play state or notify MobilePlayerService
+                    const { mobilePlayerService } = require('./MobilePlayerService');
+                    await mobilePlayerService.handleTrackEnd();
+                }
+            }
+        }
+    }
+}
+
+async function handleMediaItemTransition(event: any) {
+    if (useStore.getState().mode !== 'standalone') return;
+    const { mobilePlayerService } = require('./MobilePlayerService');
+    if (mobilePlayerService.isLoadingTrack) {
+        return;
+    }
+    const store = useStore.getState();
+    console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
+    if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
+        await store.playQueueIndex(event.index);
+    }
+}
+
+export async function PlaybackService(event?: any) {
+    if (!event) return;
+    
+    switch (event.type) {
+        case Event.IsPlayingChanged:
+            handleIsPlayingChanged(event);
+            break;
+        case Event.PlaybackStateChanged:
+            await handleStateChanged(event);
+            break;
+        case Event.MediaItemTransition:
+            await handleMediaItemTransition(event);
+            break;
+        case Event.RemotePlay:
+            useStore.getState().play();
+            break;
+        case Event.RemotePause:
+            useStore.getState().pause();
+            break;
+        case Event.RemoteNext:
+            useStore.getState().next();
+            break;
+        case Event.RemotePrevious:
+            useStore.getState().previous();
+            break;
+        case Event.RemoteSeek:
+            useStore.getState().seek(event.position);
+            break;
+        case Event.RemoteSkipForward: {
+            const p1 = TrackPlayer.getProgress();
+            useStore.getState().seek(p1.position + event.interval);
+            break;
+        }
+        case Event.RemoteSkipBackward: {
+            const p2 = TrackPlayer.getProgress();
+            useStore.getState().seek(p2.position - event.interval);
+            break;
+        }
+        case Event.RemoteStop:
+            await TrackPlayer.clear();
+            break;
+    }
+}
+
+// Foreground Listeners
+TrackPlayer.addEventListener(Event.IsPlayingChanged, handleIsPlayingChanged);
+TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged);
+TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition);
+
+TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play());
+TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause());
+TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next());
+TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous());
+TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position));
+TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
+    const progress = await TrackPlayer.getProgress();
+    useStore.getState().seek(progress.position + event.interval);
+});
+TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
+    const progress = await TrackPlayer.getProgress();
+    useStore.getState().seek(progress.position - event.interval);
+});
+TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.clear());

@@ -1,13 +1,5 @@
-import { registerRootComponent } from 'expo';
-import { ExpoRoot } from 'expo-router';
+import 'expo-router/entry';
 import TrackPlayer from '@rntp/player';
 import { PlaybackService } from './services/TrackPlayerService';
 
-// Must be exported or Fast Refresh won't update the context
-export function App() {
-    const ctx = require.context('./app');
-    return <ExpoRoot context={ctx} />;
-}
-
-registerRootComponent(App);
-TrackPlayer.registerPlaybackService(() => PlaybackService);
+TrackPlayer.registerBackgroundEventHandler(() => PlaybackService);

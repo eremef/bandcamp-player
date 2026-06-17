@@ -1,4 +1,4 @@
-import { DiscoveryService } from './discovery.service';
+import { DiscoveryService } from '../../services/discovery.service';
 import * as Network from 'expo-network';
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
