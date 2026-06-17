@@ -1,6 +1,6 @@
 import { registerRootComponent } from 'expo';
 import { ExpoRoot } from 'expo-router';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { PlaybackService } from './services/TrackPlayerService';
 
 // Must be exported or Fast Refresh won't update the context

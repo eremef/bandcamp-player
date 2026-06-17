@@ -1,11 +1,11 @@
 import { mobilePlayerService } from '../services/MobilePlayerService';
-import TrackPlayer, { State } from 'react-native-track-player';
+import TrackPlayer, { State } from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileDatabase } from '../services/MobileDatabase';
 import { setupPlayer } from '../services/player';
 
-jest.mock('react-native-track-player', () => ({
+jest.mock('@rntp/player', () => ({
     __esModule: true,
     default: {
         setVolume: jest.fn().mockResolvedValue(undefined),

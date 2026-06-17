@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { setupPlayer, addTrack } from './player';
 
 describe('player.ts', () => {

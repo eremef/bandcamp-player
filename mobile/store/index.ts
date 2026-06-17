@@ -12,7 +12,7 @@ const runAfterInteractions = (callback: () => void) => {
 };
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { addTrack } from '../services/player';
 // import { mobilePlayerService } from '../services/MobilePlayerService';
 
@@ -234,6 +234,11 @@ export const useStore = create<AppState>((set, get) => ({
             try {
                 const parsed = JSON.parse(savedQueueJson);
                 if (parsed?.items?.length > 0) {
+                    parsed.items.forEach((item: any) => {
+                        if (item.track) {
+                            item.track.streamUrl = '';
+                        }
+                    });
                     restoredQueue = parsed;
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;

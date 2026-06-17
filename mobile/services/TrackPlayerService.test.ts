@@ -1,5 +1,5 @@
 /// <reference types="jest" />
-import TrackPlayer, { Event } from 'react-native-track-player';
+import TrackPlayer, { Event } from '@rntp/player';
 import { PlaybackService } from './TrackPlayerService';
 import { useStore } from '../store';
 

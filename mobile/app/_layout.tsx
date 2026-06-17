@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { useStore } from '../store';
 import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform, PermissionsAndroid } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
@@ -27,6 +27,11 @@ export default function RootLayout() {
     useEffect(() => {
         setupPlayer();
         registerBackgroundSync();
+
+        if (Platform.OS === 'android' && Platform.Version >= 33) {
+            PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
+                .catch(console.warn);
+        }
     }, []);
 
     useEffect(() => {

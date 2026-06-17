@@ -1,4 +1,4 @@
-import TrackPlayer, { Event, Capability, AppKilledPlaybackBehavior, State } from 'react-native-track-player';
+import TrackPlayer, { Event, Capability, AppKilledPlaybackBehavior, State } from '@rntp/player';
 import { PlaybackService } from '../../services/TrackPlayerService';
 import { useStore } from '../../store';
 

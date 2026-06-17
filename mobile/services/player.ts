@@ -1,4 +1,4 @@
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { Track } from '@shared/types';
 
 export async function setupPlayer() {

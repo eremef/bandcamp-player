@@ -1,6 +1,6 @@
 import TrackPlayer, {
     State
-} from 'react-native-track-player';
+} from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';

@@ -4,7 +4,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 );
 
 // Mock React Native Track Player
-jest.mock('react-native-track-player', () => {
+jest.mock('@rntp/player', () => {
     const TrackPlayerMock = {
         setupPlayer: jest.fn().mockResolvedValue(undefined),
         updateOptions: jest.fn().mockResolvedValue(undefined),

@@ -22,6 +22,10 @@ module.exports = {
       permissions: [
         'INTERNET',
         'ACCESS_NETWORK_STATE',
+        'POST_NOTIFICATIONS',
+        'FOREGROUND_SERVICE',
+        'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+        'WAKE_LOCK',
       ],
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
@@ -46,6 +50,10 @@ module.exports = {
             permissions: [
               'INTERNET',
               'ACCESS_NETWORK_STATE',
+              'POST_NOTIFICATIONS',
+              'FOREGROUND_SERVICE',
+              'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+              'WAKE_LOCK',
             ],
           },
         },
