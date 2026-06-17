@@ -53,6 +53,7 @@ export const PLAYER_CHANNELS = {
   ON_TIME_UPDATE: "player:on-time-update",
   UPDATE_TIME: "player:update-time",
   ON_SEEK: "player:on-seek", // Command from main to renderer to seek audio
+  TRACK_ENDED: "player:track-ended",
 } as const;
 
 // ============================================================================

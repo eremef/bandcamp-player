@@ -125,6 +125,8 @@ const electronAPI = {
     onSeek: createEventSubscriber<number>(PLAYER_CHANNELS.ON_SEEK),
     updateTime: (currentTime: number, duration: number): Promise<void> =>
       ipcRenderer.invoke(PLAYER_CHANNELS.UPDATE_TIME, currentTime, duration),
+    trackEnded: (): Promise<void> =>
+      ipcRenderer.invoke(PLAYER_CHANNELS.TRACK_ENDED),
   },
 
   // ---- Queue ----

@@ -702,11 +702,6 @@ export class PlayerService extends EventEmitter {
 
         // Check for scrobble
         this.checkScrobble();
-
-        // Check if track ended
-        if (currentTime >= duration && duration > 0) {
-            this.handleTrackEnd();
-        }
     }
 
     private checkScrobble(): void {
@@ -721,7 +716,7 @@ export class PlayerService extends EventEmitter {
         }
     }
 
-    private handleTrackEnd(): void {
+    public handleTrackEnd(): void {
         if (this.repeatMode === 'one') {
             this.seek(0);
             this.play();
