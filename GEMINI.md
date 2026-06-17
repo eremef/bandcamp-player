@@ -119,3 +119,4 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - To release new version (bump version, copy assets, run tests, commit, and tag)
 npm run release <newVersion>.
 - when running a command in terminal that has `(tabs)` somewhere in the path, remember to use proper quotes to avoid errors.
+- **NPM Package Embargo**: The `min-release-age=7` setting is enforced via `~/.npmrc` to prevent installing packages released less than 7 days ago. If you run into `ETARGET` errors because a dependency is too new, do NOT drop the embargo permanently. You may temporarily bypass it using `npm config delete min-release-age` only when explicitly requested, and you must immediately re-enable it with `npm config set min-release-age 7` once the installation completes.

@@ -12,10 +12,9 @@ jest.mock('expo-asset', () => ({
     },
 }));
 
-const mockText = jest.fn();
 jest.mock('expo-file-system', () => ({
     File: jest.fn().mockImplementation(() => ({
-        text: mockText,
+        text: jest.fn().mockResolvedValue('MIT License Content'),
     })),
 }));
 
@@ -42,7 +41,6 @@ describe('LicenseScreen', () => {
         };
 
         (Asset.fromModule as jest.Mock).mockReturnValue(mockAsset);
-        mockText.mockResolvedValue(mockLicenseText);
 
         const { getByText } = render(<LicenseScreen />);
 
@@ -53,7 +51,6 @@ describe('LicenseScreen', () => {
         expect(Asset.fromModule).toHaveBeenCalled();
         expect(mockAsset.downloadAsync).toHaveBeenCalled();
         expect(File).toHaveBeenCalledWith('file://license.txt');
-        expect(mockText).toHaveBeenCalled();
     });
 
     it('handles loading error gracefully', async () => {

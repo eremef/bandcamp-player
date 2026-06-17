@@ -61,6 +61,7 @@ module.exports = {
       'expo-sqlite',
       'expo-web-browser',
       'expo-secure-store',
+      'expo-status-bar',
     ],
     extra: {
       eas: {
