@@ -14,6 +14,19 @@ if (!newVersion) {
     process.exit(1);
 }
 
+const isAlpha = /-(alpha)/.test(newVersion);
+const isBetaOrRelease = !isAlpha;
+
+if (isBetaOrRelease) {
+    const currentBranch = execSync('git rev-parse --abbrev-ref HEAD', { encoding: 'utf8' }).trim();
+    if (currentBranch !== 'main') {
+        console.error(`\x1b[31mError:\x1b[0m Release and beta versions can only be released from the \x1b[33mmain\x1b[0m branch.`);
+        console.error(`       Current branch: \x1b[33m${currentBranch}\x1b[0m`);
+        console.error(`       Use an alpha version (e.g. v${newVersion}-alpha.1) on feature branches.`);
+        process.exit(1);
+    }
+}
+
 const rootDir = path.resolve(__dirname, '..');
 const mobileDir = path.join(rootDir, 'mobile');
 
