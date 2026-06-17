@@ -321,6 +321,8 @@ describe('MobilePlayerService', () => {
 
         it('should load track if streamUrl exists', async () => {
             const track = { id: '1', title: 'T', streamUrl: 'url', duration: 100 };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
@@ -335,6 +337,8 @@ describe('MobilePlayerService', () => {
 
         it('should seek to initialPosition if provided', async () => {
             const track = { id: '1', streamUrl: 'url' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             await mobilePlayerService.loadTrack(track as any, 50);
 
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(50);
@@ -342,6 +346,8 @@ describe('MobilePlayerService', () => {
 
         it('should fetch stream url for radio show', async () => {
             const track = { id: 'r1', title: 'Radio', bandcampUrl: 'https://bandcamp.com?show=50' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 'r1', track: track as any, source: 'radio' }], currentIndex: 0 } });
+            
             (mobileScraperService.getStationStreamUrl as jest.Mock).mockResolvedValueOnce({ streamUrl: 'radio_url', duration: 7200 });
 
             const success = await mobilePlayerService.loadTrack(track as any);
@@ -356,6 +362,8 @@ describe('MobilePlayerService', () => {
 
         it('should fetch album details to find stream url', async () => {
             const track = { id: 't1', title: 'Song 1', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Song 1', streamUrl: 'album_stream' }]
             });
@@ -371,6 +379,8 @@ describe('MobilePlayerService', () => {
 
         it('should fall back to single track if name mismatch but only 1 track', async () => {
             const track = { id: 't1', title: 'Unknown', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Actual Name', streamUrl: 'fallback_stream' }]
             });

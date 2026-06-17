@@ -142,6 +142,7 @@ jobs:
         run: |
           cd mobile
           npx expo prebuild --platform android
+          echo "android.bundle.enableUncompressedNativeLibs=false" >> android/gradle.properties
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -150,22 +151,7 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Generate debug keystore
-        run: |
-          if ! keytool -list \
-            -keystore mobile/android/app/debug.keystore \
-            -storepass android \
-            -alias androiddebugkey 2>/dev/null; then
-            keytool -genkeypair -v \
-              -keystore mobile/android/app/debug.keystore \
-              -storepass android \
-              -alias androiddebugkey \
-              -keypass android \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -dname "CN=Android Debug,O=Android,C=US"
-          fi
+
 
       - name: Check disk space
         run: df -h

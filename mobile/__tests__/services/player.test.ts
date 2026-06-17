@@ -43,7 +43,7 @@ describe('player.ts', () => {
         it('should add track without resetting (seamlessly)', async () => {
             await addTrack(mockTrack);
 
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith({
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith([{
                 mediaId: mockTrack.id,
                 url: mockTrack.streamUrl,
                 title: mockTrack.title,
@@ -51,7 +51,7 @@ describe('player.ts', () => {
                 albumTitle: mockTrack.album,
                 artworkUrl: mockTrack.artworkUrl,
                 duration: mockTrack.duration,
-            });
+            }], 0);
             // Should NOT call reset() for seamless transitions
             expect(TrackPlayer.clear).not.toHaveBeenCalled();
         });
@@ -70,10 +70,11 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(
-                expect.objectContaining({
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
-                })
+                })],
+                0
             );
         });
 
@@ -85,10 +86,11 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(
-                expect.objectContaining({
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
-                })
+                })],
+                0
             );
         });
     });

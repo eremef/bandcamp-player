@@ -40,15 +40,27 @@ async function handleStateChanged(event: any) {
 }
 
 async function handleMediaItemTransition(event: any) {
-    if (useStore.getState().mode !== 'standalone') return;
+    const store = useStore.getState();
     const { mobilePlayerService } = require('./MobilePlayerService');
-    if (mobilePlayerService.isLoadingTrack) {
+    
+    // Standalone mode logic
+    if (store.mode === 'standalone') {
+        if (mobilePlayerService.isLoadingTrack) {
+            return;
+        }
+        console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
+        if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
+            await store.playQueueIndex(event.index);
+        }
         return;
     }
-    const store = useStore.getState();
-    console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
-    if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
-        await store.playQueueIndex(event.index);
+
+    // Remote mode logic
+    if (store.mode === 'remote') {
+        if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
+            console.log(`[RemoteMode] Native transitioned to index: ${event.index}, sending to desktop`);
+            await store.playQueueIndex(event.index);
+        }
     }
 }
 

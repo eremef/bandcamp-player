@@ -32,7 +32,7 @@ export async function setupPlayer() {
     return isSetup;
 }
 
-export async function addTrack(track: Track, hostIp?: string) {
+export async function addTrack(track: Track, hostIp?: string, queueItems: any[] = [], currentIndex: number = 0) {
     // Ensure player is set up before adding track
     await setupPlayer();
 
@@ -40,22 +40,41 @@ export async function addTrack(track: Track, hostIp?: string) {
     // We don't actually play audio on the phone (to avoid double audio), 
     // but TrackPlayer needs some URL to show metadata.
 
-    let streamUrl = track.streamUrl;
+    let streamUrl = track.streamUrl || 'http://localhost/dummy.mp3';
 
     // Fix localhost URL if running on a real device
     if (hostIp && (streamUrl.includes('localhost') || streamUrl.includes('127.0.0.1'))) {
         streamUrl = streamUrl.replace(/localhost|127\.0\.0\.1/g, hostIp);
     }
 
-    await TrackPlayer.setMediaItem({
-        mediaId: track.id,
-        url: streamUrl, // Use executable URL
-        title: track.title || 'Untitled',
-        artist: track.artist || 'Unknown Artist',
-        albumTitle: track.album,
-        artworkUrl: track.artworkUrl,
-        duration: track.duration,
-    });
+    // To support native Next/Previous buttons and correct lock screen metadata in remote mode,
+    // we feed the entire queue to the native player. We only provide the real URL
+    // for the current track.
+    let nativeQueue = queueItems.map((qTrack, idx) => ({
+        mediaId: qTrack.id,
+        url: streamUrl,
+        title: qTrack.track.title || 'Untitled',
+        artist: qTrack.track.artist || 'Unknown Artist',
+        albumTitle: qTrack.track.album,
+        artworkUrl: qTrack.track.artworkUrl,
+        duration: qTrack.track.duration,
+    }));
+
+    // Fallback if queue is empty for some reason
+    if (nativeQueue.length === 0) {
+        nativeQueue = [{
+            mediaId: track.id,
+            url: streamUrl,
+            title: track.title || 'Untitled',
+            artist: track.artist || 'Unknown Artist',
+            albumTitle: track.album,
+            artworkUrl: track.artworkUrl,
+            duration: track.duration,
+        }];
+        currentIndex = 0;
+    }
+
+    await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
 
     // Set volume to 0 on the mobile device so we only hear the desktop.
     // The phone still "plays" the track to keep the media session active

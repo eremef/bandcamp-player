@@ -1611,7 +1611,10 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
     // Sync with TrackPlayer
     try {
-        const trackChanged = payload.currentTrack && payload.currentTrack.id !== prevTrackId;
+        const trackChanged = payload.currentTrack && (
+            payload.currentTrack.id !== prevTrackId ||
+            payload.currentTrack.streamUrl !== currentState.currentTrack?.streamUrl
+        );
 
         if (trackChanged) {
             if (isRemoteTrackLoading) {
@@ -1620,18 +1623,19 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
             }
             isRemoteTrackLoading = true;
             try {
-                await addTrack(payload.currentTrack!, currentState.hostIp);
+                // Get the newly updated state, not the old currentState
+                const newState = useStore.getState();
+                await addTrack(payload.currentTrack!, newState.hostIp, newState.queue.items, newState.queue.currentIndex);
             } finally {
                 isRemoteTrackLoading = false;
             }
         }
 
-        if (payload.isPlaying !== undefined) {
-            if (payload.isPlaying) {
-                await TrackPlayer.play();
-            } else {
-                await TrackPlayer.pause();
-            }
+        const { isPlaying } = useStore.getState();
+        if (isPlaying) {
+            await TrackPlayer.play();
+        } else {
+            await TrackPlayer.pause();
         }
     } catch (e) {
         console.error('Failed to sync TrackPlayer state', e);

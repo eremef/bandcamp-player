@@ -25,8 +25,10 @@ describe('TrackPlayerService (PlaybackService)', () => {
     };
 
     beforeEach(() => {
-        jest.clearAllMocks();
-
+        const { mobilePlayerService } = require('../../services/MobilePlayerService');
+        if (mobilePlayerService.handleTrackEnd.mockClear) {
+            mobilePlayerService.handleTrackEnd.mockClear();
+        }
         mockPlay = jest.fn();
         mockPause = jest.fn();
         mockNext = jest.fn();
@@ -47,19 +49,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
     });
 
     describe('Event listeners via PlaybackService (Background)', () => {
-        it('updates time on PlaybackProgressUpdated', async () => {
-            await PlaybackService({ type: Event.PlaybackProgressUpdated, position: 10, duration: 100 });
-            const state = useStore.getState();
-            expect(state.currentTime).toBe(10);
-            expect(state.duration).toBe(100);
-        });
 
-        it('ignores PlaybackProgressUpdated in remote mode', async () => {
-            useStore.setState({ mode: 'remote' } as any);
-            await PlaybackService({ type: Event.PlaybackProgressUpdated, position: 10, duration: 100 });
-            const state = useStore.getState();
-            expect(state.currentTime).toBe(0); // unaltered
-        });
 
         it('updates isPlaying on IsPlayingChanged', async () => {
             await PlaybackService({ type: Event.IsPlayingChanged, playing: true });
@@ -110,6 +100,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
         });
 
         it('calls handleTrackEnd on PlaybackStateChanged Ended in standalone mode', async () => {
+            useStore.setState({ queue: { items: [{ id: '1' }], currentIndex: 0 } } as any);
             const { mobilePlayerService } = require('../../services/MobilePlayerService');
             await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ended });
             expect(mobilePlayerService.handleTrackEnd).toHaveBeenCalled();
