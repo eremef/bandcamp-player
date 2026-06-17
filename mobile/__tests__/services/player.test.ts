@@ -43,7 +43,7 @@ describe('player.ts', () => {
         it('should add track without resetting (seamlessly)', async () => {
             await addTrack(mockTrack);
 
-            expect(TrackPlayer.addMediaItem).toHaveBeenCalledWith({
+            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith({
                 mediaId: mockTrack.id,
                 url: mockTrack.streamUrl,
                 title: mockTrack.title,
@@ -70,7 +70,7 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.addMediaItem).toHaveBeenCalledWith(
+            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(
                 expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
                 })
@@ -85,7 +85,7 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.addMediaItem).toHaveBeenCalledWith(
+            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(
                 expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
                 })

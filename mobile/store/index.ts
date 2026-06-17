@@ -1573,6 +1573,8 @@ export const useStore = create<AppState>((set, get) => ({
 }));
 
 // Initialize Listeners
+let isRemoteTrackLoading = false;
+
 webSocketService.on('connection-status', (status, isExplicit) => {
     const { mode, connectionStatus: currentStatus } = useStore.getState();
 
@@ -1609,8 +1611,19 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
     // Sync with TrackPlayer
     try {
-        if (payload.currentTrack && payload.currentTrack.id !== prevTrackId) {
-            await addTrack(payload.currentTrack, currentState.hostIp);
+        const trackChanged = payload.currentTrack && payload.currentTrack.id !== prevTrackId;
+
+        if (trackChanged) {
+            if (isRemoteTrackLoading) {
+                console.log('[RemoteMode] Track changed while loading — skipping duplicate load');
+                return;
+            }
+            isRemoteTrackLoading = true;
+            try {
+                await addTrack(payload.currentTrack!, currentState.hostIp);
+            } finally {
+                isRemoteTrackLoading = false;
+            }
         }
 
         if (payload.isPlaying !== undefined) {

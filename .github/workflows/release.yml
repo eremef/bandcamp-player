@@ -171,6 +171,8 @@ jobs:
         run: df -h
 
       - name: Build APK
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g"'
         run: |
           cd mobile/android
           chmod +x gradlew

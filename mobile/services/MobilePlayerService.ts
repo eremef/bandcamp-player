@@ -268,9 +268,11 @@ class MobilePlayerService {
             }));
 
             this.isLoadingTrack = true;
-            await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
-
-            this.isLoadingTrack = false;
+            try {
+                await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+            } finally {
+                this.isLoadingTrack = false;
+            }
             console.log(`[MobilePlayer] Seeking to position: ${initialPosition || 0}`);
             await TrackPlayer.seekTo(initialPosition || 0);
 

@@ -14,9 +14,11 @@ jest.mock('@rntp/player', () => ({
     play: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn().mockResolvedValue(undefined),
     reset: jest.fn().mockResolvedValue(undefined),
     seekTo: jest.fn().mockResolvedValue(undefined),
     setVolume: jest.fn().mockResolvedValue(undefined),
+    setMediaItem: jest.fn().mockResolvedValue(undefined),
     getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
     getPlaybackState: jest.fn().mockResolvedValue({ state: 'none' }),
     addEventListener: jest.fn(),
@@ -34,6 +36,7 @@ jest.mock('@rntp/player', () => ({
     RepeatMode: {},
     AppKilledPlaybackBehavior: {},
 }));
+
 
 // Mock WebSocketService
 const socketListeners: Record<string, (...args: any[]) => void> = {};

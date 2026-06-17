@@ -16,6 +16,7 @@ jest.mock('@rntp/player', () => ({
         getPlaybackState: jest.fn().mockResolvedValue({ state: 'stopped' }),
         getQueue: jest.fn().mockResolvedValue([]),
         setMediaItem: jest.fn().mockResolvedValue(undefined),
+        setMediaItems: jest.fn().mockResolvedValue(undefined),
         skipToIndex: jest.fn().mockResolvedValue(undefined),
         removeMediaItems: jest.fn().mockResolvedValue(undefined),
         isPlaying: jest.fn().mockReturnValue(false)
@@ -162,7 +163,7 @@ describe('MobilePlayerService', () => {
             (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
 
             await mobilePlayerService.play();
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalled(); // via loadTrack
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalled(); // via loadTrack
             expect(TrackPlayer.play).toHaveBeenCalled();
         });
 
@@ -179,7 +180,7 @@ describe('MobilePlayerService', () => {
 
             await mobilePlayerService.play();
 
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalled();
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalled();
             expect(TrackPlayer.play).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({ queue: { items: [{ track: mockTrack }], currentIndex: 0 } }));
         });
@@ -323,7 +324,10 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(expect.objectContaining({ url: 'url', duration: 100 }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'url', duration: 100 })]),
+                0
+            );
             expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({
                 currentTrack: expect.objectContaining({ streamUrl: 'url' })
             }));
@@ -344,7 +348,10 @@ describe('MobilePlayerService', () => {
 
             expect(success).toBe(true);
             expect(mobileScraperService.getStationStreamUrl).toHaveBeenCalledWith('50');
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(expect.objectContaining({ url: 'radio_url' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'radio_url' })]),
+                0
+            );
         });
 
         it('should fetch album details to find stream url', async () => {
@@ -356,7 +363,10 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(expect.objectContaining({ url: 'album_stream' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'album_stream' })]),
+                0
+            );
         });
 
         it('should fall back to single track if name mismatch but only 1 track', async () => {
@@ -368,7 +378,10 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.setMediaItem).toHaveBeenCalledWith(expect.objectContaining({ url: 'fallback_stream' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'fallback_stream' })]),
+                0
+            );
         });
 
         it('should fail and set error if stream not found', async () => {
@@ -382,7 +395,7 @@ describe('MobilePlayerService', () => {
 
         it('should fail and set error on exception', async () => {
             const track = { id: 't1', title: 'Fail', streamUrl: 'url' };
-            (TrackPlayer.setMediaItem as jest.Mock).mockRejectedValueOnce(new Error('Crash'));
+            (TrackPlayer.setMediaItems as jest.Mock).mockRejectedValueOnce(new Error('Crash'));
 
             const success = await mobilePlayerService.loadTrack(track as any);
 

@@ -11,6 +11,7 @@ jest.mock('@rntp/player', () => {
         setCommands: jest.fn().mockResolvedValue(undefined),
         addMediaItem: jest.fn().mockResolvedValue(undefined),
         setMediaItem: jest.fn().mockResolvedValue(undefined),
+        setMediaItems: jest.fn().mockResolvedValue(undefined),
         remove: jest.fn().mockResolvedValue(undefined),
         skip: jest.fn().mockResolvedValue(undefined),
         skipToNext: jest.fn().mockResolvedValue(undefined),
