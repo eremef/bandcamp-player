@@ -1,5 +1,3 @@
----
-
 # 3rd-Party Software for [bandcamp-player](https://github.com/eremef/bandcamp-player)
 
 The following 3rd-party software packages may be used by or distributed with **bandcamp-player**.  Any information relevant to third-party vendors listed below are collected using common, reasonable means.
