@@ -1,6 +1,6 @@
 /// <reference types="jest" />
-import TrackPlayer from 'react-native-track-player';
-import { setupPlayer, addTrack } from './player';
+import TrackPlayer from '@rntp/player';
+import { setupPlayer, addTrack } from '../../services/player';
 
 describe('player.ts', () => {
     beforeEach(() => {
@@ -43,17 +43,17 @@ describe('player.ts', () => {
         it('should add track without resetting (seamlessly)', async () => {
             await addTrack(mockTrack);
 
-            expect(TrackPlayer.add).toHaveBeenCalledWith({
-                id: mockTrack.id,
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith([{
+                mediaId: mockTrack.id,
                 url: mockTrack.streamUrl,
                 title: mockTrack.title,
                 artist: mockTrack.artist,
-                album: mockTrack.album,
-                artwork: mockTrack.artworkUrl,
+                albumTitle: mockTrack.album,
+                artworkUrl: mockTrack.artworkUrl,
                 duration: mockTrack.duration,
-            });
+            }], 0);
             // Should NOT call reset() for seamless transitions
-            expect(TrackPlayer.reset).not.toHaveBeenCalled();
+            expect(TrackPlayer.clear).not.toHaveBeenCalled();
         });
 
         it('should set volume to 0 (muted on mobile)', async () => {
@@ -70,10 +70,11 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.add).toHaveBeenCalledWith(
-                expect.objectContaining({
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
-                })
+                })],
+                0
             );
         });
 
@@ -85,10 +86,11 @@ describe('player.ts', () => {
 
             await addTrack(localhostTrack, '192.168.1.100');
 
-            expect(TrackPlayer.add).toHaveBeenCalledWith(
-                expect.objectContaining({
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [expect.objectContaining({
                     url: 'http://192.168.1.100:3000/stream.mp3',
-                })
+                })],
+                0
             );
         });
     });

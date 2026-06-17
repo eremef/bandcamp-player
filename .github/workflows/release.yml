@@ -138,16 +138,6 @@ jobs:
           cd mobile
           npm ci
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('mobile/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-
       - name: Prebuild Android
         run: |
           cd mobile
@@ -160,11 +150,18 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
+
+
+      - name: Check disk space
+        run: df -h
+
       - name: Build APK
+        env:
+          GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true'
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Rename Artifacts
         env:
@@ -179,89 +176,89 @@ jobs:
           path: |
             mobile/android/app/build/outputs/apk/release/*.apk
 
-  build-ios:
-    name: Build iOS (IPA)
-    runs-on: macos-26
-    permissions:
-      contents: read
+  # build-ios:
+  #   name: Build iOS (IPA)
+  #   runs-on: macos-26
+  #   permissions:
+  #     contents: read
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: 'npm'
-          cache-dependency-path: 'mobile/package-lock.json'
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v6
+  #       with:
+  #         node-version: 24
+  #         cache: 'npm'
+  #         cache-dependency-path: 'mobile/package-lock.json'
 
-      - name: Install dependencies
-        run: |
-          cd mobile
-          npm ci
+  #     - name: Install dependencies
+  #       run: |
+  #         cd mobile
+  #         npm ci
 
-      - name: Prebuild iOS
-        run: |
-          cd mobile
-          npx expo prebuild --platform ios
+  #     - name: Prebuild iOS
+  #       run: |
+  #         cd mobile
+  #         npx expo prebuild --platform ios
 
-      - name: Disable explicit Swift modules for pods
-        run: |
-          gem install xcodeproj
-          ruby <<'RUBY'
-          require 'xcodeproj'
-          project = Xcodeproj::Project.open('mobile/ios/Pods/Pods.xcodeproj')
-          project.targets.each do |target|
-            target.build_configurations.each do |config|
-              config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
-            end
-          end
-          project.save
-          puts "Disabled SWIFT_ENABLE_EXPLICIT_MODULES for #{project.targets.count} pod targets"
-          RUBY
+  #     - name: Disable explicit Swift modules for pods
+  #       run: |
+  #         gem install xcodeproj
+  #         ruby <<'RUBY'
+  #         require 'xcodeproj'
+  #         project = Xcodeproj::Project.open('mobile/ios/Pods/Pods.xcodeproj')
+  #         project.targets.each do |target|
+  #           target.build_configurations.each do |config|
+  #             config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
+  #           end
+  #         end
+  #         project.save
+  #         puts "Disabled SWIFT_ENABLE_EXPLICIT_MODULES for #{project.targets.count} pod targets"
+  #         RUBY
 
-      - name: Discover iOS project name
-        id: ios-project
-        run: |
-          WORKSPACE=$(basename mobile/ios/*.xcworkspace .xcworkspace)
-          if [ "$WORKSPACE" = "*" ]; then
-            echo "::error::No .xcworkspace found in mobile/ios/"
-            ls -la mobile/ios/ 2>/dev/null || echo "mobile/ios/ does not exist"
-            exit 1
-          fi
-          echo "name=$WORKSPACE" >> $GITHUB_OUTPUT
+  #     - name: Discover iOS project name
+  #       id: ios-project
+  #       run: |
+  #         WORKSPACE=$(basename mobile/ios/*.xcworkspace .xcworkspace)
+  #         if [ "$WORKSPACE" = "*" ]; then
+  #           echo "::error::No .xcworkspace found in mobile/ios/"
+  #           ls -la mobile/ios/ 2>/dev/null || echo "mobile/ios/ does not exist"
+  #           exit 1
+  #         fi
+  #         echo "name=$WORKSPACE" >> $GITHUB_OUTPUT
 
-      - name: Build iOS App
-        run: |
-          cd mobile/ios
-          xcodebuild -workspace "${{ steps.ios-project.outputs.name }}.xcworkspace" \
-            -scheme "${{ steps.ios-project.outputs.name }}" \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+  #     - name: Build iOS App
+  #       run: |
+  #         cd mobile/ios
+  #         xcodebuild -workspace "${{ steps.ios-project.outputs.name }}.xcworkspace" \
+  #           -scheme "${{ steps.ios-project.outputs.name }}" \
+  #           -configuration Release \
+  #           -sdk iphoneos \
+  #           -derivedDataPath build \
+  #           CODE_SIGN_IDENTITY="" \
+  #           CODE_SIGNING_REQUIRED=NO \
+  #           CODE_SIGNING_ALLOWED=NO
 
-      - name: Create IPA
-        env:
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          cd mobile/ios/build/Build/Products/Release-iphoneos
-          mkdir Payload
-          cp -r ${{ steps.ios-project.outputs.name }}.app Payload/
-          zip -r beta-player-"$REF_NAME"-ios.ipa Payload
+  #     - name: Create IPA
+  #       env:
+  #         REF_NAME: ${{ github.ref_name }}
+  #       run: |
+  #         cd mobile/ios/build/Build/Products/Release-iphoneos
+  #         mkdir Payload
+  #         cp -r ${{ steps.ios-project.outputs.name }}.app Payload/
+  #         zip -r beta-player-"$REF_NAME"-ios.ipa Payload
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: mobile-ios
-          path: mobile/ios/build/Build/Products/Release-iphoneos/*.ipa
+  #     - name: Upload Artifacts
+  #       uses: actions/upload-artifact@v7
+  #       with:
+  #         name: mobile-ios
+  #         path: mobile/ios/build/Build/Products/Release-iphoneos/*.ipa
 
   release:
     name: Release
-    needs: [build-desktop-windows, build-desktop-linux, build-desktop-macos, build-android, build-ios]
+    needs: [build-desktop-windows, build-desktop-linux, build-desktop-macos, build-android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:

@@ -1,26 +1,27 @@
 import { mobilePlayerService } from '../services/MobilePlayerService';
-import TrackPlayer, { State } from 'react-native-track-player';
+import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileDatabase } from '../services/MobileDatabase';
 import { setupPlayer } from '../services/player';
 
-jest.mock('react-native-track-player', () => ({
+jest.mock('@rntp/player', () => ({
     __esModule: true,
     default: {
         setVolume: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn().mockResolvedValue(undefined),
-        stop: jest.fn().mockResolvedValue(undefined),
-        reset: jest.fn().mockResolvedValue(undefined),
+        clear: jest.fn().mockResolvedValue(undefined),
         seekTo: jest.fn().mockResolvedValue(undefined),
         getPlaybackState: jest.fn().mockResolvedValue({ state: 'stopped' }),
         getQueue: jest.fn().mockResolvedValue([]),
-        add: jest.fn().mockResolvedValue(undefined),
-        skip: jest.fn().mockResolvedValue(undefined),
-        remove: jest.fn().mockResolvedValue(undefined)
+        setMediaItem: jest.fn().mockResolvedValue(undefined),
+        setMediaItems: jest.fn().mockResolvedValue(undefined),
+        skipToIndex: jest.fn().mockResolvedValue(undefined),
+        removeMediaItems: jest.fn().mockResolvedValue(undefined),
+        isPlaying: jest.fn().mockReturnValue(false)
     },
-    State: {
+    PlaybackState: {
         Ready: 'ready',
         Playing: 'playing',
         Paused: 'paused',
@@ -112,7 +113,7 @@ describe('MobilePlayerService', () => {
 
         it('should stop playback', async () => {
             await mobilePlayerService.stop();
-            expect(TrackPlayer.reset).toHaveBeenCalled();
+            expect(TrackPlayer.clear).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
         });
 
@@ -142,14 +143,16 @@ describe('MobilePlayerService', () => {
 
     describe('play() logic', () => {
         it('should resume if paused', async () => {
-            (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValueOnce({ state: State.Paused });
+            (TrackPlayer.isPlaying as jest.Mock).mockReturnValueOnce(false);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValueOnce('ready');
             await mobilePlayerService.play();
             expect(TrackPlayer.play).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: true });
         });
 
         it('should replay current track if stopped', async () => {
-            (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Stopped });
+            (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
             const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
             (useStore.getState as jest.Mock).mockReturnValue({
                 volume: 0.5,
@@ -160,12 +163,13 @@ describe('MobilePlayerService', () => {
             (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
 
             await mobilePlayerService.play();
-            expect(TrackPlayer.add).toHaveBeenCalled(); // via loadTrack
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalled(); // via loadTrack
             expect(TrackPlayer.play).toHaveBeenCalled();
         });
 
         it('should play from queue if no current track', async () => {
-            (TrackPlayer.getPlaybackState as jest.Mock).mockResolvedValue({ state: State.Stopped });
+            (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
             const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
             (useStore.getState as jest.Mock).mockReturnValue({
                 volume: 0.5,
@@ -176,7 +180,7 @@ describe('MobilePlayerService', () => {
 
             await mobilePlayerService.play();
 
-            expect(TrackPlayer.add).toHaveBeenCalled();
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalled();
             expect(TrackPlayer.play).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({ queue: { items: [{ track: mockTrack }], currentIndex: 0 } }));
         });
@@ -317,10 +321,15 @@ describe('MobilePlayerService', () => {
 
         it('should load track if streamUrl exists', async () => {
             const track = { id: '1', title: 'T', streamUrl: 'url', duration: 100 };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({ url: 'url', duration: 100 }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'url', duration: 100 })]),
+                0
+            );
             expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({
                 currentTrack: expect.objectContaining({ streamUrl: 'url' })
             }));
@@ -328,6 +337,8 @@ describe('MobilePlayerService', () => {
 
         it('should seek to initialPosition if provided', async () => {
             const track = { id: '1', streamUrl: 'url' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             await mobilePlayerService.loadTrack(track as any, 50);
 
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(50);
@@ -335,17 +346,24 @@ describe('MobilePlayerService', () => {
 
         it('should fetch stream url for radio show', async () => {
             const track = { id: 'r1', title: 'Radio', bandcampUrl: 'https://bandcamp.com?show=50' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 'r1', track: track as any, source: 'radio' }], currentIndex: 0 } });
+            
             (mobileScraperService.getStationStreamUrl as jest.Mock).mockResolvedValueOnce({ streamUrl: 'radio_url', duration: 7200 });
 
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
             expect(mobileScraperService.getStationStreamUrl).toHaveBeenCalledWith('50');
-            expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({ url: 'radio_url' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'radio_url' })]),
+                0
+            );
         });
 
         it('should fetch album details to find stream url', async () => {
             const track = { id: 't1', title: 'Song 1', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Song 1', streamUrl: 'album_stream' }]
             });
@@ -353,11 +371,16 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({ url: 'album_stream' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'album_stream' })]),
+                0
+            );
         });
 
         it('should fall back to single track if name mismatch but only 1 track', async () => {
             const track = { id: 't1', title: 'Unknown', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Actual Name', streamUrl: 'fallback_stream' }]
             });
@@ -365,7 +388,10 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
-            expect(TrackPlayer.add).toHaveBeenCalledWith(expect.objectContaining({ url: 'fallback_stream' }));
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ url: 'fallback_stream' })]),
+                0
+            );
         });
 
         it('should fail and set error if stream not found', async () => {
@@ -379,7 +405,7 @@ describe('MobilePlayerService', () => {
 
         it('should fail and set error on exception', async () => {
             const track = { id: 't1', title: 'Fail', streamUrl: 'url' };
-            (TrackPlayer.add as jest.Mock).mockRejectedValueOnce(new Error('Crash'));
+            (TrackPlayer.setMediaItems as jest.Mock).mockRejectedValueOnce(new Error('Crash'));
 
             const success = await mobilePlayerService.loadTrack(track as any);
 
@@ -387,14 +413,5 @@ describe('MobilePlayerService', () => {
             expect(useStore.setState).toHaveBeenCalledWith({ collectionError: 'Failed to load track.' });
         });
 
-        it('should clean up old queue if pushing to non-empty player queue', async () => {
-            const track = { id: '1', title: 'T', streamUrl: 'url' };
-            (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([{}, {}]); // index 2 next
-
-            await mobilePlayerService.loadTrack(track as any);
-
-            expect(TrackPlayer.skip).toHaveBeenCalledWith(2);
-            expect(TrackPlayer.remove).toHaveBeenCalledWith([0, 1]);
-        });
     });
 });

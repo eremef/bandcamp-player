@@ -84,6 +84,7 @@ describe('PlayerBar', () => {
             player: {
                 updateTime: vi.fn(),
                 onSeek: vi.fn(() => () => { }),
+                trackEnded: vi.fn(),
             }
         };
     });
@@ -167,7 +168,7 @@ describe('PlayerBar', () => {
 
         // Ended
         fireEvent.ended(audio);
-        expect(mockStore.next).toHaveBeenCalled();
+        expect(window.electron.player.trackEnded).toHaveBeenCalled();
 
         // Error (non-critical)
         fireEvent.error(audio); // Should log console.error but not crash

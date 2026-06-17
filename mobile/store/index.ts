@@ -12,7 +12,7 @@ const runAfterInteractions = (callback: () => void) => {
 };
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { addTrack } from '../services/player';
 // import { mobilePlayerService } from '../services/MobilePlayerService';
 
@@ -234,6 +234,11 @@ export const useStore = create<AppState>((set, get) => ({
             try {
                 const parsed = JSON.parse(savedQueueJson);
                 if (parsed?.items?.length > 0) {
+                    parsed.items.forEach((item: any) => {
+                        if (item.track) {
+                            item.track.streamUrl = '';
+                        }
+                    });
                     restoredQueue = parsed;
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;
@@ -328,7 +333,7 @@ export const useStore = create<AppState>((set, get) => ({
         // Reset TrackPlayer for BOTH directions:
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
-        await TrackPlayer.reset();
+        await TrackPlayer.clear();
 
         if (mode === 'remote') {
             await TrackPlayer.setVolume(0);
@@ -1568,6 +1573,8 @@ export const useStore = create<AppState>((set, get) => ({
 }));
 
 // Initialize Listeners
+let isRemoteTrackLoading = false;
+
 webSocketService.on('connection-status', (status, isExplicit) => {
     const { mode, connectionStatus: currentStatus } = useStore.getState();
 
@@ -1604,16 +1611,31 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
     // Sync with TrackPlayer
     try {
-        if (payload.currentTrack && payload.currentTrack.id !== prevTrackId) {
-            await addTrack(payload.currentTrack, currentState.hostIp);
+        const trackChanged = payload.currentTrack && (
+            payload.currentTrack.id !== prevTrackId ||
+            payload.currentTrack.streamUrl !== currentState.currentTrack?.streamUrl
+        );
+
+        if (trackChanged) {
+            if (isRemoteTrackLoading) {
+                console.log('[RemoteMode] Track changed while loading — skipping duplicate load');
+                return;
+            }
+            isRemoteTrackLoading = true;
+            try {
+                // Get the newly updated state, not the old currentState
+                const newState = useStore.getState();
+                await addTrack(payload.currentTrack!, newState.hostIp, newState.queue.items, newState.queue.currentIndex);
+            } finally {
+                isRemoteTrackLoading = false;
+            }
         }
 
-        if (payload.isPlaying !== undefined) {
-            if (payload.isPlaying) {
-                await TrackPlayer.play();
-            } else {
-                await TrackPlayer.pause();
-            }
+        const { isPlaying } = useStore.getState();
+        if (isPlaying) {
+            await TrackPlayer.play();
+        } else {
+            await TrackPlayer.pause();
         }
     } catch (e) {
         console.error('Failed to sync TrackPlayer state', e);

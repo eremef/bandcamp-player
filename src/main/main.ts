@@ -392,7 +392,7 @@ if (!gotTheLock) {
         }
       });
       if (cacheServer) {
-        cacheServer.listen(0, "127.0.0.1", () => {
+        cacheServer.listen(0, "0.0.0.0", () => {
           const addr = cacheServer?.address() as { port: number };
           if (addr) {
             (global as any).cacheServerPort = addr.port;

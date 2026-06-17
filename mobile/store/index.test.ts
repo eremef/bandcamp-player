@@ -3,20 +3,22 @@ import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, waitFor } from '@testing-library/react-native';
-import TrackPlayer from 'react-native-track-player';
+import TrackPlayer from '@rntp/player';
 import { addTrack } from '../services/player';
 
 // Mock TrackPlayer
-jest.mock('react-native-track-player', () => ({
+jest.mock('@rntp/player', () => ({
     setupPlayer: jest.fn().mockResolvedValue(undefined),
     updateOptions: jest.fn().mockResolvedValue(undefined),
     add: jest.fn().mockResolvedValue(undefined),
     play: jest.fn().mockResolvedValue(undefined),
     pause: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn().mockResolvedValue(undefined),
     reset: jest.fn().mockResolvedValue(undefined),
     seekTo: jest.fn().mockResolvedValue(undefined),
     setVolume: jest.fn().mockResolvedValue(undefined),
+    setMediaItem: jest.fn().mockResolvedValue(undefined),
     getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
     getPlaybackState: jest.fn().mockResolvedValue({ state: 'none' }),
     addEventListener: jest.fn(),
@@ -34,6 +36,7 @@ jest.mock('react-native-track-player', () => ({
     RepeatMode: {},
     AppKilledPlaybackBehavior: {},
 }));
+
 
 // Mock WebSocketService
 const socketListeners: Record<string, (...args: any[]) => void> = {};

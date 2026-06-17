@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'beta-app',
-    version: '1.8.8',
+    version: '1.8.9-alpha.5',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -22,6 +22,10 @@ module.exports = {
       permissions: [
         'INTERNET',
         'ACCESS_NETWORK_STATE',
+        'POST_NOTIFICATIONS',
+        'FOREGROUND_SERVICE',
+        'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+        'WAKE_LOCK',
       ],
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
@@ -46,6 +50,10 @@ module.exports = {
             permissions: [
               'INTERNET',
               'ACCESS_NETWORK_STATE',
+              'POST_NOTIFICATIONS',
+              'FOREGROUND_SERVICE',
+              'FOREGROUND_SERVICE_MEDIA_PLAYBACK',
+              'WAKE_LOCK',
             ],
           },
         },

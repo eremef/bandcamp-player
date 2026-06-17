@@ -1,4 +1,4 @@
-import TrackPlayer, { Event, Capability, AppKilledPlaybackBehavior, State } from 'react-native-track-player';
+import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { PlaybackService } from '../../services/TrackPlayerService';
 import { useStore } from '../../store';
 
@@ -15,18 +15,20 @@ describe('TrackPlayerService (PlaybackService)', () => {
     let mockPrevious: jest.Mock;
     let mockSeek: jest.Mock;
 
-    // Helper to trigger events
-    const triggerEvent = (eventName: string, payload?: any) => {
+    // Helper to trigger foreground events
+    const triggerForegroundEvent = async (eventName: string, payload?: any) => {
         const calls = (TrackPlayer.addEventListener as jest.Mock).mock.calls;
         const call = calls.find(c => c[0] === eventName);
         if (call && call[1]) {
-            call[1](payload);
+            await call[1](payload);
         }
     };
 
     beforeEach(() => {
-        jest.clearAllMocks();
-
+        const { mobilePlayerService } = require('../../services/MobilePlayerService');
+        if (mobilePlayerService.handleTrackEnd.mockClear) {
+            mobilePlayerService.handleTrackEnd.mockClear();
+        }
         mockPlay = jest.fn();
         mockPause = jest.fn();
         mockNext = jest.fn();
@@ -46,112 +48,83 @@ describe('TrackPlayerService (PlaybackService)', () => {
         } as any);
     });
 
-    it('initializes TrackPlayer with correct options', async () => {
-        await PlaybackService();
+    describe('Event listeners via PlaybackService (Background)', () => {
 
-        expect(TrackPlayer.updateOptions).toHaveBeenCalledWith(expect.objectContaining({
-            android: {
-                appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-            },
-            capabilities: expect.arrayContaining([Capability.Play, Capability.Pause]),
-        }));
-    });
 
-    describe('Standalone mode event listeners', () => {
-        beforeEach(async () => {
-            await PlaybackService();
-        });
-
-        it('updates time on PlaybackProgressUpdated', () => {
-            triggerEvent(Event.PlaybackProgressUpdated, { position: 10, duration: 100 });
-            const state = useStore.getState();
-            expect(state.currentTime).toBe(10);
-            expect(state.duration).toBe(100);
-        });
-
-        it('ignores PlaybackProgressUpdated in remote mode', () => {
-            useStore.setState({ mode: 'remote' } as any);
-            triggerEvent(Event.PlaybackProgressUpdated, { position: 10, duration: 100 });
-            const state = useStore.getState();
-            expect(state.currentTime).toBe(0); // unaltered
-        });
-
-        it('updates isPlaying on PlaybackState playing', () => {
-            triggerEvent(Event.PlaybackState, { state: State.Playing });
+        it('updates isPlaying on IsPlayingChanged', async () => {
+            await PlaybackService({ type: Event.IsPlayingChanged, playing: true });
             const state = useStore.getState();
             expect(state.isPlaying).toBe(true);
         });
 
-        it('calls play on RemotePlay', () => {
-            triggerEvent(Event.RemotePlay);
+        it('calls play on RemotePlay', async () => {
+            await PlaybackService({ type: Event.RemotePlay });
             expect(mockPlay).toHaveBeenCalled();
         });
 
-        it('calls pause on RemotePause', () => {
-            triggerEvent(Event.RemotePause);
+        it('calls pause on RemotePause', async () => {
+            await PlaybackService({ type: Event.RemotePause });
             expect(mockPause).toHaveBeenCalled();
         });
 
-        it('calls play or pause on RemotePlayPause', () => {
-            useStore.setState({ isPlaying: false } as any);
-            triggerEvent(Event.RemotePlayPause);
-            expect(mockPlay).toHaveBeenCalled();
-
-            mockPlay.mockClear();
-            mockPause.mockClear();
-            useStore.setState({ isPlaying: true } as any);
-            triggerEvent(Event.RemotePlayPause);
-            expect(mockPause).toHaveBeenCalled();
-        });
-
-        it('calls next on RemoteNext', () => {
-            triggerEvent(Event.RemoteNext);
+        it('calls next on RemoteNext', async () => {
+            await PlaybackService({ type: Event.RemoteNext });
             expect(mockNext).toHaveBeenCalled();
         });
 
-        it('calls previous on RemotePrevious', () => {
-            triggerEvent(Event.RemotePrevious);
+        it('calls previous on RemotePrevious', async () => {
+            await PlaybackService({ type: Event.RemotePrevious });
             expect(mockPrevious).toHaveBeenCalled();
         });
 
-        it('calls seek on RemoteSeek', () => {
-            triggerEvent(Event.RemoteSeek, { position: 50 });
+        it('calls seek on RemoteSeek', async () => {
+            await PlaybackService({ type: Event.RemoteSeek, position: 50 });
             expect(mockSeek).toHaveBeenCalledWith(50);
         });
 
-        it('calls seek on RemoteJumpForward', async () => {
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValueOnce({ position: 30, duration: 100 });
-            await triggerEvent(Event.RemoteJumpForward, { interval: 10 });
-
-            // Allow async progress fetch to resolve
-            await new Promise(setImmediate);
+        it('calls seek on RemoteSkipForward', async () => {
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValueOnce({ position: 30, duration: 100 });
+            await PlaybackService({ type: Event.RemoteSkipForward, interval: 10 });
             expect(mockSeek).toHaveBeenCalledWith(40);
         });
 
-        it('calls seek on RemoteJumpBackward', async () => {
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValueOnce({ position: 30, duration: 100 });
-            await triggerEvent(Event.RemoteJumpBackward, { interval: 10 });
-
-            await new Promise(setImmediate);
+        it('calls seek on RemoteSkipBackward', async () => {
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValueOnce({ position: 30, duration: 100 });
+            await PlaybackService({ type: Event.RemoteSkipBackward, interval: 10 });
             expect(mockSeek).toHaveBeenCalledWith(20);
         });
 
-        it('resets TrackPlayer on RemoteStop', () => {
-            triggerEvent(Event.RemoteStop);
-            expect(TrackPlayer.reset).toHaveBeenCalled();
+        it('clears TrackPlayer on RemoteStop', async () => {
+            await PlaybackService({ type: Event.RemoteStop });
+            expect(TrackPlayer.clear).toHaveBeenCalled();
         });
 
-        it('calls handleTrackEnd on PlaybackQueueEnded in standalone mode', async () => {
+        it('calls handleTrackEnd on PlaybackStateChanged Ended in standalone mode', async () => {
+            useStore.setState({ queue: { items: [{ id: '1' }], currentIndex: 0 } } as any);
             const { mobilePlayerService } = require('../../services/MobilePlayerService');
-            await triggerEvent(Event.PlaybackQueueEnded);
+            await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ended });
             expect(mobilePlayerService.handleTrackEnd).toHaveBeenCalled();
         });
 
-        it('ignores PlaybackQueueEnded in remote mode', async () => {
+        it('ignores PlaybackStateChanged Ended in remote mode', async () => {
             useStore.setState({ mode: 'remote' } as any);
             const { mobilePlayerService } = require('../../services/MobilePlayerService');
-            await triggerEvent(Event.PlaybackQueueEnded);
+            await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ended });
             expect(mobilePlayerService.handleTrackEnd).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Event listeners via Foreground AddEventListener', () => {
+        // Just spot check one to ensure it was registered since it points to the same logic
+        it('calls seek on RemoteSeek', async () => {
+            await triggerForegroundEvent(Event.RemoteSeek, { position: 50 });
+            expect(mockSeek).toHaveBeenCalledWith(50);
+        });
+        
+        it('updates isPlaying on IsPlayingChanged', async () => {
+            await triggerForegroundEvent(Event.IsPlayingChanged, { playing: true });
+            const state = useStore.getState();
+            expect(state.isPlaying).toBe(true);
         });
     });
 });

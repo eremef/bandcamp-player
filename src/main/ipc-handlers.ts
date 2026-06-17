@@ -130,6 +130,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(PLAYER_CHANNELS.SEEK, (_, time: number) =>
     playerService.seek(time),
   );
+  ipcMain.handle(PLAYER_CHANNELS.TRACK_ENDED, () => playerService.handleTrackEnd());
   ipcMain.handle(PLAYER_CHANNELS.SET_VOLUME, (_, volume: number) =>
     playerService.setVolume(volume),
   );

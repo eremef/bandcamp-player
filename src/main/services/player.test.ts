@@ -227,20 +227,22 @@ describe("PlayerService", () => {
     it("should handle track end and play next", async () => {
       const track1 = { ...mockTrack, id: "1" };
       const track2 = { ...mockTrack, id: "2" };
-      await playerService.play(track1);
+      await playerService.play(track1, true);
       playerService.addToQueue(track2);
 
-      playerService.updateTime(100, 100); // Simulate end
+      playerService.updateTime(50, 100);
+      playerService.handleTrackEnd();
 
       expect(playerService.getState().currentTrack?.id).toBe("2");
     });
 
     it("should repeat track on end if repeatMode is one", async () => {
-      await playerService.play(mockTrack);
+      const track1 = { ...mockTrack, id: "1" };
+      await playerService.play(track1, true);
       playerService.setRepeat("one");
-
       vi.spyOn(playerService, "seek");
-      playerService.updateTime(100, 100);
+
+      playerService.handleTrackEnd();
 
       expect(playerService.seek).toHaveBeenCalledWith(0);
       expect(playerService.getState().currentTrack?.id).toBe("1");

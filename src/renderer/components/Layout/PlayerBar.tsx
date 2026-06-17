@@ -99,7 +99,7 @@ export function PlayerBar() {
         };
 
         const handleEnded = () => {
-            next();
+            window.electron.player.trackEnded();
         };
 
         const handleError = (e: Event) => {

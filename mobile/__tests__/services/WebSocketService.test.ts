@@ -1,4 +1,4 @@
-import { webSocketService } from './WebSocketService';
+import { webSocketService } from '../../services/WebSocketService';
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 
 // Mock WebSocket class

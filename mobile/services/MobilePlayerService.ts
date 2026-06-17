@@ -1,6 +1,6 @@
 import TrackPlayer, {
-    State
-} from 'react-native-track-player';
+    PlaybackState
+} from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';
@@ -9,33 +9,8 @@ import { setupPlayer } from './player';
 
 class MobilePlayerService {
     private isInitialized = false;
+    public isLoadingTrack = false;
     public onQueueChange?: () => void;
-    private progressPollInterval: ReturnType<typeof setInterval> | null = null;
-
-    private startProgressPolling() {
-        this.stopProgressPolling();
-        this.progressPollInterval = setInterval(async () => {
-            try {
-                const progress = await TrackPlayer.getProgress();
-                const update: { currentTime: number; duration?: number } = {
-                    currentTime: progress.position,
-                };
-                if (progress.duration > 0) {
-                    update.duration = progress.duration;
-                }
-                useStore.setState(update);
-            } catch {
-                // Player not ready
-            }
-        }, 1000);
-    }
-
-    private stopProgressPolling() {
-        if (this.progressPollInterval !== null) {
-            clearInterval(this.progressPollInterval);
-            this.progressPollInterval = null;
-        }
-    }
 
     async setupPlayer() {
         if (this.isInitialized) return;
@@ -43,11 +18,37 @@ class MobilePlayerService {
         const success = await setupPlayer();
         if (!success) return;
 
-        // Set initial volume from store
         const { volume } = useStore.getState();
         await TrackPlayer.setVolume(volume);
 
         this.isInitialized = true;
+        this.startProgressPolling();
+    }
+
+    private progressInterval?: ReturnType<typeof setInterval>;
+
+    private startProgressPolling() {
+        if (this.progressInterval) return;
+        this.progressInterval = setInterval(() => {
+            const state = useStore.getState();
+            if (state.mode !== 'standalone' || !state.isPlaying) return;
+
+            try {
+                const progress = TrackPlayer.getProgress();
+                const update: { currentTime: number; duration?: number } = {
+                    currentTime: progress.position,
+                };
+                if (progress.duration > 0) {
+                    update.duration = progress.duration;
+                }
+                useStore.setState(update);
+
+                const { mobileScrobblerService } = require('./MobileScrobblerService');
+                mobileScrobblerService.handleProgressUpdate(progress.position, progress.duration);
+            } catch (e) {
+                // Ignore errors if player is not fully ready
+            }
+        }, 1000);
     }
 
     async play(track?: Track) {
@@ -64,10 +65,10 @@ class MobilePlayerService {
         // If no track provided, resume current or play from queue
         // If we are already paused on a track, resume
         const playbackState = await TrackPlayer.getPlaybackState();
-        if (playbackState.state === State.Paused || playbackState.state === State.Ready) {
+        const playing = await TrackPlayer.isPlaying();
+        if (!playing && playbackState === PlaybackState.Ready) {
             await TrackPlayer.play();
             useStore.setState({ isPlaying: true });
-            this.startProgressPolling();
         } else if (store.currentTrack) {
             // If we have a track but player state is stopped/none, re-load it?
             // Maybe.
@@ -80,14 +81,12 @@ class MobilePlayerService {
     }
 
     async pause() {
-        this.stopProgressPolling();
         await TrackPlayer.pause();
         useStore.setState({ isPlaying: false });
     }
 
     async stop() {
-        this.stopProgressPolling();
-        await TrackPlayer.reset();
+        await TrackPlayer.clear();
         useStore.setState({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
     }
 
@@ -190,11 +189,6 @@ class MobilePlayerService {
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
-            const store = useStore.getState();
-            if (store.mode === 'standalone') {
-                await TrackPlayer.reset();
-            }
-
             let streamUrl = track.streamUrl;
 
             if (!streamUrl) {
@@ -256,30 +250,31 @@ class MobilePlayerService {
 
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
 
-            const queue = await TrackPlayer.getQueue();
-            const nextIndex = queue.length;
+            // To support native Next/Previous buttons and correct lock screen metadata,
+            // we feed the entire queue to the native player. We only provide the real URL
+            // for the current track. The others get dummy URLs and will be resolved when skipped to.
+            const state = useStore.getState();
+            const queueItems = state.queue.items;
+            const currentIndex = state.queue.currentIndex;
 
-            await TrackPlayer.add({
-                id: track.id,
-                url: streamUrl,
-                title: track.title || 'Untitled',
-                artist: artistName,
-                album: track.album,
-                artwork: track.artworkUrl,
-                duration: track.duration,
-            });
+            const nativeQueue = queueItems.map((qTrack, idx) => ({
+                mediaId: qTrack.id,
+                url: idx === currentIndex ? streamUrl : 'http://localhost/dummy.mp3',
+                title: qTrack.track.title || 'Untitled',
+                artist: qTrack.track.artist || 'Unknown Artist',
+                albumTitle: qTrack.track.album,
+                artworkUrl: qTrack.track.artworkUrl,
+                duration: qTrack.track.duration,
+            }));
 
-            if (nextIndex > 0) {
-                await TrackPlayer.skip(nextIndex);
-                // Clean up previous tracks
-                const oldIndices = Array.from({ length: nextIndex }, (_, i) => i);
-                await TrackPlayer.remove(oldIndices);
+            this.isLoadingTrack = true;
+            try {
+                await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+            } finally {
+                this.isLoadingTrack = false;
             }
-
-            if (initialPosition > 0) {
-                console.log(`[MobilePlayer] Seeking to initial position: ${initialPosition}`);
-                await TrackPlayer.seekTo(initialPosition);
-            }
+            console.log(`[MobilePlayer] Seeking to position: ${initialPosition || 0}`);
+            await TrackPlayer.seekTo(initialPosition || 0);
 
             return true;
         } catch (e) {
@@ -303,7 +298,6 @@ class MobilePlayerService {
             console.log('[MobilePlayer] Calling TrackPlayer.play()');
             await TrackPlayer.play();
             console.log('[MobilePlayer] Playback started');
-            this.startProgressPolling();
         } else {
             useStore.setState({ isPlaying: false });
         }

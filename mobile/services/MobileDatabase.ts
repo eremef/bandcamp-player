@@ -191,57 +191,75 @@ export class MobileDatabase {
         );
     }
 
+    // Simple mutex for transaction serialization
+    private transactionLock: Promise<void> = Promise.resolve();
+
+    private async acquireLock(): Promise<() => void> {
+        const currentLock = this.transactionLock;
+        let releaseLock!: () => void;
+        this.transactionLock = new Promise<void>(resolve => {
+            releaseLock = resolve;
+        });
+        await currentLock;
+        return releaseLock;
+    }
+
     async saveCollectionGranular(userId: string, items: CollectionItem[], onProgress?: (msg: string) => void) {
         if (!this.db) await this.init();
 
         const totalItems = items.length;
         const BATCH_SIZE = 100; // Multi-row inserts of 100 items at a time
 
-        await this.db!.withTransactionAsync(async () => {
-            onProgress?.(`Clearing old collection search index...`);
-            await this.db!.runAsync(
-                'DELETE FROM collection_search_fts WHERE id IN (SELECT id FROM collection_items WHERE user_id = ?)',
-                [userId]
-            );
+        const release = await this.acquireLock();
+        try {
+            await this.db!.withTransactionAsync(async () => {
+                onProgress?.(`Clearing old collection search index...`);
+                await this.db!.runAsync(
+                    'DELETE FROM collection_search_fts WHERE id IN (SELECT id FROM collection_items WHERE user_id = ?)',
+                    [userId]
+                );
 
-            onProgress?.(`Cleaning collection records...`);
-            await this.db!.runAsync('DELETE FROM collection_items WHERE user_id = ?', [userId]);
+                onProgress?.(`Cleaning collection records...`);
+                await this.db!.runAsync('DELETE FROM collection_items WHERE user_id = ?', [userId]);
 
-            onProgress?.(`Consolidating in bulk...`);
+                onProgress?.(`Consolidating in bulk...`);
 
-            let position = 0;
-            for (let i = 0; i < totalItems; i += BATCH_SIZE) {
-                const batch = items.slice(i, i + BATCH_SIZE);
-                onProgress?.(`Consolidating items: ${Math.min(i + BATCH_SIZE, totalItems)}/${totalItems}`);
+                let position = 0;
+                for (let i = 0; i < totalItems; i += BATCH_SIZE) {
+                    const batch = items.slice(i, i + BATCH_SIZE);
+                    onProgress?.(`Consolidating items: ${Math.min(i + BATCH_SIZE, totalItems)}/${totalItems}`);
 
-                // 1. Bulk Insert collection_items
-                const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
-                const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++, item.isWishlist ? 1 : 0]);
-                await this.db!.runAsync(`INSERT INTO collection_items (id, type, token, purchase_date, user_id, position, is_wishlist) VALUES ${itemPlaceholders}`, itemParams);
+                    // 1. Bulk Insert collection_items
+                    const itemPlaceholders = batch.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+                    const itemParams = batch.flatMap(item => [item.id, item.type, item.token ?? null, item.purchaseDate ?? null, userId, position++, item.isWishlist ? 1 : 0]);
+                    await this.db!.runAsync(`INSERT INTO collection_items (id, type, token, purchase_date, user_id, position, is_wishlist) VALUES ${itemPlaceholders}`, itemParams);
 
-                // 2. Bulk Insert albums
-                const albums = batch.filter(it => it.type === 'album' && it.album).map(it => it.album!);
-                if (albums.length > 0) {
-                    const albumPlaceholders = albums.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
-                    const albumParams = albums.flatMap(a => [a.id, a.title, a.artistId ?? null, a.artist, a.artworkUrl ?? null, a.bandcampUrl ?? null, a.trackCount ?? 0]);
-                    await this.db!.runAsync(`INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES ${albumPlaceholders}`, albumParams);
+                    // 2. Bulk Insert albums
+                    const albums = batch.filter(it => it.type === 'album' && it.album).map(it => it.album!);
+                    if (albums.length > 0) {
+                        const albumPlaceholders = albums.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+                        const albumParams = albums.flatMap(a => [a.id, a.title, a.artistId ?? null, a.artist, a.artworkUrl ?? null, a.bandcampUrl ?? null, a.trackCount ?? 0]);
+                        await this.db!.runAsync(`INSERT OR REPLACE INTO albums (id, title, artist_id, artist_name, artwork_url, bandcamp_url, track_count) VALUES ${albumPlaceholders}`, albumParams);
+                    }
+
+                    // 3. Bulk Insert tracks
+                    const tracks = batch.filter(it => it.type === 'track' && it.track).map(it => it.track!);
+                    if (tracks.length > 0) {
+                        const trackPlaceholders = tracks.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+                        const trackParams = tracks.flatMap(t => [t.id, t.title, t.artistId ?? null, t.artist, t.albumId ?? null, t.album ?? null, t.artworkUrl ?? null, t.streamUrl ?? null, t.duration ?? 0, t.bandcampUrl ?? null]);
+                        await this.db!.runAsync(`INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES ${trackPlaceholders}`, trackParams);
+                    }
+
+                    // 4. Bulk Insert FTS
+                    const ftsItems = batch.map(it => ({ id: it.id, title: it.type === 'album' ? it.album?.title : it.track?.title, artist: it.type === 'album' ? it.album?.artist : it.track?.artist }));
+                    const ftsPlaceholders = ftsItems.map(() => '(?, ?, ?)').join(', ');
+                    const ftsParams = ftsItems.flatMap(f => [f.id, f.title ?? 'Untitled', f.artist ?? 'Unknown Artist']);
+                    await this.db!.runAsync(`INSERT INTO collection_search_fts (id, title, artist) VALUES ${ftsPlaceholders}`, ftsParams);
                 }
-
-                // 3. Bulk Insert tracks
-                const tracks = batch.filter(it => it.type === 'track' && it.track).map(it => it.track!);
-                if (tracks.length > 0) {
-                    const trackPlaceholders = tracks.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-                    const trackParams = tracks.flatMap(t => [t.id, t.title, t.artistId ?? null, t.artist, t.albumId ?? null, t.album ?? null, t.artworkUrl ?? null, t.streamUrl ?? null, t.duration ?? 0, t.bandcampUrl ?? null]);
-                    await this.db!.runAsync(`INSERT OR REPLACE INTO tracks (id, title, artist_id, artist_name, album_id, album_title, artwork_url, stream_url, duration, bandcamp_url) VALUES ${trackPlaceholders}`, trackParams);
-                }
-
-                // 4. Bulk Insert FTS
-                const ftsItems = batch.map(it => ({ id: it.id, title: it.type === 'album' ? it.album?.title : it.track?.title, artist: it.type === 'album' ? it.album?.artist : it.track?.artist }));
-                const ftsPlaceholders = ftsItems.map(() => '(?, ?, ?)').join(', ');
-                const ftsParams = ftsItems.flatMap(f => [f.id, f.title ?? 'Untitled', f.artist ?? 'Unknown Artist']);
-                await this.db!.runAsync(`INSERT INTO collection_search_fts (id, title, artist) VALUES ${ftsPlaceholders}`, ftsParams);
-            }
-        });
+            });
+        } finally {
+            release();
+        }
     }
 
     async getCollectionGranular(
@@ -642,25 +660,10 @@ export class MobileDatabase {
         );
     }
 
-    // Simple mutex for transaction serialization
-    private artistTransactionLock: Promise<void> = Promise.resolve();
-
     async replaceArtists(artists: { id: string; name: string; url: string; image_url?: string }[]) {
         if (!this.db) await this.init();
 
-        // Chain transactions to prevent "cannot start a transaction within a transaction"
-        // Wait for previous transaction to finish before starting new one
-        const currentLock = this.artistTransactionLock;
-        let releaseLock: () => void;
-
-        const newLock = new Promise<void>((resolve) => {
-            releaseLock = resolve;
-        });
-
-        this.artistTransactionLock = newLock;
-
-        await currentLock;
-
+        const release = await this.acquireLock();
         try {
             await this.db!.withTransactionAsync(async () => {
                 const deleted = await this.db!.runAsync('DELETE FROM artists WHERE is_simulated = 0');
@@ -679,7 +682,7 @@ export class MobileDatabase {
                 console.log(`[MobileDatabase] Inserted/Replaced ${inserted} artists`);
             });
         } finally {
-            releaseLock!();
+            release();
         }
     }
 
