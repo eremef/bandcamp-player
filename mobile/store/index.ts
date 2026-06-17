@@ -1254,7 +1254,7 @@ export const useStore = create<AppState>((set, get) => ({
                     const filterAlbums = get().collectionFilterAlbums;
                     const filterTracks = get().collectionFilterTracks;
                     const filterWishlist = get().collectionFilterWishlist;
-                    
+
                     let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
                     let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
 
@@ -1363,7 +1363,7 @@ export const useStore = create<AppState>((set, get) => ({
                 .then((newItems: CollectionItem[]) => {
                     const updatedItems = [...collection.items, ...newItems];
                     let finalItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
-                    
+
                     if (get().dedupeEnabled) {
                         finalItems = dedupeCollectionItems(finalItems);
                     }
@@ -1500,10 +1500,10 @@ export const useStore = create<AppState>((set, get) => ({
                 const artist = (item.type === 'album' ? item.album?.artist : item.track?.artist) || '';
                 const artistMatches = nameSet.has(artist.toLowerCase());
                 if (!artistMatches) return false;
-                
+
                 // Respect global wishlist toggle
                 if (item.isWishlist && !get().includeWishlistInCollection) return false;
-                
+
                 return true;
             });
         } else {
@@ -1517,12 +1517,12 @@ export const useStore = create<AppState>((set, get) => ({
         const newValue = !get().includeWishlistInCollection;
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('includeWishlistInCollection', newValue);
-        
+
         if (!newValue) {
             set({ collectionFilterWishlist: true });
             await mobileDatabase.setSetting('collection_filter_wishlist', true);
         }
-        
+
         set({ includeWishlistInCollection: newValue });
 
         // Refresh collection to reflect wishlist visibility

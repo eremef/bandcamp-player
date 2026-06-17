@@ -6,17 +6,10 @@ function handleIsPlayingChanged(event: any) {
     useStore.setState({ isPlaying: event.playing });
 }
 
-async function handleTrackEnd() {
-    if (useStore.getState().mode !== 'standalone') return;
-    const { mobilePlayerService } = require('./MobilePlayerService');
-    await mobilePlayerService.handleTrackEnd();
-}
 
 async function handleStateChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
-        const state = useStore.getState();
-        const { currentTime, duration } = state;
         
         // RNTP v5 triggers Ended when the final track naturally finishes.
         // It does not trigger on dummy tracks because those throw PlaybackError.

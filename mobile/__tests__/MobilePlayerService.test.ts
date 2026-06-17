@@ -1,5 +1,5 @@
 import { mobilePlayerService } from '../services/MobilePlayerService';
-import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
+import TrackPlayer from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileDatabase } from '../services/MobileDatabase';

@@ -46,6 +46,9 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Axios Header Types**: Axios headers can return `string | number | boolean | string[] | AxiosHeaders`. When using values like `content-length` with `parseInt`, explicitly convert them to a string using `String()` to avoid TypeScript errors (`TS2345`). Always specify a radix (e.g., `10`) in `parseInt`.
 - **Shell Injection Prevention in Workflows**: In GitHub Actions (`.github/workflows/*.yml`), never use direct string interpolation like `${{ github.ref_name }}` or other untrusted variables in a `run:` block. Always declare them as environment variables in the step's `env:` block (e.g., `REF_NAME: ${{ github.ref_name }}`) and reference them safely using double quotes (e.g., `"$REF_NAME"`) to prevent malicious command execution.
 - **ESLint Typeless package.json Warning**: If ESLint throws a `MODULE_TYPELESS_PACKAGE_JSON` warning because the root `package.json` is missing `"type": "module"` but the ESLint configuration uses ES module syntax, rename the configuration file to `eslint.config.mjs` instead of modifying `package.json` (which would force ESM compilation on the entire project, breaking CommonJS compilation for Electron main process).
+- **TypeScript Compiler Stack Overflow**: In React Native/Expo environments with large Zustand stores and complex types, the TypeScript compiler can crash with a `Maximum call stack size exceeded` error during flow control analysis. To resolve this:
+  1. Add `"allowJs": false` to `tsconfig.json`'s `compilerOptions` to prevent the compiler from checking JavaScript files, which can cause recursive type checking crashes on node_modules or configuration files.
+  2. Ensure timer variables are typed using `ReturnType<typeof setTimeout>` instead of `NodeJS.Timeout` for compatibility across standard environments.
 
 ## E2E Tests
 

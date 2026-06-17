@@ -50,7 +50,7 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
     // To support native Next/Previous buttons and correct lock screen metadata in remote mode,
     // we feed the entire queue to the native player. We only provide the real URL
     // for the current track.
-    let nativeQueue = queueItems.map((qTrack, idx) => ({
+    let nativeQueue = queueItems.map((qTrack) => ({
         mediaId: qTrack.id,
         url: streamUrl,
         title: qTrack.track.title || 'Untitled',

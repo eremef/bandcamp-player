@@ -121,7 +121,7 @@ class WebSocketService {
         }
     }
 
-    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     private reconnectAttempts = 0;
     private readonly MAX_RECONNECT_DELAY = 120000; // 2 minutes
 

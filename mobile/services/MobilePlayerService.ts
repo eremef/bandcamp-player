@@ -45,7 +45,7 @@ class MobilePlayerService {
 
                 const { mobileScrobblerService } = require('./MobileScrobblerService');
                 mobileScrobblerService.handleProgressUpdate(progress.position, progress.duration);
-            } catch (e) {
+            } catch {
                 // Ignore errors if player is not fully ready
             }
         }, 1000);
