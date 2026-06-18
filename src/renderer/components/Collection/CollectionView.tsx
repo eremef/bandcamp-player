@@ -117,6 +117,7 @@ export function CollectionView() {
     collectionFilterAlbums,
     collectionFilterTracks,
     collectionFilterWishlist,
+    settings?.includeWishlistInCollection,
   ]);
 
   const sortedItems = useMemo(
