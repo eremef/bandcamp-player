@@ -232,6 +232,7 @@ export function RadioView() {
                         onClick={() => playRadioStation(station)}
                         onContextMenu={(e) => handleContextMenu(e, station)}
                         onMouseLeave={() => setContextMenu(null)}
+                        data-testid="radio-card"
                     >
                         <div className={styles.cardImage}>
                             {station.imageUrl ? (

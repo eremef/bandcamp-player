@@ -20,7 +20,7 @@ test.describe('Search', () => {
 
         // Wait for either login button or collection to be ready
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         await loginBtn.or(collectionBtn).waitFor();
 
@@ -30,8 +30,8 @@ test.describe('Search', () => {
         await expect(collectionBtn).toBeVisible();
 
         // Navigate to Artists view where the search bar is
-        await window.getByRole('button', { name: 'Artists' }).click();
-        await expect(window.getByRole('heading', { name: 'Artists' })).toBeVisible();
+        await window.getByRole('button', { name: 'Artists', exact: true }).click();
+        await expect(window.getByRole('heading', { name: 'Artists', exact: true })).toBeVisible();
     });
 
     test.afterEach(async () => {
@@ -39,7 +39,7 @@ test.describe('Search', () => {
     });
 
     test('should allow typing in search bar', async () => {
-        const searchInput = window.locator('input[placeholder="Search artists.."]');
+        const searchInput = window.locator('input[placeholder="Search.."]');
         await expect(searchInput).toBeVisible();
 
         await searchInput.fill('Test Artist');

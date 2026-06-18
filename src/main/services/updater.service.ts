@@ -7,7 +7,7 @@ export class UpdaterService extends EventEmitter {
     private notifiedOnce = false;
     private lastNotifiedVersion = '';
     private isManualCheck = false;
-    private checkInterval: NodeJS.Timeout | null = null;
+    private checkInterval: ReturnType<typeof setInterval> | null = null;
     private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
     constructor(private isDev: boolean) {

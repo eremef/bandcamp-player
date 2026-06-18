@@ -210,6 +210,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 className={styles.selectInput}
                                 value={settings?.theme || 'system'}
                                 onChange={(e) => updateSettings({ theme: e.target.value as any })}
+                                data-testid="setting-theme"
                             >
                                 <option value="system">System Default</option>
                                 <option value="light">Light</option>
@@ -231,6 +232,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.deduplicateCollection ?? true}
                                     onChange={(e) => updateSettings({ deduplicateCollection: e.target.checked })}
+                                    data-testid="setting-deduplicate-collection"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -245,6 +247,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.includeWishlistInCollection ?? false}
                                     onChange={(e) => updateSettings({ includeWishlistInCollection: e.target.checked })}
+                                    data-testid="setting-wishlist"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -264,6 +267,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.cacheEnabled ?? true}
                                     onChange={(e) => updateSettings({ cacheEnabled: e.target.checked })}
+                                    data-testid="setting-cache-enabled"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -279,6 +283,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     checked={settings?.offlineMode ?? false}
                                     disabled={!settings?.cacheEnabled}
                                     onChange={(e) => updateSettings({ offlineMode: e.target.checked })}
+                                    data-testid="setting-offline-mode"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -352,6 +357,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         type="checkbox"
                                         checked={settings?.scrobblingEnabled ?? true}
                                         onChange={(e) => updateSettings({ scrobblingEnabled: e.target.checked })}
+                                        data-testid="setting-scrobbling"
                                     />
                                     <span className={styles.slider}></span>
                                 </label>
@@ -372,6 +378,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.minimizeToTray ?? true}
                                     onChange={(e) => updateSettings({ minimizeToTray: e.target.checked })}
+                                    data-testid="setting-minimize-tray"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -386,6 +393,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.startMinimized ?? false}
                                     onChange={(e) => updateSettings({ startMinimized: e.target.checked })}
+                                    data-testid="setting-start-minimized"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -400,6 +408,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.showNotifications ?? true}
                                     onChange={(e) => updateSettings({ showNotifications: e.target.checked })}
+                                    data-testid="setting-show-notifications"
                                 />
                                 <span className={styles.slider}></span>
                             </label>
@@ -419,6 +428,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     type="checkbox"
                                     checked={settings?.remoteEnabled ?? false}
                                     onChange={(e) => updateSettings({ remoteEnabled: e.target.checked })}
+                                    data-testid="setting-remote-enabled"
                                 />
                                 <span className={styles.slider}></span>
                             </label>

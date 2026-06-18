@@ -1,10 +1,47 @@
 import { test, expect } from './fixtures';
 
+const MOCK_STATIONS = [
+    {
+        id: 'station-1',
+        name: 'Bandcamp Weekly',
+        description: 'Weekly music from Bandcamp',
+        imageUrl: '',
+        streamUrl: 'https://mock.stream/weekly.mp3',
+        genre: 'Various',
+    },
+    {
+        id: 'station-2',
+        name: 'Bandcamp Selects',
+        description: 'Curated selections',
+        imageUrl: '',
+        streamUrl: 'https://mock.stream/selects.mp3',
+        genre: 'Various',
+    },
+    {
+        id: 'station-3',
+        name: 'The Metal Show',
+        description: 'Heavy music',
+        imageUrl: '',
+        streamUrl: 'https://mock.stream/metal.mp3',
+        genre: 'Metal',
+    },
+];
+
 test.describe('Radio Interactions', () => {
-    test.beforeEach(async ({ window }) => {
-        // Perform login if needed
+    test.beforeEach(async ({ electronApp, window }) => {
+        // Mock IPC handler so any call to get/refresh stations returns mock data
+        await electronApp.evaluate(({ ipcMain }, mockStations) => {
+            ipcMain.removeHandler('radio:get-stations');
+            ipcMain.removeHandler('radio:refresh-stations');
+            ipcMain.handle('radio:get-stations', async () => mockStations);
+            ipcMain.handle('radio:refresh-stations', async (e) => {
+                e.sender.send('radio:on-stations-updated', mockStations);
+                return mockStations;
+            });
+        }, MOCK_STATIONS);
+
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -14,10 +51,18 @@ test.describe('Radio Interactions', () => {
         // Navigate to Radio
         await window.getByRole('button', { name: 'Radio' }).click();
         await expect(window.getByText('Bandcamp Radio')).toBeVisible({ timeout: 10000 });
+
+        // Trigger a refresh so the mock handler broadcasts the updated stations to the store
+        await window.evaluate(async () => {
+            await window.electron.radio.refreshStations();
+        });
+
+        // Wait for mock stations to appear
+        await window.waitForTimeout(300);
     });
 
     test('should play and switch radio stations', async ({ window }) => {
-        const stations = window.locator('[class*="card"]');
+        const stations = window.getByTestId('radio-card');
         await expect(stations.first()).toBeVisible({ timeout: 15000 });
 
         // 1. Play first station
@@ -50,15 +95,17 @@ test.describe('Radio Interactions', () => {
         const searchInput = window.getByPlaceholder('Search radio shows...');
         await expect(searchInput).toBeVisible();
 
-        await searchInput.fill('Bandcamp');
-        await window.waitForTimeout(1000); // Wait for debounce/filter
+        const stations = window.getByTestId('radio-card');
+        await expect(stations.first()).toBeVisible({ timeout: 15000 });
 
-        const filteredStations = window.locator('[class*="card"]');
-        // We assume there's at least one station with "Monthly" in its name
+        await searchInput.fill('Bandcamp');
+        await window.waitForTimeout(500);
+
+        const filteredStations = window.getByTestId('radio-card');
         const count = await filteredStations.count();
         expect(count).toBeGreaterThan(0);
 
-        // Clear search
+        // Clear search via the X button
         await window.locator('button').filter({ has: window.locator('svg[class*="lucide-x"]') }).click({ force: true });
         await expect(searchInput).toHaveValue('');
     });

@@ -76,7 +76,7 @@ export function CollectionView() {
     // Apply type/wishlist filters
     items = items.filter((item) => {
       if (item.isWishlist) {
-        return collectionFilterWishlist;
+        return settings?.includeWishlistInCollection && collectionFilterWishlist;
       }
       if (item.type === "album") {
         return collectionFilterAlbums;
@@ -319,6 +319,7 @@ export function CollectionView() {
             </div>
             <div className={styles.filterDropdownWrapper} ref={filterRef}>
               <button
+                data-testid="filter-toggle-btn"
                 className={`${styles.filterToggleBtn} ${hasActiveFilter ? styles.active : ""}`}
                 onClick={() => setFilterOpen((o) => !o)}
                 title="Filter collection"
@@ -329,6 +330,7 @@ export function CollectionView() {
               {filterOpen && (
                 <div className={styles.filterDropdown}>
                   <button
+                    data-testid="filter-albums-btn"
                     className={styles.filterRow}
                     onClick={() => setCollectionFilterAlbums(!collectionFilterAlbums)}
                   >
@@ -339,6 +341,7 @@ export function CollectionView() {
                     <span>Albums</span>
                   </button>
                   <button
+                    data-testid="filter-tracks-btn"
                     className={styles.filterRow}
                     onClick={() => setCollectionFilterTracks(!collectionFilterTracks)}
                   >
@@ -350,6 +353,7 @@ export function CollectionView() {
                   </button>
                   {settings?.includeWishlistInCollection && (
                     <button
+                      data-testid="filter-wishlist-btn"
                       className={styles.filterRow}
                       onClick={() => setCollectionFilterWishlist(!collectionFilterWishlist)}
                     >
@@ -366,6 +370,7 @@ export function CollectionView() {
 
             <div className={styles.sortDropdownWrapper} ref={sortRef}>
               <button
+                data-testid="sort-toggle-btn"
                 className={styles.sortToggleBtn}
                 onClick={() => setSortOpen((o) => !o)}
                 title="Sort collection"
@@ -380,6 +385,7 @@ export function CollectionView() {
                 <div className={styles.sortDropdown}>
                   <div className={styles.dropdownLabel}>Sort By</div>
                   <button
+                    data-testid="sort-date-btn"
                     className={styles.dropdownRow}
                     onClick={() => { setSortKey("default"); setSortOpen(false); }}
                   >
@@ -390,6 +396,7 @@ export function CollectionView() {
                     <span>Purchase Date</span>
                   </button>
                   <button
+                    data-testid="sort-artist-btn"
                     className={styles.dropdownRow}
                     onClick={() => { setSortKey("artist"); setSortOpen(false); }}
                   >
@@ -400,6 +407,7 @@ export function CollectionView() {
                     <span>Artist Name</span>
                   </button>
                   <button
+                    data-testid="sort-album-btn"
                     className={styles.dropdownRow}
                     onClick={() => { setSortKey("album"); setSortOpen(false); }}
                   >
@@ -413,6 +421,7 @@ export function CollectionView() {
                   <div className={styles.dropdownDivider} />
                   <div className={styles.dropdownLabel}>Order</div>
                   <button
+                    data-testid="sort-asc-btn"
                     className={styles.dropdownRow}
                     onClick={() => { setSortDirection("asc"); setSortOpen(false); }}
                   >
@@ -423,6 +432,7 @@ export function CollectionView() {
                     <span>Ascending (A-Z)</span>
                   </button>
                   <button
+                    data-testid="sort-desc-btn"
                     className={styles.dropdownRow}
                     onClick={() => { setSortDirection("desc"); setSortOpen(false); }}
                   >

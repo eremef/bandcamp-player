@@ -39,7 +39,7 @@ test.describe('Connected Devices Modal', () => {
         }, { status: MOCK_REMOTE_STATUS, devices: MOCK_DEVICES });
 
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
         if (await loginBtn.isVisible()) await loginBtn.click();
         await expect(collectionBtn).toBeVisible({ timeout: 15000 });
 
