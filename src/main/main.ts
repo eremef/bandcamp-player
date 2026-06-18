@@ -443,10 +443,10 @@ if (!gotTheLock) {
     if (appIsQuitting && process.platform === 'win32') {
       // Fallback: if we are already quitting but something is taking too long,
       // force exit after a timeout to prevent the process from hanging and blocking installers.
-      setTimeout(() => {
+      (setTimeout(() => {
         console.log("[Main] Shutdown timeout reached. Forcing exit.");
         process.exit(0);
-      }, 2000).unref(); // unref() so the timer itself doesn't keep the process alive
+      }, 2000) as any).unref(); // unref() so the timer itself doesn't keep the process alive
     }
 
     appIsQuitting = true;

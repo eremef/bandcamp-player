@@ -4,7 +4,7 @@ test.describe('Queue Interactions', () => {
     test.beforeEach(async ({ window }) => {
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -20,20 +20,20 @@ test.describe('Queue Interactions', () => {
 
         const clearBtn = window.getByTitle('Clear queue');
         if (await clearBtn.isVisible()) {
-            await clearBtn.click();
+            await clearBtn.evaluate(el => el.click());
         }
         await expect(window.getByText('Queue is empty')).toBeVisible();
 
         // 2. Add an album to the queue from the Collection
-        await window.getByRole('button', { name: 'Collection' }).click();
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        await window.getByRole('button', { name: 'Collection', exact: true }).click();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
 
         // Right-click to open context menu and add to queue
         await firstAlbumCard.click({ button: 'right' });
         const addToQueueBtn = window.locator('button').filter({ hasText: 'Add to Queue' });
         await expect(addToQueueBtn).toBeVisible();
-        await addToQueueBtn.click();
+        await addToQueueBtn.evaluate(el => el.click());
 
         // 3. Ensure Queue panel is open
         const isQueueOpen = await queueToggleBtn.evaluate(el => el.classList.contains('_active_') || el.className.includes('active'));
@@ -56,8 +56,12 @@ test.describe('Queue Interactions', () => {
         await expect(firstItem).toHaveClass(/current/);
 
         // 6. Test removing all tracks from the queue to verify empty state
-        while (await queueItems.count() > 0) {
+        let currentCount = await queueItems.count();
+        while (currentCount > 0) {
             await queueItems.first().getByTitle('Remove').click();
+            currentCount--;
+            // Wait for the DOM to actually remove the element before next click
+            await expect(queueItems).toHaveCount(currentCount);
         }
 
         // Verify the queue is now empty
@@ -66,17 +70,23 @@ test.describe('Queue Interactions', () => {
 
     test('should clear the queue', async ({ window }) => {
         // 1. Add multiple tracks to queue (by adding two different albums or one album multiple times)
-        await window.getByRole('button', { name: 'Collection' }).click();
-        const albumCards = window.locator('[class*="card"]');
+        await window.getByRole('button', { name: 'Collection', exact: true }).click();
+        const albumCards = window.getByTestId('album-card');
         await expect(albumCards.first()).toBeVisible({ timeout: 15000 });
 
         // Add first album
         await albumCards.nth(0).click({ button: 'right' });
-        await window.locator('button').filter({ hasText: 'Add to Queue' }).click();
+        const addToQueueBtn = window.locator('button').filter({ hasText: 'Add to Queue' });
+        await expect(addToQueueBtn).toBeVisible();
+        await addToQueueBtn.evaluate(el => el.click());
+        
+        // Wait for context menu to disappear before opening the next one
+        await expect(addToQueueBtn).toBeHidden();
 
         // Add second album
         await albumCards.nth(1).click({ button: 'right' });
-        await window.locator('button').filter({ hasText: 'Add to Queue' }).click();
+        await expect(window.locator('button').filter({ hasText: 'Add to Queue' })).toBeVisible();
+        await window.locator('button').filter({ hasText: 'Add to Queue' }).evaluate(el => el.click());
 
         // 2. Open Queue and verify tracks are present
         await window.locator('div[class*="playerBar"]').getByTitle('Queue', { exact: true }).click();

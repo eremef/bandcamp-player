@@ -330,16 +330,17 @@ export function PlayerBar() {
                         className={`${styles.controlBtn} ${isShuffled ? styles.active : ''}`}
                         onClick={toggleShuffle}
                         title="Shuffle"
+                        data-testid="player-shuffle-btn"
                     >
                         <Shuffle size={18} />
                     </button>
-                    <button className={styles.controlBtn} onClick={previous} title="Previous">
+                    <button className={styles.controlBtn} onClick={previous} title="Previous" data-testid="player-prev-btn">
                         <SkipBack size={20} fill="currentColor" />
                     </button>
-                    <button className={styles.playBtn} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Play'}>
+                    <button className={styles.playBtn} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Play'} data-testid="player-play-btn">
                         {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" style={{ marginLeft: '2px' }} />}
                     </button>
-                    <button className={styles.controlBtn} onClick={next} title="Next">
+                    <button className={styles.controlBtn} onClick={next} title="Next" data-testid="player-next-btn">
                         <SkipForward size={20} fill="currentColor" />
                     </button>
                     <button
@@ -350,6 +351,7 @@ export function PlayerBar() {
                             setRepeat(modes[(currentIndex + 1) % modes.length]);
                         }}
                         title={`Repeat: ${repeatMode}`}
+                        data-testid="player-repeat-btn"
                     >
                         {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                     </button>
@@ -488,10 +490,11 @@ export function PlayerBar() {
                     className={`${styles.controlBtn} ${isQueueVisible ? styles.active : ''}`}
                     onClick={toggleQueue}
                     title="Queue"
+                    data-testid="player-queue-btn"
                 >
                     <List size={20} />
                 </button>
-                <button className={styles.controlBtn} onClick={toggleMiniPlayer} title="Mini Player">
+                <button className={styles.controlBtn} onClick={toggleMiniPlayer} title="Mini Player" data-testid="player-mini-btn">
                     <Minimize2 size={20} />
                 </button>
             </div>

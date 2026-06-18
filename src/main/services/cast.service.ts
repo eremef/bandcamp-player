@@ -13,7 +13,7 @@ export class CastService extends EventEmitter {
     private connectedDeviceName: string | null = null;
     private isScanning: boolean = false;
     private hasActiveSession: boolean = false;
-    private statusInterval: NodeJS.Timeout | null = null;
+    private statusInterval: ReturnType<typeof setInterval> | null = null;
 
     private handleDeviceError = (err: any) => {
         console.error('[CastService] Device error:', err);
