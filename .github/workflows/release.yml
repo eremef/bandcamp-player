@@ -29,8 +29,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package Windows
-        run: npm run package -- --win --x64 --arm64 -p never
+      - name: Package Windows (x64)
+        run: npm run package -- --win --x64 -p never
+
+      - name: Package Windows (arm64)
+        run: npx electron-builder --win --arm64 -p never
 
 
       - name: Upload Artifacts
