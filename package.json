@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.10-alpha.1",
+  "version": "1.8.10-alpha.2",
   "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
@@ -33,7 +33,7 @@
     "memory:mine": "mempalace mine .",
     "memory:status": "mempalace status",
     "memory:checkpoint": "node scripts/memory-checkpoint.js",
-    "postinstall": "npm run rebuild && electron-builder install-app-deps"
+    "postinstall": "node scripts/create-shared-symlink.js && npm run rebuild && electron-builder install-app-deps"
   },
   "dependencies": {
     "@foxxmd/chromecast-client": "^1.0.4",

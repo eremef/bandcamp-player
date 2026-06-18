@@ -3,10 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "allowJs": false,
-    //"baseUrl": ".",
+    "baseUrl": ".",
     "paths": {
       "@shared/*": [
-        "../src/shared/*"
+        "./src/shared/*"
       ]
     },
     "ignoreDeprecations": "6.0"

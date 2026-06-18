@@ -23,10 +23,11 @@
     "typecheck": "tsc --noEmit",
     "android:build": "npm run sync-assets && expo run:android",
     "android:build:dev": "cross-env EXPO_DEV_PACKAGE=xyz.eremef.bandcamp.remote.dev npm run android:build",
-    "sync-assets": "node ../scripts/generate-config-hash.js && node ../scripts/copy-assets.js",
+    "sync-assets": "node ../scripts/create-shared-symlink.js && node ../scripts/generate-config-hash.js && node ../scripts/copy-assets.js",
     "prebuild": "npm run sync-assets",
     "expo:prebuild": "npx expo prebuild --clean -p android",
-    "prestart": "npm run sync-assets"
+    "prestart": "npm run sync-assets",
+    "postinstall": "node ../scripts/create-shared-symlink.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -79,6 +80,7 @@
     "@types/js-md5": "^0.8.0",
     "@types/react": "~19.2.11",
     "babel-jest": "^30.2.0",
+    "babel-plugin-module-resolver": "^5.0.3",
     "babel-preset-expo": "~56.0.0",
     "cross-env": "^10.1.0",
     "jest": "~29.7.0",
