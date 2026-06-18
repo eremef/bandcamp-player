@@ -31,8 +31,8 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 
 - **Continuous Native Generation (CNG)**: Even if the `android` or `ios` directories are checked into source control (Bare workflow), they should be treated as ephemeral when encountering native build/plugin errors.
 - **Gradle Plugin Resolution Errors**: If you encounter errors like `Could not find com.facebook.react:react-native-gradle-plugin` or AGP/Kotlin version mismatches after updating `package.json` dependencies (like `expo` or `react-native`), **DO NOT** manually patch `android/build.gradle` or `android/settings.gradle`.
-- **Prebuild Recovery**: Always use `npx expo prebuild --clean -p android` (or `ios`) to delete and cleanly regenerate the native projects. This perfectly synchronizes the native configurations with the versions declared in your current `node_modules`.
 - **Expo config**: Use `app.config.js` to configure the Expo application instead of `app.json`.
+- **Expo 56 & Metro 0.81 Cross-Project Resolution**: Metro 0.81 enforces strict directory isolation unless a repository is explicitly configured as a Yarn/npm Workspace (which alters hoisting). To resolve files outside the project root (e.g. `src/shared` from `mobile`), DO NOT use `extraNodeModules`, Babel aliases, or custom `resolveRequest` hooks as they will fail with "None of these files exist". Instead, create a Windows Junction (`New-Item -ItemType Junction -Path mobile\src -Target src`) and update `mobile/tsconfig.json` paths to map through the junction (e.g., `"@shared/*": ["./src/shared/*"]`). This transparently bypasses Metro's strict boundaries with zero overhead.
 
 ## Expo Web Build Learnings
 

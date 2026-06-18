@@ -63,6 +63,7 @@ test-results/.last-run.json
 mobile/*test_*.txt
 test_logs/
 mobile/test_logs/
+mobile/src/
 AGENTS.md
 
 # MemPalace per-project files (issue #185)
