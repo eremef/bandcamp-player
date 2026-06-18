@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.10-alpha.5",
+  "version": "1.8.10-alpha.6",
   "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
@@ -22,7 +22,7 @@
     "test": "concurrently \"npm run build:main\" \"vitest run\"",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build && playwright test",
     "test:e2e:coverage": "rimraf coverage-v8 && playwright test && node scripts/generate-e2e-coverage.mjs",
     "coverage:e2e": "node scripts/generate-e2e-coverage.mjs",
     "test:mobile": "npm run test --prefix mobile",
