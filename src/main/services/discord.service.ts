@@ -31,8 +31,8 @@ export class DiscordService extends EventEmitter {
     private isEnabled = false;
 
     private lastState: PlayerState | null = null;
-    private updateDebounceTimeout: NodeJS.Timeout | null = null;
-    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private updateDebounceTimeout: ReturnType<typeof setTimeout> | null = null;
+    private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         private playerService: PlayerService,
