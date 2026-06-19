@@ -30,8 +30,15 @@ export class ThumbarService {
             this.updateThumbar(state.isPlaying);
         });
 
-        // Initial setup
-        this.updateThumbar(false);
+        // Listen to window show event to setup thumbar (Windows API requires window to be shown)
+        this.mainWindow.on('show', () => {
+            this.updateThumbar(this.playerService.getState().isPlaying);
+        });
+
+        // Try initial setup (might fail if window is not yet shown, which is fine)
+        if (this.mainWindow.isVisible()) {
+            this.updateThumbar(false);
+        }
     }
 
     private updateThumbar(isPlaying: boolean) {

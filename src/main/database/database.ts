@@ -199,6 +199,7 @@ export class Database {
       scrobblingEnabled: true,
       scrobbleThreshold: 50,
       remoteEnabled: true,
+      discordRpcEnabled: false,
       theme: "system",
       deduplicateCollection: true,
       collectionSortKey: "default",

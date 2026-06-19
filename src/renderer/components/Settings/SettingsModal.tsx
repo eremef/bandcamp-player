@@ -451,6 +451,26 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         </div>
                     </section>
 
+                    {/* Integrations */}
+                    <section className={styles.section}>
+                        <h3>Integrations</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Discord Rich Presence</span>
+                                <span className={styles.settingHint}>Show what you're listening to on Discord</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.discordRpcEnabled ?? false}
+                                    onChange={(e) => updateSettings({ discordRpcEnabled: e.target.checked })}
+                                    data-testid="setting-discord-rpc"
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                    </section>
+
                     {/* Remote Control */}
                     <section className={styles.section}>
                         <h3>Remote Control</h3>

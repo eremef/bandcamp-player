@@ -15,6 +15,7 @@ import { RemoteControlService } from "./services/remote.service";
 import { UpdaterService } from "./services/updater.service";
 import { CastService } from "./services/cast.service";
 import { ThumbarService } from "./services/thumbar.service";
+import { DiscordService } from "./services/discord.service";
 import { Database } from "./database/database";
 import { registerIpcHandlers } from "./ipc-handlers";
 
@@ -61,6 +62,7 @@ let remoteService: RemoteControlService;
 let updaterService: UpdaterService;
 let castService: CastService;
 let thumbarService: ThumbarService | null = null;
+let discordService: DiscordService | null = null;
 let cacheServer: http.Server | null = null;
 
 // ============================================================================
@@ -240,6 +242,7 @@ async function initializeServices() {
   );
 
   updaterService = new UpdaterService(isDev);
+  discordService = new DiscordService(playerService, database);
 
   // Start remote service if enabled
   const settings = database.getSettings();

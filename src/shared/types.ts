@@ -219,6 +219,7 @@ export interface AppSettings {
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;
+  discordRpcEnabled: boolean;
   theme: Theme;
 
   // Collection settings
