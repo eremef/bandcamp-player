@@ -14,6 +14,7 @@ import { ScrobblerService } from "./services/scrobbler.service";
 import { RemoteControlService } from "./services/remote.service";
 import { UpdaterService } from "./services/updater.service";
 import { CastService } from "./services/cast.service";
+import { ThumbarService } from "./services/thumbar.service";
 import { Database } from "./database/database";
 import { registerIpcHandlers } from "./ipc-handlers";
 
@@ -59,6 +60,7 @@ let scrobblerService: ScrobblerService;
 let remoteService: RemoteControlService;
 let updaterService: UpdaterService;
 let castService: CastService;
+let thumbarService: ThumbarService | null = null;
 let cacheServer: http.Server | null = null;
 
 // ============================================================================
@@ -403,6 +405,11 @@ if (!gotTheLock) {
 
       await initializeServices();
       mainWindow = createMainWindow();
+
+      // Initialize thumbar
+      if (process.platform === 'win32') {
+        thumbarService = new ThumbarService(mainWindow, playerService);
+      }
 
       // Initialize tray
       trayService = new TrayService(

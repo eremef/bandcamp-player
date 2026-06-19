@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus } from 'lucide-react-native';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
 import { remoteConfigService } from '@shared/remote-config.service';
@@ -22,7 +22,11 @@ export default function SettingsScreen() {
         includeWishlistInCollection,
         toggleIncludeWishlistInCollection,
         dedupeEnabled,
-        setDedupeEnabled
+        setDedupeEnabled,
+        crossfadeEnabled,
+        setCrossfadeEnabled,
+        crossfadeDuration,
+        setCrossfadeDuration
     } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
@@ -155,6 +159,57 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
+                {mode === 'standalone' && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Playback</Text>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <FastForward color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Simulated Crossfade</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Fade out tracks at the end for gapless effect
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={crossfadeEnabled}
+                                onValueChange={setCrossfadeEnabled}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+
+                        {crossfadeEnabled && (
+                            <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                                <View style={[styles.settingLabelContainer, { marginLeft: 32 }]}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.settingTitle, { color: colors.text }]}>Crossfade Duration</Text>
+                                        <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                            {crossfadeDuration} second{crossfadeDuration !== 1 ? 's' : ''}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View style={styles.stepperContainer}>
+                                    <TouchableOpacity 
+                                        onPress={() => setCrossfadeDuration(Math.max(1, crossfadeDuration - 1))}
+                                        style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
+                                    >
+                                        <Minus color={colors.text} size={16} />
+                                    </TouchableOpacity>
+                                    <Text style={[styles.stepperValue, { color: colors.text }]}>{crossfadeDuration}s</Text>
+                                    <TouchableOpacity 
+                                        onPress={() => setCrossfadeDuration(Math.min(10, crossfadeDuration + 1))}
+                                        style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
+                                    >
+                                        <Plus color={colors.text} size={16} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+                    </View>
+                )}
+
 
                 {__DEV__ && (
                     <View style={styles.section}>
@@ -248,6 +303,22 @@ const styles = StyleSheet.create({
     },
     refreshButton: {
         padding: 10,
+    },
+    stepperContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    stepperButton: {
+        borderWidth: 1,
+        borderRadius: 4,
+        padding: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    stepperValue: {
+        width: 32,
+        textAlign: 'center',
+        fontWeight: 'bold',
     },
     infoBox: {
         padding: 16,

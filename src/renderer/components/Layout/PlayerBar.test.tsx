@@ -158,7 +158,7 @@ describe('PlayerBar', () => {
 
     it('handles audio element events', () => {
         const { container } = render(<PlayerBar />);
-        const audio = container.querySelector('audio')!;
+        const audio = container.querySelectorAll('audio')[1];
 
         // Time update
         Object.defineProperty(audio, 'duration', { value: 100, configurable: true });
@@ -239,7 +239,7 @@ describe('PlayerBar', () => {
 
         // Single render
         const { container } = render(<PlayerBar />);
-        const renderedAudio = container.querySelector('audio')!;
+        const renderedAudio = container.querySelectorAll('audio')[1];
 
         expect(seekCallback).toBeDefined();
 
@@ -250,10 +250,13 @@ describe('PlayerBar', () => {
 
     it('registers/unregisters audio listeners on unmount', () => {
         const { container, unmount } = render(<PlayerBar />);
-        const audio = container.querySelector('audio')!;
-        const removeSpy = vi.spyOn(audio, 'removeEventListener');
+        const audio1 = container.querySelectorAll('audio')[0];
+        const audio2 = container.querySelectorAll('audio')[1];
+        const removeSpy1 = vi.spyOn(audio1, 'removeEventListener');
+        const removeSpy2 = vi.spyOn(audio2, 'removeEventListener');
         unmount();
-        expect(removeSpy).toHaveBeenCalledWith('timeupdate', expect.any(Function));
-        expect(removeSpy).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(removeSpy1).toHaveBeenCalledWith('timeupdate', expect.any(Function));
+        expect(removeSpy1).toHaveBeenCalledWith('error', expect.any(Function));
+        expect(removeSpy2).toHaveBeenCalledWith('timeupdate', expect.any(Function));
     });
 });

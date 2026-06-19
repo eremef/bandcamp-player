@@ -11,6 +11,8 @@ class MobilePlayerService {
     private isInitialized = false;
     public isLoadingTrack = false;
     public onQueueChange?: () => void;
+    private lastSetVolume: number = -1;
+    private lastStoreUpdateTime = 0;
 
     async setupPlayer() {
         if (this.isInitialized) return;
@@ -20,12 +22,104 @@ class MobilePlayerService {
 
         const { volume } = useStore.getState();
         await TrackPlayer.setVolume(volume);
+        this.lastSetVolume = volume;
 
         this.isInitialized = true;
         this.startProgressPolling();
     }
 
     private progressInterval?: ReturnType<typeof setInterval>;
+
+    private applyVolume(targetVolume: number) {
+        if (Math.abs(this.lastSetVolume - targetVolume) > 0.01) {
+            this.lastSetVolume = targetVolume;
+            try {
+                TrackPlayer.setVolume(targetVolume);
+            } catch {
+                // Ignore volume errors
+            }
+        }
+    }
+
+    private isPrefetching = false;
+    private prefetchedQueueIndex = -1;
+
+    private async prefetchNextTrack() {
+        if (this.isPrefetching) return;
+        const store = useStore.getState();
+        const { queue, isShuffled, repeatMode } = store;
+
+        if (queue.items.length === 0) return;
+
+        let nextIndex = queue.currentIndex + 1;
+
+        if (isShuffled) {
+            // Can't reliably prefetch if next() uses random
+            return;
+        }
+
+        if (nextIndex >= queue.items.length) {
+            if (repeatMode === 'all') {
+                nextIndex = 0;
+            } else {
+                return;
+            }
+        }
+
+        if (this.prefetchedQueueIndex === nextIndex) return;
+
+        const nextQueueItem = queue.items[nextIndex];
+        const nextTrack = nextQueueItem.track;
+
+        let streamUrl = nextTrack.streamUrl;
+
+        this.isPrefetching = true;
+        try {
+            if (!streamUrl && nextTrack.bandcampUrl) {
+                 const { mobileScraperService } = require('./MobileScraperService');
+                 const urlToFetch = nextTrack.bandcampUrl;
+                 if (urlToFetch.includes('show=')) {
+                     const showId = urlToFetch.split('show=').pop()?.split('&')[0];
+                     if (showId) {
+                         const result = await mobileScraperService.getStationStreamUrl(showId);
+                         if (result?.streamUrl) streamUrl = result.streamUrl;
+                     }
+                 } else {
+                     const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                     if (albumDetails) {
+                         const foundTrack = albumDetails.tracks.find((t: any) => t.title.toLowerCase() === nextTrack.title.toLowerCase() || t.id === nextTrack.id);
+                         if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
+                         else if (albumDetails.tracks.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
+                     }
+                 }
+            }
+
+            if (streamUrl) {
+                 const updatedItem = {
+                     mediaId: nextQueueItem.id,
+                     url: streamUrl,
+                     title: nextTrack.title || 'Untitled',
+                     artist: nextTrack.artist || 'Unknown Artist',
+                     albumTitle: nextTrack.album,
+                     artworkUrl: nextTrack.artworkUrl,
+                     duration: nextTrack.duration,
+                 };
+                 await TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                 
+                 const newItems = [...queue.items];
+                 newItems[nextIndex] = {
+                     ...nextQueueItem,
+                     track: { ...nextTrack, streamUrl }
+                 };
+                 useStore.setState({ queue: { ...queue, items: newItems } });
+                 this.prefetchedQueueIndex = nextIndex;
+            }
+        } catch (e) {
+             console.log('[MobilePlayer] Prefetch failed', e);
+        } finally {
+            this.isPrefetching = false;
+        }
+    }
 
     private startProgressPolling() {
         if (this.progressInterval) return;
@@ -35,26 +129,58 @@ class MobilePlayerService {
 
             try {
                 const progress = TrackPlayer.getProgress();
-                const update: { currentTime: number; duration?: number } = {
-                    currentTime: progress.position,
-                };
-                if (progress.duration > 0) {
-                    update.duration = progress.duration;
-                }
-                useStore.setState(update);
+                const now = Date.now();
 
-                const { mobileScrobblerService } = require('./MobileScrobblerService');
-                mobileScrobblerService.handleProgressUpdate(progress.position, progress.duration);
+                // Update UI state roughly every second
+                if (now - this.lastStoreUpdateTime >= 1000) {
+                    const update: { currentTime: number; duration?: number } = {
+                        currentTime: progress.position,
+                    };
+                    if (progress.duration > 0) {
+                        update.duration = progress.duration;
+                    }
+                    useStore.setState(update);
+                    this.lastStoreUpdateTime = now;
+
+                    const { mobileScrobblerService } = require('./MobileScrobblerService');
+                    mobileScrobblerService.handleProgressUpdate(progress.position, progress.duration);
+                }
+
+                // Handle Simulated Crossfade (Volume fading)
+                const { crossfadeEnabled, crossfadeDuration, volume } = state;
+                const timeRemaining = progress.duration - progress.position;
+                    
+                if (progress.duration > 0 && progress.position >= 5) {
+                    this.prefetchNextTrack();
+                }
+
+                if (crossfadeEnabled && crossfadeDuration > 0 && progress.duration > 0) {
+                    if (timeRemaining <= crossfadeDuration && timeRemaining > 0) {
+                        // Fade out
+                        const fadeRatio = Math.max(0, timeRemaining / crossfadeDuration);
+                        this.applyVolume(volume * fadeRatio);
+                    } else if (progress.position < crossfadeDuration && progress.position > 0) {
+                        // Fade in
+                        const fadeRatio = Math.min(1, progress.position / crossfadeDuration);
+                        this.applyVolume(volume * fadeRatio);
+                    } else {
+                        this.applyVolume(volume);
+                    }
+                } else {
+                    this.applyVolume(volume);
+                }
+
             } catch {
                 // Ignore errors if player is not fully ready
             }
-        }, 1000);
+        }, 250);
     }
 
     async play(track?: Track) {
         if (!this.isInitialized) await this.setupPlayer();
 
         const store = useStore.getState();
+        this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit play
 
         // If a track is provided, play it directly
         if (track) {
@@ -93,6 +219,8 @@ class MobilePlayerService {
     async next() {
         const store = useStore.getState();
         const { queue, repeatMode, isShuffled } = store;
+        
+        this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit next
 
         if (queue.items.length === 0) return;
 
@@ -120,6 +248,8 @@ class MobilePlayerService {
     async previous() {
         const store = useStore.getState();
         const { queue, currentTime } = store;
+        
+        this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit previous
 
         // If played more than 3 sec, restart track
         if (currentTime > 3) {
@@ -147,6 +277,7 @@ class MobilePlayerService {
     }
 
     async setVolume(level: number) {
+        this.lastSetVolume = level;
         await TrackPlayer.setVolume(level);
         useStore.setState({ volume: level });
         await mobileDatabase.setSetting('standalone_volume', level);
@@ -186,6 +317,7 @@ class MobilePlayerService {
      * Prepare the player with a track (resolve URL, add to player) without playing
      */
     public async loadTrack(track: Track, initialPosition: number = 0): Promise<boolean> {
+        this.isLoadingTrack = true;
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
@@ -267,7 +399,6 @@ class MobilePlayerService {
                 duration: qTrack.track.duration,
             }));
 
-            this.isLoadingTrack = true;
             try {
                 await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
             } finally {
@@ -303,7 +434,15 @@ class MobilePlayerService {
         }
     }
 
+    private lastPlayedQueueIndex = -1;
+
     async playQueueIndex(index: number) {
+        if (this.isLoadingTrack && index === this.lastPlayedQueueIndex) {
+            console.log('[MobilePlayer] Ignoring duplicate call to playQueueIndex');
+            return;
+        }
+        this.lastPlayedQueueIndex = index;
+
         const store = useStore.getState();
         const { queue } = store;
 
