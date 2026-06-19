@@ -1,9 +1,26 @@
 import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 
+let isPlayingTimeout: ReturnType<typeof setTimeout> | null = null;
+
 function handleIsPlayingChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
-    useStore.setState({ isPlaying: event.playing });
+    
+    if (event.playing) {
+        if (isPlayingTimeout) {
+            clearTimeout(isPlayingTimeout);
+            isPlayingTimeout = null;
+        }
+        useStore.setState({ isPlaying: true });
+    } else {
+        // Debounce the pause state to avoid flicker during track transitions
+        if (!isPlayingTimeout) {
+            isPlayingTimeout = setTimeout(() => {
+                useStore.setState({ isPlaying: false });
+                isPlayingTimeout = null;
+            }, 300);
+        }
+    }
 }
 
 
@@ -43,7 +60,18 @@ async function handleMediaItemTransition(event: any) {
         }
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
         if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
-            await store.playQueueIndex(event.index);
+            if (event.index === mobilePlayerService.prefetchedQueueIndex) {
+                // If it was prefetched, the native player already has the real URL and is playing it.
+                // Just sync the UI state.
+                store.syncNativeTransition(event.index);
+            } else {
+                // Not prefetched. The native player hit a dummy.mp3 and stopped.
+                // We must load and play it properly.
+                // Use setTimeout to avoid doing this synchronously inside the event handler
+                setTimeout(() => {
+                    mobilePlayerService.playQueueIndex(event.index);
+                }, 0);
+            }
         }
         return;
     }
@@ -58,6 +86,7 @@ async function handleMediaItemTransition(event: any) {
 }
 
 export async function PlaybackService(event?: any) {
+    console.log(`[PlaybackService] received event:`, event?.type);
     if (!event) return;
     
     switch (event.type) {
@@ -95,28 +124,47 @@ export async function PlaybackService(event?: any) {
             useStore.getState().seek(p2.position - event.interval);
             break;
         }
-        case Event.RemoteStop:
-            await TrackPlayer.clear();
+        case Event.RemoteStop: {
+            const { mobilePlayerService } = require('./MobilePlayerService');
+            await mobilePlayerService.stop();
             break;
+        }
     }
 }
 
-// Foreground Listeners
-TrackPlayer.addEventListener(Event.IsPlayingChanged, handleIsPlayingChanged);
-TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged);
-TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition);
+// Clean up previous listeners during hot-reloading in dev environment
+if ((global as any).trackPlayerSubscriptions) {
+    console.log('[TrackPlayerService] Cleaning up old TrackPlayer listeners before attaching new ones');
+    (global as any).trackPlayerSubscriptions.forEach((sub: any) => {
+        if (sub && typeof sub.remove === 'function') {
+            sub.remove();
+        }
+    });
+}
 
-TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play());
-TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause());
-TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next());
-TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous());
-TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position));
-TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
-    const progress = await TrackPlayer.getProgress();
-    useStore.getState().seek(progress.position + event.interval);
-});
-TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
-    const progress = await TrackPlayer.getProgress();
-    useStore.getState().seek(progress.position - event.interval);
-});
-TrackPlayer.addEventListener(Event.RemoteStop, () => TrackPlayer.clear());
+// Foreground Listeners
+const subs = [
+    TrackPlayer.addEventListener(Event.IsPlayingChanged, handleIsPlayingChanged),
+    TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged),
+    TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition),
+
+    TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play()),
+    TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause()),
+    TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next()),
+    TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous()),
+    TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position)),
+    TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
+        const progress = await TrackPlayer.getProgress();
+        useStore.getState().seek(progress.position + event.interval);
+    }),
+    TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
+        const progress = await TrackPlayer.getProgress();
+        useStore.getState().seek(progress.position - event.interval);
+    }),
+    TrackPlayer.addEventListener(Event.RemoteStop, async () => {
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        await mobilePlayerService.stop();
+    })
+];
+
+(global as any).trackPlayerSubscriptions = subs;

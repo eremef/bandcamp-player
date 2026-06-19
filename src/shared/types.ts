@@ -211,6 +211,7 @@ export interface AppSettings {
 
   // Playback settings
   defaultVolume: number;
+  crossfadeEnabled: boolean;
   crossfadeDuration: number; // in seconds, 0 = disabled
 
   // UI settings
