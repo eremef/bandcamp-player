@@ -4,7 +4,7 @@ test.describe('Navigation', () => {
     test.beforeEach(async ({ window }) => {
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -16,7 +16,7 @@ test.describe('Navigation', () => {
 
     test('should navigate between main views', async ({ window }) => {
         // Navigate to Artists
-        await window.getByRole('button', { name: 'Artists' }).click();
+        await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible();
 
         // Navigate to Playlists
@@ -28,7 +28,7 @@ test.describe('Navigation', () => {
         await expect(window.getByRole('heading', { name: 'Bandcamp Radio', level: 1 })).toBeVisible();
 
         // Navigate back to Collection
-        await window.getByRole('button', { name: 'Collection' }).click();
+        await window.getByRole('button', { name: 'Collection', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Collection', level: 1 })).toBeVisible();
     });
 });

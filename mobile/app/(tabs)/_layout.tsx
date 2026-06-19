@@ -41,42 +41,42 @@ export default function TabLayout() {
                     name="player"
                     options={{
                         title: 'Player',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <Disc3 color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <Disc3 color={color} size={size} />,
                     }}
                 />
                 <Tabs.Screen
                     name="collection"
                     options={{
                         title: 'Collection',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <Library color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <Library color={color} size={size} />,
                     }}
                 />
                 <Tabs.Screen
                     name="artists"
                     options={{
                         title: 'Artists',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <User color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <User color={color} size={size} />,
                     }}
                 />
                 <Tabs.Screen
                     name="playlists"
                     options={{
                         title: 'Playlists',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <ListMusic color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <ListMusic color={color} size={size} />,
                     }}
                 />
                 <Tabs.Screen
                     name="radio"
                     options={{
                         title: 'Radio',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <Radio color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <Radio color={color} size={size} />,
                     }}
                 />
                 <Tabs.Screen
                     name="queue"
                     options={{
                         title: 'Queue',
-                        tabBarIcon: ({ color, size }: { color: string; size: number }) => <ListOrdered color={color} size={size} />,
+                        tabBarIcon: ({ color, size }: { color: any; size: number }) => <ListOrdered color={color} size={size} />,
                     }}
                 />
             </Tabs>

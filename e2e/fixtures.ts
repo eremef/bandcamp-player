@@ -18,7 +18,7 @@ export const test = base.extend<AppFixtures>({
                 ...process.env,
                 NODE_ENV: 'production',
                 E2E_TEST: 'true',
-                REMOTE_PORT: (9999 + testInfo.workerIndex).toString()
+                REMOTE_PORT: '0'
             },
         });
 
@@ -35,7 +35,7 @@ export const test = base.extend<AppFixtures>({
 
         // Wait for the UI to be interactive (either Login or Main Layout)
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
         await loginBtn.or(collectionBtn).waitFor();
 
         await use(window);
@@ -55,8 +55,12 @@ export const test = base.extend<AppFixtures>({
             // Generate a unique filename for this test's coverage
             const filename = `${testName}_${testInfo.workerIndex}.json`;
             writeFileSync(join(coverageDir, filename), JSON.stringify(coverage, null, 2));
-        } catch (err) {
-            console.error(`ERROR in stopJSCoverage: ${err}`);
+        } catch (err: any) {
+            if (err.message && err.message.includes('Target page, context or browser has been closed')) {
+                // Ignore silently: expected when a test closes the window or restarts the app
+            } else {
+                console.error(`ERROR in stopJSCoverage: ${err}`);
+            }
         }
     },
 });

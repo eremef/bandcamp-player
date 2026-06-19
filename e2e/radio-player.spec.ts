@@ -4,7 +4,7 @@ test.describe('Radio + Player Integration', () => {
     test.beforeEach(async ({ window }) => {
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();

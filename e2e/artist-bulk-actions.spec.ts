@@ -64,18 +64,18 @@ test.describe('Artist Bulk Actions', () => {
         }, { mockCollection: MOCK_COLLECTION, mockArtists: MOCK_ARTISTS });
 
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
         if (await loginBtn.isVisible()) await loginBtn.click();
         await expect(collectionBtn).toBeVisible({ timeout: 15000 });
 
         // Force collection refresh to load mock data
         await collectionBtn.click();
-        await expect(window.locator('[class*="card"]').first()).toBeVisible({ timeout: 15000 });
+        await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
         await window.getByTitle('Refresh').click();
         await expect(window.locator('text=Mock Artist').first()).toBeVisible({ timeout: 10000 });
 
         // Navigate to Artists view
-        await window.getByRole('button', { name: 'Artists' }).click();
+        await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
         // Wait for mock artist card
         await expect(window.locator('[class*="artistCard"]').first()).toBeVisible({ timeout: 10000 });

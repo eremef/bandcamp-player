@@ -1015,7 +1015,23 @@ export async function initializeStoreSubscriptions() {
 
   // Settings updates
   window.electron.settings.onChanged((settings) => {
-    useStore.setState({ settings });
+    useStore.setState({
+      settings,
+      collection_sort_key: settings.collectionSortKey || "default",
+      collection_sort_direction: settings.collectionSortDirection || "desc",
+      collectionFilterAlbums:
+        settings.collectionFilterAlbums !== undefined
+          ? settings.collectionFilterAlbums
+          : true,
+      collectionFilterTracks:
+        settings.collectionFilterTracks !== undefined
+          ? settings.collectionFilterTracks
+          : true,
+      collectionFilterWishlist:
+        settings.collectionFilterWishlist !== undefined
+          ? settings.collectionFilterWishlist
+          : true,
+    });
   });
 
   // Radio updates

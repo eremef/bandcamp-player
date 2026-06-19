@@ -4,7 +4,7 @@ test.describe('Playlist Lifecycle', () => {
     test.beforeEach(async ({ window }) => {
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -28,10 +28,10 @@ test.describe('Playlist Lifecycle', () => {
         await expect(playlistItem).toBeVisible({ timeout: 10000 });
 
         // 2. Navigate to Collection and use right-click context menu to add to playlist
-        await window.getByRole('button', { name: 'Collection' }).click();
+        await window.getByRole('button', { name: 'Collection', exact: true }).click();
 
         // Wait for cards to load
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
 
         // Right-click to open context menu (more reliable than hover + button click)

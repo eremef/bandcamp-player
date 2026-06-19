@@ -6,7 +6,7 @@ test.describe('Settings', () => {
     test.beforeEach(async ({ window }) => {
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -53,7 +53,7 @@ test.describe('Settings', () => {
         // since Playwright cannot interact with zero-dimension elements.
 
         // Get the checkbox's current state via the accessibility role
-        const trayCheckbox = window.getByRole('checkbox').nth(1);
+        const trayCheckbox = window.getByTestId('setting-minimize-tray');
         const initialState = await trayCheckbox.isChecked();
         const newState = !initialState;
 
@@ -102,7 +102,7 @@ test.describe('Settings', () => {
 
             // Wait for UI
             const loginBtn = newWindow.getByRole('button', { name: 'Login with Bandcamp' });
-            const collectionBtn = newWindow.getByRole('button', { name: 'Collection' });
+            const collectionBtn = newWindow.getByRole('button', { name: 'Collection', exact: true });
             await loginBtn.or(collectionBtn).waitFor({ timeout: 15000 });
 
             if (await loginBtn.isVisible()) {
@@ -116,7 +116,7 @@ test.describe('Settings', () => {
             await expect(newHeading).toBeVisible({ timeout: 10000 });
 
             // 7. Verify persisted state
-            const newTrayCheckbox = newWindow.getByRole('checkbox').nth(1);
+            const newTrayCheckbox = newWindow.getByTestId('setting-minimize-tray');
             await expect(newTrayCheckbox).toBeChecked({ checked: newState, timeout: 10000 });
         } finally {
             await newApp.close();

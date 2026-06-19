@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 test.describe('Album Detail Tracks', () => {
     test.beforeEach(async ({ window }) => {
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -13,7 +13,7 @@ test.describe('Album Detail Tracks', () => {
 
     test('should display track list in album detail view', async ({ window }) => {
         // Click first album card to open detail
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
         await firstAlbumCard.click();
 
@@ -52,7 +52,7 @@ test.describe('Album Detail Tracks', () => {
 
     test('should have Add to Queue button in album detail', async ({ window }) => {
         // Navigate to album detail
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
         await firstAlbumCard.click();
 

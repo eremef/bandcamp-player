@@ -67,13 +67,13 @@ test.describe('Collection Bulk Actions', () => {
         }, MOCK_COLLECTION);
 
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
         if (await loginBtn.isVisible()) await loginBtn.click();
         await expect(collectionBtn).toBeVisible({ timeout: 15000 });
 
         // Navigate to Collection view and wait for it to load
         await collectionBtn.click();
-        await expect(window.locator('[class*="card"]').first()).toBeVisible({ timeout: 15000 });
+        await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
 
         // Force refresh so the store re-fetches using our mocked IPC handlers
         await window.getByTitle('Refresh').click();
@@ -85,27 +85,28 @@ test.describe('Collection Bulk Actions', () => {
     // Visibility tests
     // -----------------------------------------------------------------------
 
-    test('bulk actions button is hidden without a search query', async ({ window }) => {
-        const bulkBtn = window.getByTitle('More actions for search results');
-        await expect(bulkBtn).not.toBeVisible();
+    test('bulk actions button is visible without a search query', async ({ window }) => {
+        const bulkBtn = window.getByTitle('Bulk actions for current view');
+        await expect(bulkBtn).toBeVisible();
     });
 
     test('bulk actions button is hidden when search returns no results', async ({ window }) => {
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('xyznonexistent12345');
         await window.waitForTimeout(300);
 
-        await expect(window.locator('[class*="card"]')).toHaveCount(0);
-        await expect(window.getByTitle('More actions for search results')).not.toBeVisible();
+        await expect(window.getByTestId('album-card')).toHaveCount(0);
+        await expect(window.getByTitle('Bulk actions for current view')).not.toBeVisible();
     });
 
     test('bulk actions button appears when search has matching results', async ({ window }) => {
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
         await window.waitForTimeout(300);
 
-        await expect(window.locator('[class*="card"]').first()).toBeVisible();
-        await expect(window.getByTitle('More actions for search results')).toBeVisible();
+
+        await expect(window.getByTestId('album-card').first()).toBeVisible();
+        await expect(window.getByTitle('Bulk actions for current view')).toBeVisible();
     });
 
     // -----------------------------------------------------------------------
@@ -113,11 +114,11 @@ test.describe('Collection Bulk Actions', () => {
     // -----------------------------------------------------------------------
 
     test('bulk actions menu opens and closes on toggle', async ({ window }) => {
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
         await window.waitForTimeout(300);
 
-        const bulkBtn = window.getByTitle('More actions for search results');
+        const bulkBtn = window.getByTitle('Bulk actions for current view');
         await expect(bulkBtn).toBeVisible();
 
         // Open
@@ -146,11 +147,11 @@ test.describe('Collection Bulk Actions', () => {
         if (await closeBtn.isVisible()) await closeBtn.click();
 
         // Search and use bulk "Add to Queue"
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
         await window.waitForTimeout(300);
 
-        await window.getByTitle('More actions for search results').click();
+        await window.getByTitle('Bulk actions for current view').click();
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.click();
@@ -168,11 +169,11 @@ test.describe('Collection Bulk Actions', () => {
         // Confirm we start in idle state
         await expect(window.locator('text=No track playing')).toBeVisible({ timeout: 5000 });
 
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
         await window.waitForTimeout(300);
 
-        await window.getByTitle('More actions for search results').click();
+        await window.getByTitle('Bulk actions for current view').click();
         const playAllItem = window.locator('button', { hasText: 'Play All' }).first();
         await expect(playAllItem).toBeVisible({ timeout: 3000 });
         await playAllItem.click();
@@ -184,11 +185,11 @@ test.describe('Collection Bulk Actions', () => {
 
     test('"Play Next" increases the queue count', async ({ window }) => {
         // Step 1: Add some tracks to queue first
-        const searchInput = window.getByPlaceholder('Search your collection...');
+        const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
         await window.waitForTimeout(300);
 
-        await window.getByTitle('More actions for search results').click();
+        await window.getByTitle('Bulk actions for current view').click();
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.click({ force: true });
@@ -206,7 +207,7 @@ test.describe('Collection Bulk Actions', () => {
         await window.getByTitle('Close').click();
 
         // Step 2: Use "Play Next" with the same search results
-        await window.getByTitle('More actions for search results').click();
+        await window.getByTitle('Bulk actions for current view').click();
         const playNextItem = window.locator('button', { hasText: 'Play Next' }).first();
         await expect(playNextItem).toBeVisible({ timeout: 3000 });
         await playNextItem.click({ force: true });
