@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeImage } from 'electron';
+import { BrowserWindow, nativeImage, app } from 'electron';
 import * as path from 'path';
 import type { PlayerService } from './player.service';
 
@@ -11,12 +11,11 @@ export class ThumbarService {
         this.mainWindow = mainWindow;
         this.playerService = playerService;
 
-        // Load icons
-        const isPackaged = process.defaultApp ? false : true;
-        
-        // In both dev and prod, the main process runs from dist/main or app.asar/dist/main
-        // So __dirname is dist/main/services
-        const iconPath = path.join(__dirname, '../../assets/icons/thumbar');
+        // In dev, use src/assets to avoid needing a build step for assets.
+        // In prod, use dist/assets (where they are copied).
+        const iconPath = app.isPackaged
+            ? path.join(__dirname, '../../assets/icons/thumbar') // dist/main/services -> dist/assets
+            : path.join(__dirname, '../../../src/assets/icons/thumbar'); // dist/main/services -> src/assets
         
         this.icons = {
             play: nativeImage.createFromPath(path.join(iconPath, 'play.png')),

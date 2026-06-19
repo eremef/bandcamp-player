@@ -457,7 +457,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Discord Rich Presence</span>
-                                <span className={styles.settingHint}>Show what you're listening to on Discord</span>
+                                <span className={styles.settingHint}>Show what you&apos;re listening to on Discord</span>
                             </div>
                             <label className={styles.switch}>
                                 <input

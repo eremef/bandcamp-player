@@ -54,6 +54,7 @@ describe("AlbumDetailView", () => {
       cachedAlbumIds: new Set<string>(),
       downloadingTracks: new Set<string>(),
       albumDetailSourceView: "collection",
+      updateAlbumInCollection: vi.fn(),
     });
   });
 
@@ -201,6 +202,7 @@ describe("AlbumDetailView", () => {
       cachedAlbumIds: new Set<string>(),
       downloadingTracks: new Set<string>(),
       albumDetailSourceView: "collection",
+      updateAlbumInCollection: vi.fn(),
     });
 
     render(<AlbumDetailView />);

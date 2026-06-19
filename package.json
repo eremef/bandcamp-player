@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.10-beta",
+  "version": "1.8.10-alpha.1",
   "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
@@ -19,7 +19,7 @@
     "build:renderer": "vite build",
     "package": "npm run test && npm run build && electron-builder",
     "rebuild": "electron-rebuild -f -w better-sqlite3",
-    "test": "concurrently \"npm run build:main\" \"vitest run\"",
+    "test": "npm run build:main && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npm run build && playwright test",
