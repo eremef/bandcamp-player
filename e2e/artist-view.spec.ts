@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 test.describe('Artists View', () => {
     test.beforeEach(async ({ window }) => {
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -13,11 +13,11 @@ test.describe('Artists View', () => {
 
     test('should display artists list and search', async ({ window }) => {
         // Navigate to Artists
-        await window.getByRole('button', { name: 'Artists' }).click();
+        await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
 
         // Verify search bar exists
-        const searchInput = window.getByPlaceholder('Search artists..');
+        const searchInput = window.getByPlaceholder('Search..');
         await expect(searchInput).toBeVisible();
 
         // If artists are loaded, verify at least one artist card is visible
@@ -27,7 +27,7 @@ test.describe('Artists View', () => {
 
     test('should navigate to artist detail and back', async ({ window }) => {
         // Navigate to Artists
-        await window.getByRole('button', { name: 'Artists' }).click();
+        await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
 
         // Wait for artist cards to appear

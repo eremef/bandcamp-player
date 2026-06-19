@@ -31,8 +31,8 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 
 - **Continuous Native Generation (CNG)**: Even if the `android` or `ios` directories are checked into source control (Bare workflow), they should be treated as ephemeral when encountering native build/plugin errors.
 - **Gradle Plugin Resolution Errors**: If you encounter errors like `Could not find com.facebook.react:react-native-gradle-plugin` or AGP/Kotlin version mismatches after updating `package.json` dependencies (like `expo` or `react-native`), **DO NOT** manually patch `android/build.gradle` or `android/settings.gradle`.
-- **Prebuild Recovery**: Always use `npx expo prebuild --clean -p android` (or `ios`) to delete and cleanly regenerate the native projects. This perfectly synchronizes the native configurations with the versions declared in your current `node_modules`.
 - **Expo config**: Use `app.config.js` to configure the Expo application instead of `app.json`.
+- **Expo 56 & Metro 0.81 Cross-Project Resolution**: Metro 0.81 enforces strict directory isolation unless a repository is explicitly configured as a Yarn/npm Workspace (which alters hoisting). To resolve files outside the project root (e.g. `src/shared` from `mobile`), DO NOT use `extraNodeModules`, Babel aliases, or custom `resolveRequest` hooks as they will fail with "None of these files exist". Instead, create a Windows Junction (`New-Item -ItemType Junction -Path mobile\src -Target src`) and update `mobile/tsconfig.json` paths to map through the junction (e.g., `"@shared/*": ["./src/shared/*"]`). This transparently bypasses Metro's strict boundaries with zero overhead.
 
 ## Expo Web Build Learnings
 
@@ -62,6 +62,11 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Fixture Teardown**: `fixtures.ts` teardown calls `electronApp.close()`. Tests that close and relaunch the app (persistence tests) cause double-close. The teardown wraps `.close()` in try/catch.
 - **Checkbox Ordering**: Settings checkboxes by `getByRole('checkbox').nth(n)`: 0=Enable Caching, 1=Minimize to Tray, 2=Start Minimized, 3=Show Notifications, 4=Enable Remote Control.
 - **Back Button Navigation**: The Back button in album detail view needs an explicit visibility wait before clicking — it's not immediately available after navigation.
+- **Test Independence (Crucial)**: A failure or timeout in one test can leave the Electron application context (and shared `user-data-dir`) in a hung state (e.g., lingering overlays intercepting clicks). Tests in the same worker must be completely independent. Always clean up mock state (e.g., via `resetCollectionState`) and avoid brittle order dependencies.
+- **Mocking Navigation vs Playback**: When mocking collection items for tests that expect a navigation action (e.g., clicking an `AlbumCard` to view details), ensure the `trackCount` is mock-assigned to 2 or more. If `trackCount === 1`, the component skips navigation and immediately triggers playback.
+- **IPC Broadcasting for Mocks**: Mocks providing data to the UI (e.g., `getCollection`, `getStations`) must explicitly broadcast IPC events (like `collection:on-updated` or `radio:on-stations-updated`) using `e.sender.send(...)` within the handler to properly trigger Zustand state updates. Merely resolving the value often isn't enough.
+- **Data Determinism for Sorting**: Avoid using identical mock values for fields that are sorted by the database (like identical `purchaseDate` timestamps). SQLite returns ties in non-deterministic order, causing assertions relying on specific list positions (e.g., `.first()`) to flake.
+- **Timeouts for UI Reflows**: Setting changes that trigger complex UI re-renders, animations, or IPC calls (like toggling Wishlist visibility) require `waitForTimeout(1000)` before asserting visibility of new elements, to prevent Playwright from checking the old DOM state.
 - **Audio Streaming**: Real Bandcamp audio streaming doesn't work in the E2E test environment. Tests should verify UI state (station cards, track info) rather than actual playback.
 - **Zustand State Injection**: In E2E tests, `window.evaluate` on `useStore` only works if the store is globally exposed. An alternative is dispatching `CustomEvent` or mocking IPC methods like `window.electron.cast.getDevices`.
 - **Obstructed Elements**: Electron UI elements near absolute-positioned sliders or overlays (like in the PlayerBar) may require `{ force: true }` or `element.evaluate(el => el.click())` if Playwright thinks they are obstructed.
@@ -107,6 +112,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Java Version**: Ensure `JAVA_HOME` points to Java 17 for Android builds. Java 24+ is NOT supported.
 - **ESM Imports Only**: Never use CommonJS `require()` in TypeScript files.
 - **Mobile Tests**: Place all mobile unit tests in `mobile/__tests__/` to avoid bundling errors with Expo Router.
+- **Testing Guide**: Always refer to `TESTING_GUIDE.md` for E2E and component testing standards. **Enforce `data-testid`** for stable element selection in Playwright and Jest tests. Avoid brittle CSS classes and fixed timeouts.
 - After implementing new features, always ensure that the lints and tests pass or are updated to reflect the new behavior
 - After implementing new features, judge if they need tests, and if so - create them
 - **No Preamble for Safe Commands**: Do not ask for permission or explain that you are about to run read-only/safe commands e.g. `git status`, `ls`, `npm test`, `npx vitest`, `npm run lint`, `npx tsc`, `eslint src`, `eslint mobile`, `npx jest`, `jest`, `npx vitest`, `npx vitest run`, and similar, or starting with the provided. Execute them immediately and only report the output.
@@ -119,3 +125,4 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - To release new version (bump version, copy assets, run tests, commit, and tag)
 npm run release <newVersion>.
 - when running a command in terminal that has `(tabs)` somewhere in the path, remember to use proper quotes to avoid errors.
+- **NPM Package Embargo**: The `min-release-age=7` setting is enforced via `~/.npmrc` to prevent installing packages released less than 7 days ago. If you run into `ETARGET` errors because a dependency is too new, do NOT drop the embargo permanently. You may temporarily bypass it using `npm config delete min-release-age` only when explicitly requested, and you must immediately re-enable it with `npm config set min-release-age 7` once the installation completes.

@@ -54,6 +54,7 @@ export function Sidebar() {
                             <button
                                 className={`${styles.navItem} ${currentView === item.view ? styles.active : ''}`}
                                 onClick={() => setView(item.view)}
+                                data-testid={`nav-${item.view}`}
                             >
                                 <span className={styles.navIcon}>{item.icon}</span>
                                 <span className={styles.navLabel}>{item.label}</span>
@@ -91,6 +92,7 @@ export function Sidebar() {
                                 className={styles.addButton}
                                 onClick={handleCreateClick}
                                 title="Create Playlist"
+                                data-testid="nav-create-playlist"
                             >
                                 <Plus size={18} />
                             </button>
@@ -142,6 +144,7 @@ export function Sidebar() {
                             className={styles.iconButton}
                             onClick={toggleSettings}
                             title="Settings"
+                            data-testid="nav-settings"
                         >
                             <Settings size={20} />
                         </button>

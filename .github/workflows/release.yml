@@ -29,8 +29,11 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package Windows
-        run: npm run package -- --win --x64 --arm64 -p never
+      - name: Package Windows (x64)
+        run: npm run package -- --win --x64 -p never
+
+      - name: Package Windows (arm64)
+        run: npx electron-builder --win --arm64 -p never
 
 
       - name: Upload Artifacts
@@ -144,7 +147,7 @@ jobs:
           npx expo prebuild --platform android
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'

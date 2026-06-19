@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 test.describe('Theme Switching', () => {
     test.beforeEach(async ({ window }) => {
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -18,7 +18,7 @@ test.describe('Theme Switching', () => {
         await expect(settingsHeading).toBeVisible({ timeout: 10000 });
 
         // Find the Theme combobox (dropdown)
-        const themeSelect = window.getByRole('combobox');
+        const themeSelect = window.getByTestId('setting-theme');
         await expect(themeSelect).toBeVisible({ timeout: 5000 });
 
         // Switch to Dark theme

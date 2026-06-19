@@ -3,7 +3,7 @@ import { test, expect } from './fixtures';
 test.describe('Queue Management', () => {
     test.beforeEach(async ({ window }) => {
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         if (await loginBtn.isVisible()) {
             await loginBtn.click();
@@ -23,7 +23,7 @@ test.describe('Queue Management', () => {
 
     test('should add album to queue via context menu', async ({ window }) => {
         // Wait for collection cards
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
 
         // Right-click to open context menu
@@ -50,7 +50,7 @@ test.describe('Queue Management', () => {
 
     test('should clear queue', async ({ window }) => {
         // First, add something to the queue
-        const firstAlbumCard = window.locator('[class*="card"]').first();
+        const firstAlbumCard = window.getByTestId('album-card').first();
         await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
         await firstAlbumCard.click({ button: 'right' });
 

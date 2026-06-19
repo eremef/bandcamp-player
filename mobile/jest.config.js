@@ -1,5 +1,5 @@
 module.exports = {
-    preset: 'react-native',
+    preset: 'jest-expo',
     setupFilesAfterEnv: ['./jest.setup.js'],
     transformIgnorePatterns: [
         'node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(?!-)|@expo(?!-)|native-base|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|lucide-react-native|expo-modules-core|expo-router|expo-linking|expo-constants|expo-status-bar|expo-file-system|expo-asset|expo-network)'

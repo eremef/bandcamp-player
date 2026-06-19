@@ -77,7 +77,7 @@ describe('BandcampLoginScreen', () => {
     it('handles WebView onLoadEnd and checks native session', async () => {
         const { getByTestId, UNSAFE_queryByType } = render(<BandcampLoginScreen />);
 
-        let webview;
+        let webview: any;
         await waitFor(() => {
             webview = getByTestId('mock-webview');
             expect(webview).toBeTruthy();

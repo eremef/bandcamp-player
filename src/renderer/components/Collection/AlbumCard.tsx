@@ -173,6 +173,7 @@ export function AlbumCard({
         e.preventDefault();
         setShowMenu(true);
       }}
+      data-testid="album-card"
     >
       {/* Artwork */}
       <div className={styles.artworkWrapper}>

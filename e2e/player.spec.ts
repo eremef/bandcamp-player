@@ -20,7 +20,7 @@ test.describe('Player Controls', () => {
 
         // Wait for either login button or collection to be ready
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection' });
+        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
         await loginBtn.or(collectionBtn).waitFor();
 
