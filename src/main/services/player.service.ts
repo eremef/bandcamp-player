@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { powerSaveBlocker } from 'electron';
 
 import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState } from '../../shared/types';
 import { CacheService } from './cache.service';
@@ -46,6 +47,9 @@ export class PlayerService extends EventEmitter {
 
     // Persistence
     private saveVolumeTimeout: NodeJS.Timeout | null = null;
+
+    // Power save
+    private powerSaveBlockerId: number | null = null;
 
     constructor(cacheService: CacheService, scrobblerService: ScrobblerService, scraperService: ScraperService, castService: CastService, database: Database) {
         super();
@@ -779,6 +783,20 @@ export class PlayerService extends EventEmitter {
 
     private emitStateChange(): void {
         this.emit('state-changed', this.getState());
+        this.updatePowerSaveBlocker();
+    }
+
+    private updatePowerSaveBlocker(): void {
+        if (this.isPlaying && this.powerSaveBlockerId === null) {
+            this.powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
+            console.log(`[PlayerService] Started powerSaveBlocker with ID: ${this.powerSaveBlockerId}`);
+        } else if (!this.isPlaying && this.powerSaveBlockerId !== null) {
+            if (powerSaveBlocker.isStarted(this.powerSaveBlockerId)) {
+                powerSaveBlocker.stop(this.powerSaveBlockerId);
+            }
+            console.log(`[PlayerService] Stopped powerSaveBlocker with ID: ${this.powerSaveBlockerId}`);
+            this.powerSaveBlockerId = null;
+        }
     }
 
     private emitTrackChange(): void {
