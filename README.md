@@ -31,6 +31,9 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes
 - 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API token)
+- 🎮 **Discord Rich Presence** - Show what you're listening to on your Discord profile
+- 🔗 **Gapless Playback** - Uninterrupted transitions between tracks
+- 🎼 **Crossfade Support** - Smoothly blend tracks with adjustable duration
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
@@ -100,9 +103,13 @@ Access the settings menu (gear icon) to configure:
   - View cache usage statistics
   - Clear cache to free up space
 
-- **Last.fm**
-  - Connect/disconnect Last.fm account
-  - Toggle automatic scrobbling
+- **Last.fm & Discord**
+  - Connect/disconnect Last.fm account for automatic scrobbling
+  - Enable Discord Rich Presence to show current track in your profile
+
+- **Playback**
+  - Toggle gapless playback and crossfade
+  - Adjust crossfade duration (1-10 seconds)
 
 - **Window**
   - Minimize to Tray: Keep the app running in the background when closed
@@ -175,6 +182,8 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist) and filter by Albums, Tracks, or Wishlist
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
 - 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
+- 🔗 **Gapless Playback** - Uninterrupted audio transitions in standalone mode
+- 🎼 **Simulated Crossfade** - Smooth volume fading between tracks for a continuous mix
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack

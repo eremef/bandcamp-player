@@ -352,6 +352,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
       nativeTheme.themeSource = settings.theme;
     }
 
+    // Emit event so main-process services (like DiscordService) can react
+    playerService.emit("settings-changed", updated);
+
     broadcast(SETTINGS_CHANNELS.ON_CHANGED, updated);
     return updated;
   });
