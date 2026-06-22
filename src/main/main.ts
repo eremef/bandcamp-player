@@ -244,6 +244,25 @@ async function initializeServices() {
   updaterService = new UpdaterService(isDev);
   discordService = new DiscordService(playerService, database);
 
+  // Set up background auto-refresh for the collection
+  // Runs every 4 hours. If the app is not playing, it triggers a fetch with forceRefresh=false.
+  // The ScraperService will check if the cache is > 24h old and do a real fetch if needed.
+  setInterval(() => {
+    try {
+      const state = playerService.getState();
+      if (!state.isPlaying) {
+        console.log("[Main] Running periodic background collection refresh check...");
+        scraperService.fetchCollection(false).catch((err) => {
+          console.error("[Main] Auto-refresh check failed:", err);
+        });
+      } else {
+        console.log("[Main] Skipping periodic background refresh check (music is playing)");
+      }
+    } catch (err) {
+      console.error("[Main] Error in background refresh timer:", err);
+    }
+  }, 60 * 60 * 1000 * 4); // 4 hours
+
   // Start remote service if enabled
   const settings = database.getSettings();
   if (settings?.remoteEnabled) {
