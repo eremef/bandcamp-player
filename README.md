@@ -34,7 +34,8 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 🎮 **Discord Rich Presence** - Show what you're listening to on your Discord profile
 - 🔗 **Gapless Playback** - Uninterrupted transitions between tracks
 - 🎼 **Crossfade Support** - Smoothly blend tracks with adjustable duration
-- ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching and daily background updates
+- ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching
+- 🔄 **Auto-Refresh** - Collection automatically updates in the background every 4 hours when idle
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - Manage remote sessions with device identification
