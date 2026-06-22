@@ -119,7 +119,7 @@ export class DiscordService extends EventEmitter {
         if (this.client) {
             try {
                 this.client.destroy();
-            } catch (e) {
+            } catch {
                 // Ignore errors during destroy
             }
             this.client = null;

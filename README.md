@@ -26,7 +26,7 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, and Wishlist
 - ↕️ **Synchronized Sorting** - Persistent and cross-platform sorting (Date, Title, Artist) synchronized between devices
 - 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
-- 🎛️ **Windows Media Controls** - Control playback with system media keys
+- 🎛️ **Windows Integration** - Control playback via system media keys and Taskbar thumbnail buttons (Thumbar)
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes

@@ -61,7 +61,9 @@ let scrobblerService: ScrobblerService;
 let remoteService: RemoteControlService;
 let updaterService: UpdaterService;
 let castService: CastService;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let thumbarService: ThumbarService | null = null;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let discordService: DiscordService | null = null;
 let cacheServer: http.Server | null = null;
 

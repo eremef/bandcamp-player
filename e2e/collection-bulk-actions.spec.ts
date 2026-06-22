@@ -163,6 +163,10 @@ test.describe('Collection Bulk Actions', () => {
         const queueItems = window.locator('li[class*="item"]');
         await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
         expect(await queueItems.count()).toBeGreaterThan(0);
+
+        // Close queue panel to avoid obscuring elements in the next test
+        const closeBtnAfter = window.getByTitle('Close');
+        if (await closeBtnAfter.isVisible()) await closeBtnAfter.click();
     });
 
     test('"Play All" changes player state away from idle', async ({ window }) => {
@@ -176,7 +180,7 @@ test.describe('Collection Bulk Actions', () => {
         await window.getByTitle('Bulk actions for current view').click();
         const playAllItem = window.locator('button', { hasText: 'Play All' }).first();
         await expect(playAllItem).toBeVisible({ timeout: 3000 });
-        await playAllItem.click();
+        await playAllItem.click({ force: true });
         await window.waitForTimeout(500);
 
         // Player should no longer be idle
