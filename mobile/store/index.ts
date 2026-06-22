@@ -75,6 +75,7 @@ interface AppState extends PlayerState {
 
     // Queue Actions
     playQueueIndex: (index: number) => void;
+    syncNativeTransition: (index: number) => void;
     removeFromQueue: (id: string) => void;
     reorderQueue: (fromIndex: number, toIndex: number) => void;
     clearQueue: (keepTrack?: boolean) => void;
@@ -139,6 +140,12 @@ interface AppState extends PlayerState {
     setCollectionFilterTracks: (show: boolean) => Promise<void>;
     setCollectionFilterWishlist: (show: boolean) => Promise<void>;
     setDedupeEnabled: (enabled: boolean) => Promise<void>;
+
+    // Crossfade Settings
+    crossfadeEnabled: boolean;
+    crossfadeDuration: number;
+    setCrossfadeEnabled: (enabled: boolean) => Promise<void>;
+    setCrossfadeDuration: (duration: number) => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
@@ -187,6 +194,8 @@ export const useStore = create<AppState>((set, get) => ({
     collectionFilterTracks: true,
     collectionFilterWishlist: true,
     dedupeEnabled: true,
+    crossfadeEnabled: false,
+    crossfadeDuration: 3,
     setTheme: async (theme: Theme) => {
         await AsyncStorage.setItem('app_theme', theme);
         set({ theme });
@@ -273,7 +282,9 @@ export const useStore = create<AppState>((set, get) => ({
             collectionFilterAlbums: settings.collection_filter_albums !== false,
             collectionFilterTracks: settings.collection_filter_tracks !== false,
             collectionFilterWishlist: settings.collection_filter_wishlist !== false,
-            dedupeEnabled: settings.dedupe_enabled !== false
+            dedupeEnabled: settings.dedupe_enabled !== false,
+            crossfadeEnabled: settings.crossfadeEnabled === true,
+            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2
         });
 
         // Ensure TrackPlayer volume is restored (might have been set to 0 in remote mode)
@@ -472,7 +483,9 @@ export const useStore = create<AppState>((set, get) => ({
             includeWishlistInCollection: settings.includeWishlistInCollection === true,
             collectionSortKey: settings.collection_sort_key || 'default',
             collectionSortDirection: settings.collection_sort_direction || 'asc',
-            dedupeEnabled: settings.dedupe_enabled !== false
+            dedupeEnabled: settings.dedupe_enabled !== false,
+            crossfadeEnabled: settings.crossfadeEnabled === true,
+            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2
         });
 
         // Restore scrobbler state
@@ -1065,6 +1078,20 @@ export const useStore = create<AppState>((set, get) => ({
             get().saveQueue();
         }
     },
+    syncNativeTransition: (index) => {
+        const { queue } = get();
+        if (index >= 0 && index < queue.items.length) {
+            const item = queue.items[index];
+            set({ 
+                queue: { ...queue, currentIndex: index },
+                currentTrack: item.track,
+                duration: item.track.duration,
+                currentTime: 0,
+                collectionError: null
+            });
+            get().saveQueue();
+        }
+    },
     reorderQueue: (fromIndex, toIndex) => {
         const { queue } = get();
         if (fromIndex < 0 || fromIndex >= queue.items.length) return;
@@ -1570,6 +1597,16 @@ export const useStore = create<AppState>((set, get) => ({
         set({ dedupeEnabled: enabled });
         get().refreshCollection(true);
     },
+    setCrossfadeEnabled: async (enabled) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('crossfadeEnabled', enabled);
+        set({ crossfadeEnabled: enabled });
+    },
+    setCrossfadeDuration: async (duration) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('crossfadeDuration', duration);
+        set({ crossfadeDuration: duration });
+    }
 }));
 
 // Initialize Listeners

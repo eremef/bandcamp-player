@@ -319,7 +319,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     console.log("Store: session result", result);
     set({ auth: result });
     if (result.isAuthenticated) {
-      get().fetchCollection();
+      get().fetchCollection(true);
       get().fetchPlaylists();
     }
   },

@@ -27,7 +27,17 @@ if (isBetaOrRelease) {
     }
 }
 
-const rootDir = path.resolve(__dirname, '..');
+let rootDir = path.resolve(__dirname, '..');
+// Fix Windows drive letter casing issue which breaks Vitest path resolution
+try {
+    if (process.platform === 'win32') {
+        rootDir = fs.realpathSync.native(rootDir);
+    } else {
+        rootDir = fs.realpathSync(rootDir);
+    }
+} catch (e) {
+    // fallback if realpath fails
+}
 const mobileDir = path.join(rootDir, 'mobile');
 
 const licenseSrc = path.join(__dirname, '../LICENSE.txt');
@@ -112,12 +122,12 @@ run('node scripts/validate-config.js');
 // 5. Run Quality Checks (Tests, Typecheck, Lint)
 if (!fastTrack) {
     log('Step 5: Running quality checks...');
-    run('npm test');
+    run('npm test', rootDir);
     run('npm run test:e2e', rootDir, { canFail: true });
     run('npm test', mobileDir);
-    run('npm run typecheck');
+    run('npm run typecheck', rootDir);
     run('npm run typecheck', mobileDir, { canFail: true });
-    run('npm run lint');
+    run('npm run lint', rootDir);
     run('npm run lint', mobileDir);
 }
 

@@ -211,6 +211,7 @@ export interface AppSettings {
 
   // Playback settings
   defaultVolume: number;
+  crossfadeEnabled: boolean;
   crossfadeDuration: number; // in seconds, 0 = disabled
 
   // UI settings
@@ -218,6 +219,7 @@ export interface AppSettings {
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;
+  discordRpcEnabled: boolean;
   theme: Theme;
 
   // Collection settings
