@@ -124,7 +124,7 @@ export function PlayerBar() {
             if (audio2Ref.current) audio2Ref.current.src = '';
             clearFades();
         }
-    }, [currentTrack]);
+    }, [currentTrack, clearFades, crossfadeDuration, crossfadeEnabled, fadeAudio, isMuted, isPlaying, player.isCasting, volume]);
 
     useEffect(() => {
         const activeNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
@@ -142,7 +142,7 @@ export function PlayerBar() {
             if (otherNode) otherNode.pause();
             clearFades();
         }
-    }, [isPlaying, player.isCasting]);
+    }, [isPlaying, player.isCasting, clearFades]);
 
     useEffect(() => {
         const activeNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
