@@ -29,8 +29,14 @@ if (isBetaOrRelease) {
 
 let rootDir = path.resolve(__dirname, '..');
 // Fix Windows drive letter casing issue which breaks Vitest path resolution
-if (rootDir.toLowerCase() === process.cwd().toLowerCase()) {
-    rootDir = process.cwd();
+try {
+    if (process.platform === 'win32') {
+        rootDir = fs.realpathSync.native(rootDir);
+    } else {
+        rootDir = fs.realpathSync(rootDir);
+    }
+} catch (e) {
+    // fallback if realpath fails
 }
 const mobileDir = path.join(rootDir, 'mobile');
 

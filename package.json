@@ -1,6 +1,6 @@
 {
   "name": "xyz.eremef.beta",
-  "version": "1.8.11-alpha.1",
+  "version": "1.8.11-alpha.2",
   "productName": "Beta Player",
   "description": "Desktop music player for Bandcamp with offline caching and playlist management",
   "main": "dist/main/main.js",
@@ -47,6 +47,7 @@
     "js-sha256": "^0.11.1",
     "lucide": "^0.563.0",
     "lucide-react": "^0.563.0",
+    "node-fetch": "^3.3.2",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -55,7 +56,10 @@
     "zustand": "^5.0.12"
   },
   "overrides": {
-    "protobufjs": "^7.5.5"
+    "protobufjs": "^7.5.5",
+    "discord-rpc": {
+      "register-scheme": "npm:register-scheme@0.0.2"
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
