@@ -66,6 +66,13 @@ test.describe('Collection Bulk Actions', () => {
             ipcMain.handle('collection:refresh', async () => mockCollection);
         }, MOCK_COLLECTION);
 
+        // Ensure offline mode is disabled so playback is not blocked for mock non-cached items
+        await window.evaluate(async () => {
+            if (window.electron?.settings?.set) {
+                await window.electron.settings.set({ offlineMode: false });
+            }
+        });
+
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
         const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
         if (await loginBtn.isVisible()) await loginBtn.click();
@@ -164,9 +171,15 @@ test.describe('Collection Bulk Actions', () => {
         await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
         expect(await queueItems.count()).toBeGreaterThan(0);
 
+        // Wait for the bulk operation to fully finish before proceeding
+        await expect(window.locator('text=/Processing \\d+/')).not.toBeVisible({ timeout: 10000 });
+
         // Close queue panel to avoid obscuring elements in the next test
         const closeBtnAfter = window.getByTitle('Close');
-        if (await closeBtnAfter.isVisible()) await closeBtnAfter.click();
+        if (await closeBtnAfter.isVisible()) {
+            await closeBtnAfter.click();
+            await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).not.toBeVisible({ timeout: 5000 });
+        }
     });
 
     test('"Play All" changes player state away from idle', async ({ window }) => {
@@ -180,11 +193,13 @@ test.describe('Collection Bulk Actions', () => {
         await window.getByTitle('Bulk actions for current view').click();
         const playAllItem = window.locator('button', { hasText: 'Play All' }).first();
         await expect(playAllItem).toBeVisible({ timeout: 3000 });
-        await playAllItem.click({ force: true });
-        await window.waitForTimeout(500);
+        await playAllItem.evaluate(el => (el as HTMLButtonElement).click());
 
-        // Player should no longer be idle
-        await expect(window.locator('text=No track playing')).not.toBeVisible({ timeout: 5000 });
+        // Player should no longer be idle - wait up to 15s since adding 3 albums might take a moment
+        await expect(window.locator('text=No track playing')).not.toBeVisible({ timeout: 15000 });
+
+        // Verify player state is playing by checking UI (Pause button should appear)
+        await expect(window.getByTitle('Pause', { exact: true })).toBeVisible({ timeout: 15000 });
     });
 
     test('"Play Next" increases the queue count', async ({ window }) => {
