@@ -198,6 +198,42 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         </div>
                     )}
 
+                    {/* Playback */}
+                    <section className={styles.section}>
+                        <h3>Playback</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Gapless Playback & Crossfade</span>
+                                <span className={styles.settingHint}>Seamlessly transition between tracks</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.crossfadeEnabled ?? false}
+                                    onChange={(e) => updateSettings({ crossfadeEnabled: e.target.checked })}
+                                    data-testid="setting-crossfade-enabled"
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                        {settings?.crossfadeEnabled && (
+                            <div className={styles.setting}>
+                                <div className={styles.settingInfo}>
+                                    <span className={styles.settingLabel}>Crossfade Duration</span>
+                                    <span className={styles.settingValue}>{settings?.crossfadeDuration ?? 3}s</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="10"
+                                    step="1"
+                                    value={settings?.crossfadeDuration ?? 3}
+                                    onChange={(e) => updateSettings({ crossfadeDuration: parseInt(e.target.value) })}
+                                />
+                            </div>
+                        )}
+                    </section>
+
                     {/* Appearance */}
                     <section className={styles.section}>
                         <h3>Appearance</h3>
@@ -409,6 +445,26 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     checked={settings?.showNotifications ?? true}
                                     onChange={(e) => updateSettings({ showNotifications: e.target.checked })}
                                     data-testid="setting-show-notifications"
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                    </section>
+
+                    {/* Integrations */}
+                    <section className={styles.section}>
+                        <h3>Integrations</h3>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Discord Rich Presence</span>
+                                <span className={styles.settingHint}>Show what you&apos;re listening to on Discord</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.discordRpcEnabled ?? false}
+                                    onChange={(e) => updateSettings({ discordRpcEnabled: e.target.checked })}
+                                    data-testid="setting-discord-rpc"
                                 />
                                 <span className={styles.slider}></span>
                             </label>

@@ -95,8 +95,10 @@ describe('TrackPlayerService (PlaybackService)', () => {
         });
 
         it('clears TrackPlayer on RemoteStop', async () => {
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+            mobilePlayerService.stop = jest.fn();
             await PlaybackService({ type: Event.RemoteStop });
-            expect(TrackPlayer.clear).toHaveBeenCalled();
+            expect(mobilePlayerService.stop).toHaveBeenCalled();
         });
 
         it('calls handleTrackEnd on PlaybackStateChanged Ended in standalone mode', async () => {

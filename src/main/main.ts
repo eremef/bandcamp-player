@@ -14,6 +14,8 @@ import { ScrobblerService } from "./services/scrobbler.service";
 import { RemoteControlService } from "./services/remote.service";
 import { UpdaterService } from "./services/updater.service";
 import { CastService } from "./services/cast.service";
+import { ThumbarService } from "./services/thumbar.service";
+import { DiscordService } from "./services/discord.service";
 import { Database } from "./database/database";
 import { registerIpcHandlers } from "./ipc-handlers";
 
@@ -59,6 +61,8 @@ let scrobblerService: ScrobblerService;
 let remoteService: RemoteControlService;
 let updaterService: UpdaterService;
 let castService: CastService;
+let thumbarService: ThumbarService | null = null;
+let discordService: DiscordService | null = null;
 let cacheServer: http.Server | null = null;
 
 // ============================================================================
@@ -80,7 +84,7 @@ function createMainWindow(
   const window = new BrowserWindow({
     width: 1250,
     height: 800,
-    minWidth: 1180,
+    minWidth: 975,
     minHeight: 600,
     frame: false,
     titleBarStyle: "hidden",
@@ -238,6 +242,26 @@ async function initializeServices() {
   );
 
   updaterService = new UpdaterService(isDev);
+  discordService = new DiscordService(playerService, database);
+
+  // Set up background auto-refresh for the collection
+  // Runs every 4 hours. If the app is not playing, it triggers a fetch with forceRefresh=false.
+  // The ScraperService will check if the cache is > 24h old and do a real fetch if needed.
+  setInterval(() => {
+    try {
+      const state = playerService.getState();
+      if (!state.isPlaying) {
+        console.log("[Main] Running periodic background collection refresh check...");
+        scraperService.fetchCollection(false).catch((err) => {
+          console.error("[Main] Auto-refresh check failed:", err);
+        });
+      } else {
+        console.log("[Main] Skipping periodic background refresh check (music is playing)");
+      }
+    } catch (err) {
+      console.error("[Main] Error in background refresh timer:", err);
+    }
+  }, 60 * 60 * 1000 * 4); // 4 hours
 
   // Start remote service if enabled
   const settings = database.getSettings();
@@ -403,6 +427,11 @@ if (!gotTheLock) {
 
       await initializeServices();
       mainWindow = createMainWindow();
+
+      // Initialize thumbar
+      if (process.platform === 'win32') {
+        thumbarService = new ThumbarService(mainWindow, playerService);
+      }
 
       // Initialize tray
       trayService = new TrayService(
