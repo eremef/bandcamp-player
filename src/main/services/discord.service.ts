@@ -83,9 +83,11 @@ export class DiscordService extends EventEmitter {
     }
 
     private async connect() {
+        console.log(`[DiscordService] connect() called. isEnabled=${this.isEnabled}, isConnected=${this.isConnected}, hasClient=${!!this.client}`);
         if (!this.isEnabled || this.isConnected || this.client) return;
 
         try {
+            console.log("[DiscordService] Creating discord-rpc client...");
             this.client = new Client({ transport: "ipc" });
 
             this.client.on("ready", () => {
@@ -103,7 +105,9 @@ export class DiscordService extends EventEmitter {
                 this.handleDisconnect();
             });
 
+            console.log(`[DiscordService] Attempting login with clientId: ${this.clientId}`);
             await this.client.login({ clientId: this.clientId });
+            console.log("[DiscordService] Login promise resolved!");
         } catch (err) {
             console.error("[DiscordService] Failed to connect to Discord RPC:", err);
             this.handleDisconnect();
@@ -171,11 +175,12 @@ export class DiscordService extends EventEmitter {
     }
 
     private async updatePresence(state: PlayerState) {
+        console.log(`[DiscordService] updatePresence() called. isPlaying=${state.isPlaying}, track=${state.currentTrack?.title}`);
         if (!this.client || !this.isConnected) return;
 
         try {
             if (!state.currentTrack) {
-                // Not playing anything, clear presence or show idle
+                console.log("[DiscordService] Clearing activity because no track is playing");
                 await this.client.clearActivity();
                 return;
             }
@@ -190,7 +195,6 @@ export class DiscordService extends EventEmitter {
                 smallImageText: "Beta Player",
             };
 
-            // Only show time if playing
             if (state.isPlaying && track.duration > 0) {
                 const now = Date.now();
                 const remainingSecs = track.duration - state.currentTime;
@@ -199,9 +203,9 @@ export class DiscordService extends EventEmitter {
                 presence.smallImageText = "Paused";
             }
 
-            // Using setActivity and ignoring potential type errors with 'any' cast
-            // since the presence type in the library might be strict/outdated
+            console.log("[DiscordService] Sending presence to Discord:", presence);
             await (this.client as any).setActivity(presence);
+            console.log("[DiscordService] Successfully updated Discord activity!");
         } catch (err) {
             console.error("[DiscordService] Failed to update presence:", err);
         }
