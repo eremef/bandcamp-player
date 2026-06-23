@@ -104,11 +104,6 @@ const Event = {
     RemoteSkipBackward: 'remote-skip-backward',
 };
 
-const AppKilledPlaybackBehavior = {
-    StopPlaybackAndRemoveNotification: 'stop-playback-and-remove-notification',
-    ContinuePlayback: 'continue-playback',
-};
-
 const RepeatMode = { Off: 0, Track: 1, Queue: 2 };
 
 // Default export for ES module interop
@@ -120,7 +115,6 @@ export {
     PlayerCommand,
     State,
     Event,
-    AppKilledPlaybackBehavior,
     RepeatMode,
     PlaybackState,
 };
