@@ -14,6 +14,7 @@ class MobilePlayerService {
     public onQueueChange?: () => void;
     private lastSetVolume: number = -1;
     private lastStoreUpdateTime = 0;
+    private pausedPosition: number = 0;
 
     async setupPlayer() {
         if (this.isInitialized) return;
@@ -190,27 +191,27 @@ class MobilePlayerService {
         }
 
         // If no track provided, resume current or play from queue
-        // If we are already paused on a track, resume
+        const resumePosition = this.pausedPosition;
+        this.pausedPosition = 0;
+
         const playbackState = TrackPlayer.getPlaybackState();
         const playing = TrackPlayer.isPlaying();
         if (!playing && playbackState === PlaybackState.Ready) {
             TrackPlayer.play();
             useStore.setState({ isPlaying: true });
         } else if (store.currentTrack) {
-            // If we have a track but player state is stopped/none, re-load it?
-            // Maybe.
-            await this.playTrack(store.currentTrack);
+            await this.playTrack(store.currentTrack, resumePosition);
         } else if (store.queue.items.length > 0) {
-            // If queue has items but no current track, play first/current index
             const index = Math.max(0, store.queue.currentIndex);
-            await this.playQueueIndex(index);
+            await this.playQueueIndex(index, resumePosition);
         }
     }
 
     pause() {
+        this.pausedPosition = TrackPlayer.getProgress().position;
         TrackPlayer.pause();
         this.isClearing = true;
-        TrackPlayer.clear();
+        // TrackPlayer.clear();
         setTimeout(() => { this.isClearing = false; }, 500);
         useStore.setState({ isPlaying: false });
     }
@@ -431,10 +432,9 @@ class MobilePlayerService {
     /**
      * Load and play a specific track
      */
-    public async playTrack(track: Track) {
-        const success = await this.loadTrack(track);
+    public async playTrack(track: Track, initialPosition: number = 0) {
+        const success = await this.loadTrack(track, initialPosition);
         if (success) {
-            // Restore volume from store to be safe (might have been 0 from remote mode)
             const { volume } = useStore.getState();
             TrackPlayer.setVolume(volume);
 
@@ -449,7 +449,7 @@ class MobilePlayerService {
 
     private lastPlayedQueueIndex = -1;
 
-    async playQueueIndex(index: number) {
+    async playQueueIndex(index: number, initialPosition: number = 0) {
         if (this.isLoadingTrack && index === this.lastPlayedQueueIndex) {
             console.log('[MobilePlayer] Ignoring duplicate call to playQueueIndex');
             return;
@@ -462,12 +462,11 @@ class MobilePlayerService {
         if (index >= 0 && index < queue.items.length) {
             const item = queue.items[index];
 
-            // Update index
             useStore.setState({
                 queue: { ...queue, currentIndex: index }
             });
 
-            await this.playTrack(item.track);
+            await this.playTrack(item.track, initialPosition);
             this.onQueueChange?.();
         }
     }
