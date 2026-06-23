@@ -297,7 +297,7 @@ export class ScraperService extends EventEmitter {
     }
     // ── End offline-first guard ──────────────────────────────────────────────
 
-    if (this.fetchPromise && !forceRefresh) {
+    if (this.fetchPromise) {
       return this.fetchPromise;
     }
 

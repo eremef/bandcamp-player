@@ -2,6 +2,7 @@ const TrackPlayerMock = {
     setupPlayer: jest.fn().mockResolvedValue(undefined),
     updateOptions: jest.fn().mockResolvedValue(undefined),
     reset: jest.fn().mockResolvedValue(undefined),
+    stop: jest.fn().mockResolvedValue(undefined),
     clear: jest.fn().mockResolvedValue(undefined),
     add: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
@@ -128,6 +129,7 @@ export {
 export const setupPlayer = TrackPlayerMock.setupPlayer;
 export const updateOptions = TrackPlayerMock.updateOptions;
 export const reset = TrackPlayerMock.reset;
+export const stop = TrackPlayerMock.stop;
 export const clear = TrackPlayerMock.clear;
 export const add = TrackPlayerMock.add;
 export const remove = TrackPlayerMock.remove;
