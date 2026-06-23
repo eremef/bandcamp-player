@@ -563,7 +563,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <span>Logout</span>
                             </button>
                         </div>
-                        <div className={styles.setting} style={{ marginTop: '16px' }}>
+                    </section>
+
+                    {/* Updates */}
+                    <section className={styles.section}>
+                        <h3>Updates</h3>
+                        <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Beta version updates</span>
                                 <span className={styles.settingHint}>Receive early access to new features and bug fixes</span>
@@ -577,6 +582,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 />
                                 <span className={styles.slider}></span>
                             </label>
+                        </div>
+                        <div className={styles.updateContainer}>
+                            {renderUpdateSection()}
                         </div>
                     </section>
 
@@ -599,9 +607,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     </button>
                                 </p>
                             )}
-                            <div className={styles.updateContainer}>
-                                {renderUpdateSection()}
-                            </div>
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://eremef.xyz')}>© {new Date().getFullYear()} eremef.xyz</p>
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://github.com/eremef/bandcamp-player/blob/main/LICENSE.txt')}>
                                 Licensed under the MIT License.
