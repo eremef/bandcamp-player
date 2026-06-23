@@ -25,6 +25,7 @@ interface AppState extends PlayerState {
     auth: { isAuthenticated: boolean; user: BandcampUser | null };
     skipAutoLogin: boolean;
     storeInitialized: boolean;
+    ignoreRemoteIntentsUntil: number;
 
     // Data Caches
     collection: Collection | null;
@@ -168,6 +169,7 @@ export const useStore = create<AppState>((set, get) => ({
     connectionStatus: 'disconnected',
     skipAutoLogin: false,
     storeInitialized: false,
+    ignoreRemoteIntentsUntil: 0,
     mode: 'remote',
     hostIp: '',
     auth: { isAuthenticated: false, user: null },
@@ -515,7 +517,7 @@ export const useStore = create<AppState>((set, get) => ({
             await get().restoreStandaloneState();
         }
 
-        set({ storeInitialized: true });
+        set({ storeInitialized: true, ignoreRemoteIntentsUntil: Date.now() + 1500 });
     },
 
     saveQueue: async () => {
