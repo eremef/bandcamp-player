@@ -404,7 +404,7 @@ describe('MobilePlayerService', () => {
 
         it('should fail and set error on exception', async () => {
             const track = { id: 't1', title: 'Fail', streamUrl: 'url' };
-            (TrackPlayer.setMediaItems as jest.Mock).mockRejectedValueOnce(new Error('Crash'));
+            (TrackPlayer.setMediaItems as jest.Mock).mockImplementationOnce(() => { throw new Error('Crash'); });
 
             const success = await mobilePlayerService.loadTrack(track as any);
 

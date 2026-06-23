@@ -84,13 +84,13 @@ describe('TrackPlayerService (PlaybackService)', () => {
         });
 
         it('calls seek on RemoteSkipForward', async () => {
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 30, duration: 100 });
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 30, duration: 100 });
             await PlaybackService({ type: Event.RemoteSkipForward, interval: 10 });
             expect(mockSeek).toHaveBeenCalledWith(40);
         });
 
         it('calls seek on RemoteSkipBackward', async () => {
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 30, duration: 100 });
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 30, duration: 100 });
             await PlaybackService({ type: Event.RemoteSkipBackward, interval: 10 });
             expect(mockSeek).toHaveBeenCalledWith(20);
         });

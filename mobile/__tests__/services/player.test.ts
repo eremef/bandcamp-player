@@ -18,7 +18,7 @@ describe('player.ts', () => {
         });
 
         it('should handle player already setup error', async () => {
-            (TrackPlayer.setupPlayer as jest.Mock).mockRejectedValue(new Error('The player has already been initialized via setupPlayer.'));
+            (TrackPlayer.setupPlayer as jest.Mock).mockImplementation(() => { throw new Error('The player has already been initialized via setupPlayer.'); });
 
             const result = await setupPlayer();
 
