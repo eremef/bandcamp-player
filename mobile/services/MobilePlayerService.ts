@@ -76,46 +76,46 @@ class MobilePlayerService {
         this.isPrefetching = true;
         try {
             if (!streamUrl && nextTrack.bandcampUrl) {
-                 const { mobileScraperService } = require('./MobileScraperService');
-                 const urlToFetch = nextTrack.bandcampUrl;
-                 if (urlToFetch.includes('show=')) {
-                     const showId = urlToFetch.split('show=').pop()?.split('&')[0];
-                     if (showId) {
-                         const result = await mobileScraperService.getStationStreamUrl(showId);
-                         if (result?.streamUrl) streamUrl = result.streamUrl;
-                     }
-                 } else {
-                     const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
-                     if (albumDetails) {
-                         const foundTrack = albumDetails.tracks.find((t: any) => t.title.toLowerCase() === nextTrack.title.toLowerCase() || t.id === nextTrack.id);
-                         if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
-                         else if (albumDetails.tracks.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
-                     }
-                 }
+                const { mobileScraperService } = require('./MobileScraperService');
+                const urlToFetch = nextTrack.bandcampUrl;
+                if (urlToFetch.includes('show=')) {
+                    const showId = urlToFetch.split('show=').pop()?.split('&')[0];
+                    if (showId) {
+                        const result = await mobileScraperService.getStationStreamUrl(showId);
+                        if (result?.streamUrl) streamUrl = result.streamUrl;
+                    }
+                } else {
+                    const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                    if (albumDetails) {
+                        const foundTrack = albumDetails.tracks.find((t: any) => t.title.toLowerCase() === nextTrack.title.toLowerCase() || t.id === nextTrack.id);
+                        if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
+                        else if (albumDetails.tracks.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
+                    }
+                }
             }
 
             if (streamUrl) {
-                 const updatedItem = {
-                     mediaId: nextQueueItem.id,
-                     url: streamUrl,
-                     title: nextTrack.title || 'Untitled',
-                     artist: nextTrack.artist || 'Unknown Artist',
-                     albumTitle: nextTrack.album,
-                     artworkUrl: nextTrack.artworkUrl,
-                     duration: nextTrack.duration,
-                 };
-                 await TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
-                 
-                 const newItems = [...queue.items];
-                 newItems[nextIndex] = {
-                     ...nextQueueItem,
-                     track: { ...nextTrack, streamUrl }
-                 };
-                 useStore.setState({ queue: { ...queue, items: newItems } });
-                 this.prefetchedQueueIndex = nextIndex;
+                const updatedItem = {
+                    mediaId: nextQueueItem.id,
+                    url: streamUrl,
+                    title: nextTrack.title || 'Untitled',
+                    artist: nextTrack.artist || 'Unknown Artist',
+                    albumTitle: nextTrack.album,
+                    artworkUrl: nextTrack.artworkUrl,
+                    duration: nextTrack.duration,
+                };
+                await TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+
+                const newItems = [...queue.items];
+                newItems[nextIndex] = {
+                    ...nextQueueItem,
+                    track: { ...nextTrack, streamUrl }
+                };
+                useStore.setState({ queue: { ...queue, items: newItems } });
+                this.prefetchedQueueIndex = nextIndex;
             }
         } catch (e) {
-             console.log('[MobilePlayer] Prefetch failed', e);
+            console.log('[MobilePlayer] Prefetch failed', e);
         } finally {
             this.isPrefetching = false;
         }
@@ -149,7 +149,7 @@ class MobilePlayerService {
                 // Handle Simulated Crossfade (Volume fading)
                 const { crossfadeEnabled, crossfadeDuration, volume } = state;
                 const timeRemaining = progress.duration - progress.position;
-                    
+
                 if (progress.duration > 0 && progress.position >= 5) {
                     this.prefetchNextTrack();
                 }
@@ -220,7 +220,7 @@ class MobilePlayerService {
     async next() {
         const store = useStore.getState();
         const { queue, repeatMode, isShuffled } = store;
-        
+
         this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit next
 
         if (queue.items.length === 0) return;
@@ -249,7 +249,7 @@ class MobilePlayerService {
     async previous() {
         const store = useStore.getState();
         const { queue, currentTime } = store;
-        
+
         this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit previous
 
         // If played more than 3 sec, restart track
