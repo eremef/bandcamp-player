@@ -4,6 +4,7 @@ const TrackPlayerMock = {
     reset: jest.fn().mockResolvedValue(undefined),
     stop: jest.fn().mockResolvedValue(undefined),
     clear: jest.fn().mockResolvedValue(undefined),
+    destroy: jest.fn().mockResolvedValue(undefined),
     add: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
     play: jest.fn().mockResolvedValue(undefined),
@@ -154,3 +155,4 @@ export const isPlaying = TrackPlayerMock.isPlaying;
 export const setCommands = TrackPlayerMock.setCommands;
 export const addMediaItem = TrackPlayerMock.addMediaItem;
 export const getActiveMediaItemIndex = TrackPlayerMock.getActiveMediaItemIndex;
+export const destroy = TrackPlayerMock.destroy;

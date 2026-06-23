@@ -1,0 +1,17 @@
+# Ignore desktop-specific source files inside the junction
+src/main/
+src/renderer/
+src/assets/
+
+# Ignore tests and mocks
+__tests__/
+__mocks__/
+coverage/
+
+# Ignore local logs and debug files
+test_logs/
+*.txt
+*.log
+
+# Ignore docs
+*.md

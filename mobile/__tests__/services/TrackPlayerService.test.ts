@@ -1,5 +1,5 @@
 import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
-import { PlaybackService } from '../../services/TrackPlayerService';
+import { PlaybackService, resetServiceStartTime } from '../../services/TrackPlayerService';
 import { useStore } from '../../store';
 
 jest.mock('../../services/MobilePlayerService', () => ({
@@ -25,6 +25,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
     };
 
     beforeEach(() => {
+        resetServiceStartTime();
         const { mobilePlayerService } = require('../../services/MobilePlayerService');
         if (mobilePlayerService.handleTrackEnd.mockClear) {
             mobilePlayerService.handleTrackEnd.mockClear();
