@@ -450,7 +450,7 @@ describe('Mobile useStore', () => {
             const callback = socketListeners['time-update'];
             expect(callback).toBeDefined();
 
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 10 });
 
             // Diff > 2s (15 - 10 = 5)
             await act(async () => {
@@ -463,7 +463,7 @@ describe('Mobile useStore', () => {
             jest.clearAllMocks();
 
             // Diff < 2s (11 - 10 = 1)
-            (TrackPlayer.getProgress as jest.Mock).mockResolvedValue({ position: 10 });
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 10 });
             await act(async () => {
                 await callback({ currentTime: 11 });
             });
@@ -507,7 +507,7 @@ describe('Mobile useStore', () => {
             expect(callback).toBeDefined();
 
             // Make TrackPlayer.play throw
-            (TrackPlayer.play as jest.Mock).mockRejectedValue(new Error('Player error'));
+            (TrackPlayer.play as jest.Mock).mockImplementation(() => { throw new Error('Player error'); });
             const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
 
             await act(async () => {

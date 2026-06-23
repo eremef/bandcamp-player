@@ -74,7 +74,7 @@ async function handleMediaItemTransition(event: any) {
 
     // Standalone mode logic
     if (store.mode === 'standalone') {
-        if (mobilePlayerService.isLoadingTrack) {
+        if (mobilePlayerService.isLoadingTrack || mobilePlayerService.isClearing) {
             return;
         }
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);

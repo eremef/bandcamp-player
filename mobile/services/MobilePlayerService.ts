@@ -10,6 +10,7 @@ import { setupPlayer } from './player';
 class MobilePlayerService {
     private isInitialized = false;
     public isLoadingTrack = false;
+    public isClearing = false;
     public onQueueChange?: () => void;
     private lastSetVolume: number = -1;
     private lastStoreUpdateTime = 0;
@@ -206,17 +207,19 @@ class MobilePlayerService {
         }
     }
 
-    async pause() {
+    pause() {
         TrackPlayer.pause();
+        this.isClearing = true;
         TrackPlayer.clear();
+        setTimeout(() => { this.isClearing = false; }, 500);
         useStore.setState({ isPlaying: false });
     }
 
-    async stop() {
+    stop() {
         TrackPlayer.stop();
+        this.isClearing = true;
         TrackPlayer.clear();
-        TrackPlayer.destroy();
-        this.isInitialized = false;
+        setTimeout(() => { this.isClearing = false; }, 500);
         useStore.setState({ isPlaying: false });
     }
 
@@ -240,7 +243,7 @@ class MobilePlayerService {
                 nextIndex = 0;
             } else {
                 // End of queue
-                await this.stop();
+                this.stop();
                 return;
             }
         }
@@ -257,7 +260,7 @@ class MobilePlayerService {
 
         // If played more than 3 sec, restart track
         if (currentTime > 3) {
-            await this.seek(0);
+            this.seek(0);
             return;
         }
 
@@ -275,7 +278,7 @@ class MobilePlayerService {
         await this.playQueueIndex(prevIndex);
     }
 
-    async seek(position: number) {
+    seek(position: number) {
         TrackPlayer.seekTo(position);
         useStore.setState({ currentTime: position });
     }
@@ -287,14 +290,14 @@ class MobilePlayerService {
         await mobileDatabase.setSetting('standalone_volume', level);
     }
 
-    async toggleShuffle() {
+    toggleShuffle() {
         const store = useStore.getState();
         const isShuffled = !store.isShuffled;
         useStore.setState({ isShuffled });
         this.onQueueChange?.();
     }
 
-    async setRepeat(mode: RepeatMode) {
+    setRepeat(mode: RepeatMode) {
         useStore.setState({ repeatMode: mode });
         try {
             TrackPlayer.setRepeatMode(mode as any);
@@ -314,7 +317,7 @@ class MobilePlayerService {
         console.log('[MobilePlayer] Track ended. Repeat mode:', repeatMode);
 
         if (repeatMode === 'one' && currentTrack) {
-            await this.seek(0);
+            this.seek(0);
             TrackPlayer.play();
         } else {
             // Delay slightly to prevent race conditions?
