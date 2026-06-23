@@ -11,8 +11,9 @@ const runAfterInteractions = (callback: () => void) => {
     }
 };
 import { DiscoveryService } from '../services/discovery.service';
+import { AppState as RNAppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer from '@rntp/player';
+import TrackPlayer, { PlaybackState } from '@rntp/player';
 import { addTrack } from '../services/player';
 // import { mobilePlayerService } from '../services/MobilePlayerService';
 
@@ -1670,7 +1671,15 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
         const { isPlaying } = useStore.getState();
         if (isPlaying) {
-            await TrackPlayer.play();
+            const playbackState = await TrackPlayer.getPlaybackState();
+            const isDead = playbackState === PlaybackState.Idle || playbackState === PlaybackState.Error || playbackState === PlaybackState.Ended;
+            const isBackground = RNAppState.currentState !== 'active';
+            
+            if (isDead && isBackground) {
+                console.log('[RemoteMode] Ignoring play command from desktop: app is in background and foreground service is dead');
+            } else {
+                await TrackPlayer.play();
+            }
         } else {
             await TrackPlayer.pause();
         }

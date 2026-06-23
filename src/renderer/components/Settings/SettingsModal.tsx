@@ -563,6 +563,21 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <span>Logout</span>
                             </button>
                         </div>
+                        <div className={styles.setting} style={{ marginTop: '16px' }}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Beta version updates</span>
+                                <span className={styles.settingHint}>Receive early access to new features and bug fixes</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    checked={settings?.allowBetaUpdates ?? false}
+                                    onChange={(e) => updateSettings({ allowBetaUpdates: e.target.checked })}
+                                    data-testid="setting-beta-updates"
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
                     </section>
 
                     {/* About */}

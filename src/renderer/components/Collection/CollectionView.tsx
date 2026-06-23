@@ -55,6 +55,7 @@ export function CollectionView() {
     addTracksToPlaylist,
     downloadAlbum,
     downloadTrack,
+    showToast,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -168,6 +169,26 @@ export function CollectionView() {
 
     setBulkProgress({ current: 0, total: sortedItems.length });
     setIsBulkOperating(true);
+
+    const ensureAlbumTracks = async (album: any) => {
+      let albumWithTracks = album;
+      if (!albumWithTracks.tracks || albumWithTracks.tracks.length === 0) {
+        if (albumWithTracks.bandcampUrl) {
+          try {
+            const details = await getAlbumDetails(albumWithTracks.bandcampUrl);
+            if (details) {
+              albumWithTracks = details;
+            }
+          } catch (err) {
+            console.error('Failed to fetch album tracks for bulk action:', albumWithTracks.title, err);
+          }
+        }
+      }
+      return albumWithTracks;
+    };
+
+    let itemsQueued = 0;
+
     try {
       switch (action) {
         case 'play': {
@@ -176,13 +197,22 @@ export function CollectionView() {
           for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: playIndex + 1 }));
             if (item.type === 'album' && item.album) {
-              await addAlbumToQueue(item.album, false);
+              const albumWithTracks = await ensureAlbumTracks(item.album);
+              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
+                await addAlbumToQueue(albumWithTracks, false);
+                itemsQueued++;
+              }
             } else if (item.type === 'track' && item.track) {
               await addTracksToQueue([item.track], false);
+              itemsQueued++;
             }
             playIndex++;
           }
-          await playQueueIndex(0);
+          if (itemsQueued > 0) {
+            await playQueueIndex(0);
+          } else {
+            showToast("Failed to load any tracks to play", "error");
+          }
           break;
         }
         case 'playNext': {
@@ -191,11 +221,19 @@ export function CollectionView() {
           for (const item of [...sortedItems].reverse()) {
             setBulkProgress(p => ({ ...p, current: nextIndex + 1 }));
             if (item.type === 'album' && item.album) {
-              await addAlbumToQueue(item.album, true);
+              const albumWithTracks = await ensureAlbumTracks(item.album);
+              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
+                await addAlbumToQueue(albumWithTracks, true);
+                itemsQueued++;
+              }
             } else if (item.type === 'track' && item.track) {
               await addTracksToQueue([item.track], true);
+              itemsQueued++;
             }
             nextIndex++;
+          }
+          if (itemsQueued === 0) {
+            showToast("Failed to load any tracks to play next", "error");
           }
           break;
         }
@@ -204,11 +242,19 @@ export function CollectionView() {
           for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: queueIndex + 1 }));
             if (item.type === 'album' && item.album) {
-              await addAlbumToQueue(item.album, false);
+              const albumWithTracks = await ensureAlbumTracks(item.album);
+              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
+                await addAlbumToQueue(albumWithTracks, false);
+                itemsQueued++;
+              }
             } else if (item.type === 'track' && item.track) {
               await addTracksToQueue([item.track], false);
+              itemsQueued++;
             }
             queueIndex++;
+          }
+          if (itemsQueued === 0) {
+            showToast("Failed to load any tracks to add to queue", "error");
           }
           break;
         }
@@ -221,16 +267,7 @@ export function CollectionView() {
               if (item.type === 'track' && item.track) {
                 allTracks.push(item.track);
               } else if (item.type === 'album' && item.album) {
-                let albumWithTracks = item.album;
-                // If album has no tracks, try to fetch them
-                if (!albumWithTracks.tracks || albumWithTracks.tracks.length === 0) {
-                  if (albumWithTracks.bandcampUrl) {
-                    const details = await getAlbumDetails(albumWithTracks.bandcampUrl);
-                    if (details) {
-                      albumWithTracks = details;
-                    }
-                  }
-                }
+                const albumWithTracks = await ensureAlbumTracks(item.album);
                 if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
                   allTracks.push(...albumWithTracks.tracks);
                 }

@@ -7,7 +7,7 @@
   "author": "eremef.xyz",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npm run watch:main\" \"npm run watch:renderer\" \"npm run watch:electron\"",
+    "dev": "npm run rebuild && concurrently \"npm run watch:main\" \"npm run watch:renderer\" \"npm run watch:electron\"",
     "watch:main": "tsc -p tsconfig.main.json --watch",
     "watch:renderer": "vite",
     "watch:electron": "wait-on http://localhost:5173 && electron .",

@@ -243,7 +243,7 @@ async function initializeServices() {
     remotePort,
   );
 
-  updaterService = new UpdaterService(isDev);
+  updaterService = new UpdaterService(isDev, database);
   discordService = new DiscordService(playerService, database);
 
   // Set up background auto-refresh for the collection

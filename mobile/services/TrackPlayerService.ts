@@ -36,8 +36,7 @@ async function handleStateChanged(event: any) {
         if (queue.items.length > 0) {
             if (queue.currentIndex === queue.items.length - 1) {
                 if (repeatMode === 'all') {
-                    console.log('[MobilePlayer] Queue ended. Looping to start.');
-                    await useStore.getState().playQueueIndex(0);
+                    console.log('[MobilePlayer] Queue ended. Native player should loop. Ignoring.');
                 } else {
                     console.log('[MobilePlayer] Queue ended.');
                     // Just reset the play state or notify MobilePlayerService
@@ -115,16 +114,20 @@ export async function PlaybackService(event?: any) {
             useStore.getState().seek(event.position);
             break;
         case Event.RemoteSkipForward: {
-            const p1 = TrackPlayer.getProgress();
+            const p1 = await TrackPlayer.getProgress();
             useStore.getState().seek(p1.position + event.interval);
             break;
         }
         case Event.RemoteSkipBackward: {
-            const p2 = TrackPlayer.getProgress();
+            const p2 = await TrackPlayer.getProgress();
             useStore.getState().seek(p2.position - event.interval);
             break;
         }
         case Event.RemoteStop: {
+            const store = useStore.getState();
+            if (store.mode === 'remote' && store.connectionStatus === 'connected') {
+                store.pause();
+            }
             const { mobilePlayerService } = require('./MobilePlayerService');
             await mobilePlayerService.stop();
             break;

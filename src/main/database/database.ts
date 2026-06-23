@@ -201,6 +201,7 @@ export class Database {
       remoteEnabled: true,
       discordRpcEnabled: false,
       theme: "system",
+      allowBetaUpdates: false,
       deduplicateCollection: true,
       collectionSortKey: "default",
       collectionSortDirection: "desc",
