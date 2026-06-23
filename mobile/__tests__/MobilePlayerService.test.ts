@@ -11,6 +11,7 @@ jest.mock('@rntp/player', () => ({
         setVolume: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn().mockResolvedValue(undefined),
         clear: jest.fn().mockResolvedValue(undefined),
         seekTo: jest.fn().mockResolvedValue(undefined),
         getPlaybackState: jest.fn().mockResolvedValue('stopped'),
