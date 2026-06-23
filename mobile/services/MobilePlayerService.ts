@@ -214,7 +214,7 @@ class MobilePlayerService {
     async stop() {
         await TrackPlayer.stop();
         await TrackPlayer.clear();
-        useStore.setState({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
+        useStore.setState({ isPlaying: false });
     }
 
     async next() {

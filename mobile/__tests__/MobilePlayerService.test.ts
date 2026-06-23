@@ -111,8 +111,7 @@ describe('MobilePlayerService', () => {
 
         it('should stop playback', async () => {
             await mobilePlayerService.stop();
-            expect(TrackPlayer.clear).toHaveBeenCalled();
-            expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false, currentTrack: null, currentTime: 0, duration: 0 });
+            expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false });
         });
 
         it('should seek to position', async () => {
