@@ -1,6 +1,7 @@
 import { autoUpdater } from 'electron-updater';
 import { EventEmitter } from 'events';
 import { UPDATE_CHANNELS } from '../../shared/ipc-channels';
+import type { Database } from '../database/database';
 
 export class UpdaterService extends EventEmitter {
     private isChecking = false;
@@ -10,7 +11,7 @@ export class UpdaterService extends EventEmitter {
     private checkInterval: ReturnType<typeof setInterval> | null = null;
     private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-    constructor(private isDev: boolean) {
+    constructor(private isDev: boolean, private database: Database) {
         super();
         this.setupListeners();
 
@@ -132,6 +133,8 @@ export class UpdaterService extends EventEmitter {
         }
 
         try {
+            const settings = this.database?.getSettings();
+            autoUpdater.allowPrerelease = settings?.allowBetaUpdates ?? false;
             return await autoUpdater.checkForUpdates();
         } catch (error) {
             console.error('Error checking for updates:', error);

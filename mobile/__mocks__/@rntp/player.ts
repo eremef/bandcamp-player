@@ -2,6 +2,7 @@ const TrackPlayerMock = {
     setupPlayer: jest.fn().mockResolvedValue(undefined),
     updateOptions: jest.fn().mockResolvedValue(undefined),
     reset: jest.fn().mockResolvedValue(undefined),
+    clear: jest.fn().mockResolvedValue(undefined),
     add: jest.fn().mockResolvedValue(undefined),
     remove: jest.fn().mockResolvedValue(undefined),
     play: jest.fn().mockResolvedValue(undefined),
@@ -19,9 +20,18 @@ const TrackPlayerMock = {
     getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
     getState: jest.fn().mockResolvedValue('paused'),
     addEventListener: jest.fn(),
-    getPlaybackState: jest.fn().mockResolvedValue({ state: 'paused' }),
+    getPlaybackState: jest.fn().mockResolvedValue('paused'),
     useTrackPlayerEvents: jest.fn(),
     useProgress: jest.fn(() => ({ position: 0, duration: 0, buffered: 0 })),
+    setRepeatMode: jest.fn().mockResolvedValue(undefined),
+    setMediaItem: jest.fn().mockResolvedValue(undefined),
+    setMediaItems: jest.fn().mockResolvedValue(undefined),
+    skipToIndex: jest.fn().mockResolvedValue(undefined),
+    removeMediaItems: jest.fn().mockResolvedValue(undefined),
+    isPlaying: jest.fn().mockReturnValue(false),
+    setCommands: jest.fn().mockResolvedValue(undefined),
+    addMediaItem: jest.fn().mockResolvedValue(undefined),
+    getActiveMediaItemIndex: jest.fn().mockReturnValue(0),
 };
 
 const Capability = {
@@ -35,6 +45,18 @@ const Capability = {
     JumpBackward: 7,
 };
 
+const PlayerCommand = {
+    PlayPause: 'play-pause',
+    Play: 'play',
+    Pause: 'pause',
+    Next: 'next',
+    Previous: 'previous',
+    Stop: 'stop',
+    Seek: 'seek',
+    SkipForward: 'skip-forward',
+    SkipBackward: 'skip-backward',
+};
+
 const State = {
     None: 'none',
     Ready: 'ready',
@@ -45,8 +67,23 @@ const State = {
     Connecting: 'connecting',
 };
 
+const PlaybackState = {
+    Idle: 'idle',
+    Ready: 'ready',
+    Buffering: 'buffering',
+    Playing: 'playing',
+    Paused: 'paused',
+    Stopped: 'stopped',
+    Ended: 'ended',
+    Error: 'error',
+    None: 'none',
+};
+
 const Event = {
     PlaybackState: 'playback-state',
+    PlaybackStateChanged: 'playback-state-changed',
+    IsPlayingChanged: 'is-playing-changed',
+    MediaItemTransition: 'media-item-transition',
     PlaybackError: 'playback-error',
     PlaybackQueueEnded: 'playback-queue-ended',
     PlaybackTrackChanged: 'playback-track-changed',
@@ -62,6 +99,8 @@ const Event = {
     RemotePlayPause: 'remote-play-pause',
     RemoteJumpForward: 'remote-jump-forward',
     RemoteJumpBackward: 'remote-jump-backward',
+    RemoteSkipForward: 'remote-skip-forward',
+    RemoteSkipBackward: 'remote-skip-backward',
 };
 
 const AppKilledPlaybackBehavior = {
@@ -77,16 +116,19 @@ export default TrackPlayerMock;
 // Named exports for ES module interop
 export {
     Capability,
+    PlayerCommand,
     State,
     Event,
     AppKilledPlaybackBehavior,
     RepeatMode,
+    PlaybackState,
 };
 
 // Also export methods as named exports if components use { setupPlayer } from ...
 export const setupPlayer = TrackPlayerMock.setupPlayer;
 export const updateOptions = TrackPlayerMock.updateOptions;
 export const reset = TrackPlayerMock.reset;
+export const clear = TrackPlayerMock.clear;
 export const add = TrackPlayerMock.add;
 export const remove = TrackPlayerMock.remove;
 export const play = TrackPlayerMock.play;
@@ -107,3 +149,12 @@ export const addEventListener = TrackPlayerMock.addEventListener;
 export const getPlaybackState = TrackPlayerMock.getPlaybackState;
 export const useTrackPlayerEvents = TrackPlayerMock.useTrackPlayerEvents;
 export const useProgress = TrackPlayerMock.useProgress;
+export const setRepeatMode = TrackPlayerMock.setRepeatMode;
+export const setMediaItem = TrackPlayerMock.setMediaItem;
+export const setMediaItems = TrackPlayerMock.setMediaItems;
+export const skipToIndex = TrackPlayerMock.skipToIndex;
+export const removeMediaItems = TrackPlayerMock.removeMediaItems;
+export const isPlaying = TrackPlayerMock.isPlaying;
+export const setCommands = TrackPlayerMock.setCommands;
+export const addMediaItem = TrackPlayerMock.addMediaItem;
+export const getActiveMediaItemIndex = TrackPlayerMock.getActiveMediaItemIndex;

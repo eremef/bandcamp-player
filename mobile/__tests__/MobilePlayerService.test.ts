@@ -13,10 +13,11 @@ jest.mock('@rntp/player', () => ({
         pause: jest.fn().mockResolvedValue(undefined),
         clear: jest.fn().mockResolvedValue(undefined),
         seekTo: jest.fn().mockResolvedValue(undefined),
-        getPlaybackState: jest.fn().mockResolvedValue({ state: 'stopped' }),
+        getPlaybackState: jest.fn().mockResolvedValue('stopped'),
         getQueue: jest.fn().mockResolvedValue([]),
         setMediaItem: jest.fn().mockResolvedValue(undefined),
         setMediaItems: jest.fn().mockResolvedValue(undefined),
+        setRepeatMode: jest.fn().mockResolvedValue(undefined),
         skipToIndex: jest.fn().mockResolvedValue(undefined),
         removeMediaItems: jest.fn().mockResolvedValue(undefined),
         isPlaying: jest.fn().mockReturnValue(false)

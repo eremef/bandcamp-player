@@ -31,6 +31,13 @@ jest.mock('@rntp/player', () => ({
         Buffering: 'buffering',
         Connecting: 'connecting',
     },
+    PlaybackState: {
+        Idle: 'idle',
+        Ready: 'ready',
+        Buffering: 'buffering',
+        Ended: 'ended',
+        Error: 'error',
+    },
     Capability: {},
     Event: {},
     RepeatMode: {},

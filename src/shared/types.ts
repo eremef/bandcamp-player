@@ -221,6 +221,7 @@ export interface AppSettings {
   remoteEnabled: boolean;
   discordRpcEnabled: boolean;
   theme: Theme;
+  allowBetaUpdates: boolean;
 
   // Collection settings
   deduplicateCollection: boolean;

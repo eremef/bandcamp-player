@@ -292,6 +292,11 @@ class MobilePlayerService {
 
     async setRepeat(mode: RepeatMode) {
         useStore.setState({ repeatMode: mode });
+        try {
+            await TrackPlayer.setRepeatMode(mode as any);
+        } catch (e) {
+            console.log('[MobilePlayer] Failed to set native repeat mode', e);
+        }
         this.onQueueChange?.();
     }
 
@@ -401,6 +406,7 @@ class MobilePlayerService {
 
             try {
                 await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+                await TrackPlayer.setRepeatMode(state.repeatMode as any);
             } finally {
                 this.isLoadingTrack = false;
             }

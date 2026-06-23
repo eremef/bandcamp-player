@@ -99,6 +99,10 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Artist Grouping by Name**: To ensure that artist aliases (e.g., "Aphex Twin" vs. "AFX") are treated as separate entities in the UI, use name-based IDs (`name-xxx`) for the `artists` table and collection items' `artistId`. This prevents merging based on Bandcamp's internal `band_id` when the user wants them separated by name. Use `/\p{L}/u` regex for alphabet headers to correctly support national characters (Ś, Ł, etc.) instead of restricted `[A-Z]` ranges.
 - **Scraper Date Integrity**: Removed `new Date().toISOString()` fallbacks from `ScraperService` to prevent "fake" recent dates for items missing metadata. Missing dates are now correctly handled as `undefined`/`null` by the database sorting logic. In the mobile `MobileScraperService`, added validation (`!isNaN(dateObj.getTime())`) before calling `toISOString()` to prevent `RangeError: Date value out of bounds` crashes when Bandcamp returns invalid date strings.
 - **React Hook Order**: Always declare all React Hooks (useState, useMemo, useCallback, etc.) at the top level of the component, *before* any conditional early returns (e.g., `if (!data) return ...`). Defining hooks after a conditional return violates the "Rules of Hooks" because it changes the order/number of hooks between renders, leading to runtime errors and linting failures.
+- **RNTP v5 Mocks**: 
+  - `TrackPlayer.getProgress()` is asynchronous and returns a Promise in v5. Ensure you `await` it in event handlers before accessing `.position`.
+  - The `Event` constants have changed in v5 (e.g., `PlaybackStateChanged` instead of `PlaybackState`, `IsPlayingChanged` added). Ensure your `jest.setup.js` / `@rntp/player` mocks define the correct Event keys.
+  - RNTP v5 uses `PlayerCommand` (e.g., `PlayerCommand.PlayPause`) instead of `Capability` from v4. Update your mocked types accordingly.
 
 ## Desktop Test Learnings
 

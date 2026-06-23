@@ -3,73 +3,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
     require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-// Mock React Native Track Player
-jest.mock('@rntp/player', () => {
-    const TrackPlayerMock = {
-        setupPlayer: jest.fn().mockResolvedValue(undefined),
-        updateOptions: jest.fn().mockResolvedValue(undefined),
-        setCommands: jest.fn().mockResolvedValue(undefined),
-        addMediaItem: jest.fn().mockResolvedValue(undefined),
-        setMediaItem: jest.fn().mockResolvedValue(undefined),
-        setMediaItems: jest.fn().mockResolvedValue(undefined),
-        remove: jest.fn().mockResolvedValue(undefined),
-        skip: jest.fn().mockResolvedValue(undefined),
-        skipToNext: jest.fn().mockResolvedValue(undefined),
-        skipToPrevious: jest.fn().mockResolvedValue(undefined),
-        clear: jest.fn().mockResolvedValue(undefined),
-        play: jest.fn().mockResolvedValue(undefined),
-        pause: jest.fn().mockResolvedValue(undefined),
-        seekTo: jest.fn().mockResolvedValue(undefined),
-        setVolume: jest.fn().mockResolvedValue(undefined),
-        getVolume: jest.fn().mockReturnValue(1),
-        getQueue: jest.fn().mockResolvedValue([]),
-        getActiveMediaItemIndex: jest.fn().mockReturnValue(0),
-        getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0 }),
-        isPlaying: jest.fn().mockReturnValue(false),
-        addEventListener: jest.fn(),
-        getPlaybackState: jest.fn().mockReturnValue('ready'),
-    };
-
-    return {
-        __esModule: true,
-        default: TrackPlayerMock,
-        ...TrackPlayerMock,
-        Event: {
-            PlaybackStateChanged: 'event.playback-state-changed',
-            PlaybackError: 'event.playback-error',
-            QueueChanged: 'event.queue-changed',
-            IsPlayingChanged: 'event.is-playing-changed',
-            PlaybackProgressUpdated: 'event.playback-progress-updated',
-            RemotePlay: 'event.remote-play',
-            RemotePause: 'event.remote-pause',
-            RemoteStop: 'event.remote-stop',
-            RemoteNext: 'event.remote-next',
-            RemotePrevious: 'event.remote-previous',
-            RemoteSeek: 'event.remote-seek',
-            RemoteSkipForward: 'event.remote-skip-forward',
-            RemoteSkipBackward: 'event.remote-skip-backward',
-        },
-        PlaybackState: {
-            Idle: 'idle',
-            Ready: 'ready',
-            Buffering: 'buffering',
-            Ended: 'ended',
-            Error: 'error',
-        },
-        PlayerCommand: {
-            PlayPause: 0,
-            Play: 1,
-            Pause: 2,
-            Stop: 3,
-            Next: 4,
-            Previous: 5,
-            Seek: 6,
-            SkipForward: 7,
-            SkipBackward: 8,
-        },
-        RepeatMode: { Off: 0, Track: 1, Queue: 2 },
-    };
-});
+// React Native Track Player is mocked via __mocks__/@rntp/player.ts
 
 // Mock Expo modules if necessary
 jest.mock('expo-linking', () => ({
