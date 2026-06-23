@@ -2,8 +2,19 @@ import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 
 let isPlayingTimeout: ReturnType<typeof setTimeout> | null = null;
+let serviceStartTime = Date.now();
+
+export function resetServiceStartTime() {
+    serviceStartTime = 0;
+}
 
 function shouldIgnoreRemoteIntent(eventName: string): boolean {
+    // Check module-level startup time first (handles headless service restarts)
+    if (Date.now() - serviceStartTime < 1500) {
+        console.log(`[TrackPlayerService] Ignoring ${eventName} due to headless initialization window`);
+        return true;
+    }
+
     const store = useStore.getState();
     if (store.ignoreRemoteIntentsUntil && Date.now() < store.ignoreRemoteIntentsUntil) {
         console.log(`[TrackPlayerService] Ignoring ${eventName} due to ignoreRemoteIntentsUntil window`);
@@ -14,7 +25,7 @@ function shouldIgnoreRemoteIntent(eventName: string): boolean {
 
 function handleIsPlayingChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
-    
+
     if (event.playing) {
         if (isPlayingTimeout) {
             clearTimeout(isPlayingTimeout);
@@ -36,12 +47,12 @@ function handleIsPlayingChanged(event: any) {
 async function handleStateChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
-        
+
         // RNTP v5 triggers Ended when the final track naturally finishes.
         // It does not trigger on dummy tracks because those throw PlaybackError.
         const store = useStore.getState();
         const { queue, repeatMode } = store;
-        
+
         if (queue.items.length > 0) {
             if (queue.currentIndex === queue.items.length - 1) {
                 if (repeatMode === 'all') {
@@ -60,7 +71,7 @@ async function handleStateChanged(event: any) {
 async function handleMediaItemTransition(event: any) {
     const store = useStore.getState();
     const { mobilePlayerService } = require('./MobilePlayerService');
-    
+
     // Standalone mode logic
     if (store.mode === 'standalone') {
         if (mobilePlayerService.isLoadingTrack) {
@@ -96,7 +107,7 @@ async function handleMediaItemTransition(event: any) {
 export async function PlaybackService(event?: any) {
     console.log(`[PlaybackService] received event:`, event?.type);
     if (!event) return;
-    
+
     switch (event.type) {
         case Event.IsPlayingChanged:
             handleIsPlayingChanged(event);
@@ -129,13 +140,13 @@ export async function PlaybackService(event?: any) {
             break;
         case Event.RemoteSkipForward: {
             if (shouldIgnoreRemoteIntent(event.type)) return;
-            const p1 = await TrackPlayer.getProgress();
+            const p1 = TrackPlayer.getProgress();
             useStore.getState().seek(p1.position + event.interval);
             break;
         }
         case Event.RemoteSkipBackward: {
             if (shouldIgnoreRemoteIntent(event.type)) return;
-            const p2 = await TrackPlayer.getProgress();
+            const p2 = TrackPlayer.getProgress();
             useStore.getState().seek(p2.position - event.interval);
             break;
         }
@@ -174,12 +185,12 @@ const subs = [
     TrackPlayer.addEventListener(Event.RemoteSeek, (event) => { if (!shouldIgnoreRemoteIntent(Event.RemoteSeek)) useStore.getState().seek(event.position) }),
     TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
         if (shouldIgnoreRemoteIntent(Event.RemoteSkipForward)) return;
-        const progress = await TrackPlayer.getProgress();
+        const progress = TrackPlayer.getProgress();
         useStore.getState().seek(progress.position + event.interval);
     }),
     TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
         if (shouldIgnoreRemoteIntent(Event.RemoteSkipBackward)) return;
-        const progress = await TrackPlayer.getProgress();
+        const progress = TrackPlayer.getProgress();
         useStore.getState().seek(progress.position - event.interval);
     }),
     TrackPlayer.addEventListener(Event.RemoteStop, async () => {

@@ -4,12 +4,12 @@ import { Track } from '@shared/types';
 export async function setupPlayer() {
     let isSetup = false;
     try {
-        await TrackPlayer.setupPlayer({
+        TrackPlayer.setupPlayer({
             android: {
                 taskRemovedBehavior: 'stop',
             }
         });
-        await TrackPlayer.setCommands({
+        TrackPlayer.setCommands({
             capabilities: [
                 PlayerCommand.PlayPause,
                 PlayerCommand.Next,
@@ -74,10 +74,10 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
         currentIndex = 0;
     }
 
-    await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+    TrackPlayer.setMediaItems(nativeQueue, currentIndex);
 
     // Set volume to 0 on the mobile device so we only hear the desktop.
     // The phone still "plays" the track to keep the media session active
     // and provide lock screen controls/metadata, but without outputting sound.
-    await TrackPlayer.setVolume(0);
+    TrackPlayer.setVolume(0);
 }

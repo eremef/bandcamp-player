@@ -21,7 +21,9 @@ jest.mock('@rntp/player', () => ({
         setRepeatMode: jest.fn().mockResolvedValue(undefined),
         skipToIndex: jest.fn().mockResolvedValue(undefined),
         removeMediaItems: jest.fn().mockResolvedValue(undefined),
-        isPlaying: jest.fn().mockReturnValue(false)
+        isPlaying: jest.fn().mockReturnValue(false),
+        destroy: jest.fn().mockResolvedValue(undefined),
+        getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0, buffered: 0 }),
     },
     PlaybackState: {
         Ready: 'ready',

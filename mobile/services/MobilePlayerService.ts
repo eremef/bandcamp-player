@@ -21,7 +21,7 @@ class MobilePlayerService {
         if (!success) return;
 
         const { volume } = useStore.getState();
-        await TrackPlayer.setVolume(volume);
+        TrackPlayer.setVolume(volume);
         this.lastSetVolume = volume;
 
         this.isInitialized = true;
@@ -104,7 +104,7 @@ class MobilePlayerService {
                     artworkUrl: nextTrack.artworkUrl,
                     duration: nextTrack.duration,
                 };
-                await TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
 
                 const newItems = [...queue.items];
                 newItems[nextIndex] = {
@@ -190,10 +190,10 @@ class MobilePlayerService {
 
         // If no track provided, resume current or play from queue
         // If we are already paused on a track, resume
-        const playbackState = await TrackPlayer.getPlaybackState();
-        const playing = await TrackPlayer.isPlaying();
+        const playbackState = TrackPlayer.getPlaybackState();
+        const playing = TrackPlayer.isPlaying();
         if (!playing && playbackState === PlaybackState.Ready) {
-            await TrackPlayer.play();
+            TrackPlayer.play();
             useStore.setState({ isPlaying: true });
         } else if (store.currentTrack) {
             // If we have a track but player state is stopped/none, re-load it?
@@ -207,13 +207,16 @@ class MobilePlayerService {
     }
 
     async pause() {
-        await TrackPlayer.pause();
+        TrackPlayer.pause();
+        TrackPlayer.clear();
         useStore.setState({ isPlaying: false });
     }
 
     async stop() {
-        await TrackPlayer.stop();
-        await TrackPlayer.clear();
+        TrackPlayer.stop();
+        TrackPlayer.clear();
+        TrackPlayer.destroy();
+        this.isInitialized = false;
         useStore.setState({ isPlaying: false });
     }
 
@@ -273,13 +276,13 @@ class MobilePlayerService {
     }
 
     async seek(position: number) {
-        await TrackPlayer.seekTo(position);
+        TrackPlayer.seekTo(position);
         useStore.setState({ currentTime: position });
     }
 
     async setVolume(level: number) {
         this.lastSetVolume = level;
-        await TrackPlayer.setVolume(level);
+        TrackPlayer.setVolume(level);
         useStore.setState({ volume: level });
         await mobileDatabase.setSetting('standalone_volume', level);
     }
@@ -294,7 +297,7 @@ class MobilePlayerService {
     async setRepeat(mode: RepeatMode) {
         useStore.setState({ repeatMode: mode });
         try {
-            await TrackPlayer.setRepeatMode(mode as any);
+            TrackPlayer.setRepeatMode(mode as any);
         } catch (e) {
             console.log('[MobilePlayer] Failed to set native repeat mode', e);
         }
@@ -312,7 +315,7 @@ class MobilePlayerService {
 
         if (repeatMode === 'one' && currentTrack) {
             await this.seek(0);
-            await TrackPlayer.play();
+            TrackPlayer.play();
         } else {
             // Delay slightly to prevent race conditions?
             await this.next();
@@ -406,13 +409,13 @@ class MobilePlayerService {
             }));
 
             try {
-                await TrackPlayer.setMediaItems(nativeQueue, currentIndex);
-                await TrackPlayer.setRepeatMode(state.repeatMode as any);
+                TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+                TrackPlayer.setRepeatMode(state.repeatMode as any);
             } finally {
                 this.isLoadingTrack = false;
             }
             console.log(`[MobilePlayer] Seeking to position: ${initialPosition || 0}`);
-            await TrackPlayer.seekTo(initialPosition || 0);
+            TrackPlayer.seekTo(initialPosition || 0);
 
             return true;
         } catch (e) {
@@ -430,11 +433,11 @@ class MobilePlayerService {
         if (success) {
             // Restore volume from store to be safe (might have been 0 from remote mode)
             const { volume } = useStore.getState();
-            await TrackPlayer.setVolume(volume);
+            TrackPlayer.setVolume(volume);
 
             useStore.setState({ isPlaying: true });
             console.log('[MobilePlayer] Calling TrackPlayer.play()');
-            await TrackPlayer.play();
+            TrackPlayer.play();
             console.log('[MobilePlayer] Playback started');
         } else {
             useStore.setState({ isPlaying: false });

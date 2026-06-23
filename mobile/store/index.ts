@@ -347,10 +347,10 @@ export const useStore = create<AppState>((set, get) => ({
         // Reset TrackPlayer for BOTH directions:
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
-        await TrackPlayer.clear();
+        TrackPlayer.clear();
 
         if (mode === 'remote') {
-            await TrackPlayer.setVolume(0);
+            TrackPlayer.setVolume(0);
         }
 
         // ── STEP 3: Atomic state transition ──
@@ -1085,7 +1085,7 @@ export const useStore = create<AppState>((set, get) => ({
         const { queue } = get();
         if (index >= 0 && index < queue.items.length) {
             const item = queue.items[index];
-            set({ 
+            set({
                 queue: { ...queue, currentIndex: index },
                 currentTrack: item.track,
                 duration: item.track.duration,
@@ -1673,17 +1673,17 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
         const { isPlaying } = useStore.getState();
         if (isPlaying) {
-            const playbackState = await TrackPlayer.getPlaybackState();
+            const playbackState = TrackPlayer.getPlaybackState();
             const isDead = playbackState === PlaybackState.Idle || playbackState === PlaybackState.Error || playbackState === PlaybackState.Ended;
             const isBackground = RNAppState.currentState !== 'active';
-            
+
             if (isDead && isBackground) {
                 console.log('[RemoteMode] Ignoring play command from desktop: app is in background and foreground service is dead');
             } else {
-                await TrackPlayer.play();
+                TrackPlayer.play();
             }
         } else {
-            await TrackPlayer.pause();
+            TrackPlayer.pause();
         }
     } catch (e) {
         console.error('Failed to sync TrackPlayer state', e);
@@ -1768,13 +1768,13 @@ webSocketService.on('time-update', async (payload) => {
     // Only seek if we are significantly out of sync (> 2s) to avoid stuttering
     if (payload.currentTime !== undefined) {
         try {
-            const progress = await TrackPlayer.getProgress();
+            const progress = TrackPlayer.getProgress();
             const currentPosition = progress.position;
             const timeDiff = Math.abs(currentPosition - payload.currentTime);
 
             if (timeDiff > 2) {
                 // console.log(`Syncing time: remote=${payload.currentTime}, local=${currentPosition}, diff=${timeDiff}`);
-                await TrackPlayer.seekTo(payload.currentTime);
+                TrackPlayer.seekTo(payload.currentTime);
             }
         } catch {
             // Ignore errors (e.g. if player not ready)
