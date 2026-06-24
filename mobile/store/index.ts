@@ -68,6 +68,7 @@ interface AppState extends PlayerState {
     playAlbum: (albumUrl: string, album?: Album) => Promise<void>;
     playPlaylist: (playlistId: string) => void;
     playStation: (station: RadioStation) => void;
+    extractRadioTracksToQueue: (station: RadioStation) => void;
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
     addStationToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
     addTrackToQueue: (track: Track, playNext?: boolean) => Promise<void>;
@@ -563,6 +564,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     play: () => {
+        set({ userIntendedPause: false });
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('play');
         } else {
@@ -813,6 +815,47 @@ export const useStore = create<AppState>((set, get) => ({
                 .catch((err: any) => {
                     console.error('[MobileStore] Play Station Error:', err);
                     set({ isCollectionLoading: false, collectionError: 'Failed to load station stream.' });
+                });
+        }
+    },
+    extractRadioTracksToQueue: (station) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('extract-radio-tracks', station);
+        } else {
+            console.log(`[MobileStore] extractRadioTracksToQueue standalone: ${station.name}`);
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            const { mobilePlayerService } = require('../services/MobilePlayerService');
+            set({ isCollectionLoading: true, collectionError: null });
+
+            mobileScraperService.getStationTracks(station.id)
+                .then((tracks: Track[]) => {
+                    if (!tracks || tracks.length === 0) {
+                        set({ isCollectionLoading: false, collectionError: 'No tracks found in station.' });
+                        return;
+                    }
+
+                    const queueItems: QueueItem[] = tracks.map(track => ({
+                        id: `queue-${station.id}-${track.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                        track: track,
+                        source: 'radio'
+                    }));
+
+                    set({
+                        queue: {
+                            items: queueItems,
+                            currentIndex: 0
+                        },
+                        currentTrack: queueItems[0].track,
+                        isPlaying: true,
+                        isCollectionLoading: false
+                    });
+                    get().saveQueue();
+
+                    mobilePlayerService.playQueueIndex(0);
+                })
+                .catch((err: any) => {
+                    console.error('[MobileStore] Extract Station Tracks Error:', err);
+                    set({ isCollectionLoading: false, collectionError: 'Failed to extract station tracks.' });
                 });
         }
     },

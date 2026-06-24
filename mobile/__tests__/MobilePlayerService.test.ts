@@ -235,7 +235,7 @@ describe('MobilePlayerService', () => {
                 isShuffled: false,
                 currentTime: 0
             });
-            const stopSpy = jest.spyOn(mobilePlayerService, 'stop').mockResolvedValue();
+            const stopSpy = jest.spyOn(mobilePlayerService, 'stop').mockImplementation(async () => {});
 
             await mobilePlayerService.next();
 
@@ -260,7 +260,7 @@ describe('MobilePlayerService', () => {
                 currentTime: 5,
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }], currentIndex: 1 }
             });
-            const seekSpy = jest.spyOn(mobilePlayerService, 'seek').mockResolvedValue();
+            const seekSpy = jest.spyOn(mobilePlayerService, 'seek').mockImplementation(async () => {});
 
             await mobilePlayerService.previous();
 

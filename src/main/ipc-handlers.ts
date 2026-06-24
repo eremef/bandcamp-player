@@ -261,6 +261,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(RADIO_CHANNELS.PLAY_STATION, (_, station: RadioStation) =>
     playerService.playStation(station),
   );
+  ipcMain.handle(RADIO_CHANNELS.EXTRACT_TRACKS, (_, station: RadioStation) =>
+    playerService.extractRadioTracksToQueue(station),
+  );
   ipcMain.handle(RADIO_CHANNELS.STOP, () => playerService.stopRadio());
   ipcMain.handle(RADIO_CHANNELS.GET_STATE, () => playerService.getRadioState());
   ipcMain.handle(

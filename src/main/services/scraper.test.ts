@@ -394,35 +394,29 @@ describe("ScraperService", () => {
   });
 
   describe("getStationStreamUrl", () => {
-    it("should extract radio stream URL from page blob and mobile API", async () => {
-      const mockPageHtml = `
-                <html>
-                <div id="ArchiveApp" data-blob='{"appData":{"shows":[{"showId":100,"audioTrackId":555}]}}'></div>
-                </html>
-            `;
-
-      mockAxios.get.mockResolvedValueOnce({ data: mockPageHtml }); // Page fetch
-
-      // Mobile API fetch for track
-      mockAxios.get.mockResolvedValueOnce({
+    it("should extract radio stream URL from player_data_web API", async () => {
+      // API fetch for track
+      mockAxios.post.mockResolvedValueOnce({
         data: {
-          tracks: [
-            {
-              streaming_url: { "mp3-128": "http://radio.stream/123" },
-            },
-          ],
+          tracklist: {
+            compiledTrack: {
+              streamUrl: "http://radio.stream/123",
+              duration: 120
+            }
+          }
         },
       });
 
       const result = await scraper.getStationStreamUrl("100");
+      expect(mockAxios.post).toHaveBeenCalledWith("https://bandcamp.com/api/player/2/player_data_web", { item_type: "radio", item_id: 100 });
       expect(result).toEqual({
         streamUrl: "http://radio.stream/123",
-        duration: 0,
+        duration: 120,
       });
     });
 
     it("should return empty string on error", async () => {
-      mockAxios.get.mockRejectedValue(new Error("Failed"));
+      mockAxios.post.mockRejectedValue(new Error("Failed"));
       const result = await scraper.getStationStreamUrl("100");
       expect(result).toEqual({ streamUrl: "", duration: 0 });
     });

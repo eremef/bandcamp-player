@@ -104,6 +104,7 @@ export const RADIO_CHANNELS = {
   ADD_TO_QUEUE: "radio:add-to-queue",
   ADD_TO_PLAYLIST: "radio:add-to-playlist",
   ON_STATIONS_UPDATED: "radio:on-stations-updated",
+  EXTRACT_TRACKS: "radio:extract-tracks",
 } as const;
 
 // ============================================================================

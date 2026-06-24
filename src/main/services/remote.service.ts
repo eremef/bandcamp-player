@@ -598,6 +598,9 @@ export class RemoteControlService extends EventEmitter {
             case 'play-station':
                 await this.playerService.playStation(payload);
                 break;
+            case 'extract-radio-tracks':
+                await this.playerService.extractRadioTracksToQueue(payload);
+                break;
             case 'add-station-to-queue':
                 await this.playerService.addStationToQueue(payload.station, payload.playNext);
                 break;

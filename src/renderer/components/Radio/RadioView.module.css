@@ -145,10 +145,6 @@
     opacity: 1;
 }
 
-.card.active .cardOverlay {
-    opacity: 1;
-}
-
 .playBtn {
     width: 56px;
     height: 56px;
