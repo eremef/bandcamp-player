@@ -115,8 +115,8 @@ describe('RadioScreen', () => {
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
         // We should see action sheet options
-        expect(getByText('Play Next')).toBeTruthy();
-        expect(getByText('Add to Queue')).toBeTruthy();
+        expect(getByText('Play Mix Next')).toBeTruthy();
+        expect(getByText('Add Mix to Queue')).toBeTruthy();
         expect(getByText('Add to Playlist')).toBeTruthy();
         expect(getByText('Cancel')).toBeTruthy();
     });
@@ -125,7 +125,7 @@ describe('RadioScreen', () => {
         const { getByText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        fireEvent.press(getByText('Add to Queue'));
+        fireEvent.press(getByText('Add Mix to Queue'));
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], false);
     });
 
@@ -133,7 +133,7 @@ describe('RadioScreen', () => {
         const { getByText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        fireEvent.press(getByText('Play Next'));
+        fireEvent.press(getByText('Play Mix Next'));
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], true);
     });
 
