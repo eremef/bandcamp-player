@@ -125,6 +125,9 @@ interface AppState extends PlayerState {
     // Persistence Helpers
     saveQueue: () => Promise<void>;
 
+    // Spontaneous playback prevention
+    userIntendedPause: boolean;
+
     // Wishlist Setting
     includeWishlistInCollection: boolean;
     toggleIncludeWishlistInCollection: () => Promise<void>;
@@ -150,7 +153,7 @@ interface AppState extends PlayerState {
     setCrossfadeDuration: (duration: number) => Promise<void>;
 }
 
-const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
+const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean, userIntendedPause: boolean } = {
     isPlaying: false,
     currentTrack: null,
     currentTime: 0,
@@ -161,6 +164,7 @@ const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean } = {
     isShuffled: false,
     isCasting: false,
     skipAutoLogin: false,
+    userIntendedPause: true,
 };
 
 export const useStore = create<AppState>((set, get) => ({
@@ -240,6 +244,7 @@ export const useStore = create<AppState>((set, get) => ({
         let restoredTrack = null as Track | null;
         let restoredDuration = 0;
         let restoredTime = 0;
+        let restoredUserIntendedPause = true;
 
         const savedQueueJson = await AsyncStorage.getItem('standalone_queue');
         if (savedQueueJson) {
@@ -255,6 +260,9 @@ export const useStore = create<AppState>((set, get) => ({
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;
                     restoredTime = typeof parsed.currentTime === 'number' ? parsed.currentTime : 0;
+                    if (typeof parsed.userIntendedPause === 'boolean') {
+                        restoredUserIntendedPause = parsed.userIntendedPause;
+                    }
                 }
             } catch (e) {
                 console.error('[MobileStore] Failed to parse standalone queue:', e);
@@ -276,6 +284,7 @@ export const useStore = create<AppState>((set, get) => ({
             duration: restoredDuration,
             currentTime: restoredTime,
             isPlaying: false,
+            userIntendedPause: restoredUserIntendedPause,
             skipAutoLogin: false,
             theme: settings.theme || 'system',
             scrobblingEnabled: settings.scrobblingEnabled !== false,
@@ -522,8 +531,8 @@ export const useStore = create<AppState>((set, get) => ({
 
     saveQueue: async () => {
         if (get().mode === 'standalone') {
-            const { queue, currentTime } = get();
-            await AsyncStorage.setItem('standalone_queue', JSON.stringify({ ...queue, currentTime }));
+            const { queue, currentTime, userIntendedPause } = get();
+            await AsyncStorage.setItem('standalone_queue', JSON.stringify({ ...queue, currentTime, userIntendedPause }));
         }
     },
 
