@@ -352,7 +352,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
 
     // Update Electron nativeTheme if theme changed
     if (settings.theme) {
-      nativeTheme.themeSource = settings.theme;
+      nativeTheme.themeSource = settings.theme === 'high-contrast' ? 'dark' : settings.theme;
     }
 
     // Emit event so main-process services (like DiscordService) can react

@@ -14,6 +14,7 @@ import { InputModal } from '../../components/InputModal';
 export default function PlayerScreen() {
     const colors = useTheme();
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
+    const [localVolume, setLocalVolume] = useState<number | null>(null);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
@@ -351,14 +352,18 @@ export default function PlayerScreen() {
                                     style={styles.verticalSlider}
                                     minimumValue={0}
                                     maximumValue={1}
-                                    value={volume ?? 0.8}
-                                    onSlidingComplete={setVolume}
+                                    value={localVolume !== null ? localVolume : (volume ?? 0.8)}
+                                    onValueChange={setLocalVolume}
+                                    onSlidingComplete={(val) => {
+                                        setLocalVolume(null);
+                                        setVolume(val);
+                                    }}
                                     minimumTrackTintColor={colors.accent}
                                     maximumTrackTintColor={colors.border}
                                     thumbTintColor={colors.accent}
                                 />
                             </View>
-                            <Text style={[styles.modalVolumeText, { color: colors.text }]}>{Math.round((volume ?? 0) * 100)}%</Text>
+                            <Text style={[styles.modalVolumeText, { color: colors.text }]}>{Math.round((localVolume !== null ? localVolume : (volume ?? 0)) * 100)}%</Text>
 
                         </View>
                     </Pressable>
@@ -554,28 +559,28 @@ const styles = StyleSheet.create({
     },
     verticalVolumeContainer: {
         backgroundColor: '#1e1e1e',
-        padding: 20,
+        paddingHorizontal: 0,
+        paddingVertical: 30,
         borderRadius: 24,
         alignItems: 'center',
-        height: 300,
+        height: 400,
         justifyContent: 'space-between',
-        width: 90,
+        width: 70,
     },
     sliderWrapper: {
-        height: 200,
+        height: 300,
         width: 40,
         justifyContent: 'center',
         alignItems: 'center',
     },
     verticalSlider: {
-        width: 200,
+        width: 330,
         height: 40,
         transform: [{ rotate: '-90deg' }],
     },
     modalVolumeText: {
         color: '#fff',
         fontSize: 16,
-        bottom: 15,
         fontWeight: 'bold'
     },
     menuContainer: {

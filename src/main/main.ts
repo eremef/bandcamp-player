@@ -273,7 +273,7 @@ async function initializeServices() {
 
   // Set initial theme
   if (settings?.theme) {
-    nativeTheme.themeSource = settings.theme;
+    nativeTheme.themeSource = settings.theme === 'high-contrast' ? 'dark' : settings.theme;
   }
 
   // Inform RemoteConfigService about offline mode so it skips GitHub fetches

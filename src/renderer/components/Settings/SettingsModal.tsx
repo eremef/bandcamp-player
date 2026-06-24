@@ -251,6 +251,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <option value="system">System Default</option>
                                 <option value="light">Light</option>
                                 <option value="dark">Dark</option>
+                                <option value="high-contrast">High Contrast (AAA)</option>
                             </select>
                         </div>
                     </section>
