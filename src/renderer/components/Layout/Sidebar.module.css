@@ -62,6 +62,7 @@
     flex-direction: column;
     overflow: hidden;
     padding: 0 var(--spacing-lg);
+    border-top: 1px solid var(--border-subtle)
 }
 
 .playlistsHeader {
@@ -69,7 +70,6 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-md) 0;
-    border-top: 1px solid var(--border-subtle);
 }
 
 .playlistsHeader h3 {

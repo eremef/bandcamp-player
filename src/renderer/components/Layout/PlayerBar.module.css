@@ -212,6 +212,7 @@
     gap: var(--spacing-sm);
     justify-content: flex-end;
     min-width: 112px;
+    margin-bottom: 26px;
 }
 
 

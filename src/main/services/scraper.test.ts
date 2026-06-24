@@ -609,6 +609,8 @@ describe("ScraperService", () => {
       mockDatabase = {
         getCollectionCache: vi.fn(),
         saveCollectionCache: vi.fn(),
+        getRadioCache: vi.fn(),
+        saveRadioCache: vi.fn(),
         getSettings: vi.fn().mockReturnValue({ offlineMode: false }),
       };
       scraper = new ScraperService(mockAuthService, mockDatabase);

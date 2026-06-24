@@ -874,7 +874,7 @@ export class MobileScraperService {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
             
             // Bandcamp's new Radio API endpoint
-            const response = await fetch("https://bandcamp.com/api/player/2/player_data_web", {
+            const response = await fetch(config.endpoints.radioPlayerDataApi, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -926,7 +926,7 @@ export class MobileScraperService {
         console.log(`[MobileScraper] fetching tracks for radio show ${showId}`);
         const config = remoteConfigService.get();
         try {
-            const response = await fetch("https://bandcamp.com/api/player/2/player_data_web", {
+            const response = await fetch(config.endpoints.radioPlayerDataApi, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -959,13 +959,17 @@ export class MobileScraperService {
                 .filter((t: any) => t.streamUrl)
                 .map((t: any): Track => ({
                     id: `radio-track-${t.id || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    title: t.title || "Unknown Title",
-                    artist: t.artistName || "Unknown Artist",
-                    album: t.album?.title || "Bandcamp Radio",
+                    title: t.title || config.radioData.fallbackTitle,
+                    artist: t.artistName || config.radioData.fallbackArtist,
+                    album: t.album?.title || config.radioData.fallbackAlbum,
                     duration: t.duration || 0,
-                    artworkUrl: t.artId ? `https://f4.bcbits.com/img/a${t.artId}_2.jpg` : (tracklist.imageId ? `https://f4.bcbits.com/img/a${tracklist.imageId}_2.jpg` : ""),
+                    artworkUrl: t.artId
+                        ? config.endpoints.radioTrackArtworkFormat.replace("{art_id}", t.artId)
+                        : tracklist.imageId
+                            ? config.endpoints.radioTrackImageFormat.replace("{image_id}", tracklist.imageId)
+                            : "",
                     streamUrl: t.streamUrl,
-                    bandcampUrl: t.url || t.album?.url || "https://bandcamp.com",
+                    bandcampUrl: t.url || t.album?.url || config.radioData.fallbackUrl,
                     isCached: false,
                     // Do NOT set radioStationId here. If set, the player services will treat
                     // these individual tracks as the full radio show and overwrite their streamUrl
