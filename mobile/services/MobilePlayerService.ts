@@ -10,7 +10,6 @@ import { setupPlayer } from './player';
 class MobilePlayerService {
     private isInitialized = false;
     public isLoadingTrack = false;
-    public isClearing = false;
     public onQueueChange?: () => void;
     private lastSetVolume: number = -1;
     private lastStoreUpdateTime = 0;
@@ -179,6 +178,7 @@ class MobilePlayerService {
     }
 
     async play(track?: Track) {
+        useStore.setState({ userIntendedPause: false });
         if (!this.isInitialized) await this.setupPlayer();
 
         const store = useStore.getState();
@@ -208,20 +208,19 @@ class MobilePlayerService {
     }
 
     pause() {
+        useStore.setState({ userIntendedPause: true });
         this.pausedPosition = TrackPlayer.getProgress().position;
         TrackPlayer.pause();
-        this.isClearing = true;
-        // TrackPlayer.clear();
-        setTimeout(() => { this.isClearing = false; }, 500);
         useStore.setState({ isPlaying: false });
+        useStore.getState().saveQueue();
     }
 
     stop() {
+        useStore.setState({ userIntendedPause: true });
         TrackPlayer.stop();
-        this.isClearing = true;
         TrackPlayer.clear();
-        setTimeout(() => { this.isClearing = false; }, 500);
         useStore.setState({ isPlaying: false });
+        useStore.getState().saveQueue();
     }
 
     async next() {
@@ -438,7 +437,8 @@ class MobilePlayerService {
             const { volume } = useStore.getState();
             TrackPlayer.setVolume(volume);
 
-            useStore.setState({ isPlaying: true });
+            useStore.setState({ isPlaying: true, userIntendedPause: false });
+            useStore.getState().saveQueue();
             console.log('[MobilePlayer] Calling TrackPlayer.play()');
             TrackPlayer.play();
             console.log('[MobilePlayer] Playback started');

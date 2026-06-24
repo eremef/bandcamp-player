@@ -2,31 +2,17 @@ import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 
 let isPlayingTimeout: ReturnType<typeof setTimeout> | null = null;
-let serviceStartTime = Date.now();
-
-export function resetServiceStartTime() {
-    serviceStartTime = 0;
-}
-
-function shouldIgnoreRemoteIntent(eventName: string): boolean {
-    // Check module-level startup time first (handles headless service restarts)
-    if (Date.now() - serviceStartTime < 1500) {
-        console.log(`[TrackPlayerService] Ignoring ${eventName} due to headless initialization window`);
-        return true;
-    }
-
-    const store = useStore.getState();
-    if (store.ignoreRemoteIntentsUntil && Date.now() < store.ignoreRemoteIntentsUntil) {
-        console.log(`[TrackPlayerService] Ignoring ${eventName} due to ignoreRemoteIntentsUntil window`);
-        return true;
-    }
-    return false;
-}
 
 function handleIsPlayingChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
 
     if (event.playing) {
+        if (useStore.getState().userIntendedPause) {
+            console.log('[TrackPlayerService] Spontaneous play detected while userIntendedPause is true. Forcing pause.');
+            TrackPlayer.pause();
+            return;
+        }
+
         if (isPlayingTimeout) {
             clearTimeout(isPlayingTimeout);
             isPlayingTimeout = null;
@@ -74,7 +60,7 @@ async function handleMediaItemTransition(event: any) {
 
     // Standalone mode logic
     if (store.mode === 'standalone') {
-        if (mobilePlayerService.isLoadingTrack || mobilePlayerService.isClearing) {
+        if (mobilePlayerService.isLoadingTrack) {
             return;
         }
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
@@ -119,33 +105,26 @@ export async function PlaybackService(event?: any) {
             await handleMediaItemTransition(event);
             break;
         case Event.RemotePlay:
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             useStore.getState().play();
             break;
         case Event.RemotePause:
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             useStore.getState().pause();
             break;
         case Event.RemoteNext:
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             useStore.getState().next();
             break;
         case Event.RemotePrevious:
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             useStore.getState().previous();
             break;
         case Event.RemoteSeek:
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             useStore.getState().seek(event.position);
             break;
         case Event.RemoteSkipForward: {
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             const p1 = TrackPlayer.getProgress();
             useStore.getState().seek(p1.position + event.interval);
             break;
         }
         case Event.RemoteSkipBackward: {
-            if (shouldIgnoreRemoteIntent(event.type)) return;
             const p2 = TrackPlayer.getProgress();
             useStore.getState().seek(p2.position - event.interval);
             break;
@@ -178,18 +157,16 @@ const subs = [
     TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged),
     TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition),
 
-    TrackPlayer.addEventListener(Event.RemotePlay, () => { if (!shouldIgnoreRemoteIntent(Event.RemotePlay)) useStore.getState().play() }),
-    TrackPlayer.addEventListener(Event.RemotePause, () => { if (!shouldIgnoreRemoteIntent(Event.RemotePause)) useStore.getState().pause() }),
-    TrackPlayer.addEventListener(Event.RemoteNext, () => { if (!shouldIgnoreRemoteIntent(Event.RemoteNext)) useStore.getState().next() }),
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => { if (!shouldIgnoreRemoteIntent(Event.RemotePrevious)) useStore.getState().previous() }),
-    TrackPlayer.addEventListener(Event.RemoteSeek, (event) => { if (!shouldIgnoreRemoteIntent(Event.RemoteSeek)) useStore.getState().seek(event.position) }),
+    TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play()),
+    TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause()),
+    TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next()),
+    TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous()),
+    TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position)),
     TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
-        if (shouldIgnoreRemoteIntent(Event.RemoteSkipForward)) return;
         const progress = TrackPlayer.getProgress();
         useStore.getState().seek(progress.position + event.interval);
     }),
     TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
-        if (shouldIgnoreRemoteIntent(Event.RemoteSkipBackward)) return;
         const progress = TrackPlayer.getProgress();
         useStore.getState().seek(progress.position - event.interval);
     }),

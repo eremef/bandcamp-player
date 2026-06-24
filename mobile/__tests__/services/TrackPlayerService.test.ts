@@ -1,5 +1,5 @@
 import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
-import { PlaybackService, resetServiceStartTime } from '../../services/TrackPlayerService';
+import { PlaybackService } from '../../services/TrackPlayerService';
 import { useStore } from '../../store';
 
 jest.mock('../../services/MobilePlayerService', () => ({
@@ -25,7 +25,6 @@ describe('TrackPlayerService (PlaybackService)', () => {
     };
 
     beforeEach(() => {
-        resetServiceStartTime();
         const { mobilePlayerService } = require('../../services/MobilePlayerService');
         if (mobilePlayerService.handleTrackEnd.mockClear) {
             mobilePlayerService.handleTrackEnd.mockClear();
@@ -53,6 +52,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
 
 
         it('updates isPlaying on IsPlayingChanged', async () => {
+            useStore.setState({ userIntendedPause: false });
             await PlaybackService({ type: Event.IsPlayingChanged, playing: true });
             const state = useStore.getState();
             expect(state.isPlaying).toBe(true);
@@ -125,6 +125,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
         });
         
         it('updates isPlaying on IsPlayingChanged', async () => {
+            useStore.setState({ userIntendedPause: false });
             await triggerForegroundEvent(Event.IsPlayingChanged, { playing: true });
             const state = useStore.getState();
             expect(state.isPlaying).toBe(true);

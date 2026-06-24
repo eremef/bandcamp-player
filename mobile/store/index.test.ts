@@ -670,7 +670,7 @@ describe('Mobile useStore', () => {
                 await useStore.getState().saveQueue();
             });
 
-            expect(AsyncStorage.setItem).toHaveBeenCalledWith('standalone_queue', JSON.stringify({ ...mockQueue, currentTime: 45 }));
+            expect(AsyncStorage.setItem).toHaveBeenCalledWith('standalone_queue', JSON.stringify({ ...mockQueue, currentTime: 45, userIntendedPause: true }));
         });
 
         it('should NOT saveQueue in remote mode', async () => {

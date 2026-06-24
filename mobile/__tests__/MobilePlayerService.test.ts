@@ -23,7 +23,7 @@ jest.mock('@rntp/player', () => ({
         removeMediaItems: jest.fn().mockResolvedValue(undefined),
         isPlaying: jest.fn().mockReturnValue(false),
         destroy: jest.fn().mockResolvedValue(undefined),
-        getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0, buffered: 0 }),
+        getProgress: jest.fn().mockReturnValue({ saveQueue: jest.fn(), position: 0, duration: 0, buffered: 0 }),
     },
     PlaybackState: {
         Ready: 'ready',
@@ -71,7 +71,7 @@ describe('MobilePlayerService', () => {
         (mobilePlayerService as any).isInitialized = false;
 
         // Default store mock
-        (useStore.getState as jest.Mock).mockReturnValue({
+        (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
             volume: 0.8,
             isPlaying: false,
             currentTrack: null,
@@ -153,7 +153,7 @@ describe('MobilePlayerService', () => {
             (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
             (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
             const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 volume: 0.5,
                 currentTrack: mockTrack,
                 queue: { items: [], currentIndex: 0 }
@@ -170,7 +170,7 @@ describe('MobilePlayerService', () => {
             (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
             (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
             const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 volume: 0.5,
                 currentTrack: null,
                 queue: { items: [{ track: mockTrack }], currentIndex: 0 }
@@ -192,7 +192,7 @@ describe('MobilePlayerService', () => {
                 { track: { id: '2' } },
                 { track: { id: '3' } }
             ];
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 volume: 1,
                 queue: { items: queueItems, currentIndex: 1 },
                 repeatMode: 'off',
@@ -208,11 +208,11 @@ describe('MobilePlayerService', () => {
 
             await mobilePlayerService.next();
 
-            expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith({ id: '3' }); // next is index 2
+            expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith({ id: '3' }, 0); // next is index 2
         });
 
         it('should pick random next if shuffled', async () => {
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 volume: 1,
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }, { track: { id: '3' } }], currentIndex: 1 },
                 repeatMode: 'off',
@@ -228,7 +228,7 @@ describe('MobilePlayerService', () => {
         });
 
         it('should stop if at end of queue', async () => {
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 volume: 1,
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }], currentIndex: 1 },
                 repeatMode: 'off',
@@ -243,7 +243,7 @@ describe('MobilePlayerService', () => {
         });
 
         it('should loop to start if at end and repeat all', async () => {
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }], currentIndex: 1 },
                 repeatMode: 'all',
                 isShuffled: false,
@@ -256,7 +256,7 @@ describe('MobilePlayerService', () => {
         });
 
         it('should go to previous track or beginning if current time > 3', async () => {
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 currentTime: 5,
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }], currentIndex: 1 }
             });
@@ -274,7 +274,7 @@ describe('MobilePlayerService', () => {
         });
 
         it('should loop back to end if at start and repeat all', async () => {
-            (useStore.getState as jest.Mock).mockReturnValue({
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(),
                 currentTime: 0,
                 queue: { items: [{ track: { id: '1' } }, { track: { id: '2' } }], currentIndex: 0 },
                 repeatMode: 'all'
@@ -320,7 +320,7 @@ describe('MobilePlayerService', () => {
 
         it('should load track if streamUrl exists', async () => {
             const track = { id: '1', title: 'T', streamUrl: 'url', duration: 100 };
-            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(), queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
 
             const success = await mobilePlayerService.loadTrack(track as any);
 
@@ -336,7 +336,7 @@ describe('MobilePlayerService', () => {
 
         it('should seek to initialPosition if provided', async () => {
             const track = { id: '1', streamUrl: 'url' };
-            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(), queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
 
             await mobilePlayerService.loadTrack(track as any, 50);
 
@@ -345,7 +345,7 @@ describe('MobilePlayerService', () => {
 
         it('should fetch stream url for radio show', async () => {
             const track = { id: 'r1', title: 'Radio', bandcampUrl: 'https://bandcamp.com?show=50' };
-            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 'r1', track: track as any, source: 'radio' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(), queue: { items: [{ id: 'r1', track: track as any, source: 'radio' }], currentIndex: 0 } });
 
             (mobileScraperService.getStationStreamUrl as jest.Mock).mockResolvedValueOnce({ streamUrl: 'radio_url', duration: 7200 });
 
@@ -361,7 +361,7 @@ describe('MobilePlayerService', () => {
 
         it('should fetch album details to find stream url', async () => {
             const track = { id: 't1', title: 'Song 1', bandcampUrl: 'https://album' };
-            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(), queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
 
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Song 1', streamUrl: 'album_stream' }]
@@ -378,7 +378,7 @@ describe('MobilePlayerService', () => {
 
         it('should fall back to single track if name mismatch but only 1 track', async () => {
             const track = { id: 't1', title: 'Unknown', bandcampUrl: 'https://album' };
-            (useStore.getState as jest.Mock).mockReturnValue({ queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({ saveQueue: jest.fn(), queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
 
             (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
                 tracks: [{ title: 'Actual Name', streamUrl: 'fallback_stream' }]
