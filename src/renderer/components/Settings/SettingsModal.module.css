@@ -363,7 +363,7 @@
 }
 
 .selectInput {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm);
     background: var(--bg-tertiary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
