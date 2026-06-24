@@ -689,6 +689,13 @@ export class ScraperService extends EventEmitter {
           this.extractAndSaveArtists(items, isSimulating);
         }
 
+        // Also refresh radio stations when collection is refreshed from network
+        if (!isSimulating) {
+          this.getRadioStations(true).catch((e) =>
+            console.error("[Scraper] Background radio refresh failed after collection fetch:", e),
+          );
+        }
+
         return this.cachedCollection;
       } catch (error: any) {
         console.error("[Scraper] Collection fetch failed:", error.message);
