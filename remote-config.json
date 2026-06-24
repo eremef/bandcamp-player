@@ -21,6 +21,7 @@
         },
         "radio": {
             "dataBlobElements": [
+                "#HomepageApp",
                 "#ArchiveApp",
                 "#p-show-player",
                 ".bcweekly-player"

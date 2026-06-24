@@ -1377,71 +1377,67 @@ export class ScraperService extends EventEmitter {
     showId: string,
   ): Promise<{ streamUrl: string; duration: number }> {
     try {
-      // 1. Fetch the show page
-      const config = remoteConfigService.get();
-      const response = await this.http.get(
-        config.endpoints.radioShowWeb.replace("{showId}", showId),
+      // Bandcamp's new Radio API endpoint
+      const response = await this.http.post(
+        "https://bandcamp.com/api/player/2/player_data_web",
+        {
+          item_type: "radio",
+          item_id: parseInt(showId, 10),
+        },
       );
-      const $ = cheerio.load(response.data);
 
-      // 2. Extract data blob from ArchiveApp div
-      const dataBlob = $("#ArchiveApp").attr("data-blob");
-      if (!dataBlob) {
-        console.error("No data-blob found in ArchiveApp div");
-        return { streamUrl: "", duration: 0 };
+      const tracklist = response.data?.tracklist;
+      const compiledTrack = tracklist?.compiledTrack;
+
+      if (compiledTrack && compiledTrack.streamUrl) {
+        return {
+          streamUrl: compiledTrack.streamUrl,
+          duration: compiledTrack.duration || 0,
+        };
       }
 
-      try {
-        const appData = JSON.parse(dataBlob);
-        // Find the show in the shows list using configurable keys
-        const show = appData.appData?.shows?.find((s: any) => {
-          const id = String(
-            config.radioData.showIdKeys.reduce(
-              (acc: any, key: string) => acc || s[key],
-              null as any,
-            ) || "",
-          );
-          return id === showId;
-        });
-
-        const audioTrackId = show?.trackId || show?.audioTrackId;
-
-        if (!show || !audioTrackId) {
-          console.error("Show or audioTrackId not found in data blob");
-          return { streamUrl: "", duration: 0 };
-        }
-
-        // 3. Fetch track details from mobile API
-        // Using band_id=1 as generic system ID often works for radio
-        const mobileUrl = config.endpoints.mobileTralbumDetailsApi
-          .replace("{band_id}", "1") // Radio tracks often use generic band_id 1
-          .replace("{track_id}", audioTrackId.toString());
-        const trackResponse = await this.http.get(mobileUrl);
-
-        if (
-          trackResponse.data &&
-          trackResponse.data.tracks &&
-          trackResponse.data.tracks.length > 0
-        ) {
-          const track = trackResponse.data.tracks[0];
-          const streamUrl = track.streaming_url?.["mp3-128"];
-          const duration = track.duration || 0;
-
-          if (streamUrl) {
-            return { streamUrl, duration };
-          }
-        }
-        console.error(
-          "[Scraper] Stream URL not found or invalid response for radio track",
-        );
-        return { streamUrl: "", duration: 0 };
-      } catch (e) {
-        console.error("Error parsing radio page data:", e);
-        return { streamUrl: "", duration: 0 };
-      }
+      console.error(
+        "[Scraper] Stream URL not found in player_data_web response for radio track",
+      );
+      return { streamUrl: "", duration: 0 };
     } catch (error) {
       console.error(`Error fetching station stream URL for ${showId}:`, error);
       return { streamUrl: "", duration: 0 };
+    }
+  }
+
+  /**
+   * Extract individual tracks from a radio show
+   */
+  async getStationTracks(showId: string): Promise<Track[]> {
+    try {
+      const response = await this.http.post(
+        "https://bandcamp.com/api/player/2/player_data_web",
+        {
+          item_type: "radio",
+          item_id: parseInt(showId, 10),
+        },
+      );
+
+      const tracklist = response.data?.tracklist;
+      const rawTracks = tracklist?.tracks || [];
+
+      return rawTracks
+        .filter((t: any) => t.streamUrl) // Only include playable tracks
+        .map((t: any): Track => ({
+          id: `radio-track-${t.id || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: t.title || "Unknown Title",
+          artist: t.artistName || "Unknown Artist",
+          album: t.album?.title || "Bandcamp Radio",
+          duration: t.duration || 0,
+          artworkUrl: t.artId ? `https://f4.bcbits.com/img/a${t.artId}_2.jpg` : (tracklist.imageId ? `https://f4.bcbits.com/img/a${tracklist.imageId}_2.jpg` : ""),
+          streamUrl: t.streamUrl,
+          bandcampUrl: t.url || t.album?.url || "https://bandcamp.com",
+          isCached: false,
+        }));
+    } catch (error) {
+      console.error(`Error fetching station tracks for ${showId}:`, error);
+      return [];
     }
   }
 

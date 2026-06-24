@@ -223,50 +223,26 @@ describe('MobileScraperService', () => {
     });
 
     describe('getStationStreamUrl', () => {
-        it('should find stream url from data-blob', async () => {
-            (mobileAuthService.getCookies as jest.Mock).mockResolvedValue('cookies');
-
-            const mockBlob = JSON.stringify({
-                audioTrackId: 100,
-                track_id: 100,
-                file: { 'mp3-128': 'direct_stream' }
+        it('should find stream url from player_data_web api', async () => {
+            (global.fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                text: jest.fn().mockResolvedValue(JSON.stringify({
+                    tracklist: {
+                        compiledTrack: {
+                            streamUrl: 'api_stream',
+                            duration: 120
+                        }
+                    }
+                }))
             });
-
-            const mockHtml = `
-                <html><body>
-                <div data-blob='${mockBlob.replace(/"/g, '&quot;')}'></div>
-                </body></html>
-            `;
-            (global.fetch as jest.Mock)
-                .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(mockHtml) })
-                .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue('{}') });
-
-            const result = await mobileScraperService.getStationStreamUrl('50');
-            expect(result.streamUrl).toBe('direct_stream');
-        });
-
-        it('should fallback to api if trackId found but no direct stream url', async () => {
-            (mobileAuthService.getCookies as jest.Mock).mockResolvedValue('cookies');
-
-            const mockBlob = JSON.stringify({
-                audioTrackId: 100,
-            });
-
-            const mockHtml = `
-                 <html><body>
-                 <div data-blob='${mockBlob.replace(/"/g, '&quot;')}'></div>
-                 </body></html>
-             `;
-            (global.fetch as jest.Mock)
-                .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(mockHtml) })
-                .mockResolvedValueOnce({ ok: true, text: jest.fn().mockResolvedValue(JSON.stringify({ tracks: [{ streaming_url: { 'mp3-128': 'api_stream' } }] })) });
 
             const result = await mobileScraperService.getStationStreamUrl('50');
             expect(result.streamUrl).toBe('api_stream');
+            expect(result.duration).toBe(120);
         });
 
         it('should return empty if fetch fails entirely', async () => {
-            (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
+            (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('fail'));
             const result = await mobileScraperService.getStationStreamUrl('50');
             expect(result.streamUrl).toBe('');
         });

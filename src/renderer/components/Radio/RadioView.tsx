@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Play, Pause, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download } from 'lucide-react';
+import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -184,13 +184,21 @@ export function RadioView() {
                                 {showBulkMenu && (
                                     <div className={styles.bulkMenu} onClick={(e) => e.stopPropagation()}>
                                         <button onClick={() => handleBulkAction('play')}>
-                                            <Play size={16} /> Play All
+                                            <Play size={16} /> Play Mixes
+                                        </button>
+                                        <button onClick={() => {
+                                            filteredStations.forEach(station => {
+                                                window.electron.radio.extractTracks(station);
+                                            });
+                                            setShowBulkMenu(false);
+                                        }}>
+                                            <List size={16} /> Extract Tracks
                                         </button>
                                         <button onClick={() => handleBulkAction('playNext')}>
-                                            <SkipForward size={16} /> Play Next
+                                            <SkipForward size={16} /> Play Mix Next
                                         </button>
                                         <button onClick={() => handleBulkAction('addToQueue')}>
-                                            <List size={16} /> Add to Queue
+                                            <List size={16} /> Add Mix to Queue
                                         </button>
                                         {playlists.length > 0 && (
                                             <>
@@ -242,7 +250,7 @@ export function RadioView() {
                             )}
                             <div className={styles.cardOverlay}>
                                 <button className={styles.playBtn}>
-                                    {radioState.currentStation?.id === station.id ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" />}
+                                    <Play size={32} fill="currentColor" />
                                 </button>
                                 <button
                                     className={styles.menuButton}
@@ -279,13 +287,16 @@ export function RadioView() {
                         {contextMenu?.station?.id === station.id && (
                             <div className={styles.contextMenu} onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => { playRadioStation(station); setContextMenu(null); }}>
-                                    <Play size={16} /> Play Now
+                                    <Play size={16} /> Play Mix
+                                </button>
+                                <button onClick={() => { window.electron.radio.extractTracks(station); setContextMenu(null); }}>
+                                    <List size={16} /> Extract Tracks
                                 </button>
                                 <button onClick={() => { handlePlayNext(station); }}>
-                                    <SkipForward size={16} /> Play Next
+                                    <SkipForward size={16} /> Play Mix Next
                                 </button>
                                 <button onClick={() => { handleAddToQueue(station); }}>
-                                    <List size={16} /> Add to Queue
+                                    <List size={16} /> Add Mix to Queue
                                 </button>
                                 <div className={styles.menuDivider} />
                                 {playlists.length > 0 && (

@@ -872,235 +872,108 @@ export class MobileScraperService {
         const config = remoteConfigService.get();
         try {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
-            // 1. Fetch the show page
-            const cookies = await mobileAuthService.getCookies();
-            // Try root with show param first, then weekly path
-            const urls = [
-                config.endpoints.radioShowWeb.replace('{showId}', showId),
-                config.endpoints.radioWeeklyWeb.replace('{showId}', showId)
-            ];
-
-            let html = '';
-            for (const url of urls) {
-                console.log(`[MobileScraper] Trying URL: ${url}`);
-                const response = await fetch(url, {
-                    headers: {
-                        'Cookie': cookies,
-                        'User-Agent': config.userAgents.desktop
-                    }
-                });
-                if (!response.ok) continue;
-                const text = await response.text();
-                // Check if this page contains the expected show data or at least a player
-                if (text && (text.includes('audioTrackId') || text.includes('track_id') || text.includes('ArchiveApp'))) {
-                    html = text;
-                    break;
-                }
-            }
-
-            if (!html) {
-                console.error('[MobileScraper] Failed to fetch radio page with valid show data');
-                return { streamUrl: '', duration: 0 };
-            }
-
-            const $ = cheerio.load(html);
-
-            // 2. Extract data blob from standard elements or any element containing it
-            // We search for elements with data-blob and pick the one that looks like player data
-            let dataBlob: string | undefined;
-
-            $('[data-blob]').each((_, el) => {
-                const blob = $(el).attr('data-blob');
-                if (blob && (blob.includes('audioTrackId') || blob.includes('showId') || blob.includes('shows'))) {
-                    dataBlob = blob;
-                    return false; // found it
-                }
+            
+            // Bandcamp's new Radio API endpoint
+            const response = await fetch("https://bandcamp.com/api/player/2/player_data_web", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "User-Agent": config.userAgents.desktop
+                },
+                body: JSON.stringify({
+                    item_type: "radio",
+                    item_id: parseInt(showId, 10)
+                })
             });
 
-            if (!dataBlob) {
-                // Fallback to specific IDs just in case
-                for (const selector of config.selectors.radio.dataBlobElements) {
-                    const blob = $(selector).attr('data-blob');
-                    if (blob) {
-                        dataBlob = blob;
-                        break;
-                    }
-                }
-            }
-
-            if (!dataBlob) {
-                console.log('[MobileScraper] No data-blob found in standard elements. Searching scripts...');
-                // Fallback 1: Search scripts for data-blob attribute in a string
-                const scripts = $('script').map((_, el) => $(el).html()).get();
-                for (const script of scripts) {
-                    if (script) {
-                        for (const regexStr of config.selectors.radio.scriptRegexes) {
-                            const regex = new RegExp(regexStr);
-                            const match = script.match(regex);
-                            if (match) {
-                                dataBlob = match[1];
-                                console.log(`[MobileScraper] Found data-blob in script via regex: ${regexStr}`);
-                                break;
-                            }
-                        }
-                        if (dataBlob) break;
-                    }
-                }
-            }
-
-            if (!dataBlob) {
-                console.error('[MobileScraper] Still no data-blob found for radio station');
+            if (!response.ok) {
+                console.error(`[MobileScraper] API request failed with status ${response.status}`);
                 return { streamUrl: '', duration: 0 };
             }
 
+            const rawBody = await response.text();
+            let data;
             try {
-                // Determine if we need to decode entities. 
-                // cheerio.attr() usually handles this, but regex fallback might not.
-                let decoded = dataBlob;
-                if (dataBlob.includes('&quot;')) {
-                    const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-                    decoded = dataBlob.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
-                }
-
-                // If it still starts with <, it's definitely not JSON
-                if (decoded.trim().startsWith('<')) {
-                    console.error('[MobileScraper] Decoded data-blob starts with <, invalid JSON. Preview:', decoded.substring(0, 100));
-                    return { streamUrl: '', duration: 0 };
-                }
-
-                let appData;
-                try {
-                    appData = JSON.parse(decoded);
-                } catch (parseErr) {
-                    console.error('[MobileScraper] JSON parse failed for data-blob. Preview:', decoded.substring(0, 100));
-                    throw parseErr;
-                }
-
-                const shows = appData.appData?.shows || appData.shows || [];
-                let show = shows.find((s: any) => {
-                    const id = String(config.radioData.showIdKeys.reduce((acc: any, key: string) => acc || s[key], null as any) || '');
-                    return id === showId;
-                });
-
-                // Fallback to current_show
-                if (!show && (appData.appData?.current_show || appData.current_show)) {
-                    const currentShow = appData.appData?.current_show || appData.current_show;
-                    if (String(currentShow.showId || currentShow.id || currentShow.show_id) === showId) {
-                        show = currentShow;
-                    }
-                }
-
-                // Extract track ID dynamically from config keys
-                let audioTrackId = config.radioData.trackIdKeys.reduce((acc: any, key: string) => acc || show?.[key] || appData[key], null as any);
-                const bandId = show?.bandId || show?.band_id || appData.bandId || appData.band_id || 1;
-
-                if (!audioTrackId) {
-                    console.log('[MobileScraper] Track ID not found in standard paths. Performing recursive search...');
-
-                    // Recursive search helper
-                    const findId = (obj: any): any => {
-                        if (!obj || typeof obj !== 'object') return null;
-
-                        // Prefer specific radio track fields from config
-                        for (const key of config.radioData.trackIdKeys) {
-                            if (obj[key] && (typeof obj[key] === 'number' || typeof obj[key] === 'string')) return obj[key];
-                        }
-
-                        for (const key in obj) {
-                            // Avoid searching very deep or recursive references if any
-                            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                                const found = findId(obj[key]);
-                                if (found) return found;
-                            }
-                        }
-                        return null;
-                    };
-
-                    // Try searching in likely candidates first
-                    audioTrackId = findId(appData.tracklists) || findId(appData.item_cache) || findId(appData);
-                }
-
-                if (!audioTrackId) {
-                    console.error('[MobileScraper] Could not find audioTrackId for radio station', {
-                        showId,
-                        foundShow: !!show,
-                        availableShows: shows.length,
-                        hasRootId: !!(appData.audioTrackId || appData.track_id),
-                        dataKeys: Object.keys(appData).slice(0, 10)
-                    });
-                    return { streamUrl: '', duration: 0 };
-                }
-
-                console.log(`[MobileScraper] Found track ID: ${audioTrackId}`);
-
-                // Fallback: Check if appData already contains the stream URL for this track
-                const findStream = (obj: any): any => {
-                    if (!obj || typeof obj !== 'object') return null;
-                    if (obj.track_id === audioTrackId || obj.id === audioTrackId) {
-                        const url = obj.file?.['mp3-128'] || obj.streaming_url?.['mp3-128'];
-                        if (url) return { streamUrl: url, duration: obj.duration || 0 };
-                    }
-                    for (const key in obj) {
-                        if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                            const found = findStream(obj[key]);
-                            if (found) return found;
-                        }
-                    }
-                    return null;
-                };
-
-                const directStream = findStream(appData);
-                if (directStream && directStream.streamUrl) {
-                    console.log('[MobileScraper] Found stream URL directly in page data');
-                    return directStream;
-                }
-
-                console.log(`[MobileScraper] Fetching track details from API for ID: ${audioTrackId} (Band: ${bandId})`);
-
-                // 3. Fetch track details from mobile API
-                const mobileUrl = config.endpoints.mobileTralbumDetailsApi
-                    .replace('{band_id}', bandId.toString())
-                    .replace('{track_id}', audioTrackId.toString());
-                const apiRes = await fetch(mobileUrl, {
-                    headers: {
-                        'Cookie': cookies,
-                        'User-Agent': config.userAgents.mobileApi
-                    }
-                });
-
-                const rawBody = await apiRes.text();
-
-                if (!apiRes.ok) {
-                    console.error(`[MobileScraper] API request failed with status ${apiRes.status}:`, rawBody.substring(0, 200));
-                    return { streamUrl: '', duration: 0 };
-                }
-
-                let trackData;
-                try {
-                    trackData = JSON.parse(rawBody);
-                } catch {
-                    console.error('[MobileScraper] Failed to parse API response as JSON. Body starts with:', rawBody.substring(0, 100));
-                    return { streamUrl: '', duration: 0 };
-                }
-
-                if (trackData && trackData.tracks && trackData.tracks.length > 0) {
-                    const track = trackData.tracks[0];
-                    const streamUrl = track.streaming_url?.['mp3-128'] || track.streaming_url?.['mp3-v0'];
-                    const duration = track.duration || 0;
-                    if (streamUrl) {
-                        console.log('[MobileScraper] Successfully found stream URL via API');
-                        return { streamUrl, duration };
-                    }
-                }
-                console.error('[MobileScraper] No valid tracks or stream URLs found in API response');
-                return { streamUrl: '', duration: 0 };
-            } catch (e) {
-                console.error('[MobileScraper] Error parsing radio page data:', e);
+                data = JSON.parse(rawBody);
+            } catch {
+                console.error('[MobileScraper] Failed to parse API response as JSON.');
                 return { streamUrl: '', duration: 0 };
             }
+
+            const tracklist = data?.tracklist;
+            const compiledTrack = tracklist?.compiledTrack;
+
+            if (compiledTrack && compiledTrack.streamUrl) {
+                console.log('[MobileScraper] Successfully found stream URL via player_data_web API');
+                return {
+                    streamUrl: compiledTrack.streamUrl,
+                    duration: compiledTrack.duration || 0
+                };
+            }
+
+            console.error('[MobileScraper] Stream URL not found in player_data_web response for radio track');
+            return { streamUrl: '', duration: 0 };
         } catch (error) {
             console.error(`[MobileScraper] Error fetching station stream URL for ${showId}:`, error);
             return { streamUrl: '', duration: 0 };
+        }
+    }
+
+    /**
+     * Extract individual tracks from a radio show
+     */
+    public async getStationTracks(showId: string): Promise<Track[]> {
+        console.log(`[MobileScraper] fetching tracks for radio show ${showId}`);
+        const config = remoteConfigService.get();
+        try {
+            const response = await fetch("https://bandcamp.com/api/player/2/player_data_web", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "User-Agent": config.userAgents.desktop
+                },
+                body: JSON.stringify({
+                    item_type: "radio",
+                    item_id: parseInt(showId, 10)
+                })
+            });
+
+            if (!response.ok) {
+                console.error(`[MobileScraper] API request failed with status ${response.status}`);
+                return [];
+            }
+
+            const rawBody = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawBody);
+            } catch {
+                console.error('[MobileScraper] Failed to parse API response as JSON.');
+                return [];
+            }
+
+            const tracklist = data?.tracklist;
+            const rawTracks = tracklist?.tracks || [];
+
+            return rawTracks
+                .filter((t: any) => t.streamUrl)
+                .map((t: any): Track => ({
+                    id: `radio-track-${t.id || Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    title: t.title || "Unknown Title",
+                    artist: t.artistName || "Unknown Artist",
+                    album: t.album?.title || "Bandcamp Radio",
+                    duration: t.duration || 0,
+                    artworkUrl: t.artId ? `https://f4.bcbits.com/img/a${t.artId}_2.jpg` : (tracklist.imageId ? `https://f4.bcbits.com/img/a${tracklist.imageId}_2.jpg` : ""),
+                    streamUrl: t.streamUrl,
+                    bandcampUrl: t.url || t.album?.url || "https://bandcamp.com",
+                    isCached: false,
+                    // Do NOT set radioStationId here. If set, the player services will treat
+                    // these individual tracks as the full radio show and overwrite their streamUrl
+                    // with the full DJ mix stream URL.
+                }));
+        } catch (error) {
+            console.error(`[MobileScraper] Error fetching station tracks for ${showId}:`, error);
+            return [];
         }
     }
 }

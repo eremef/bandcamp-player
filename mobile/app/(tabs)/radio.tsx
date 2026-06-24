@@ -24,6 +24,8 @@ export default function RadioScreen() {
     const setRadioSearchQuery = useStore((state) => state.setRadioSearchQuery);
     const clearQueue = useStore((state) => state.clearQueue);
 
+    const extractRadioTracksToQueue = useStore((state) => state.extractRadioTracksToQueue);
+
     // Per-item ActionSheet state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
@@ -62,17 +64,22 @@ export default function RadioScreen() {
         setActionSheetTitle(station.name);
         setActionSheetActions([
             {
-                text: "Play Now",
+                text: "Play Mix Now",
                 icon: Play,
                 onPress: () => playStation(station)
             },
             {
-                text: "Play Next",
+                text: "Extract Tracks",
+                icon: ListPlus,
+                onPress: () => extractRadioTracksToQueue(station)
+            },
+            {
+                text: "Play Mix Next",
                 icon: ListEnd,
                 onPress: () => addStationToQueue(station, true)
             },
             {
-                text: "Add to Queue",
+                text: "Add Mix to Queue",
                 icon: ListPlus,
                 onPress: () => addStationToQueue(station, false)
             },
@@ -131,17 +138,24 @@ export default function RadioScreen() {
 
     const bulkActions: Action[] = React.useMemo(() => [
         {
-            text: "Play Now",
+            text: "Play Mix Now",
             icon: Play,
             onPress: handleBulkPlayNow,
         },
         {
-            text: "Play Next",
+            text: "Extract Tracks",
+            icon: ListPlus,
+            onPress: () => {
+                filteredStations.forEach(s => extractRadioTracksToQueue(s));
+            },
+        },
+        {
+            text: "Play Mix Next",
             icon: ListEnd,
             onPress: handleBulkPlayNext,
         },
         {
-            text: "Add to Queue",
+            text: "Add Mix to Queue",
             icon: ListPlus,
             onPress: handleBulkAddToQueue,
         },
@@ -155,7 +169,7 @@ export default function RadioScreen() {
             style: "cancel",
             onPress: () => { },
         },
-    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue]);
+    ], [handleBulkPlayNow, handleBulkPlayNext, handleBulkAddToQueue, filteredStations, extractRadioTracksToQueue]);
 
     const renderItem = ({ item }: { item: RadioStation }) => {
         return (

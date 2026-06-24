@@ -296,6 +296,23 @@ export class PlayerService extends EventEmitter {
         this.emitRadioStateChange();
     }
 
+    async extractRadioTracksToQueue(station: RadioStation): Promise<void> {
+        this.isRadioActive = true;
+        this.currentStation = station;
+
+        const tracks = await this.scraperService.getStationTracks(station.id);
+        if (tracks.length > 0) {
+            // First track immediately starts playing
+            await this.play(tracks[0], true);
+            // Queue the rest
+            if (tracks.length > 1) {
+                this.addTracksToQueue(tracks.slice(1), 'radio');
+            }
+        }
+        
+        this.emitRadioStateChange();
+    }
+
     /**
      * Convert a RadioStation to a Track object for queue/playlist use
      */
