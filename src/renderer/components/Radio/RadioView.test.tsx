@@ -61,9 +61,9 @@ describe('RadioView', () => {
         const menuButton = screen.getByTitle('More options');
         fireEvent.click(menuButton);
 
-        expect(screen.getByText('Play Now')).toBeInTheDocument();
-        expect(screen.getByText('Play Next')).toBeInTheDocument();
-        expect(screen.getByText('Add to Queue')).toBeInTheDocument();
+        expect(screen.getByText('Play Mix')).toBeInTheDocument();
+        expect(screen.getByText('Play Mix Next')).toBeInTheDocument();
+        expect(screen.getByText('Add Mix to Queue')).toBeInTheDocument();
     });
 
     it('triggers actions from context menu', async () => {
@@ -80,13 +80,13 @@ describe('RadioView', () => {
         fireEvent.click(menuButton);
 
         // Click action
-        fireEvent.click(screen.getByText('Add to Queue'));
+        fireEvent.click(screen.getByText('Add Mix to Queue'));
 
         expect(mockAddRadioToQueue).toHaveBeenCalledWith(mockStations[0], false);
 
         // Wait for state update to complete to avoid act warning
         await waitFor(() => {
-            expect(screen.queryByText('Add to Queue')).not.toBeInTheDocument();
+            expect(screen.queryByText('Add Mix to Queue')).not.toBeInTheDocument();
         });
     });
 

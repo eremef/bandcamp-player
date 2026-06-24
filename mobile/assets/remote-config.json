@@ -1,5 +1,5 @@
 {
-    "version": "1.0.3",
+    "version": "1.0.4",
     "selectors": {
         "collection": {
             "itemContainer": ".collection-item-container",
@@ -21,6 +21,7 @@
         },
         "radio": {
             "dataBlobElements": [
+                "#HomepageApp",
                 "#ArchiveApp",
                 "#p-show-player",
                 ".bcweekly-player"
