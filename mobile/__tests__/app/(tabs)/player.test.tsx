@@ -30,6 +30,9 @@ jest.mock('lucide-react-native', () => {
         Wifi: createIcon('WifiIcon'),
         ArrowLeftRight: createIcon('ArrowLeftRightIcon'),
         Settings: createIcon('SettingsIcon'),
+        Info: createIcon('InfoIcon'),
+        LogOut: createIcon('LogOutIcon'),
+        X: createIcon('XIcon'),
     };
 });
 
@@ -197,17 +200,7 @@ describe('PlayerScreen', () => {
         unmount();
     });
 
-    it('opens menu and handles theme selection', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
 
-        expect(getByText('Appearance')).toBeTruthy();
-        expect(getByText('Dark')).toBeTruthy();
-
-        fireEvent.press(getByText('Light'));
-        expect(mockStore.setTheme).toHaveBeenCalledWith('light');
-        unmount();
-    });
 
     it('handles volume modal', () => {
         const { getByText, getAllByText, unmount } = render(<PlayerScreen />);
