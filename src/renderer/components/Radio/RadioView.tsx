@@ -186,6 +186,12 @@ export function RadioView() {
                                         <button onClick={() => handleBulkAction('play')}>
                                             <Play size={16} /> Play Mixes
                                         </button>
+                                        <button onClick={() => handleBulkAction('playNext')}>
+                                            <SkipForward size={16} /> Play Mixes Next
+                                        </button>
+                                        <button onClick={() => handleBulkAction('addToQueue')}>
+                                            <List size={16} /> Add Mixes to Queue
+                                        </button>
                                         <div className={styles.menuDivider} />
                                         <span className={styles.menuLabel}>Extract Tracks</span>
                                         <button onClick={() => {
@@ -204,15 +210,9 @@ export function RadioView() {
                                         }}>
                                             <ListPlus size={16} /> Extract & Add to Queue
                                         </button>
-                                        <button onClick={() => handleBulkAction('playNext')}>
-                                            <SkipForward size={16} /> Play Mix Next
-                                        </button>
-                                        <button onClick={() => handleBulkAction('addToQueue')}>
-                                            <List size={16} /> Add Mix to Queue
-                                        </button>
+                                        <div className={styles.menuDivider} />
                                         {playlists.length > 0 && (
                                             <>
-                                                <div className={styles.menuDivider} />
                                                 <span className={styles.menuLabel}>Add to Playlist</span>
                                                 {playlists.map((playlist) => (
                                                     <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
