@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check } from 'lucide-react-native';
+import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
 import { remoteConfigService } from '@shared/remote-config.service';
@@ -26,7 +27,9 @@ export default function SettingsScreen() {
         crossfadeEnabled,
         setCrossfadeEnabled,
         crossfadeDuration,
-        setCrossfadeDuration
+        setCrossfadeDuration,
+        theme,
+        setTheme
     } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
@@ -39,6 +42,25 @@ export default function SettingsScreen() {
         }
     };
 
+    const renderThemeOption = (option: Theme, label: string, description: string, Icon: any) => {
+        const isSelected = theme === option;
+        return (
+            <TouchableOpacity
+                style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}
+                onPress={() => setTheme(option)}
+            >
+                <View style={styles.settingLabelContainer}>
+                    <Icon color={colors.text} size={20} style={styles.settingIcon} />
+                    <View>
+                        <Text style={[styles.settingTitle, { color: colors.text }]}>{label}</Text>
+                        <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>{description}</Text>
+                    </View>
+                </View>
+                {isSelected && <Check color={colors.accent} size={20} />}
+            </TouchableOpacity>
+        );
+    };
+
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
@@ -48,6 +70,13 @@ export default function SettingsScreen() {
                 </TouchableOpacity>
             </View>
             <ScrollView style={styles.content}>
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Appearance</Text>
+                    {renderThemeOption('system', 'System', 'Follow device settings', Monitor)}
+                    {renderThemeOption('light', 'Light', 'Always use light theme', Sun)}
+                    {renderThemeOption('dark', 'Dark', 'Always use dark theme', Moon)}
+                </View>
+
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Remote Configuration</Text>
                     <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>

@@ -3,8 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Moon, Sun, Monitor, Check, Globe, Wifi, ArrowLeftRight, Settings } from 'lucide-react-native';
-import { Theme } from '@shared/types';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
@@ -13,6 +12,7 @@ import { InputModal } from '../../components/InputModal';
 
 export default function PlayerScreen() {
     const colors = useTheme();
+    const isLightTheme = colors.background === '#ffffff';
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [localVolume, setLocalVolume] = useState<number | null>(null);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -37,8 +37,6 @@ export default function PlayerScreen() {
         volume,
         setVolume,
         hostIp,
-        theme,
-        setTheme,
         mode,
         setMode,
         logoutBandcamp,
@@ -94,24 +92,6 @@ export default function PlayerScreen() {
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     };
 
-    const renderThemeOption = (option: Theme, label: string, Icon: any) => {
-        const isSelected = theme === option;
-        return (
-            <TouchableOpacity
-                style={[
-                    styles.menuThemeOption,
-                    isSelected && { borderColor: colors.accent, borderWidth: 1 }
-                ]}
-                onPress={() => setTheme(option)}
-            >
-                <View style={styles.menuThemeOptionLeft}>
-                    <Icon size={20} color={isSelected ? colors.accent : colors.textSecondary} />
-                    <Text style={[styles.menuThemeLabel, { color: colors.text }]}>{label}</Text>
-                </View>
-                {isSelected && <Check size={16} color={colors.accent} />}
-            </TouchableOpacity>
-        );
-    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -129,7 +109,11 @@ export default function PlayerScreen() {
 
             <View style={styles.content}>
                 {/* Artwork */}
-                <View style={[styles.artworkContainer, { backgroundColor: colors.input, shadowColor: colors.text }]}>
+                <View style={[
+                    styles.artworkContainer,
+                    { backgroundColor: colors.input },
+                    isLightTheme && styles.shadow
+                ]}>
                     {currentTrack && currentTrack.artworkUrl ? (
                         <Image
                             source={{ uri: currentTrack.artworkUrl }}
@@ -268,16 +252,7 @@ export default function PlayerScreen() {
                             </Text>
                             {mode === 'remote' && <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>}
 
-                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
-                            <Text style={[styles.menuLabel, { color: colors.textSecondary }]}>Appearance</Text>
-                            <View style={styles.themeOptionsContainer}>
-                                {renderThemeOption('system', 'System', Monitor)}
-                                {renderThemeOption('light', 'Light', Sun)}
-                                {renderThemeOption('dark', 'Dark', Moon)}
-                            </View>
-
-                            <View style={[styles.menuDivider, { backgroundColor: colors.border }]} />
 
                             {/* {currentTrack && (
                                 <TouchableOpacity
@@ -311,7 +286,10 @@ export default function PlayerScreen() {
                                     router.push('/about' as any);
                                 }}
                             >
-                                <Text style={[styles.menuItemText, { color: colors.text }]}>About</Text>
+                                <View style={styles.menuItemWithIcon}>
+                                    <Info size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                    <Text style={[styles.menuItemText, { color: colors.text }]}>About</Text>
+                                </View>
                             </TouchableOpacity>
 
                             {mode === 'standalone' && (
@@ -319,7 +297,10 @@ export default function PlayerScreen() {
                                     style={styles.menuItem}
                                     onPress={handleLogout}
                                 >
-                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Logout</Text>
+                                    <View style={styles.menuItemWithIcon}>
+                                        <LogOut size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                        <Text style={[styles.menuItemText, { color: colors.text }]}>Logout</Text>
+                                    </View>
                                 </TouchableOpacity>
                             )}
 
@@ -327,9 +308,12 @@ export default function PlayerScreen() {
                                 style={[styles.menuItem, styles.menuItemDestructive]}
                                 onPress={handleDisconnect}
                             >
-                                <Text style={[styles.menuItemText, styles.destructiveText]}>
-                                    {mode === 'standalone' ? 'Exit' : 'Disconnect'}
-                                </Text>
+                                <View style={styles.menuItemWithIcon}>
+                                    <X size={18} color="#ef4444" style={{ marginRight: 12 }} />
+                                    <Text style={[styles.menuItemText, styles.destructiveText]}>
+                                        {mode === 'standalone' ? 'Exit' : 'Disconnect'}
+                                    </Text>
+                                </View>
                             </TouchableOpacity>
                         </View>
                     </Pressable>
@@ -426,6 +410,8 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         overflow: 'hidden',
         marginTop: 15,
+    },
+    shadow: {
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
@@ -585,9 +571,9 @@ const styles = StyleSheet.create({
     },
     menuContainer: {
         backgroundColor: '#1e1e1e',
-        width: 240,
+        width: 140,
         borderRadius: 16,
-        padding: 16,
+        padding: 20,
         borderWidth: 1,
     },
     menuTitle: {
@@ -606,31 +592,11 @@ const styles = StyleSheet.create({
     menuLabel: {
         color: '#888',
         fontSize: 10,
-        marginBottom: 8,
+        marginBottom: 5,
         alignSelf: 'flex-start',
         textTransform: 'uppercase',
     },
-    themeOptionsContainer: {
-        width: '100%',
-        marginBottom: 8,
-    },
-    menuThemeOption: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingVertical: 10,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        marginBottom: 4,
-    },
-    menuThemeOptionLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    menuThemeLabel: {
-        fontSize: 14,
-    },
+
     menuDivider: {
         width: '100%',
         height: 1,

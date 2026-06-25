@@ -69,11 +69,6 @@ export default function RadioScreen() {
                 onPress: () => playStation(station)
             },
             {
-                text: "Extract Tracks",
-                icon: ListPlus,
-                onPress: () => extractRadioTracksToQueue(station)
-            },
-            {
                 text: "Play Mix Next",
                 icon: ListEnd,
                 onPress: () => addStationToQueue(station, true)
@@ -83,6 +78,18 @@ export default function RadioScreen() {
                 icon: ListPlus,
                 onPress: () => addStationToQueue(station, false)
             },
+            { text: "", type: "separator", onPress: () => { } },
+            {
+                text: "Extract & Play",
+                icon: Play,
+                onPress: () => extractRadioTracksToQueue(station, false)
+            },
+            {
+                text: "Extract & Add to Queue",
+                icon: ListPlus,
+                onPress: () => extractRadioTracksToQueue(station, true)
+            },
+            { text: "", type: "separator", onPress: () => { } },
             {
                 text: "Add to Playlist",
                 icon: ListMusic,
@@ -91,6 +98,7 @@ export default function RadioScreen() {
                     setPlaylistModalVisible(true);
                 }
             },
+            { text: "", type: "separator", onPress: () => { } },
             {
                 text: "Cancel",
                 style: "cancel",
@@ -143,13 +151,6 @@ export default function RadioScreen() {
             onPress: handleBulkPlayNow,
         },
         {
-            text: "Extract Tracks",
-            icon: ListPlus,
-            onPress: () => {
-                filteredStations.forEach(s => extractRadioTracksToQueue(s));
-            },
-        },
-        {
             text: "Play Mix Next",
             icon: ListEnd,
             onPress: handleBulkPlayNext,
@@ -159,11 +160,28 @@ export default function RadioScreen() {
             icon: ListPlus,
             onPress: handleBulkAddToQueue,
         },
+        { text: "", type: "separator", onPress: () => { } },
+        {
+            text: "Extract & Play",
+            icon: Play,
+            onPress: () => {
+                filteredStations.forEach(s => extractRadioTracksToQueue(s, false));
+            },
+        },
+        {
+            text: "Extract & Add to Queue",
+            icon: ListPlus,
+            onPress: () => {
+                filteredStations.forEach(s => extractRadioTracksToQueue(s, true));
+            },
+        },
+        { text: "", type: "separator", onPress: () => { } },
         {
             text: "Add to Playlist",
             icon: ListMusic,
             onPress: () => setBulkPlaylistModalVisible(true),
         },
+        { text: "", type: "separator", onPress: () => { } },
         {
             text: "Cancel",
             style: "cancel",
