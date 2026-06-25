@@ -194,6 +194,7 @@ export function CollectionView() {
         case 'play': {
           await clearQueue(false);
           let playIndex = 0;
+          let hasStartedPlaying = false;
           for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: playIndex + 1 }));
             if (item.type === 'album' && item.album) {
@@ -201,38 +202,46 @@ export function CollectionView() {
               if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
                 await addAlbumToQueue(albumWithTracks, false);
                 itemsQueued++;
+                if (!hasStartedPlaying) {
+                  await playQueueIndex(0);
+                  hasStartedPlaying = true;
+                }
               }
             } else if (item.type === 'track' && item.track) {
               await addTracksToQueue([item.track], false);
               itemsQueued++;
+              if (!hasStartedPlaying) {
+                await playQueueIndex(0);
+                hasStartedPlaying = true;
+              }
             }
             playIndex++;
           }
-          if (itemsQueued > 0) {
-            await playQueueIndex(0);
-          } else {
+          if (itemsQueued === 0) {
             showToast("Failed to load any tracks to play", "error");
           }
           break;
         }
         case 'playNext': {
-          // Reverse to maintain order when adding "playNext" multiple times
           let nextIndex = 0;
-          for (const item of [...sortedItems].reverse()) {
+          const allTracks: Parameters<typeof addTracksToQueue>[0] = [];
+          for (const item of sortedItems) {
             setBulkProgress(p => ({ ...p, current: nextIndex + 1 }));
             if (item.type === 'album' && item.album) {
               const albumWithTracks = await ensureAlbumTracks(item.album);
               if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
-                await addAlbumToQueue(albumWithTracks, true);
+                allTracks.push(...albumWithTracks.tracks);
                 itemsQueued++;
               }
             } else if (item.type === 'track' && item.track) {
-              await addTracksToQueue([item.track], true);
+              allTracks.push(item.track);
               itemsQueued++;
             }
             nextIndex++;
           }
-          if (itemsQueued === 0) {
+          if (allTracks.length > 0) {
+            await addTracksToQueue(allTracks, true);
+          } else {
             showToast("Failed to load any tracks to play next", "error");
           }
           break;

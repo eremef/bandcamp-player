@@ -261,8 +261,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(RADIO_CHANNELS.PLAY_STATION, (_, station: RadioStation) =>
     playerService.playStation(station),
   );
-  ipcMain.handle(RADIO_CHANNELS.EXTRACT_TRACKS, (_, station: RadioStation) =>
-    playerService.extractRadioTracksToQueue(station),
+  ipcMain.handle(RADIO_CHANNELS.EXTRACT_TRACKS, (_, station: RadioStation, append?: boolean) =>
+    playerService.extractRadioTracksToQueue(station, append),
   );
   ipcMain.handle(RADIO_CHANNELS.STOP, () => playerService.stopRadio());
   ipcMain.handle(RADIO_CHANNELS.GET_STATE, () => playerService.getRadioState());
@@ -352,7 +352,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
 
     // Update Electron nativeTheme if theme changed
     if (settings.theme) {
-      nativeTheme.themeSource = settings.theme;
+      nativeTheme.themeSource = settings.theme === 'high-contrast' ? 'dark' : settings.theme;
     }
 
     // Emit event so main-process services (like DiscordService) can react

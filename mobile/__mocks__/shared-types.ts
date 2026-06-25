@@ -1,4 +1,4 @@
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = 'light' | 'dark' | 'system' | 'high-contrast';
 export type RepeatMode = 'off' | 'one' | 'all';
 export type Track = any;
 export type Collection = any;

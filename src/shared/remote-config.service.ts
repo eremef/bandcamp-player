@@ -33,8 +33,11 @@ export interface RemoteConfig {
     radioShowWeb: string;
     radioWeeklyWeb: string;
     radioFallbackStream: string;
+    radioPlayerDataApi: string;
     artworkFormat: string;
     radioImageFormat: string;
+    radioTrackArtworkFormat: string;
+    radioTrackImageFormat: string;
   };
   userAgents: {
     desktop: string;
@@ -62,6 +65,10 @@ export interface RemoteConfig {
   radioData: {
     showIdKeys: string[];
     trackIdKeys: string[];
+    fallbackTitle: string;
+    fallbackArtist: string;
+    fallbackAlbum: string;
+    fallbackUrl: string;
   };
 }
 
@@ -197,7 +204,20 @@ export class RemoteConfigService {
         console.log(
           `[RemoteConfig] Verified and loaded remote config v${data.version}`,
         );
-        this.config = data;
+        // Deep merge top-level objects to preserve local newly-added keys 
+        // that might not yet exist in the fetched GitHub config
+        this.config = {
+          ...DefaultConfig,
+          ...data,
+          selectors: { ...DefaultConfig.selectors, ...(data.selectors || {}) },
+          scriptKeys: { ...DefaultConfig.scriptKeys, ...(data.scriptKeys || {}) },
+          endpoints: { ...DefaultConfig.endpoints, ...(data.endpoints || {}) },
+          userAgents: { ...DefaultConfig.userAgents, ...(data.userAgents || {}) },
+          cleaning: { ...DefaultConfig.cleaning, ...(data.cleaning || {}) },
+          scraping: { ...DefaultConfig.scraping, ...(data.scraping || {}) },
+          lastfm: { ...DefaultConfig.lastfm, ...(data.lastfm || {}) },
+          radioData: { ...DefaultConfig.radioData, ...(data.radioData || {}) }
+        } as RemoteConfig;
         this.lastFetchTime = Date.now();
       } else {
         console.error(

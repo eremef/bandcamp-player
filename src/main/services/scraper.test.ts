@@ -58,8 +58,11 @@ describe("ScraperService", () => {
         radioShowWeb: "https://bandcamp.com/?show={showId}",
         radioWeeklyWeb: "https://bandcamp.com/weekly?show={showId}",
         radioFallbackStream: "https://bandcamp.com/bcweekly",
+        radioPlayerDataApi: "https://bandcamp.com/api/player/2/player_data_web",
         artworkFormat: "https://f4.bcbits.com/img/a{art_id}_10.jpg",
-        radioImageFormat: "https://f4.bcbits.com/img/{image_id}_16.jpg"
+        radioImageFormat: "https://f4.bcbits.com/img/{image_id}_16.jpg",
+        radioTrackArtworkFormat: "https://f4.bcbits.com/img/a{art_id}_2.jpg",
+        radioTrackImageFormat: "https://f4.bcbits.com/img/a{image_id}_2.jpg"
       },
       userAgents: {
         desktop: "desktop-ua",
@@ -80,7 +83,11 @@ describe("ScraperService", () => {
       },
       radioData: {
         showIdKeys: ["showId", "show_id", "itemId", "id"],
-        trackIdKeys: ["audioTrackId", "track_id", "trackId"]
+        trackIdKeys: ["audioTrackId", "track_id", "trackId"],
+        fallbackTitle: "Unknown Title",
+        fallbackArtist: "Unknown Artist",
+        fallbackAlbum: "Bandcamp Radio",
+        fallbackUrl: "https://bandcamp.com"
       }
     } as any);
 
@@ -609,6 +616,8 @@ describe("ScraperService", () => {
       mockDatabase = {
         getCollectionCache: vi.fn(),
         saveCollectionCache: vi.fn(),
+        getRadioCache: vi.fn(),
+        saveRadioCache: vi.fn(),
         getSettings: vi.fn().mockReturnValue({ offlineMode: false }),
       };
       scraper = new ScraperService(mockAuthService, mockDatabase);

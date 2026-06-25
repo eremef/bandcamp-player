@@ -139,3 +139,43 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
+
+:root[data-theme="high-contrast"] {
+  /* Background colors */
+  --bg-primary: #000000;
+  --bg-secondary: #000000;
+  --bg-tertiary: #000000;
+  --bg-elevated: #000000;
+  --bg-hover: #1a1a1a;
+  --bg-active: #333333;
+
+  /* Accent colors - High contrast cyan */
+  --accent-primary: #00ffff;
+  --accent-hover: #00ffff;
+  --accent-muted: #004444;
+  --accent-gradient: var(--accent-primary);
+
+  /* Text colors */
+  --text-primary: #ffffff;
+  --text-secondary: #ffff00;
+  --text-tertiary: #cccccc;
+  --text-link: #00ffff;
+  --text-on-accent: #000000;
+
+  /* Semantic colors */
+  --color-success: #00ff00;
+  --color-warning: #ffff00;
+  --color-error: #ff0000;
+  --color-info: #00ffff;
+
+  /* Border colors - High visibility borders */
+  --border-subtle: #313131;
+  --border-default: #ffffff;
+  --border-strong: #ffffff;
+
+  /* Shadow - Disable shadows in high contrast */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-glow: none;
+}

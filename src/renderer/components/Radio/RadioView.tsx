@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download } from 'lucide-react';
+import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download, ListPlus } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -186,13 +186,23 @@ export function RadioView() {
                                         <button onClick={() => handleBulkAction('play')}>
                                             <Play size={16} /> Play Mixes
                                         </button>
+                                        <div className={styles.menuDivider} />
+                                        <span className={styles.menuLabel}>Extract Tracks</span>
                                         <button onClick={() => {
                                             filteredStations.forEach(station => {
-                                                window.electron.radio.extractTracks(station);
+                                                window.electron.radio.extractTracks(station, false);
                                             });
                                             setShowBulkMenu(false);
                                         }}>
-                                            <List size={16} /> Extract Tracks
+                                            <Play size={16} /> Extract & Play
+                                        </button>
+                                        <button onClick={() => {
+                                            filteredStations.forEach(station => {
+                                                window.electron.radio.extractTracks(station, true);
+                                            });
+                                            setShowBulkMenu(false);
+                                        }}>
+                                            <ListPlus size={16} /> Extract & Add to Queue
                                         </button>
                                         <button onClick={() => handleBulkAction('playNext')}>
                                             <SkipForward size={16} /> Play Mix Next
@@ -202,14 +212,14 @@ export function RadioView() {
                                         </button>
                                         {playlists.length > 0 && (
                                             <>
-                                                <div className={styles.bulkMenuDivider} />
-                                                <span className={styles.bulkMenuLabel}>Add to Playlist</span>
+                                                <div className={styles.menuDivider} />
+                                                <span className={styles.menuLabel}>Add to Playlist</span>
                                                 {playlists.map((playlist) => (
                                                     <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
                                                         <Music size={14} /> {playlist.name}
                                                     </button>
                                                 ))}
-                                                <div className={styles.bulkMenuDivider} />
+                                                <div className={styles.menuDivider} />
                                             </>
                                         )}
                                         <button onClick={() => handleBulkAction('download')}>
@@ -240,6 +250,7 @@ export function RadioView() {
                         onClick={() => playRadioStation(station)}
                         onContextMenu={(e) => handleContextMenu(e, station)}
                         onMouseLeave={() => setContextMenu(null)}
+                        style={{ zIndex: contextMenu?.station?.id === station.id ? 50 : 1 }}
                         data-testid="radio-card"
                     >
                         <div className={styles.cardImage}>
@@ -289,14 +300,19 @@ export function RadioView() {
                                 <button onClick={() => { playRadioStation(station); setContextMenu(null); }}>
                                     <Play size={16} /> Play Mix
                                 </button>
-                                <button onClick={() => { window.electron.radio.extractTracks(station); setContextMenu(null); }}>
-                                    <List size={16} /> Extract Tracks
-                                </button>
                                 <button onClick={() => { handlePlayNext(station); }}>
                                     <SkipForward size={16} /> Play Mix Next
                                 </button>
                                 <button onClick={() => { handleAddToQueue(station); }}>
                                     <List size={16} /> Add Mix to Queue
+                                </button>
+                                <div className={styles.menuDivider} />
+                                <span className={styles.menuLabel}>Extract Tracks</span>
+                                <button onClick={() => { window.electron.radio.extractTracks(station, false); setContextMenu(null); }}>
+                                    <Play size={16} /> Extract & Play
+                                </button>
+                                <button onClick={() => { window.electron.radio.extractTracks(station, true); setContextMenu(null); }}>
+                                    <ListPlus size={16} /> Extract & Add to Queue
                                 </button>
                                 <div className={styles.menuDivider} />
                                 {playlists.length > 0 && (
