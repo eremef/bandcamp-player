@@ -254,10 +254,7 @@ mobile/
 
 | What                                           | Size | Status |
 | :--------------------------------------------- | ---- | :----: |
-| Offline mode and music caching - mobile        | XL   | 🔴     |
-| Bug finding and fixing                         | XXL  | 🟡     |
-| View/edit playlist/ drag-to-reorder - mobile   | L    | 🔴     |
-| Chromecast for standalone mobile mode          | L    | 🔴     |
+| Offline mode and music caching - mobile        | XXL  | 🔴     |
 
 **Legend**:
 🟢 finished (waiting for release)
