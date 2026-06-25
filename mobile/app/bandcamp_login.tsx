@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, ActivityIndicator, View, TouchableOpacity, Text } from 'react-native';
+import { StyleSheet, ActivityIndicator, View, TouchableOpacity, Text, AppState, AppStateStatus, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useStore } from '../store';
@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import CookieManager from '@preeternal/react-native-cookie-manager';
+import * as Clipboard from 'expo-clipboard';
 
 const LOGIN_URL = 'https://bandcamp.com/login';
 
@@ -21,6 +22,39 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
     const setMode = useStore((state) => state.setMode);
     const [credentialsJS, setCredentialsJS] = useState<string>('');
     const [isReady, setIsReady] = useState(false);
+    const [showPasteUI, setShowPasteUI] = useState(false);
+
+    React.useEffect(() => {
+        const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+            if (nextAppState === 'active') {
+                const hasString = await Clipboard.hasStringAsync();
+                if (hasString) {
+                    const text = await Clipboard.getStringAsync();
+                    if (text && text.includes('bandcamp.com/login/confirm')) {
+                        Alert.alert(
+                            'Bandcamp Confirmation Link Found',
+                            'We found a Bandcamp confirmation link in your clipboard. Do you want to use it to log in?',
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                { 
+                                    text: 'Use Link', 
+                                    onPress: () => {
+                                        if (webViewRef.current) {
+                                            const js = `window.location.href = "${text}"; true;`;
+                                            webViewRef.current.injectJavaScript(js);
+                                        }
+                                    }
+                                }
+                            ]
+                        );
+                    }
+                }
+            }
+        };
+
+        const subscription = AppState.addEventListener('change', handleAppStateChange);
+        return () => subscription.remove();
+    }, []);
 
     React.useEffect(() => {
         const loadCreds = async () => {
@@ -300,7 +334,37 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                     <X color={colors.text} size={24} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>Login to Bandcamp</Text>
+                <TouchableOpacity onPress={() => setShowPasteUI(!showPasteUI)} style={styles.closeButton}>
+                    <Text style={{ color: colors.accent, fontWeight: 'bold' }}>Stuck?</Text>
+                </TouchableOpacity>
             </View>
+
+            {showPasteUI && (
+                <View style={[styles.pasteContainer, { borderBottomColor: colors.border }]}>
+                    <Text style={[styles.pasteText, { color: colors.text }]}>
+                        If Bandcamp sent you an email confirmation link, copy it from your email app and paste it here:
+                    </Text>
+                    <TouchableOpacity 
+                        style={[styles.pasteButton, { backgroundColor: colors.accent }]}
+                        onPress={async () => {
+                            const hasString = await Clipboard.hasStringAsync();
+                            if (hasString) {
+                                const text = await Clipboard.getStringAsync();
+                                if (text && text.includes('bandcamp.com/login/confirm')) {
+                                    webViewRef.current?.injectJavaScript(`window.location.href = "${text}"; true;`);
+                                    setShowPasteUI(false);
+                                } else {
+                                    Alert.alert('Invalid Link', 'No valid Bandcamp confirmation link found in clipboard.');
+                                }
+                            } else {
+                                Alert.alert('Clipboard Empty', 'Please copy the link from your email first.');
+                            }
+                        }}
+                    >
+                        <Text style={styles.pasteButtonText}>Paste Link from Clipboard</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             <WebView
                 ref={webViewRef}
@@ -357,5 +421,25 @@ const styles = StyleSheet.create({
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    pasteContainer: {
+        padding: 16,
+        borderBottomWidth: 1,
+    },
+    pasteText: {
+        fontSize: 14,
+        marginBottom: 12,
+        lineHeight: 20,
+    },
+    pasteButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    pasteButtonText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 14,
     }
 });
