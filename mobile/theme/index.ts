@@ -24,6 +24,17 @@ export const Colors = {
         header: '#ffffff',
         error: '#d32f2f',
     },
+    'high-contrast': {
+        background: '#000000',
+        card: '#000000',
+        text: '#ffffff',
+        textSecondary: '#ffff00',
+        accent: '#00ffff',
+        border: '#ffffff',
+        input: '#000000',
+        header: '#000000',
+        error: '#ff0000',
+    },
 };
 
 export type ColorTheme = typeof Colors.dark;
@@ -34,6 +45,10 @@ export function useTheme(): ColorTheme {
 
     if (themePreference === 'system') {
         return systemColorScheme === 'light' ? Colors.light : Colors.dark;
+    }
+
+    if (themePreference === 'high-contrast') {
+        return Colors['high-contrast'];
     }
 
     return themePreference === 'light' ? Colors.light : Colors.dark;

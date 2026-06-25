@@ -296,21 +296,29 @@ export class PlayerService extends EventEmitter {
         this.emitRadioStateChange();
     }
 
-    async extractRadioTracksToQueue(station: RadioStation): Promise<void> {
-        this.isRadioActive = true;
-        this.currentStation = station;
+    async extractRadioTracksToQueue(station: RadioStation, append: boolean = false): Promise<void> {
+        if (!append) {
+            this.isRadioActive = true;
+            this.currentStation = station;
+        }
 
         const tracks = await this.scraperService.getStationTracks(station.id);
         if (tracks.length > 0) {
-            // First track immediately starts playing
-            await this.play(tracks[0], true);
-            // Queue the rest
-            if (tracks.length > 1) {
-                this.addTracksToQueue(tracks.slice(1), 'radio');
+            if (append) {
+                this.addTracksToQueue(tracks, 'radio');
+            } else {
+                // First track immediately starts playing
+                await this.play(tracks[0], true);
+                // Queue the rest
+                if (tracks.length > 1) {
+                    this.addTracksToQueue(tracks.slice(1), 'radio');
+                }
             }
         }
         
-        this.emitRadioStateChange();
+        if (!append) {
+            this.emitRadioStateChange();
+        }
     }
 
     /**

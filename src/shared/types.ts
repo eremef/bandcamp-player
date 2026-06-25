@@ -118,7 +118,7 @@ export interface Queue {
 // ============================================================================
 
 export type RepeatMode = "off" | "one" | "all";
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system" | "high-contrast";
 
 export interface PlayerState {
   isPlaying: boolean;
