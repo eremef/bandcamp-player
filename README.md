@@ -46,7 +46,7 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
-- 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
+- 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
 
