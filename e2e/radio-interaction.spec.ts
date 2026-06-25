@@ -77,10 +77,10 @@ test.describe('Radio Interactions', () => {
 
         // 3. Verify context menu options
         await stations.nth(2).click({ button: 'right' });
-        const playNowMenu = window.getByText('Play Now');
+        const playNowMenu = window.getByText('Play Mix', { exact: true });
         await expect(playNowMenu).toBeVisible();
 
-        const addToQueueMenu = window.locator('button, div').filter({ hasText: 'Add to Queue' }).last();
+        const addToQueueMenu = window.locator('button, div').filter({ hasText: 'Add Mix to Queue' }).last();
         await expect(addToQueueMenu).toBeVisible();
         await addToQueueMenu.click();
 
