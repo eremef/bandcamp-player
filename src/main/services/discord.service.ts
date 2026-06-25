@@ -93,7 +93,7 @@ export class DiscordService extends EventEmitter {
             this.client.on("ready", () => {
                 console.log("[DiscordService] Connected to Discord RPC");
                 this.isConnected = true;
-                
+
                 // Set initial presence if we have state
                 if (this.lastState) {
                     this.updatePresence(this.lastState);
@@ -108,8 +108,12 @@ export class DiscordService extends EventEmitter {
             console.log(`[DiscordService] Attempting login with clientId: ${this.clientId}`);
             await this.client.login({ clientId: this.clientId });
             console.log("[DiscordService] Login promise resolved!");
-        } catch (err) {
-            console.error("[DiscordService] Failed to connect to Discord RPC:", err);
+        } catch (err: any) {
+            if (err?.message === "Could not connect") {
+                console.log("[DiscordService] Discord is not running (could not connect). Retrying later...");
+            } else {
+                console.error("[DiscordService] Failed to connect to Discord RPC:", err?.message || err);
+            }
             this.handleDisconnect();
         }
     }
@@ -118,7 +122,10 @@ export class DiscordService extends EventEmitter {
         this.isConnected = false;
         if (this.client) {
             try {
-                this.client.destroy();
+                const destroyPromise = this.client.destroy();
+                if (destroyPromise && typeof destroyPromise.catch === 'function') {
+                    destroyPromise.catch(() => { });
+                }
             } catch {
                 // Ignore errors during destroy
             }
@@ -132,7 +139,7 @@ export class DiscordService extends EventEmitter {
             }
             this.reconnectTimeout = setTimeout(() => {
                 this.connect();
-            }, 15000); // 15 seconds reconnect delay
+            }, 60000); // 60 seconds reconnect delay
         }
     }
 
@@ -141,7 +148,7 @@ export class DiscordService extends EventEmitter {
             clearTimeout(this.reconnectTimeout);
             this.reconnectTimeout = null;
         }
-        
+
         if (this.updateDebounceTimeout) {
             clearTimeout(this.updateDebounceTimeout);
             this.updateDebounceTimeout = null;
@@ -149,8 +156,14 @@ export class DiscordService extends EventEmitter {
 
         if (this.client) {
             try {
-                this.client.clearActivity();
-                this.client.destroy();
+                const clearPromise = this.client.clearActivity();
+                if (clearPromise && typeof clearPromise.catch === 'function') {
+                    clearPromise.catch(() => { });
+                }
+                const destroyPromise = this.client.destroy();
+                if (destroyPromise && typeof destroyPromise.catch === 'function') {
+                    destroyPromise.catch(() => { });
+                }
             } catch (e) {
                 console.error("[DiscordService] Error disconnecting:", e);
             }
@@ -161,7 +174,7 @@ export class DiscordService extends EventEmitter {
 
     private handlePlayerStateChanged(state: PlayerState) {
         this.lastState = state;
-        
+
         if (!this.isEnabled || !this.isConnected) return;
 
         // Debounce updates to avoid hitting rate limits
