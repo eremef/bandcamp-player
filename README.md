@@ -1,8 +1,9 @@
 ![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml)
 
-⬇️ Like the app? Want it to be actively developed and maintained? ⬇️
-
+<div align="center">
+<div>⬇️ Like the app? Want it to be actively developed and maintained? ⬇️</div>
 <a href="https://www.buymeacoffee.com/eremef.xyz"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" alt="Buy me a coffee" title="Buy me a coffee" /></a> <a href="https://buycoffee.to/eremef.xyz" target="_blank"><img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 195px; height: 51px" alt="Postaw kawę dla eremef.xyz na buycoffee.to" title="Postaw kawę dla eremef.xyz na buycoffee.to"></a>
+</div>
 
 # Bandcamp Experimental Transport Assistant
 
