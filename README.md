@@ -33,13 +33,13 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, and Wishlist
-- ↕️ **Synchronized Sorting** - Persistent and cross-platform sorting (Date, Title, Artist) synchronized between devices
+- ↕️ **Sorting** - Persistent sorting (Date, Title, Artist) synchronized between devices
 - 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
 - 🎛️ **Windows Integration** - Control playback via system media keys and Taskbar thumbnail buttons (Thumbar)
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history (bring your own API token)
+- 🎧 **Last.fm Scrobbling** - Track your listening history
 - 🎮 **Discord Rich Presence** - Show what you're listening to on your Discord profile
 - 🔗 **Gapless Playback** - Uninterrupted transitions between tracks
 - 🎼 **Crossfade Support** - Smoothly blend tracks with adjustable duration
