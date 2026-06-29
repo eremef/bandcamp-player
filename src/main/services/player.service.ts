@@ -7,6 +7,7 @@ import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
 import { CastService } from './cast.service';
 import { Database } from '../database/database';
+import * as path from 'path';
 
 // ============================================================================
 // Player Service
@@ -167,9 +168,8 @@ export class PlayerService extends EventEmitter {
                 const cachedPath = this.cacheService.getCachedPath(track.id);
                 if (cachedPath) {
                     const port = (global as any).cacheServerPort || 0;
-                    const cleanPath = cachedPath.replace(/^\/+/, "");
-                    const encoded = cleanPath.split("/").map(encodeURIComponent).join("/");
-                    track.streamUrl = `http://127.0.0.1:${port}/${encoded}`;
+                    const filename = path.basename(cachedPath);
+                    track.streamUrl = `http://127.0.0.1:${port}/${encodeURIComponent(filename)}`;
                     console.log(`[PlayerService] Using cached file for ${track.title}`);
                 }
             }
@@ -315,7 +315,7 @@ export class PlayerService extends EventEmitter {
                 }
             }
         }
-        
+
         if (!append) {
             this.emitRadioStateChange();
         }

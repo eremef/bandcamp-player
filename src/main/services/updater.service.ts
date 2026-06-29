@@ -11,7 +11,11 @@ export class UpdaterService extends EventEmitter {
     private checkInterval: ReturnType<typeof setInterval> | null = null;
     private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-    constructor(private isDev: boolean, private database: Database) {
+    constructor(
+        private isDev: boolean,
+        private database: Database,
+        private forceDisable: boolean = false
+    ) {
         super();
         this.setupListeners();
 
@@ -25,11 +29,13 @@ export class UpdaterService extends EventEmitter {
             // autoUpdater.updateConfigPath = path.join(__dirname, 'dev-app-update.yml');
         }
 
-        // Initial check after startup
-        setTimeout(() => this.checkForUpdates(), 1000 * 15); // 15 seconds after start
+        if (!this.forceDisable) {
+            // Initial check after startup
+            setTimeout(() => this.checkForUpdates(), 1000 * 15); // 15 seconds after start
 
-        // Setup periodic check
-        this.startPeriodicCheck();
+            // Setup periodic check
+            this.startPeriodicCheck();
+        }
     }
 
     private startPeriodicCheck() {
@@ -119,6 +125,11 @@ export class UpdaterService extends EventEmitter {
     }
 
     public async checkForUpdates(isManual = false) {
+        if (this.forceDisable) {
+            console.log('[Updater] Updates are disabled.');
+            this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
+            return;
+        }
         if (this.isChecking) return;
 
         this.isManualCheck = isManual;
