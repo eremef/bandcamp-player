@@ -10,6 +10,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
+    const isMac = window.electron.system.platform === 'darwin';
     const {
         settings,
         updateSettings,
@@ -175,7 +176,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                 <div className={styles.content}>
                     {/* Update Alert */}
-                    {(updateStatus.status === 'available' || updateStatus.status === 'downloading' || updateStatus.status === 'downloaded') && (
+                    {!isMac && (updateStatus.status === 'available' || updateStatus.status === 'downloading' || updateStatus.status === 'downloaded') && (
                         <div className={`${styles.updateAlert} ${updateStatus.status === 'downloaded' ? styles.updateReady : ''}`}>
                             <div className={styles.updateAlertInfo}>
                                 <AlertCircle size={20} />
@@ -567,27 +568,29 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     </section>
 
                     {/* Updates */}
-                    <section className={styles.section}>
-                        <h3>Updates</h3>
-                        <div className={styles.setting}>
-                            <div className={styles.settingInfo}>
-                                <span className={styles.settingLabel}>Beta version updates</span>
-                                <span className={styles.settingHint}>Receive early access to new features and bug fixes</span>
+                    {!isMac && (
+                        <section className={styles.section}>
+                            <h3>Updates</h3>
+                            <div className={styles.setting}>
+                                <div className={styles.settingInfo}>
+                                    <span className={styles.settingLabel}>Beta version updates</span>
+                                    <span className={styles.settingHint}>Receive early access to new features and bug fixes</span>
+                                </div>
+                                <label className={styles.switch}>
+                                    <input
+                                        type="checkbox"
+                                        checked={settings?.allowBetaUpdates ?? false}
+                                        onChange={(e) => updateSettings({ allowBetaUpdates: e.target.checked })}
+                                        data-testid="setting-beta-updates"
+                                    />
+                                    <span className={styles.slider}></span>
+                                </label>
                             </div>
-                            <label className={styles.switch}>
-                                <input
-                                    type="checkbox"
-                                    checked={settings?.allowBetaUpdates ?? false}
-                                    onChange={(e) => updateSettings({ allowBetaUpdates: e.target.checked })}
-                                    data-testid="setting-beta-updates"
-                                />
-                                <span className={styles.slider}></span>
-                            </label>
-                        </div>
-                        <div className={styles.updateContainer}>
-                            {renderUpdateSection()}
-                        </div>
-                    </section>
+                            <div className={styles.updateContainer}>
+                                {renderUpdateSection()}
+                            </div>
+                        </section>
+                    )}
 
                     {/* About */}
                     <section className={styles.section}>
