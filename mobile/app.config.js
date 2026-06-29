@@ -62,6 +62,7 @@ module.exports = {
       'expo-web-browser',
       'expo-secure-store',
       'expo-status-bar',
+      'expo-splash-screen',
     ],
     extra: {
       eas: {

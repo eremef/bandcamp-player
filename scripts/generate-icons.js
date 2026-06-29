@@ -1,5 +1,4 @@
 const { Jimp } = require('jimp');
-const pngToIco = require('png-to-ico');
 const fs = require('fs');
 const path = require('path');
 
@@ -59,7 +58,8 @@ async function processIcon() {
         const tempIcoPng = path.join(ELECTRON_ICON_DIR, 'temp_ico.png');
         await saveResized('temp_ico.png', 256, 256, ELECTRON_ICON_DIR);
 
-        const converter = pngToIco.default || pngToIco;
+        const pngToIcoModule = await import('png-to-ico');
+        const converter = pngToIcoModule.default || pngToIcoModule;
 
         // Use the temp 256 file
         const buf = await converter([tempIcoPng]);

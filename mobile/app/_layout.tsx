@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useStore } from '../store';
 import { useEffect, useRef } from 'react';
 import { AppState, Platform, PermissionsAndroid } from 'react-native';
@@ -8,6 +9,8 @@ import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
 import { SilentRefreshHandler } from '../components/SilentRefreshHandler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
     const connectionStatus = useStore(state => state.connectionStatus);
@@ -25,8 +28,17 @@ export default function RootLayout() {
     useVolumeButtons();
 
     useEffect(() => {
-        setupPlayer();
-        registerBackgroundSync();
+        const init = async () => {
+            await setupPlayer();
+            await registerBackgroundSync();
+            try {
+                await SplashScreen.hideAsync();
+            } catch (e) {
+                console.warn(e);
+            }
+        };
+
+        init();
 
         if (Platform.OS === 'android' && Platform.Version >= 33) {
             PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS)
