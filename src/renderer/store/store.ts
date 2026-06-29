@@ -116,6 +116,10 @@ interface RadioSlice {
     playlistId: string,
     station: RadioStation,
   ) => Promise<void>;
+  extractRadioToPlaylist: (
+    playlistId: string,
+    station: RadioStation,
+  ) => Promise<void>;
 }
 
 interface CacheSlice {
@@ -612,7 +616,20 @@ export const useStore = create<StoreState>()((set, get) => ({
       get().showToast(`${station.name} added to ${playlist.name}`, "success");
     }
   },
-
+  extractRadioToPlaylist: async (playlistId, station) => {
+    get().showToast(`Extracting tracks from ${station.name}...`, "success");
+    try {
+      await window.electron.radio.extractToPlaylist(station, playlistId);
+      get().fetchPlaylists();
+      const playlist = get().playlists.find((p) => p.id === playlistId);
+      if (playlist) {
+        get().showToast(`Tracks from ${station.name} added to ${playlist.name}`, "success");
+      }
+    } catch (error) {
+      console.error(error);
+      get().showToast(`Failed to extract tracks: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+    }
+  },
   // ---- Cache Slice ----
   cacheStats: null,
   cachedTrackIds: new Set(),

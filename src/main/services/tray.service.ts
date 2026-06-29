@@ -108,19 +108,17 @@ export class TrayService {
             { type: 'separator' },
         ];
 
-        if (this.isDev) {
-            template.push({
-                label: 'Toggle DevTools',
-                click: () => {
-                    if (this.mainWindow.webContents.isDevToolsOpened()) {
-                        this.mainWindow.webContents.closeDevTools();
-                    } else {
-                        this.mainWindow.webContents.openDevTools();
-                    }
-                },
-            });
-            template.push({ type: 'separator' });
-        }
+        template.push({
+            label: 'Toggle DevTools',
+            click: () => {
+                if (this.mainWindow.webContents.isDevToolsOpened()) {
+                    this.mainWindow.webContents.closeDevTools();
+                } else {
+                    this.mainWindow.webContents.openDevTools();
+                }
+            },
+        });
+        template.push({ type: 'separator' });
 
         template.push({
             label: 'Quit',

@@ -25,9 +25,11 @@ export default function RadioScreen() {
     const clearQueue = useStore((state) => state.clearQueue);
 
     const extractRadioTracksToQueue = useStore((state) => state.extractRadioTracksToQueue);
+    const extractRadioToPlaylist = useStore((state) => state.extractRadioToPlaylist);
 
     // Per-item ActionSheet state
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
+    const [extractPlaylistModalVisible, setExtractPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const [selectedStation, setSelectedStation] = useState<RadioStation | null>(null);
     const [refreshing, setRefreshing] = useState(false);
@@ -38,6 +40,7 @@ export default function RadioScreen() {
     // Bulk ActionSheet state
     const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
     const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
+    const [bulkExtractPlaylistModalVisible, setBulkExtractPlaylistModalVisible] = useState(false);
 
     const filteredStations = React.useMemo(() => {
         if (!radioSearchQuery.trim()) return radioStations;
@@ -78,6 +81,14 @@ export default function RadioScreen() {
                 icon: ListPlus,
                 onPress: () => addStationToQueue(station, false)
             },
+            {
+                text: "Add to Playlist",
+                icon: ListMusic,
+                onPress: () => {
+                    setSelectedStation(station);
+                    setPlaylistModalVisible(true);
+                }
+            },
             { text: "", type: "separator", onPress: () => { } },
             {
                 text: "Extract & Play",
@@ -89,13 +100,12 @@ export default function RadioScreen() {
                 icon: ListPlus,
                 onPress: () => extractRadioTracksToQueue(station, true)
             },
-            { text: "", type: "separator", onPress: () => { } },
             {
-                text: "Add to Playlist",
+                text: "Extract to Playlist",
                 icon: ListMusic,
                 onPress: () => {
                     setSelectedStation(station);
-                    setPlaylistModalVisible(true);
+                    setExtractPlaylistModalVisible(true);
                 }
             },
             { text: "", type: "separator", onPress: () => { } },
@@ -114,6 +124,15 @@ export default function RadioScreen() {
             setPlaylistModalVisible(false);
             setSelectedStation(null);
             Alert.alert("Success", "Added to playlist");
+        }
+    };
+
+    const handleExtractToPlaylist = (playlistId: string) => {
+        if (selectedStation) {
+            extractRadioToPlaylist(playlistId, selectedStation);
+            setExtractPlaylistModalVisible(false);
+            setSelectedStation(null);
+            Alert.alert("Success", "Extracting tracks to playlist...");
         }
     };
 
@@ -144,6 +163,12 @@ export default function RadioScreen() {
         Alert.alert("Success", `Added ${filteredStations.length} stations to playlist`);
     }, [filteredStations, addStationToPlaylist]);
 
+    const handleBulkExtractToPlaylist = React.useCallback((playlistId: string) => {
+        filteredStations.forEach(s => extractRadioToPlaylist(playlistId, s));
+        setBulkExtractPlaylistModalVisible(false);
+        Alert.alert("Success", `Extracting tracks from ${filteredStations.length} stations to playlist...`);
+    }, [filteredStations, extractRadioToPlaylist]);
+
     const bulkActions: Action[] = React.useMemo(() => [
         {
             text: "Play Mix Now",
@@ -160,6 +185,12 @@ export default function RadioScreen() {
             icon: ListPlus,
             onPress: handleBulkAddToQueue,
         },
+        {
+            text: "Add to Playlist",
+            icon: ListMusic,
+            onPress: () => setBulkPlaylistModalVisible(true),
+        },
+        { text: "", type: "separator", onPress: () => { } },
         { text: "", type: "separator", onPress: () => { } },
         {
             text: "Extract & Play",
@@ -175,11 +206,10 @@ export default function RadioScreen() {
                 filteredStations.forEach(s => extractRadioTracksToQueue(s, true));
             },
         },
-        { text: "", type: "separator", onPress: () => { } },
         {
-            text: "Add to Playlist",
+            text: "Extract to Playlist",
             icon: ListMusic,
-            onPress: () => setBulkPlaylistModalVisible(true),
+            onPress: () => setBulkExtractPlaylistModalVisible(true),
         },
         { text: "", type: "separator", onPress: () => { } },
         {
@@ -273,6 +303,13 @@ export default function RadioScreen() {
                 onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
             />
+            <PlaylistSelectionModal
+                visible={extractPlaylistModalVisible}
+                onClose={() => setExtractPlaylistModalVisible(false)}
+                onSelect={handleExtractToPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
+            />
 
             {/* Bulk search result action sheet */}
             <ActionSheet
@@ -285,6 +322,13 @@ export default function RadioScreen() {
                 visible={bulkPlaylistModalVisible}
                 onClose={() => setBulkPlaylistModalVisible(false)}
                 onSelect={handleBulkSelectPlaylist}
+                onCreateNew={() => setCreatePlaylistModalVisible(true)}
+                playlists={playlists}
+            />
+            <PlaylistSelectionModal
+                visible={bulkExtractPlaylistModalVisible}
+                onClose={() => setBulkExtractPlaylistModalVisible(false)}
+                onSelect={handleBulkExtractToPlaylist}
                 onCreateNew={() => setCreatePlaylistModalVisible(true)}
                 playlists={playlists}
             />
