@@ -80,6 +80,7 @@ const mockElectron = {
     stop: vi.fn(),
     addToQueue: vi.fn(),
     addToPlaylist: vi.fn(),
+    extractToPlaylist: vi.fn(),
     onStateChanged: vi.fn(),
     onStationsUpdated: vi.fn(),
   },
@@ -606,6 +607,21 @@ describe("useStore", () => {
     expect(mockElectron.radio.addToPlaylist).toHaveBeenCalledWith(
       "p1",
       mockStation,
+    );
+    expect(useStore.getState().toast?.message).toContain("added");
+  });
+
+  it("should extract radio to playlist", async () => {
+    const mockPlaylist = { id: "p1", name: "P1" } as any;
+    useStore.setState({ playlists: [mockPlaylist] });
+    const mockStation = { id: "1", name: "Radio" } as any;
+
+    await act(async () => {
+      await useStore.getState().extractRadioToPlaylist("p1", mockStation);
+    });
+    expect(mockElectron.radio.extractToPlaylist).toHaveBeenCalledWith(
+      mockStation,
+      "p1",
     );
     expect(useStore.getState().toast?.message).toContain("added");
   });

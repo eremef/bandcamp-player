@@ -93,6 +93,8 @@ if (typeof window !== 'undefined') {
             onStationsUpdated: vi.fn(() => vi.fn()),
             addToQueue: vi.fn(),
             addToPlaylist: vi.fn(),
+            extractToPlaylist: vi.fn(),
+            extractTracks: vi.fn(),
         },
         cache: {
             downloadTrack: vi.fn(),

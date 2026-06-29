@@ -41,6 +41,7 @@ describe('RadioView', () => {
             stopRadio: vi.fn(),
             addRadioToQueue: vi.fn(),
             addRadioToPlaylist: vi.fn(),
+            extractRadioToPlaylist: vi.fn(),
             playlists: mockPlaylists,
             fetchPlaylists: vi.fn(),
             radioSearchQuery: '',
