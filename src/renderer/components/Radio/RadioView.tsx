@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
-import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, Download, ListPlus } from 'lucide-react';
+import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, ListPlus } from 'lucide-react';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -20,6 +20,7 @@ export function RadioView() {
         setRadioSearchQuery,
         clearQueue,
         playQueueIndex,
+        extractRadioToPlaylist,
     } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
     const [contextMenu, setContextMenu] = useState<{ station: any } | null>(null);
@@ -85,22 +86,8 @@ export function RadioView() {
         setContextMenu(null);
     };
 
-    const handleDownload = async (station: any) => {
-        if (station.streamUrl) {
-            await window.electron.cache.downloadTrack({
-                id: station.id,
-                title: station.name,
-                artist: station.description || 'Bandcamp Radio',
-                album: 'Bandcamp Radio',
-                duration: station.duration || 0,
-                streamUrl: station.streamUrl,
-                artworkUrl: station.imageUrl,
-            } as any);
-        }
-        setContextMenu(null);
-    };
 
-    const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist' | 'download', playlistId?: string) => {
+    const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist', playlistId?: string) => {
         setShowBulkMenu(false);
         const stations = filteredStations;
 
@@ -128,21 +115,6 @@ export function RadioView() {
                 if (playlistId) {
                     for (const station of stations) {
                         await addRadioToPlaylist(playlistId, station);
-                    }
-                }
-                break;
-            case 'download':
-                for (const station of stations) {
-                    if (station.streamUrl) {
-                        await window.electron.cache.downloadTrack({
-                            id: station.id,
-                            title: station.name,
-                            artist: station.description || 'Bandcamp Radio',
-                            album: 'Bandcamp Radio',
-                            duration: station.duration || 0,
-                            streamUrl: station.streamUrl,
-                            artworkUrl: station.imageUrl,
-                        } as any);
                     }
                 }
                 break;
@@ -183,6 +155,7 @@ export function RadioView() {
                                 </button>
                                 {showBulkMenu && (
                                     <div className={styles.bulkMenu} onClick={(e) => e.stopPropagation()}>
+                                        <span className={styles.menuLabel}>Mixes</span>
                                         <button onClick={() => handleBulkAction('play')}>
                                             <Play size={16} /> Play Mixes
                                         </button>
@@ -192,6 +165,16 @@ export function RadioView() {
                                         <button onClick={() => handleBulkAction('addToQueue')}>
                                             <List size={16} /> Add Mixes to Queue
                                         </button>
+                                        {playlists.length > 0 && (
+                                            <>
+                                                <span className={styles.menuLabel}>Add to Playlist</span>
+                                                {playlists.map((playlist) => (
+                                                    <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
+                                                        <Music size={14} /> {playlist.name}
+                                                    </button>
+                                                ))}
+                                            </>
+                                        )}
                                         <div className={styles.menuDivider} />
                                         <span className={styles.menuLabel}>Extract Tracks</span>
                                         <button onClick={() => {
@@ -210,21 +193,21 @@ export function RadioView() {
                                         }}>
                                             <ListPlus size={16} /> Extract & Add to Queue
                                         </button>
-                                        <div className={styles.menuDivider} />
                                         {playlists.length > 0 && (
                                             <>
-                                                <span className={styles.menuLabel}>Add to Playlist</span>
+                                                <span className={styles.menuLabel}>Extract to Playlist</span>
                                                 {playlists.map((playlist) => (
-                                                    <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
+                                                    <button key={playlist.id} onClick={() => {
+                                                        filteredStations.forEach(station => {
+                                                            extractRadioToPlaylist(playlist.id, station);
+                                                        });
+                                                        setShowBulkMenu(false);
+                                                    }}>
                                                         <Music size={14} /> {playlist.name}
                                                     </button>
                                                 ))}
-                                                <div className={styles.menuDivider} />
                                             </>
                                         )}
-                                        <button onClick={() => handleBulkAction('download')}>
-                                            <Download size={16} /> Download for Offline
-                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -297,6 +280,7 @@ export function RadioView() {
                         </div>
                         {contextMenu?.station?.id === station.id && (
                             <div className={styles.contextMenu} onClick={(e) => e.stopPropagation()}>
+                                <span className={styles.menuLabel}>Mix</span>
                                 <button onClick={() => { playRadioStation(station); setContextMenu(null); }}>
                                     <Play size={16} /> Play Mix
                                 </button>
@@ -306,15 +290,6 @@ export function RadioView() {
                                 <button onClick={() => { handleAddToQueue(station); }}>
                                     <List size={16} /> Add Mix to Queue
                                 </button>
-                                <div className={styles.menuDivider} />
-                                <span className={styles.menuLabel}>Extract Tracks</span>
-                                <button onClick={() => { window.electron.radio.extractTracks(station, false); setContextMenu(null); }}>
-                                    <Play size={16} /> Extract & Play
-                                </button>
-                                <button onClick={() => { window.electron.radio.extractTracks(station, true); setContextMenu(null); }}>
-                                    <ListPlus size={16} /> Extract & Add to Queue
-                                </button>
-                                <div className={styles.menuDivider} />
                                 {playlists.length > 0 && (
                                     <>
                                         <span className={styles.menuLabel}>Add to Playlist</span>
@@ -323,12 +298,26 @@ export function RadioView() {
                                                 <Music size={14} /> {playlist.name}
                                             </button>
                                         ))}
-                                        <div className={styles.menuDivider} />
                                     </>
                                 )}
-                                <button onClick={() => { handleDownload(station); }}>
-                                    <Download size={16} /> Download for Offline
+                                <div className={styles.menuDivider} />
+                                <span className={styles.menuLabel}>Extract Tracks</span>
+                                <button onClick={() => { window.electron.radio.extractTracks(station, false); setContextMenu(null); }}>
+                                    <Play size={16} /> Extract & Play
                                 </button>
+                                <button onClick={() => { window.electron.radio.extractTracks(station, true); setContextMenu(null); }}>
+                                    <ListPlus size={16} /> Extract & Add to Queue
+                                </button>
+                                {playlists.length > 0 && (
+                                    <>
+                                        <span className={styles.menuLabel}>Extract to Playlist</span>
+                                        {playlists.map((playlist) => (
+                                            <button key={playlist.id} onClick={() => { extractRadioToPlaylist(playlist.id, station); setContextMenu(null); }}>
+                                                <Music size={14} /> {playlist.name}
+                                            </button>
+                                        ))}
+                                    </>
+                                )}
                             </div>
                         )}
                     </div>

@@ -264,6 +264,15 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(RADIO_CHANNELS.EXTRACT_TRACKS, (_, station: RadioStation, append?: boolean) =>
     playerService.extractRadioTracksToQueue(station, append),
   );
+  ipcMain.handle(
+    RADIO_CHANNELS.EXTRACT_TO_PLAYLIST,
+    async (_, station: RadioStation, playlistId: string) => {
+      const tracks = await scraperService.getStationTracks(station.id);
+      if (tracks.length > 0) {
+        playlistService.addTracks(playlistId, tracks);
+      }
+    }
+  );
   ipcMain.handle(RADIO_CHANNELS.STOP, () => playerService.stopRadio());
   ipcMain.handle(RADIO_CHANNELS.GET_STATE, () => playerService.getRadioState());
   ipcMain.handle(

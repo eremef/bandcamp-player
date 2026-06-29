@@ -71,6 +71,7 @@ interface AppState extends PlayerState {
     extractRadioTracksToQueue: (station: RadioStation, append?: boolean) => void;
     addStationToQueue: (station: RadioStation, playNext?: boolean) => void;
     addStationToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
+    extractRadioToPlaylist: (playlistId: string, station: RadioStation) => Promise<void>;
     addTrackToQueue: (track: Track, playNext?: boolean) => Promise<void>;
     addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[], knownArtist?: string) => void;
     addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
@@ -939,6 +940,27 @@ export const useStore = create<AppState>((set, get) => ({
             get().refreshPlaylists();
         }
     },
+    extractRadioToPlaylist: async (playlistId, station) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('extract-radio-to-playlist', { playlistId, station });
+        } else {
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            
+            try {
+                const tracks = await mobileScraperService.getStationTracks(station.id);
+                if (tracks && tracks.length > 0) {
+                    for (const track of tracks) {
+                        await mobileDatabase.addTrackToPlaylist(playlistId, track);
+                    }
+                    get().refreshPlaylists();
+                }
+            } catch (error) {
+                console.error(`[MobileStore] Failed to extract radio to playlist:`, error);
+            }
+        }
+    },
+
     addTrackToQueue: async (track, playNext) => {
         let trackToAdd = track;
 
