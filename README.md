@@ -259,7 +259,7 @@ mobile/
 
 | What                                           | Size | Status |
 | :--------------------------------------------- | ---- | :----: |
-| Offline mode and music caching - mobile        | XXL  | 🔴     |
+| Offline mode and music caching - mobile        | XXL  | 🟡     |
 
 **Legend**:
 🟢 finished (waiting for release)
