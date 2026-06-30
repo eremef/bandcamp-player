@@ -70,11 +70,13 @@ interface CollectionSlice {
   collectionFilterAlbums: boolean;
   collectionFilterTracks: boolean;
   collectionFilterWishlist: boolean;
+  collectionFilterDownloaded: boolean;
   setCollectionSortKey: (key: SortKey) => void;
   setCollectionSortDirection: (dir: "asc" | "desc") => void;
   setCollectionFilterAlbums: (show: boolean) => void;
   setCollectionFilterTracks: (show: boolean) => void;
   setCollectionFilterWishlist: (show: boolean) => void;
+  setCollectionFilterDownloaded: (show: boolean) => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
@@ -421,6 +423,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   collectionFilterAlbums: true,
   collectionFilterTracks: true,
   collectionFilterWishlist: true,
+  collectionFilterDownloaded: false,
   setCollectionSortKey: (key: SortKey) => {
     set({ collection_sort_key: key });
     get().updateSettings({ collectionSortKey: key });
@@ -440,6 +443,10 @@ export const useStore = create<StoreState>()((set, get) => ({
   setCollectionFilterWishlist: (show: boolean) => {
     set({ collectionFilterWishlist: show });
     get().updateSettings({ collectionFilterWishlist: show });
+  },
+  setCollectionFilterDownloaded: (show: boolean) => {
+    set({ collectionFilterDownloaded: show });
+    get().updateSettings({ collectionFilterDownloaded: show });
   },
   fetchCollection: async (forceRefresh = false) => {
     const { isOnline, settings } = useStore.getState();
@@ -777,6 +784,10 @@ export const useStore = create<StoreState>()((set, get) => ({
           settings.collectionFilterWishlist !== undefined
             ? settings.collectionFilterWishlist
             : true,
+        collectionFilterDownloaded:
+          settings.collectionFilterDownloaded !== undefined
+            ? settings.collectionFilterDownloaded
+            : false,
       });
     }
   },
@@ -1048,6 +1059,10 @@ export async function initializeStoreSubscriptions() {
         settings.collectionFilterWishlist !== undefined
           ? settings.collectionFilterWishlist
           : true,
+      collectionFilterDownloaded:
+        settings.collectionFilterDownloaded !== undefined
+          ? settings.collectionFilterDownloaded
+          : false,
     });
   });
 

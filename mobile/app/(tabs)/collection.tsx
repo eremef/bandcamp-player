@@ -10,7 +10,7 @@ import { CollectionGridItem } from '../../components/CollectionGridItem';
 import { InputModal } from '../../components/InputModal';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
-import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal, ArrowUpDown, Calendar, SlidersHorizontal, Disc, Music, Heart, Drum, ArrowUp, ArrowDown, Quote } from 'lucide-react-native';
+import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal, ArrowUpDown, Calendar, SlidersHorizontal, Disc, Music, Heart, Drum, ArrowUp, ArrowDown, Quote, Trash2 } from 'lucide-react-native';
 import { sortCollectionItems } from '@shared/utils/collection-utils';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -48,8 +48,13 @@ export default function CollectionScreen() {
     const collectionFilterWishlist = useStore((state) => state.collectionFilterWishlist);
     const setCollectionFilterAlbums = useStore((state) => state.setCollectionFilterAlbums);
     const setCollectionFilterTracks = useStore((state) => state.setCollectionFilterTracks);
+    const offlineMode = useStore((state) => state.offlineMode);
     const setCollectionFilterWishlist = useStore((state) => state.setCollectionFilterWishlist);
     const includeWishlistInCollection = useStore((state) => state.includeWishlistInCollection);
+    const collectionFilterDownloaded = useStore((state) => state.collectionFilterDownloaded);
+    const setCollectionFilterDownloaded = useStore((state) => state.setCollectionFilterDownloaded);
+    const cachedTrackIds = useStore((state) => state.cachedTrackIds);
+    const cachedAlbumIds = useStore((state) => state.cachedAlbumIds);
 
     const insets = useSafeAreaInsets();
 
@@ -71,13 +76,13 @@ export default function CollectionScreen() {
     const [sortSheetVisible, setSortSheetVisible] = useState(false);
     const [filterSheetVisible, setFilterSheetVisible] = useState(false);
 
-    const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (includeWishlistInCollection && !collectionFilterWishlist);
+    const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (includeWishlistInCollection && !collectionFilterWishlist) || collectionFilterDownloaded;
 
     const handleLongPress = useCallback((item: CollectionItem) => {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         const artist = item.type === 'album' ? item.album?.artist : item.track?.artist;
         setActionSheetTitle(title + ' - ' + artist || 'Item');
-        setActionSheetActions([
+        const actions: Action[] = [
             {
                 text: "Play Now",
                 icon: Play,
@@ -121,15 +126,45 @@ export default function CollectionScreen() {
                     setSelectedItem(item);
                     setPlaylistModalVisible(true);
                 }
-            },
+            }
+        ];
+
+        if (!offlineMode) {
+            actions.push({
+                text: "Download",
+                icon: ArrowDown,
+                onPress: async () => {
+                    const store = useStore.getState();
+                    if (item.type === 'album' && item.album?.bandcampUrl) {
+                        await store.downloadAlbum(item.album.bandcampUrl, item.album);
+                    } else if (item.type === 'track' && item.track) {
+                        await store.downloadTrack(item.track);
+                    }
+                }
+            });
+        }
+
+        actions.push({
+            text: "Remove from Cache",
+            icon: Trash2,
+            onPress: async () => {
+                const store = useStore.getState();
+                if (item.type === 'album' && item.album) {
+                    await store.removeAlbumFromCache(item.album.id);
+                } else if (item.type === 'track' && item.track) {
+                    await store.removeTrackFromCache(item.track.id);
+                }
+            }
+        },
             {
                 text: "Cancel",
                 style: "cancel",
                 onPress: () => { }
             }
-        ]);
+        );
+        setActionSheetActions(actions);
         setActionSheetVisible(true);
-    }, [addAlbumToQueue, addTrackToQueue, clearQueue]);
+    }, [addAlbumToQueue, addTrackToQueue, clearQueue, offlineMode]);
 
     const handleSelectPlaylist = useCallback((playlistId: string) => {
         if (!selectedItem) return;
@@ -155,9 +190,15 @@ export default function CollectionScreen() {
 
         // Apply filters
         items = items.filter(item => {
-            if (item.isWishlist) return collectionFilterWishlist;
-            if (item.type === 'album') return collectionFilterAlbums;
-            if (item.type === 'track') return collectionFilterTracks;
+            let passesTypeFilter = true;
+            if (item.isWishlist) passesTypeFilter = collectionFilterWishlist;
+            else if (item.type === 'album') passesTypeFilter = collectionFilterAlbums;
+            else if (item.type === 'track') passesTypeFilter = collectionFilterTracks;
+
+            if (!passesTypeFilter) return false;
+
+            // Downloaded filter is now handled at the SQL level via mobileDatabase.getCollectionGranular
+            // No need to client-side filter here anymore.
             return true;
         });
 
@@ -168,7 +209,7 @@ export default function CollectionScreen() {
             collectionSortDirection,
             dedupeEnabled
         );
-    }, [collection?.items, dedupeEnabled, collectionSortKey, collectionSortDirection, collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist]);
+    }, [collection?.items, dedupeEnabled, collectionSortKey, collectionSortDirection, collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, collectionFilterDownloaded, cachedAlbumIds, cachedTrackIds]);
 
     const sortActions: Action[] = useMemo(() => [
         { text: "Sort By", type: "label", onPress: () => { } },
@@ -240,6 +281,16 @@ export default function CollectionScreen() {
             });
         }
 
+        baseActions.push({ text: "", type: "separator", onPress: () => { } });
+        baseActions.push({ text: "Offline", type: "label", onPress: () => { } });
+        baseActions.push({
+            text: "Downloaded Only",
+            icon: ArrowDown,
+            checked: collectionFilterDownloaded,
+            keepOpen: true,
+            onPress: () => setCollectionFilterDownloaded(!collectionFilterDownloaded)
+        });
+
         baseActions.push({
             text: "Cancel",
             style: "cancel",
@@ -247,7 +298,7 @@ export default function CollectionScreen() {
         });
 
         return baseActions;
-    }, [collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, setCollectionFilterAlbums, setCollectionFilterTracks, setCollectionFilterWishlist, includeWishlistInCollection]);
+    }, [collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, collectionFilterDownloaded, setCollectionFilterAlbums, setCollectionFilterTracks, setCollectionFilterWishlist, setCollectionFilterDownloaded, includeWishlistInCollection]);
 
     // Bulk action handlers
     const handleBulkPlayNow = useCallback(async () => {

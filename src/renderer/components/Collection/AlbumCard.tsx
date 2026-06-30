@@ -279,7 +279,7 @@ export function AlbumCard({
               ))}
             </>
           )}
-          {!isCached && (
+          {!isCached && !isOfflineMode && (
             <>
               <div className={styles.menuDivider} />
               <button

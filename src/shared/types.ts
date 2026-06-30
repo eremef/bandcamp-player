@@ -208,6 +208,7 @@ export interface AppSettings {
   cacheEnabled: boolean;
   cacheMaxSizeGb: number;
   cacheLocation: string;
+  downloadWifiOnly?: boolean;
 
   // Playback settings
   defaultVolume: number;
@@ -230,6 +231,7 @@ export interface AppSettings {
   collectionFilterAlbums: boolean;
   collectionFilterTracks: boolean;
   collectionFilterWishlist: boolean;
+  collectionFilterDownloaded: boolean;
 
   // Offline mode
   offlineMode: boolean;
