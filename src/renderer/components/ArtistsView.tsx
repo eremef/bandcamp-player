@@ -561,7 +561,7 @@ export const ArtistsView: React.FC = () => {
                           ))}
                         </>
                       )}
-                      {!cachedArtistIds.has(artist.id) && (
+                      {!cachedArtistIds.has(artist.id) && !isOfflineMode && (
                         <>
                           <div className={styles.menuDivider} />
                           <button onClick={() => handleCardAction(artist.id, "download")}>

@@ -27,6 +27,23 @@ interface AppState extends PlayerState {
     storeInitialized: boolean;
     ignoreRemoteIntentsUntil: number;
 
+    // Cache State
+    cachedTrackIds: Set<string>;
+    cachedAlbumIds: Set<string>;
+    activeDownloads: Record<string, { progress: number, totalBytesExpected: number, totalBytesWritten: number }>;
+    downloadWifiOnly: boolean;
+    offlineMode: boolean;
+
+    refreshCacheState: () => Promise<void>;
+    downloadTrack: (track: Track) => Promise<void>;
+    removeTrackFromCache: (trackId: string) => Promise<void>;
+    downloadAlbum: (albumUrl: string, album?: Album) => Promise<void>;
+    removeAlbumFromCache: (albumId: string) => Promise<void>;
+    clearCache: () => Promise<void>;
+    setOfflineMode: (offline: boolean) => Promise<void>;
+    toggleDownloadWifiOnly: () => Promise<void>;
+    cacheSize: number;
+
     // Data Caches
     collection: Collection | null;
     playlists: Playlist[];
@@ -140,12 +157,14 @@ interface AppState extends PlayerState {
     collectionFilterAlbums: boolean;
     collectionFilterTracks: boolean;
     collectionFilterWishlist: boolean;
+    collectionFilterDownloaded: boolean;
     dedupeEnabled: boolean;
     setCollectionSortKey: (key: SortKey) => Promise<void>;
     setCollectionSortDirection: (direction: SortDirection) => Promise<void>;
     setCollectionFilterAlbums: (show: boolean) => Promise<void>;
     setCollectionFilterTracks: (show: boolean) => Promise<void>;
     setCollectionFilterWishlist: (show: boolean) => Promise<void>;
+    setCollectionFilterDownloaded: (show: boolean) => Promise<void>;
     setDedupeEnabled: (enabled: boolean) => Promise<void>;
 
     // Crossfade Settings
@@ -173,9 +192,17 @@ export const useStore = create<AppState>((set, get) => ({
     ...initialState,
     queue: { items: [], currentIndex: -1 },
     connectionStatus: 'disconnected',
-    skipAutoLogin: false,
     storeInitialized: false,
     ignoreRemoteIntentsUntil: 0,
+
+    // Cache Init
+    cachedTrackIds: new Set<string>(),
+    cachedAlbumIds: new Set<string>(),
+    activeDownloads: {},
+    downloadWifiOnly: true,
+    offlineMode: false,
+    cacheSize: 0,
+
     mode: 'remote',
     hostIp: '',
     auth: { isAuthenticated: false, user: null },
@@ -202,6 +229,7 @@ export const useStore = create<AppState>((set, get) => ({
     collectionFilterAlbums: true,
     collectionFilterTracks: true,
     collectionFilterWishlist: true,
+    collectionFilterDownloaded: false,
     dedupeEnabled: true,
     crossfadeEnabled: false,
     crossfadeDuration: 3,
@@ -238,6 +266,143 @@ export const useStore = create<AppState>((set, get) => ({
 
     setHostIp: async (ip: string) => {
         set({ hostIp: ip });
+    },
+
+    refreshCacheState: async () => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        const stats = await mobileCacheService.getStats();
+        set({
+            cachedTrackIds: stats.cachedTrackIds,
+            cachedAlbumIds: stats.cachedAlbumIds,
+            cacheSize: stats.totalSize || 0,
+        });
+    },
+
+    toggleDownloadWifiOnly: async () => {
+        const newValue = !get().downloadWifiOnly;
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('downloadWifiOnly', newValue);
+        set({ downloadWifiOnly: newValue });
+    },
+
+    downloadTrack: async (track: Track) => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        const { mobileScraperService } = require('../services/MobileScraperService');
+        try {
+            let trackToDownload = track;
+            if (!trackToDownload.streamUrl && trackToDownload.bandcampUrl) {
+                console.log("downloading: starts for track");
+                const albumDetails = await mobileScraperService.getAlbumDetails(trackToDownload.bandcampUrl);
+                if (albumDetails && albumDetails.tracks) {
+                    const foundTrack = albumDetails.tracks.find((t: any) => 
+                        String(t.id) === String(track.id) || 
+                        t.title.toLowerCase() === track.title.toLowerCase()
+                    );
+                    
+                    if (foundTrack && foundTrack.streamUrl) {
+                        trackToDownload = { ...trackToDownload, streamUrl: foundTrack.streamUrl };
+                    } else if (albumDetails.tracks.length === 1 && albumDetails.tracks[0].streamUrl) {
+                        trackToDownload = { ...trackToDownload, streamUrl: albumDetails.tracks[0].streamUrl };
+                    }
+                }
+            }
+
+            console.log(`[MobileStore] Starting download for track ${track.id} (streamUrl: ${trackToDownload.streamUrl ? 'present' : 'missing'})`);
+
+            set(state => ({
+                activeDownloads: {
+                    ...state.activeDownloads,
+                    [track.id]: { progress: 0, totalBytesExpected: 1, totalBytesWritten: 0 }
+                }
+            }));
+
+            try {
+                await mobileCacheService.downloadTrack(trackToDownload);
+            } catch (err) {
+                console.error(`[MobileStore] Failed to download track ${track.id}:`, err);
+            } finally {
+                // Ensure the active download state is cleared if the cache service returned early or failed
+                // (if it succeeded, the progress emitter usually handles the cleanup after 1 second, but this is a safe fallback if it never reached 100%)
+                const currentDownloads = get().activeDownloads;
+                if (currentDownloads[track.id] && currentDownloads[track.id].progress < 100) {
+                     set(state => {
+                        const next = { ...state.activeDownloads };
+                        delete next[track.id];
+                        return { activeDownloads: next };
+                    });
+                }
+            }
+        } catch (err) {
+            console.error(`[MobileStore] Failed to download track ${track.id}:`, err);
+        }
+        await get().refreshCacheState();
+    },
+
+    removeTrackFromCache: async (trackId: string) => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        await mobileCacheService.removeTrack(trackId);
+        await get().refreshCacheState();
+    },
+
+    downloadAlbum: async (albumUrl: string, album?: Album) => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        const { mobileScraperService } = require('../services/MobileScraperService');
+        const albumIdMatch = albumUrl.match(/album=([0-9]+)/) || albumUrl.match(/id=([0-9]+)/);
+        const resolvedAlbumId = album?.id || (albumIdMatch ? albumIdMatch[1] : 'unknown');
+
+        try {
+            let albumData = album;
+            if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
+                albumData = await mobileScraperService.getAlbumDetails(albumUrl);
+            }
+            if (albumData && albumData.tracks) {
+                const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : 'Unknown Artist';
+
+                set(state => ({
+                    activeDownloads: {
+                        ...state.activeDownloads,
+                        [`album-${resolvedAlbumId}`]: { progress: 0, totalBytesExpected: 1, totalBytesWritten: 0 }
+                    }
+                }));
+
+                const enhancedAlbum = {
+                    ...albumData,
+                    tracks: albumData.tracks.map(t => ({
+                        ...t,
+                        artist: (t.artist && t.artist !== 'Unknown Artist') ? t.artist : albumArtist
+                    }))
+                };
+
+                await mobileCacheService.downloadAlbum(enhancedAlbum);
+            }
+        } catch (e) {
+            console.error('[MobileStore] Failed to download album:', e);
+        } finally {
+            set(state => {
+                const nextDownloads = { ...state.activeDownloads };
+                delete nextDownloads[`album-${resolvedAlbumId}`];
+                return { activeDownloads: nextDownloads };
+            });
+            await get().refreshCacheState();
+        }
+    },
+
+    removeAlbumFromCache: async (albumId: string) => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        await mobileCacheService.removeAlbum(albumId);
+        await get().refreshCacheState();
+    },
+
+    clearCache: async () => {
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        await mobileCacheService.clearCache();
+        await get().refreshCacheState();
+    },
+
+    setOfflineMode: async (offline: boolean) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('offlineMode', offline);
+        set({ offlineMode: offline });
     },
 
     restoreStandaloneState: async () => {
@@ -295,7 +460,8 @@ export const useStore = create<AppState>((set, get) => ({
             collectionSortDirection: settings.collection_sort_direction || 'asc',
             collectionFilterAlbums: settings.collection_filter_albums !== false,
             collectionFilterTracks: settings.collection_filter_tracks !== false,
-            collectionFilterWishlist: settings.collection_filter_wishlist !== false,
+            collectionFilterWishlist: settings.collectionFilterWishlist !== false,
+            collectionFilterDownloaded: settings.collectionFilterDownloaded === true,
             dedupeEnabled: settings.dedupe_enabled !== false,
             crossfadeEnabled: settings.crossfadeEnabled === true,
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2
@@ -631,6 +797,12 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     playTrack: async (track) => {
+        if (get().offlineMode && !get().cachedTrackIds.has(track.id)) {
+            const { Alert } = require('react-native');
+            Alert.alert('Offline Mode', 'Cannot play non-downloaded tracks in offline mode.');
+            return;
+        }
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             // Optimistic update
             set({
@@ -698,8 +870,21 @@ export const useStore = create<AppState>((set, get) => ({
                     console.log(`[MobileStore] Album details loaded: ${albumData.title} (${albumData.tracks.length} tracks)`);
 
                     const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : '';
+                    
+                    const cachedTrackIds = get().cachedTrackIds;
+                    const offlineMode = get().offlineMode;
+                    const validTracks = offlineMode 
+                        ? albumData.tracks.filter((t: any) => cachedTrackIds.has(t.id))
+                        : albumData.tracks;
 
-                    const queueItems: QueueItem[] = albumData.tracks.map((track: any, i: number) => {
+                    if (validTracks.length === 0) {
+                        const { Alert } = require('react-native');
+                        Alert.alert('Offline Mode', 'Cannot play non-downloaded albums in offline mode.');
+                        set({ isCollectionLoading: false });
+                        return;
+                    }
+
+                    const queueItems: QueueItem[] = validTracks.map((track: any, i: number) => {
                         const trackArtist = (track.artist && track.artist !== 'Unknown Artist') ? track.artist : (albumArtist || 'Unknown Artist');
                         return {
                             id: `album-${albumData.id}-${Date.now()}-${i}`,
@@ -751,7 +936,21 @@ export const useStore = create<AppState>((set, get) => ({
             const playlist = get().playlists.find(p => p.id === id);
             if (!playlist || playlist.tracks.length === 0) return;
 
-            const queueItems: QueueItem[] = playlist.tracks.map((track, i) => ({
+            const cachedTrackIds = get().cachedTrackIds;
+            const offlineMode = get().offlineMode;
+            const validTracks = offlineMode 
+                ? playlist.tracks.filter(t => cachedTrackIds.has(t.id))
+                : playlist.tracks;
+
+            if (validTracks.length === 0) {
+                if (offlineMode) {
+                    const { Alert } = require('react-native');
+                    Alert.alert('Offline Mode', 'No downloaded tracks in this playlist.');
+                }
+                return;
+            }
+
+            const queueItems: QueueItem[] = validTracks.map((track, i) => ({
                 id: `playlist-${id}-${Date.now()}-${i}`,
                 track,
                 source: 'playlist'
@@ -772,6 +971,12 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     playStation: (station) => {
+        if (get().offlineMode) {
+            const { Alert } = require('react-native');
+            Alert.alert('Offline Mode', 'Cannot play radio stations in offline mode.');
+            return;
+        }
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('play-station', station);
         } else {
@@ -820,6 +1025,12 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     extractRadioTracksToQueue: (station, append = false) => {
+        if (get().offlineMode) {
+            const { Alert } = require('react-native');
+            Alert.alert('Offline Mode', 'Cannot extract radio tracks in offline mode.');
+            return;
+        }
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('extract-radio-tracks', { station, append });
         } else {
@@ -871,6 +1082,12 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     addStationToQueue: (station, playNext) => {
+        if (get().offlineMode) {
+            const { Alert } = require('react-native');
+            Alert.alert('Offline Mode', 'Cannot add radio stations to queue in offline mode.');
+            return;
+        }
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             // In remote mode, skip optimistic update — desktop echo via state-changed is authoritative
             webSocketService.send('add-station-to-queue', { station, playNext });
@@ -946,7 +1163,7 @@ export const useStore = create<AppState>((set, get) => ({
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
             const { mobileDatabase } = require('../services/MobileDatabase');
-            
+
             try {
                 const tracks = await mobileScraperService.getStationTracks(station.id);
                 if (tracks && tracks.length > 0) {
@@ -962,6 +1179,12 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     addTrackToQueue: async (track, playNext) => {
+        if (get().offlineMode && !get().cachedTrackIds.has(track.id)) {
+            const { Alert } = require('react-native');
+            Alert.alert('Offline Mode', 'Cannot add non-downloaded tracks to queue in offline mode.');
+            return;
+        }
+
         let trackToAdd = track;
 
         // If artist is 'Unknown Artist', try to fetch full details
@@ -1028,14 +1251,28 @@ export const useStore = create<AppState>((set, get) => ({
 
         // Standalone mode: local queue update
         if (tracks && tracks.length > 0) {
+            const cachedTrackIds = get().cachedTrackIds;
+            const offlineMode = get().offlineMode;
+            const validTracks = offlineMode
+                ? tracks.filter(t => cachedTrackIds.has(t.id))
+                : tracks;
+
+            if (validTracks.length === 0) {
+                if (offlineMode) {
+                    const { Alert } = require('react-native');
+                    Alert.alert('Offline Mode', 'Cannot add non-downloaded albums to queue in offline mode.');
+                }
+                return;
+            }
+
             const { queue } = get();
             console.log('[MobileStore] Current queue length:', queue.items.length);
 
-            const artists = tracks.map(t => t.artist).filter(a => a && a !== 'Unknown Artist');
+            const artists = validTracks.map(t => t.artist).filter(a => a && a !== 'Unknown Artist');
             const fallbackArtist = knownArtist || 'Unknown Artist';
             const commonArtist = artists.length > 0 ? artists[0] : fallbackArtist;
 
-            const newQueueItems: QueueItem[] = tracks.map((track) => ({
+            const newQueueItems: QueueItem[] = validTracks.map((track) => ({
                 id: `queue-${Date.now()}-${Math.random().toString(36).slice(2)}`,
                 track: {
                     ...track,
@@ -1369,8 +1606,10 @@ export const useStore = create<AppState>((set, get) => ({
                     const filterTracks = get().collectionFilterTracks;
                     const filterWishlist = get().collectionFilterWishlist;
 
-                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
-                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
+                    const filterDownloaded = get().collectionFilterDownloaded;
+
+                    let items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist, filterDownloaded);
+                    let totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist, filterDownloaded);
 
                     // Fresh start detection: if DB is truly empty (ignoring filters) and no search query, fetch from scraper
                     // We check unfiltered count to avoid infinite loop when all filters are unchecked
@@ -1378,8 +1617,8 @@ export const useStore = create<AppState>((set, get) => ({
                     if (unfilteredCount === 0 && !query && !forceServerRefresh) {
                         console.log('[MobileStore] Collection empty, performing initial fetch...');
                         await mobileScraperService.fetchCollection(false, get().isSimulationMode, onProgress);
-                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist);
-                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist);
+                        items = await mobileDatabase.getCollectionGranular(user.id, 0, 50, query, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist, filterDownloaded);
+                        totalCount = await mobileDatabase.getCollectionTotalCount(user.id, query, includeWishlist, filterAlbums, filterTracks, filterWishlist, filterDownloaded);
                     }
 
                     let finalItems = items;
@@ -1400,6 +1639,7 @@ export const useStore = create<AppState>((set, get) => ({
                     });
 
                     get().refreshArtists();
+                    get().refreshCacheState();
                 };
 
                 return fetchLogic().catch(err => {
@@ -1472,8 +1712,9 @@ export const useStore = create<AppState>((set, get) => ({
             const filterAlbums = get().collectionFilterAlbums;
             const filterTracks = get().collectionFilterTracks;
             const filterWishlist = get().collectionFilterWishlist;
+            const filterDownloaded = get().collectionFilterDownloaded;
 
-            return mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist)
+            return mobileDatabase.getCollectionGranular(user.id, collectionOffset, 50, searchQuery, includeWishlist, sortKey, sortDirection, filterAlbums, filterTracks, filterWishlist, filterDownloaded)
                 .then((newItems: CollectionItem[]) => {
                     const updatedItems = [...collection.items, ...newItems];
                     let finalItems = Array.from(new Map(updatedItems.map(item => [item.id, item])).values());
@@ -1634,7 +1875,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (!newValue) {
             set({ collectionFilterWishlist: true });
-            await mobileDatabase.setSetting('collection_filter_wishlist', true);
+            await mobileDatabase.setSetting('collectionFilterWishlist', true);
         }
 
         set({ includeWishlistInCollection: newValue });
@@ -1675,6 +1916,13 @@ export const useStore = create<AppState>((set, get) => ({
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('collection_filter_wishlist', show);
         set({ collectionFilterWishlist: show });
+        get().refreshCollection(true);
+    },
+
+    setCollectionFilterDownloaded: async (show) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('collectionFilterDownloaded', show);
+        set({ collectionFilterDownloaded: show });
         get().refreshCollection(true);
     },
 
@@ -1864,4 +2112,45 @@ webSocketService.on('time-update', async (payload) => {
             // Ignore errors (e.g. if player not ready)
         }
     }
+});
+
+const { mobileCacheService: cacheSvc } = require('../services/MobileCacheService');
+
+cacheSvc.onProgress((data: any) => {
+    const { trackId, albumId, progress, total, completed } = data;
+
+    useStore.setState((state) => {
+        const nextActive = { ...state.activeDownloads };
+
+        if (trackId && progress !== undefined) {
+            nextActive[trackId] = { progress, totalBytesExpected: total || 1, totalBytesWritten: (progress / 100) * (total || 1) };
+        }
+
+        if (albumId && total && completed !== undefined) {
+            const overallProgress = (completed / total) * 100;
+            nextActive[`album-${albumId}`] = { progress: overallProgress, totalBytesExpected: 1, totalBytesWritten: overallProgress / 100 };
+        }
+
+        return { activeDownloads: nextActive };
+    });
+
+    if (trackId && progress >= 100) {
+        setTimeout(() => {
+            useStore.setState((state) => {
+                const next = { ...state.activeDownloads };
+                delete next[trackId];
+                if (albumId && completed === total) {
+                    delete next[`album-${albumId}`];
+                }
+                return { activeDownloads: next };
+            });
+        }, 1000);
+    }
+});
+
+cacheSvc.onStatsUpdate((stats: any) => {
+    useStore.setState({
+        cachedTrackIds: stats.cachedTrackIds,
+        cachedAlbumIds: stats.cachedAlbumIds,
+    });
 });

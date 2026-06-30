@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2 } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
@@ -29,7 +29,13 @@ export default function SettingsScreen() {
         crossfadeDuration,
         setCrossfadeDuration,
         theme,
-        setTheme
+        setTheme,
+        offlineMode,
+        setOfflineMode,
+        downloadWifiOnly,
+        toggleDownloadWifiOnly,
+        cacheSize,
+        clearCache
     } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
@@ -147,6 +153,61 @@ export default function SettingsScreen() {
                                 />
                             </View>
                         )}
+                    </View>
+                )}
+
+                {mode === 'standalone' && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Offline & Caching</Text>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <WifiOff color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Offline Mode</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Only play downloaded tracks
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={offlineMode}
+                                onValueChange={setOfflineMode}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <Database color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Wi-Fi Only Downloads</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Prevent downloading over cellular data
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={downloadWifiOnly}
+                                onValueChange={toggleDownloadWifiOnly}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <Trash2 color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Clear Cache</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        {(cacheSize / 1024 / 1024).toFixed(1)} MB used
+                                    </Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={clearCache} style={styles.refreshButton}>
+                                <Text style={{ color: colors.accent, fontWeight: '600' }}>Clear</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
 

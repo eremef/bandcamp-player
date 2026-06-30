@@ -237,6 +237,22 @@
     color: white;
 }
 
+.filterSeparator {
+    height: 1px;
+    background: var(--border-subtle);
+    margin: 4px 0;
+}
+
+.filterSectionLabel {
+    padding: 4px 12px 2px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-tertiary);
+    margin: 0;
+}
+
 
 .sortDropdownWrapper {
     position: relative;

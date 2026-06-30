@@ -76,6 +76,22 @@ class MobilePlayerService {
 
         this.isPrefetching = true;
         try {
+            const isCached = store.cachedTrackIds.has(nextTrack.id);
+            
+            if (store.offlineMode && !isCached) {
+                // In offline mode, don't prefetch non-cached tracks
+                this.isPrefetching = false;
+                return;
+            }
+
+            if (isCached) {
+                const { mobileCacheService } = require('./MobileCacheService');
+                const cachedUri = await mobileCacheService.getCachedTrackUri(nextTrack.id);
+                if (cachedUri) {
+                    streamUrl = cachedUri;
+                }
+            }
+
             if (!streamUrl && nextTrack.bandcampUrl) {
                 const { mobileScraperService } = require('./MobileScraperService');
                 const urlToFetch = nextTrack.bandcampUrl;
@@ -333,7 +349,31 @@ class MobilePlayerService {
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
+            const store = useStore.getState();
+            const { offlineMode, cachedTrackIds } = store;
+            const isCached = cachedTrackIds.has(track.id);
+
+            // In offline mode, skip non-cached tracks
+            if (offlineMode && !isCached) {
+                console.log(`[MobilePlayer] Skipping track ${track.id} - offline mode active and track not cached`);
+                this.isLoadingTrack = false;
+                useStore.setState({ collectionError: 'Track not available offline.' });
+                return false;
+            }
+
             let streamUrl = track.streamUrl;
+
+            // Check if track is cached locally
+            if (isCached) {
+                const { mobileCacheService } = require('./MobileCacheService');
+                const cachedUri = await mobileCacheService.getCachedUri(track.id);
+                if (cachedUri) {
+                    streamUrl = cachedUri;
+                    console.log(`[MobilePlayer] Using cached file: ${cachedUri}`);
+                } else {
+                     console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
+                }
+            }
 
             if (!streamUrl) {
                 console.log(`[MobilePlayer] fetching stream URL for ${track.title}`);
