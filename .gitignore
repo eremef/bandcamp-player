@@ -25,6 +25,9 @@ Thumbs.db
 .cache/
 *.tsbuildinfo
 
+# AI agent artifacts
+.antigravitycli/
+
 # SQLite databases
 *.db
 *.sqlite
@@ -71,3 +74,4 @@ mempalace.yaml
 entities.json
 .agent/skills/
 scratch/
+.opencode/package-lock.json
