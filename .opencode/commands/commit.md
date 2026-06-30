@@ -1,24 +1,43 @@
 ---
-description: Prepare comprehensive commit, commit and push
+description: Commit and push current changes and staged files
 ---
 
-# Rules
+# Instructions for the AI Agent
 
-- Never commit secrets, credentials, or sensitive files (e.g., .env, credentials.json, *.key)
-- Always review all changes before committing
-- Follow existing commit message style from recent history
-- Ensure tests pass before committing
+When the user triggers this workflow, execute the following steps:
 
-## Steps
+1. **Analyze Changes**: Check the repository for staged and unstaged changes (e.g., using `git status` and `git diff`).
+2. **Formulate the Message**: Synthesize the changes into a comprehensive commit message that strictly adheres to the provided format.
+3. **Commit and Push**: Stage the files, commit them with the formulated message, and push the changes to the remote branch. Combine these into a single chained execution if possible (e.g., `git add . ; git commit -m "..." ; git push`).
+   - *Note on temporary files*: If you use a temporary file to bypass PowerShell string escaping issues for complex messages, **you MUST ALWAYS create the file inside the `.git` directory (e.g. `.git/msg.txt`)**. Do NOT create it in the root folder. This guarantees it will be completely ignored by `git add .` and prevents it from being accidentally tracked and committed into the repository.
 
-1. Run `git status` to see all untracked and modified files
-2. Run `git diff` (staged and unstaged) to review all changes
-3. Run `git log --oneline -10` to understand commit message style
-4. Analyze all changes and draft a comprehensive commit message that:
-   - Summarizes the nature of changes (feature, enhancement, bug fix, refactor, test, docs, etc.)
-   - Focuses on the "why" rather than just the "what"
-   - Is concise (1-2 sentences)
-5. Stage relevant files with `git add` (but always ask before git add .). Git stash and git stash pop if needed.
-6. Create commit with the drafted message
-7. Push to remote with `git push`
-8. Verify with `git status` that working tree is clean
+## Required Commit Message Format
+
+The commit message MUST contain the following three sections:
+
+- **Short summary**: First line always, imperative mood, in present tense. Brief summary of the changes, following Conventional Commits (e.g., `feat(...)`, `chore(...)`, `style(...)`, `refactor(...)`, etc.)
+- **Maintainer Notes**: Deep technical details, rationale behind design decisions, performance impacts, or architectural changes. Use category prefixes (e.g., `- Performance:`, `- Caching:`).
+- **Summary of Changes**: High-level bulleted list of the exact files/components modified and what they do now.
+- **User-facing**: Clear, non-technical explanations of what the end user will notice (new features, visual changes, or speed improvements).
+
+### Example
+
+```text
+feat: Add initial support forfetching alerts from providers.
+
+Maintainer Notes:
+- Concurrency: Split MAX_CONCURRENT_REQUESTS into API (15) and WebView (3) to prevent scraper-heavy providers from stalling faster API sources.
+- Caching: Implemented granular per-source caching in cache.rs and lib.rs to allow single-provider refreshes without losing state for others.
+...
+
+Summary of Changes:
+- UI: Added a collapsible 'Progress Console' that shows real-time status of each provider during refresh.
+- UI: Added a toast warning for Enea/PSG due to their known slower response times.
+- PGE: Now filters out 'revoked' outages and includes city names in the location preview.
+...
+
+User-facing:
+- New progress tracker shows which providers are currently updating.
+- Faster startup and data refreshes through optimized background processing.
+...
+```
