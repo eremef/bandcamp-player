@@ -243,7 +243,7 @@ export default function PlayerScreen() {
                     onRequestClose={() => setIsMenuVisible(false)}
                 >
                     <Pressable
-                        style={[styles.menuModalOverlay, { paddingTop: insets.top + 20 }]}
+                        style={[styles.menuModalOverlay, { paddingTop: insets.top + 10 }]}
                         onPress={() => setIsMenuVisible(false)}
                     >
                         <View style={[styles.menuContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -531,8 +531,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-start',
-        paddingRight: 25,
-        paddingTop: 80,
+        paddingRight: 40,
         alignItems: 'flex-end',
     },
     volumeModalOverlay: {
