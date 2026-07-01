@@ -269,6 +269,12 @@ class MobilePlayerService {
             } else {
                 // End of queue
                 this.stop();
+                useStore.setState({
+                    currentTrack: null,
+                    currentTime: 0,
+                    duration: 0,
+                    queue: { ...queue, currentIndex: queue.items.length }
+                });
                 return;
             }
         }

@@ -83,7 +83,7 @@ export function FloatingPlayer() {
         if (isExpanded && !isFloatingPlayerLocked) {
             timeoutRef.current = setTimeout(() => {
                 shrink();
-            }, 15000);
+            }, 10000);
         }
     }, [isExpanded, isFloatingPlayerLocked, shrink]);
 
@@ -165,7 +165,7 @@ export function FloatingPlayer() {
         }
     });
 
-    const composedGesture = Gesture.Simultaneous(panGesture, tapGesture);
+    const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
 
     const animatedStyle = useAnimatedStyle(() => {
         return {

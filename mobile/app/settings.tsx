@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2 } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
@@ -321,7 +321,8 @@ export default function SettingsScreen() {
 
                         {crossfadeEnabled && (
                             <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
-                                <View style={[styles.settingLabelContainer, { marginLeft: 32 }]}>
+                                <View style={styles.settingLabelContainer}>
+                                    <Timer color={colors.text} size={20} style={styles.settingIcon} />
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.settingTitle, { color: colors.text }]}>Crossfade Duration</Text>
                                         <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
@@ -450,12 +451,12 @@ const styles = StyleSheet.create({
     stepperButton: {
         borderWidth: 1,
         borderRadius: 4,
-        padding: 6,
+        padding: 7,
+        marginHorizontal: 5,
         alignItems: 'center',
         justifyContent: 'center',
     },
     stepperValue: {
-        width: 32,
         textAlign: 'center',
         fontWeight: 'bold',
     },
