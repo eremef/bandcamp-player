@@ -412,5 +412,26 @@ describe('MobilePlayerService', () => {
             expect(useStore.setState).toHaveBeenCalledWith({ collectionError: 'Failed to load track.' });
         });
 
+        it('should abort if current track in queue does not match track being loaded', async () => {
+            const track = { id: 't1', title: 'T', streamUrl: 'url', duration: 100 };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: {
+                    items: [
+                        { id: 't1', track: track as any, source: 'album' },
+                        { id: 't2', track: { id: 't2', title: 'T2' } as any, source: 'album' }
+                    ],
+                    currentIndex: 1
+                }
+            });
+
+            const success = await mobilePlayerService.loadTrack(track as any);
+
+            expect(success).toBe(false);
+            expect(TrackPlayer.setMediaItems).not.toHaveBeenCalled();
+        });
+
     });
 });

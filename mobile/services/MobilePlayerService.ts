@@ -438,6 +438,17 @@ class MobilePlayerService {
                 return false;
             }
 
+            const state = useStore.getState();
+            const queueItems = state.queue.items;
+            const currentIndex = state.queue.currentIndex;
+
+            if (queueItems.length > 0) {
+                if (currentIndex < 0 || currentIndex >= queueItems.length || queueItems[currentIndex].track.id !== track.id) {
+                    console.log(`[MobilePlayer] Aborting loadTrack for ${track.title} - superseded`);
+                    return false;
+                }
+            }
+
             // Update Store (but don't set isPlaying yet)
             const artistName = track.artist || 'Unknown Artist';
             useStore.setState({
@@ -452,10 +463,6 @@ class MobilePlayerService {
             // To support native Next/Previous buttons and correct lock screen metadata,
             // we feed the entire queue to the native player. We only provide the real URL
             // for the current track. The others get dummy URLs and will be resolved when skipped to.
-            const state = useStore.getState();
-            const queueItems = state.queue.items;
-            const currentIndex = state.queue.currentIndex;
-
             const nativeQueue = queueItems.map((qTrack, idx) => ({
                 mediaId: qTrack.id,
                 url: idx === currentIndex ? streamUrl : 'http://localhost/dummy.mp3',
@@ -466,8 +473,23 @@ class MobilePlayerService {
                 duration: qTrack.track.duration,
             }));
 
+            let finalQueue = [...nativeQueue];
+            let finalIndex = currentIndex;
+            if (finalQueue.length === 0) {
+                finalQueue = [{
+                    mediaId: track.id,
+                    url: streamUrl,
+                    title: track.title || 'Untitled',
+                    artist: track.artist || 'Unknown Artist',
+                    albumTitle: track.album,
+                    artworkUrl: track.artworkUrl,
+                    duration: track.duration,
+                }];
+                finalIndex = 0;
+            }
+
             try {
-                TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+                TrackPlayer.setMediaItems(finalQueue, finalIndex);
                 TrackPlayer.setRepeatMode(state.repeatMode as any);
             } finally {
                 this.isLoadingTrack = false;
