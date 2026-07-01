@@ -306,7 +306,10 @@ export default function PlayerScreen() {
                             >
                                 <View style={styles.menuItemWithIcon}>
                                     <Coffee size={18} color={colors.text} style={{ marginRight: 12 }} />
-                                    <Text style={[styles.menuItemText, { color: colors.text, flexWrap: "wrap" }]}>Like the app? Buy me a coffee</Text>
+                                    <View style={{ flexDirection: 'column' }}>
+                                        <Text style={[styles.menuItemText, { color: colors.text }]}>Like the app?</Text>
+                                        <Text style={[styles.menuItemText, { color: colors.text }]}>Buy me a coffee</Text>
+                                    </View>
                                 </View>
                             </TouchableOpacity>
 
@@ -624,8 +627,6 @@ const styles = StyleSheet.create({
     menuItemText: {
         color: '#fff',
         fontSize: 16,
-        flexWrap: 'wrap',
-        width: '70%',
     },
     menuItemWithIcon: {
         flexDirection: 'row',
