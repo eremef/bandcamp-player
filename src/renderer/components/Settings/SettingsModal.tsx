@@ -613,7 +613,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             )}
 
                             <div className={styles.supportBanner}>
-                                <p>Like the app? Want it to be actively developed and maintained?</p>
+                                <p>Like the app? Want it to be actively developed?</p>
                                 <img
                                     src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1"
                                     alt="Buy me a coffee"
