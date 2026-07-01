@@ -8,6 +8,7 @@ import { setupPlayer } from '../services/player';
 import { useVolumeButtons } from '../services/useVolumeButtons';
 import { registerBackgroundSync } from '../services/BackgroundSyncService';
 import { SilentRefreshHandler } from '../components/SilentRefreshHandler';
+import { FloatingPlayer } from '../components/FloatingPlayer';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 SplashScreen.preventAutoHideAsync();
@@ -114,6 +115,7 @@ export default function RootLayout() {
                 <Stack.Screen name="license" />
             </Stack>
             <SilentRefreshHandler />
+            <FloatingPlayer />
         </GestureHandlerRootView>
     );
 }

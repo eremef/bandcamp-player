@@ -111,6 +111,8 @@ jest.mock('../services/MobileDatabase', () => ({
         deletePlaylist: jest.fn().mockResolvedValue(undefined),
         getCollectionGranular: jest.fn().mockResolvedValue([]),
         getCollectionTotalCount: jest.fn().mockResolvedValue(0),
+        getCacheTotalSize: jest.fn().mockResolvedValue(0),
+        getAllCacheEntries: jest.fn().mockResolvedValue([]),
     },
 }));
 

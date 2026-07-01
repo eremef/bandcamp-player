@@ -1,15 +1,16 @@
 import { Tabs } from 'expo-router';
-import { Disc3, Library, ListMusic, Radio, ListOrdered, User } from 'lucide-react-native';
+import { Disc3, Library, ListMusic, Radio, ListOrdered, User, WifiOff } from 'lucide-react-native';
 import { useStore } from '../../store';
 import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Platform, View } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 import { useTheme } from '../../theme';
 
 export default function TabLayout() {
     const connectionStatus = useStore((state) => state.connectionStatus);
     const mode = useStore((state) => state.mode);
     const auth = useStore((state) => state.auth);
+    const offlineMode = useStore((state) => state.offlineMode);
     const insets = useSafeAreaInsets();
 
     const colors = useTheme();
@@ -80,6 +81,27 @@ export default function TabLayout() {
                     }}
                 />
             </Tabs>
+            {offlineMode && (
+                <View style={{
+                    position: 'absolute',
+                    bottom: 60 + (Platform.OS === 'android' ? insets.bottom : 0),
+                    left: 0,
+                    right: 0,
+                    backgroundColor: colors.background,
+                    borderTopWidth: 1,
+                    borderTopColor: colors.border,
+                    paddingVertical: 4,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'row',
+                    zIndex: 100,
+                }} pointerEvents="none">
+                    <WifiOff color={colors.textSecondary} size={12} style={{ marginRight: 6 }} />
+                    <Text style={{ color: colors.textSecondary, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Offline Mode
+                    </Text>
+                </View>
+            )}
         </View>
     );
 }

@@ -53,7 +53,7 @@ class MobileCacheService {
             throw new Error("Caching is disabled");
         }
 
-        if (settings.downloadWifiOnly) {
+        if (settings.downloadWifiOnly !== false) {
             const networkState = await Network.getNetworkStateAsync();
             if (networkState.type !== Network.NetworkStateType.WIFI) {
                 throw new Error("Wi-Fi is required for downloading");
@@ -264,8 +264,11 @@ class MobileCacheService {
                     total,
                     completed,
                 });
-            } catch (error) {
-                console.error(`[MobileCacheService] Failed to download album track ${track.id}:`, error);
+            } catch (error: any) {
+                console.warn(`[MobileCacheService] Failed to download album track ${track.id}:`, error);
+                if (error?.message === "Wi-Fi is required for downloading") {
+                    throw error;
+                }
                 completed++;
                 this.emitProgress({
                     albumId: album.id,

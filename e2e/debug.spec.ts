@@ -62,10 +62,10 @@ test('dump collection dom', async ({ window, electronApp }) => {
 
     await collectionBtn.click();
 
-    
+
     try {
         await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 5000 });
-        console.log("Album card IS VISIBLE!");
+        //console.log("Album card IS VISIBLE!");
     } catch (e) {
         console.log("Album card not visible, dumping DOM...");
         const html = await window.evaluate(() => document.body.innerHTML);

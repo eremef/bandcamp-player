@@ -22,9 +22,9 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
 }) => {
     const colors = useTheme();
 
-    const isCached = useStore(state => 
+    const isCached = useStore(state =>
         item.type === 'album' && item.album ? state.cachedAlbumIds.has(item.album.id) :
-        item.type === 'track' && item.track ? state.cachedTrackIds.has(item.track.id) : false
+            item.type === 'track' && item.track ? state.cachedTrackIds.has(item.track.id) : false
     );
     const downloadState = useStore(state => {
         if (item.type === 'album' && item.album) {

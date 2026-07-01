@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
@@ -10,6 +10,10 @@ import { StandardHeader } from '../../components/StandardHeader';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
 
+let VolumeManager: typeof import('react-native-volume-manager').VolumeManager | null = null;
+if (Platform.OS === 'android') {
+    VolumeManager = require('react-native-volume-manager').VolumeManager;
+}
 export default function PlayerScreen() {
     const colors = useTheme();
     const isLightTheme = colors.background === '#ffffff';
@@ -42,7 +46,8 @@ export default function PlayerScreen() {
         logoutBandcamp,
         playlists,
         addTrackToPlaylist,
-        createPlaylist
+        createPlaylist,
+        offlineMode
     } = useStore();
 
     const handleDisconnect = () => {
@@ -189,7 +194,7 @@ export default function PlayerScreen() {
                 </View>
 
                 {/* Controls */}
-                <View style={styles.controlsContainer}>
+                <View style={[styles.controlsContainer, offlineMode && { paddingBottom: 25 }]}>
                     <TouchableOpacity onPress={toggleShuffle}>
                         <Shuffle size={24} color={isShuffled ? colors.accent : colors.textSecondary} />
                     </TouchableOpacity>
@@ -337,7 +342,12 @@ export default function PlayerScreen() {
                                     minimumValue={0}
                                     maximumValue={1}
                                     value={localVolume !== null ? localVolume : (volume ?? 0.8)}
-                                    onValueChange={setLocalVolume}
+                                    onValueChange={(val) => {
+                                        setLocalVolume(val);
+                                        if (VolumeManager) {
+                                            VolumeManager.setVolume(val, { showUI: false }).catch(() => { });
+                                        }
+                                    }}
                                     onSlidingComplete={(val) => {
                                         setLocalVolume(null);
                                         setVolume(val);
