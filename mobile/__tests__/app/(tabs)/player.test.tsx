@@ -33,6 +33,7 @@ jest.mock('lucide-react-native', () => {
         Info: createIcon('InfoIcon'),
         LogOut: createIcon('LogOutIcon'),
         X: createIcon('XIcon'),
+        Coffee: createIcon('CoffeeIcon'),
     };
 });
 

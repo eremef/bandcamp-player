@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, Platform } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressable, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X, Coffee } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
@@ -257,20 +257,6 @@ export default function PlayerScreen() {
                             </Text>
                             {mode === 'remote' && <Text style={[styles.menuIp, { color: colors.text }]}>{hostIp}</Text>}
 
-
-
-                            {/* {currentTrack && (
-                                <TouchableOpacity
-                                    style={styles.menuItem}
-                                    onPress={() => {
-                                        setIsMenuVisible(false);
-                                        setPlaylistModalVisible(true);
-                                    }}
-                                >
-                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Add to Playlist</Text>
-                                </TouchableOpacity>
-                            )} */}
-
                             <TouchableOpacity
                                 style={styles.menuItem}
                                 onPress={() => {
@@ -308,6 +294,23 @@ export default function PlayerScreen() {
                                     </View>
                                 </TouchableOpacity>
                             )}
+
+                            <View style={[styles.menuDivider, { marginVertical: 5 }]} />
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setIsMenuVisible(false);
+                                    Linking.openURL('https://buymeacoffee.com/eremef.xyz');
+                                }}
+                            >
+                                <View style={styles.menuItemWithIcon}>
+                                    <Coffee size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                    <Text style={[styles.menuItemText, { color: colors.text, flexWrap: "wrap" }]}>Like the app? Buy me a coffee</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={[styles.menuDivider, { marginVertical: 5 }]} />
 
                             <TouchableOpacity
                                 style={[styles.menuItem, styles.menuItemDestructive]}
@@ -580,28 +583,29 @@ const styles = StyleSheet.create({
     },
     menuContainer: {
         backgroundColor: '#1e1e1e',
-        width: 140,
+        width: 200,
         borderRadius: 16,
-        padding: 20,
+        paddingVertical: 5,
+        paddingHorizontal: 15,
         borderWidth: 1,
     },
     menuTitle: {
         color: '#888',
-        fontSize: 10,
-        marginBottom: 2,
-        alignSelf: 'flex-start',
+        fontSize: 12,
+        marginTop: 6,
+        marginBottom: 6,
+        alignSelf: 'center',
     },
     menuIp: {
         color: '#fff',
         fontSize: 14,
-        marginBottom: 12,
+        marginBottom: 10,
         fontWeight: 'bold',
         alignSelf: 'flex-start',
     },
     menuLabel: {
         color: '#888',
         fontSize: 10,
-        marginBottom: 5,
         alignSelf: 'flex-start',
         textTransform: 'uppercase',
     },
@@ -614,12 +618,14 @@ const styles = StyleSheet.create({
     },
     menuItem: {
         width: '100%',
-        paddingVertical: 10,
+        paddingVertical: 8,
         alignItems: 'flex-start',
     },
     menuItemText: {
         color: '#fff',
         fontSize: 16,
+        flexWrap: 'wrap',
+        width: '70%',
     },
     menuItemWithIcon: {
         flexDirection: 'row',
