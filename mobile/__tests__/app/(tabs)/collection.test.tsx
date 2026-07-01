@@ -154,12 +154,15 @@ describe('CollectionScreen', () => {
         setCollectionFilterAlbums: jest.fn(),
         setCollectionFilterTracks: jest.fn(),
         setCollectionFilterWishlist: jest.fn(),
+        cachedAlbumIds: new Set(),
+        cachedTrackIds: new Set(),
     };
 
     beforeEach(() => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             return selector(mockStore);
         });
+        (useStore as any).getState = jest.fn().mockReturnValue(mockStore);
         jest.clearAllMocks();
     });
 

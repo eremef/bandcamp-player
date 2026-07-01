@@ -11,7 +11,7 @@ const runAfterInteractions = (callback: () => void) => {
     }
 };
 import { DiscoveryService } from '../services/discovery.service';
-import { AppState as RNAppState } from 'react-native';
+import { AppState as RNAppState, ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { PlaybackState } from '@rntp/player';
 import { addTrack } from '../services/player';
@@ -43,6 +43,8 @@ interface AppState extends PlayerState {
     setOfflineMode: (offline: boolean) => Promise<void>;
     toggleDownloadWifiOnly: () => Promise<void>;
     cacheSize: number;
+    cacheSizeLimit: number;
+    setCacheSizeLimit: (limit: number) => Promise<void>;
 
     // Data Caches
     collection: Collection | null;
@@ -172,6 +174,12 @@ interface AppState extends PlayerState {
     crossfadeDuration: number;
     setCrossfadeEnabled: (enabled: boolean) => Promise<void>;
     setCrossfadeDuration: (duration: number) => Promise<void>;
+
+    // Floating Player Settings
+    floatingPlayerEnabled: boolean;
+    isFloatingPlayerLocked: boolean;
+    toggleFloatingPlayer: () => Promise<void>;
+    toggleFloatingPlayerLock: () => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean, userIntendedPause: boolean } = {
@@ -202,6 +210,12 @@ export const useStore = create<AppState>((set, get) => ({
     downloadWifiOnly: true,
     offlineMode: false,
     cacheSize: 0,
+    cacheSizeLimit: 2,
+    setCacheSizeLimit: async (limit: number) => {
+        set({ cacheSizeLimit: limit });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('cacheMaxSizeGb', limit);
+    },
 
     mode: 'remote',
     hostIp: '',
@@ -233,6 +247,8 @@ export const useStore = create<AppState>((set, get) => ({
     dedupeEnabled: true,
     crossfadeEnabled: false,
     crossfadeDuration: 3,
+    floatingPlayerEnabled: true,
+    isFloatingPlayerLocked: false,
     setTheme: async (theme: Theme) => {
         await AsyncStorage.setItem('app_theme', theme);
         set({ theme });
@@ -251,9 +267,21 @@ export const useStore = create<AppState>((set, get) => ({
 
     toggleScrobbling: async () => {
         const newValue = !get().scrobblingEnabled;
+        set({ scrobblingEnabled: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('scrobblingEnabled', newValue);
-        set({ scrobblingEnabled: newValue });
+    },
+    toggleFloatingPlayer: async () => {
+        const newValue = !get().floatingPlayerEnabled;
+        set({ floatingPlayerEnabled: newValue });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('floatingPlayerEnabled', newValue);
+    },
+    toggleFloatingPlayerLock: async () => {
+        const newValue = !get().isFloatingPlayerLocked;
+        set({ isFloatingPlayerLocked: newValue });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('isFloatingPlayerLocked', newValue);
     },
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
@@ -280,9 +308,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     toggleDownloadWifiOnly: async () => {
         const newValue = !get().downloadWifiOnly;
+        set({ downloadWifiOnly: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('downloadWifiOnly', newValue);
-        set({ downloadWifiOnly: newValue });
     },
 
     downloadTrack: async (track: Track) => {
@@ -294,11 +322,11 @@ export const useStore = create<AppState>((set, get) => ({
                 console.log("downloading: starts for track");
                 const albumDetails = await mobileScraperService.getAlbumDetails(trackToDownload.bandcampUrl);
                 if (albumDetails && albumDetails.tracks) {
-                    const foundTrack = albumDetails.tracks.find((t: any) => 
-                        String(t.id) === String(track.id) || 
+                    const foundTrack = albumDetails.tracks.find((t: any) =>
+                        String(t.id) === String(track.id) ||
                         t.title.toLowerCase() === track.title.toLowerCase()
                     );
-                    
+
                     if (foundTrack && foundTrack.streamUrl) {
                         trackToDownload = { ...trackToDownload, streamUrl: foundTrack.streamUrl };
                     } else if (albumDetails.tracks.length === 1 && albumDetails.tracks[0].streamUrl) {
@@ -325,15 +353,18 @@ export const useStore = create<AppState>((set, get) => ({
                 // (if it succeeded, the progress emitter usually handles the cleanup after 1 second, but this is a safe fallback if it never reached 100%)
                 const currentDownloads = get().activeDownloads;
                 if (currentDownloads[track.id] && currentDownloads[track.id].progress < 100) {
-                     set(state => {
+                    set(state => {
                         const next = { ...state.activeDownloads };
                         delete next[track.id];
                         return { activeDownloads: next };
                     });
                 }
             }
-        } catch (err) {
-            console.error(`[MobileStore] Failed to download track ${track.id}:`, err);
+        } catch (err: any) {
+            console.warn(`[MobileStore] Failed to download track ${track.id}:`, err);
+            if (err?.message === "Wi-Fi is required for downloading") {
+                ToastAndroid.show("Wi-Fi only downloads is on. If you want to download anyway, switch it off in settings.", ToastAndroid.LONG);
+            }
         }
         await get().refreshCacheState();
     },
@@ -375,8 +406,11 @@ export const useStore = create<AppState>((set, get) => ({
 
                 await mobileCacheService.downloadAlbum(enhancedAlbum);
             }
-        } catch (e) {
-            console.error('[MobileStore] Failed to download album:', e);
+        } catch (e: any) {
+            console.warn('[MobileStore] Failed to download album:', e);
+            if (e?.message === "Wi-Fi is required for downloading") {
+                ToastAndroid.show("Wi-Fi only downloads is on. If you want to download anyway, switch it off in settings.", ToastAndroid.LONG);
+            }
         } finally {
             set(state => {
                 const nextDownloads = { ...state.activeDownloads };
@@ -400,9 +434,9 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     setOfflineMode: async (offline: boolean) => {
+        set({ offlineMode: offline });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('offlineMode', offline);
-        set({ offlineMode: offline });
     },
 
     restoreStandaloneState: async () => {
@@ -464,7 +498,11 @@ export const useStore = create<AppState>((set, get) => ({
             collectionFilterDownloaded: settings.collectionFilterDownloaded === true,
             dedupeEnabled: settings.dedupe_enabled !== false,
             crossfadeEnabled: settings.crossfadeEnabled === true,
-            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2
+            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
+            floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
+            isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            downloadWifiOnly: settings.downloadWifiOnly !== false,
+            cacheSizeLimit: typeof settings.cacheMaxSizeGb === 'number' ? settings.cacheMaxSizeGb : 2
         });
 
         // Ensure TrackPlayer volume is restored (might have been set to 0 in remote mode)
@@ -665,7 +703,11 @@ export const useStore = create<AppState>((set, get) => ({
             collectionSortDirection: settings.collection_sort_direction || 'asc',
             dedupeEnabled: settings.dedupe_enabled !== false,
             crossfadeEnabled: settings.crossfadeEnabled === true,
-            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2
+            crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
+            floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
+            isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            downloadWifiOnly: settings.downloadWifiOnly !== false,
+            cacheSizeLimit: typeof settings.cacheMaxSizeGb === 'number' ? settings.cacheMaxSizeGb : 2
         });
 
         // Restore scrobbler state
@@ -870,10 +912,10 @@ export const useStore = create<AppState>((set, get) => ({
                     console.log(`[MobileStore] Album details loaded: ${albumData.title} (${albumData.tracks.length} tracks)`);
 
                     const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : '';
-                    
+
                     const cachedTrackIds = get().cachedTrackIds;
                     const offlineMode = get().offlineMode;
-                    const validTracks = offlineMode 
+                    const validTracks = offlineMode
                         ? albumData.tracks.filter((t: any) => cachedTrackIds.has(t.id))
                         : albumData.tracks;
 
@@ -938,7 +980,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             const cachedTrackIds = get().cachedTrackIds;
             const offlineMode = get().offlineMode;
-            const validTracks = offlineMode 
+            const validTracks = offlineMode
                 ? playlist.tracks.filter(t => cachedTrackIds.has(t.id))
                 : playlist.tracks;
 
@@ -1870,6 +1912,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     toggleIncludeWishlistInCollection: async () => {
         const newValue = !get().includeWishlistInCollection;
+        set({ includeWishlistInCollection: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('includeWishlistInCollection', newValue);
 
@@ -1877,8 +1920,6 @@ export const useStore = create<AppState>((set, get) => ({
             set({ collectionFilterWishlist: true });
             await mobileDatabase.setSetting('collectionFilterWishlist', true);
         }
-
-        set({ includeWishlistInCollection: newValue });
 
         // Refresh collection to reflect wishlist visibility
         get().refreshCollection(true, '', true);
@@ -1927,15 +1968,15 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     setDedupeEnabled: async (enabled) => {
+        set({ dedupeEnabled: enabled });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('dedupe_enabled', enabled);
-        set({ dedupeEnabled: enabled });
         get().refreshCollection(true);
     },
     setCrossfadeEnabled: async (enabled) => {
+        set({ crossfadeEnabled: enabled });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('crossfadeEnabled', enabled);
-        set({ crossfadeEnabled: enabled });
     },
     setCrossfadeDuration: async (duration) => {
         const { mobileDatabase } = require('../services/MobileDatabase');

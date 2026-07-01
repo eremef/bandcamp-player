@@ -76,7 +76,7 @@ class MobilePlayerService {
 
         this.isPrefetching = true;
         try {
-            const isCached = store.cachedTrackIds.has(nextTrack.id);
+            const isCached = store.cachedTrackIds?.has?.(nextTrack.id) || false;
             
             if (store.offlineMode && !isCached) {
                 // In offline mode, don't prefetch non-cached tracks
@@ -86,7 +86,7 @@ class MobilePlayerService {
 
             if (isCached) {
                 const { mobileCacheService } = require('./MobileCacheService');
-                const cachedUri = await mobileCacheService.getCachedTrackUri(nextTrack.id);
+                const cachedUri = await mobileCacheService?.getCachedTrackUri?.(nextTrack.id);
                 if (cachedUri) {
                     streamUrl = cachedUri;
                 }
@@ -95,18 +95,18 @@ class MobilePlayerService {
             if (!streamUrl && nextTrack.bandcampUrl) {
                 const { mobileScraperService } = require('./MobileScraperService');
                 const urlToFetch = nextTrack.bandcampUrl;
-                if (urlToFetch.includes('show=')) {
-                    const showId = urlToFetch.split('show=').pop()?.split('&')[0];
+                if (urlToFetch?.includes?.('show=')) {
+                    const showId = urlToFetch?.split?.('show=')?.pop()?.split?.('&')?.[0];
                     if (showId) {
-                        const result = await mobileScraperService.getStationStreamUrl(showId);
+                        const result = await mobileScraperService?.getStationStreamUrl?.(showId);
                         if (result?.streamUrl) streamUrl = result.streamUrl;
                     }
                 } else {
-                    const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                    const albumDetails = await mobileScraperService?.getAlbumDetails?.(urlToFetch);
                     if (albumDetails) {
-                        const foundTrack = albumDetails.tracks.find((t: any) => t.title.toLowerCase() === nextTrack.title.toLowerCase() || t.id === nextTrack.id);
+                        const foundTrack = albumDetails.tracks?.find?.((t: any) => t.title?.toLowerCase?.() === nextTrack.title?.toLowerCase?.() || t.id === nextTrack.id);
                         if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
-                        else if (albumDetails.tracks.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
+                        else if (albumDetails.tracks?.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
                     }
                 }
             }
@@ -121,7 +121,15 @@ class MobilePlayerService {
                     artworkUrl: nextTrack.artworkUrl,
                     duration: nextTrack.duration,
                 };
-                TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                try {
+                    if (typeof TrackPlayer.replaceMediaItem === 'function') {
+                        TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                    } else if (typeof TrackPlayer.updateMetadata === 'function') {
+                        TrackPlayer.updateMetadata(nextIndex, updatedItem);
+                    }
+                } catch (err) {
+                    console.warn('[MobilePlayer] Error replacing media item:', err);
+                }
 
                 const newItems = [...queue.items];
                 newItems[nextIndex] = {
@@ -131,8 +139,9 @@ class MobilePlayerService {
                 useStore.setState({ queue: { ...queue, items: newItems } });
                 this.prefetchedQueueIndex = nextIndex;
             }
-        } catch (e) {
-            console.log('[MobilePlayer] Prefetch failed', e);
+        } catch (e: any) {
+            console.log('[MobilePlayer] Prefetch failed', e?.message || e);
+            if (e?.stack) console.log(e.stack);
         } finally {
             this.isPrefetching = false;
         }

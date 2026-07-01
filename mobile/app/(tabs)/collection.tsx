@@ -53,8 +53,6 @@ export default function CollectionScreen() {
     const includeWishlistInCollection = useStore((state) => state.includeWishlistInCollection);
     const collectionFilterDownloaded = useStore((state) => state.collectionFilterDownloaded);
     const setCollectionFilterDownloaded = useStore((state) => state.setCollectionFilterDownloaded);
-    const cachedTrackIds = useStore((state) => state.cachedTrackIds);
-    const cachedAlbumIds = useStore((state) => state.cachedAlbumIds);
 
     const insets = useSafeAreaInsets();
 
@@ -82,6 +80,12 @@ export default function CollectionScreen() {
         const title = item.type === 'album' ? item.album?.title : item.track?.title;
         const artist = item.type === 'album' ? item.album?.artist : item.track?.artist;
         setActionSheetTitle(title + ' - ' + artist || 'Item');
+
+        const store = useStore.getState();
+        const isCached = item.type === 'album'
+            ? item.album && store.cachedAlbumIds.has(item.album.id)
+            : item.track && store.cachedTrackIds.has(item.track.id);
+
         const actions: Action[] = [
             {
                 text: "Play Now",
@@ -144,23 +148,26 @@ export default function CollectionScreen() {
             });
         }
 
-        actions.push({
-            text: "Remove from Cache",
-            icon: Trash2,
-            onPress: async () => {
-                const store = useStore.getState();
-                if (item.type === 'album' && item.album) {
-                    await store.removeAlbumFromCache(item.album.id);
-                } else if (item.type === 'track' && item.track) {
-                    await store.removeTrackFromCache(item.track.id);
+        if (isCached) {
+            actions.push({
+                text: "Remove from Cache",
+                icon: Trash2,
+                onPress: async () => {
+                    const store = useStore.getState();
+                    if (item.type === 'album' && item.album) {
+                        await store.removeAlbumFromCache(item.album.id);
+                    } else if (item.type === 'track' && item.track) {
+                        await store.removeTrackFromCache(item.track.id);
+                    }
                 }
-            }
-        },
-            {
-                text: "Cancel",
-                style: "cancel",
-                onPress: () => { }
-            }
+            });
+        }
+
+        actions.push({
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => { }
+        }
         );
         setActionSheetActions(actions);
         setActionSheetVisible(true);
@@ -209,7 +216,7 @@ export default function CollectionScreen() {
             collectionSortDirection,
             dedupeEnabled
         );
-    }, [collection?.items, dedupeEnabled, collectionSortKey, collectionSortDirection, collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist, collectionFilterDownloaded, cachedAlbumIds, cachedTrackIds]);
+    }, [collection?.items, dedupeEnabled, collectionSortKey, collectionSortDirection, collectionFilterAlbums, collectionFilterTracks, collectionFilterWishlist]);
 
     const sortActions: Action[] = useMemo(() => [
         { text: "Sort By", type: "label", onPress: () => { } },
