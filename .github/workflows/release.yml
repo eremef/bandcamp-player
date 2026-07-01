@@ -307,3 +307,6 @@ jobs:
           generate_release_notes: true
           overwrite_files: true
           prerelease: ${{ steps.prerelease.outputs.is_prerelease == 'true' }}
+          
+      - name: action-camo-purge
+        uses: kevincobain2000/action-camo-purge@v1
