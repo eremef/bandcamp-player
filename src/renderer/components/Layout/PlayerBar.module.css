@@ -212,9 +212,17 @@
     gap: var(--spacing-sm);
     justify-content: flex-end;
     min-width: 112px;
-    margin-bottom: 26px;
+    position: relative;
 }
 
+.extras::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--spacing-xl) * -0.5);
+    width: 1px;
+    height: 75px;
+    background: var(--border-subtle);
+}
 
 .volumeControls {
     display: flex;
