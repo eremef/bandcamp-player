@@ -1,0 +1,33 @@
+Privacy Policy for Beta Player
+
+Last Updated: July 2026
+
+1. Introduction
+This Privacy Policy applies to the "Beta Player" application (both Desktop and Mobile versions). We respect your privacy and are committed to protecting any personal data you may provide or that we may collect when you use the applications.
+
+2. Data Collection and Usage
+Beta Player is designed to be a private, offline-first music player. 
+- Local Storage (Desktop & Mobile): The app stores your music collection, playback queue, and settings locally on your device (using SQLite and local storage). This data never leaves your device unless explicitly requested by you.
+- Bandcamp Integration: To provide its core functionality, the app connects directly to Bandcamp to fetch your music collection and stream audio. We do not collect or intercept your Bandcamp credentials or browsing habits.
+- Last.fm Scrobbling: If you choose to enable Last.fm scrobbling, the app will transmit your listening history directly to Last.fm. You must authenticate with Last.fm to use this feature.
+- Remote Control (Local Network): The desktop app runs a local WebSocket server, and the mobile app communicates with it over your local network. This communication is strictly local and does not pass through the internet.
+- Chromecast (Desktop): The desktop app connects to Chromecast devices on your local network to cast audio.
+
+3. Third-Party Services
+The apps interact with the following third-party services:
+- Bandcamp (for fetching and streaming music)
+- Last.fm (for scrobbling, if enabled by the user)
+- GitHub (for checking app updates and fetching remote scraper configuration)
+We do not use third-party analytics or crash reporting tools (e.g., Firebase, Google Analytics) that track your behavior.
+
+4. Data Sharing
+We do not sell, trade, or otherwise transfer your personal information to outside parties. All data transmission occurs directly between your device and the respective services (Bandcamp, Last.fm, GitHub) without passing through any intermediate servers owned by us.
+
+5. User Consent
+By using Beta Player (Desktop or Mobile), you consent to our privacy policy.
+
+6. Changes to our Privacy Policy
+If we decide to change our privacy policy, we will post those changes on this page or within the app's repository.
+
+7. Contact Us
+If there are any questions regarding this privacy policy, you may contact us via our GitHub repository issues page.
