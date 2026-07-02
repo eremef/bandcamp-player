@@ -228,7 +228,6 @@ export const useStore = create<AppState>((set, get) => ({
     playlists: [],
     bandcampPlaylists: [],
     isLoadingBandcampPlaylists: false,
-    fetchBandcampPlaylists: async () => {},
     radioStations: [],
     artists: [],
     isScanning: false,
@@ -982,15 +981,15 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('play-playlist', id);
         } else {
             let playlist = get().playlists.find(p => p.id === id);
-            
+
             if (!playlist) {
                 playlist = get().bandcampPlaylists.find(p => p.id === id);
-                
+
                 if (playlist && playlist.tracks.length === 0 && playlist.bandcampUrl) {
                     // Fetch tracks for bandcamp playlist on demand
                     const { mobileScraperService } = require('../services/MobileScraperService');
                     const tracks = await mobileScraperService.fetchBandcampPlaylistTracks(playlist.bandcampUrl);
-                    
+
                     if (tracks && tracks.length > 0) {
                         playlist = { ...playlist, tracks };
                         // Update in store
@@ -1004,7 +1003,7 @@ export const useStore = create<AppState>((set, get) => ({
                     }
                 }
             }
-            
+
             if (!playlist || playlist.tracks.length === 0) return;
 
             const cachedTrackIds = get().cachedTrackIds;
@@ -1711,6 +1710,7 @@ export const useStore = create<AppState>((set, get) => ({
 
                     get().refreshArtists();
                     get().refreshCacheState();
+                    get().fetchBandcampPlaylists();
                 };
 
                 return fetchLogic().catch(err => {
@@ -1820,13 +1820,25 @@ export const useStore = create<AppState>((set, get) => ({
             get().fetchBandcampPlaylists();
         }
     },
-    
+
     fetchBandcampPlaylists: async () => {
         set({ isLoadingBandcampPlaylists: true });
         try {
             const { mobileScraperService } = require('../services/MobileScraperService');
             const bandcampPlaylists = await mobileScraperService.fetchBandcampPlaylists();
-            set({ bandcampPlaylists, isLoadingBandcampPlaylists: false });
+            
+            // Fetch tracks for each playlist automatically
+            const playlistsWithTracks = [];
+            for (const p of bandcampPlaylists) {
+                if (p.bandcampUrl) {
+                    const tracks = await mobileScraperService.fetchBandcampPlaylistTracks(p.bandcampUrl);
+                    playlistsWithTracks.push({ ...p, tracks });
+                } else {
+                    playlistsWithTracks.push(p);
+                }
+            }
+            
+            set({ bandcampPlaylists: playlistsWithTracks, isLoadingBandcampPlaylists: false });
         } catch (error) {
             console.error('[MobileStore] Failed to fetch Bandcamp playlists', error);
             set({ isLoadingBandcampPlaylists: false });

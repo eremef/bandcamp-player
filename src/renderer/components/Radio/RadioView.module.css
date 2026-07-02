@@ -1,7 +1,17 @@
 .container {
-    border-top: 1px solid var(--border-subtle);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     padding: var(--spacing-lg);
-    min-height: 100%;
+    overflow: hidden;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.scrollContainer {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: var(--spacing-xs);
 }
 
 .header {

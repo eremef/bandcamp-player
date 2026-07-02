@@ -480,7 +480,9 @@ export const useStore = create<StoreState>()((set, get) => ({
       });
 
       // Also fetch Bandcamp playlists when collection is fetched/refreshed
+      // TODO: move it somewhere else?
       get().fetchBandcampPlaylists();
+      get().fetchRadioStations();
     } catch (error) {
       set({
         collectionError:
@@ -535,16 +537,11 @@ export const useStore = create<StoreState>()((set, get) => ({
     // Check if it's a Bandcamp playlist first
     const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
     if (bcPlaylist) {
-      if (bcPlaylist.bandcampUrl) {
-        get().showToast("Loading Bandcamp playlist...", "success");
-        const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
-        set({
-          selectedPlaylist: { ...bcPlaylist, tracks },
-          currentView: "playlist-detail",
-          selectedPlaylistId: id,
-        });
-        get().hideToast();
-      }
+      set({
+        selectedPlaylist: bcPlaylist,
+        currentView: "playlist-detail",
+        selectedPlaylistId: id,
+      });
       return;
     }
 
@@ -604,7 +601,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     await window.electron.playlist.removeTrack(playlistId, trackId);
   },
   playPlaylist: async (id: string) => {
-    let playlist = get().playlists.find(p => p.id === id);
+    const playlist = get().playlists.find(p => p.id === id);
     let tracksToPlay: Track[] = [];
 
     if (!playlist) {
@@ -631,9 +628,11 @@ export const useStore = create<StoreState>()((set, get) => ({
   bandcampPlaylists: [],
   isLoadingBandcampPlaylists: false,
   fetchBandcampPlaylists: async () => {
+    if (get().isLoadingBandcampPlaylists) return;
     set({ isLoadingBandcampPlaylists: true });
     try {
       const playlists = await window.electron.playlist.getBandcampPlaylists();
+      
       set({ bandcampPlaylists: playlists });
     } catch (error) {
       console.error("Store: fetchBandcampPlaylists failed", error);

@@ -1554,7 +1554,7 @@ export class ScraperService extends EventEmitter {
           pageFanId = String(extractedFanId);
           console.log(`[ScraperService] Extracted fan_id ${pageFanId} from profile page`);
         }
-      } catch (e) {
+      } catch (_e) {
         console.warn("[ScraperService] Failed to fetch profile page to extract fan_id, using auth user id");
       }
 
@@ -1576,7 +1576,7 @@ export class ScraperService extends EventEmitter {
           id: `bc-${p.itemId}`,
           name: p.title,
           description: p.description || "",
-          tracks: [], // Loaded lazily
+          tracks: await this.fetchBandcampPlaylistTracks(playlistUrl),
           trackCount: p.tracksSummary?.totalCount || 0,
           totalDuration: p.tracksSummary?.totalDuration || 0,
           createdAt: p.modDate || new Date().toISOString(),
@@ -1624,7 +1624,6 @@ export class ScraperService extends EventEmitter {
       );
       
       const pd = JSON.parse(decoded);
-      require('fs').writeFileSync('playlist-details-debug.json', JSON.stringify(pd, null, 2));
       const tracksData = pd.appData?.tracks || pd.track_list || [];
       const tracks: Track[] = [];
 
@@ -1643,8 +1642,6 @@ export class ScraperService extends EventEmitter {
         tracks.push(track);
       }
       
-      // Cleanup the debug file (optional, but good practice)
-      try { require('fs').unlinkSync('playlist-details-debug.json'); } catch(e) {}
       
       console.log(`[ScraperService] Successfully parsed ${tracks.length} tracks for playlist`);
       return tracks;
