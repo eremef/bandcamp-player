@@ -5,7 +5,10 @@
 </div>
 
 <div align="center">
-<div>⬇️ Like the app? Want it to be actively developed and maintained? ⬇️</div>
+<div>Like the app?</div>
+<div>Want it to be actively developed?</div> 
+<div style="padding-bottom: 20px">Or maybe money is overflowing your bank account?</div>
+<div>↓</div>
 <a href="https://www.buymeacoffee.com/eremef.xyz"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1" alt="Buy me a coffee" title="Buy me a coffee" /></a> <a href="https://buycoffee.to/eremef.xyz" target="_blank"><img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 195px; height: 51px" alt="Postaw kawę dla eremef.xyz na buycoffee.to" title="Postaw kawę dla eremef.xyz na buycoffee.to"></a>
 </div>
 
