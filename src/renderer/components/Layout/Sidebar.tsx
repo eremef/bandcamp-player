@@ -126,7 +126,7 @@ export function Sidebar() {
 
                 {bandcampPlaylists.length > 0 && (
                     <>
-                        <div className={styles.playlistsHeader} style={{ marginTop: '1rem' }}>
+                        <div className={styles.playlistsHeader}>
                             <h3>Bandcamp Playlists</h3>
                         </div>
                         <ul className={styles.playlistList}>
