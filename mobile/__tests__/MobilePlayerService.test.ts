@@ -433,5 +433,23 @@ describe('MobilePlayerService', () => {
             expect(TrackPlayer.setMediaItems).not.toHaveBeenCalled();
         });
 
+        it('should load track directly if queue is empty', async () => {
+            const track = { id: 't-empty', title: 'Single Track', streamUrl: 'url', duration: 200 };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: { items: [], currentIndex: -1 }
+            });
+
+            const success = await mobilePlayerService.loadTrack(track as any);
+
+            expect(success).toBe(true);
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [{ mediaId: 't-empty', url: 'url', title: 'Single Track', artist: 'Unknown Artist', albumTitle: undefined, artworkUrl: undefined, duration: 200 }],
+                0
+            );
+        });
+
     });
 });
