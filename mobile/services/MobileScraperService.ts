@@ -980,6 +980,134 @@ export class MobileScraperService {
             return [];
         }
     }
+
+    /**
+     * Fetch user's Bandcamp playlists
+     */
+    async fetchBandcampPlaylists(): Promise<Playlist[]> {
+        const authState = await mobileAuthService.checkSession();
+        if (!authState.isAuthenticated || !authState.user) {
+            console.error('[MobileScraper] User not authenticated in fetchBandcampPlaylists');
+            return [];
+        }
+
+        const config = remoteConfigService.get();
+        const cookies = await mobileAuthService.getCookies();
+
+        try {
+            const response = await fetch(config.endpoints.bandcampPlaylistsApi, {
+                method: 'POST',
+                headers: {
+                    'Cookie': cookies,
+                    'Content-Type': 'application/json',
+                    'User-Agent': config.userAgents.desktop
+                },
+                body: JSON.stringify({
+                    fan_id: parseInt(authState.user.id, 10),
+                    count: 100
+                })
+            });
+
+            if (!response.ok) {
+                console.error(`[MobileScraper] Failed to fetch Bandcamp playlists. Status: ${response.status}`);
+                return [];
+            }
+
+            const data = await response.json();
+            const playlists: Playlist[] = [];
+
+            if (data.results) {
+                for (const pl of data.results) {
+                    playlists.push({
+                        id: String(pl.playlist_id),
+                        name: pl.name || 'Untitled Playlist',
+                        description: pl.description || '',
+                        tracks: [], // Tracks will be fetched on demand
+                        createdAt: new Date().toISOString(), // Fallback
+                        isBandcampPlaylist: true,
+                        bandcampUrl: pl.url
+                    });
+                }
+            }
+
+            return playlists;
+
+        } catch (error) {
+            console.error('[MobileScraper] Error fetching Bandcamp playlists:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch tracks for a specific Bandcamp playlist
+     */
+    async fetchBandcampPlaylistTracks(playlistUrl: string): Promise<Track[]> {
+        if (!playlistUrl) return [];
+
+        const config = remoteConfigService.get();
+        const cookies = await mobileAuthService.getCookies();
+
+        try {
+            const response = await fetch(playlistUrl, {
+                headers: {
+                    'Cookie': cookies,
+                    'User-Agent': config.userAgents.desktop
+                }
+            });
+
+            if (!response.ok) {
+                console.error(`[MobileScraper] Failed to fetch Bandcamp playlist page. Status: ${response.status}`);
+                return [];
+            }
+
+            const html = await response.text();
+            const $ = cheerio.load(html);
+
+            const dataBlobStr = $('#pagedata').attr('data-blob');
+            if (!dataBlobStr) {
+                console.error('[MobileScraper] Could not find data-blob on playlist page');
+                return [];
+            }
+
+            const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
+            const decoded = dataBlobStr.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+            const pd = JSON.parse(decoded);
+
+            if (!pd.playlist_data || !pd.playlist_data.tracks) {
+                console.warn('[MobileScraper] No track data in data-blob');
+                return [];
+            }
+
+            const tracks: Track[] = pd.playlist_data.tracks.map((t: any, index: number) => {
+                let streamUrl = t.file?.['mp3-128'] || t.file?.['mp3-v0'] || '';
+                if (!streamUrl && t.encodings) {
+                    const mp3Enc = t.encodings.find((e: any) => e.format_id === 1 || e.name === 'mp3-128');
+                    if (mp3Enc) streamUrl = mp3Enc.url;
+                }
+
+                return {
+                    id: String(t.track_id || `pl-track-${index}-${Date.now()}`),
+                    title: t.title || 'Unknown Title',
+                    artist: t.band_name || 'Unknown Artist',
+                    artistId: t.band_id ? String(t.band_id) : undefined,
+                    album: t.album_title || '',
+                    albumId: t.album_id ? String(t.album_id) : undefined,
+                    duration: t.duration || 0,
+                    artworkUrl: t.art_id ? config.endpoints.artworkFormat.replace('{art_id}', t.art_id.toString()) : '',
+                    streamUrl,
+                    bandcampUrl: t.url || playlistUrl,
+                    isCached: false,
+                    trackNumber: index + 1
+                };
+            });
+
+            return tracks;
+
+        } catch (error) {
+            console.error('[MobileScraper] Error fetching Bandcamp playlist tracks:', error);
+            return [];
+        }
+    }
 }
 
 export const mobileScraperService = new MobileScraperService();

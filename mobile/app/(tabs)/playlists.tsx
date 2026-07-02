@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, SectionList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { useStore } from '../../store';
 import { Playlist } from '@shared/types';
 import { useTheme } from '../../theme';
@@ -12,6 +12,7 @@ export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
     const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
+    const bandcampPlaylists = useStore((state) => state.bandcampPlaylists);
     const mode = useStore((state) => state.mode);
     const playPlaylist = useStore((state) => state.playPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
@@ -61,6 +62,7 @@ export default function PlaylistsScreen() {
     };
 
     const handleLongPress = (playlist: Playlist) => {
+        if (playlist.isBandcampPlaylist) return; // Uneditable
         setSelectedPlaylist(playlist);
         setActionSheetVisible(true);
     };
@@ -92,7 +94,7 @@ export default function PlaylistsScreen() {
                 <View style={styles.itemInfo}>
                     <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
                     <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
-                        {item.trackCount} tracks • {formatDuration(item.totalDuration)}
+                        {item.isBandcampPlaylist ? 'Bandcamp Playlist (Online)' : `${item.trackCount || 0} tracks • ${formatDuration(item.totalDuration)}`}
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -122,14 +124,36 @@ export default function PlaylistsScreen() {
         </View>
     );
 
+    const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
+        <View style={styles.sectionHeaderContainer}>
+            <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
+            {title === 'Local Playlists' && (
+                <TouchableOpacity
+                    style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
+                    onPress={() => setCreateModalVisible(true)}
+                >
+                    <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+
+    const sections = [];
+    if (playlists.length > 0) {
+        sections.push({ title: 'Local Playlists', data: playlists });
+    }
+    if (bandcampPlaylists.length > 0) {
+        sections.push({ title: 'Bandcamp Playlists', data: bandcampPlaylists });
+    }
+
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
-
-            <FlatList
-                data={playlists}
+            <SectionList
+                sections={sections}
                 renderItem={renderItem}
+                renderSectionHeader={renderSectionHeader}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
+                contentContainerStyle={[styles.listContent, sections.length === 0 && { flex: 1 }]}
                 ListEmptyComponent={renderEmptyComponent}
                 refreshControl={mode === 'standalone' ? undefined :
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
@@ -269,5 +293,29 @@ const styles = StyleSheet.create({
     itemSubtitle: {
         color: '#888',
         fontSize: 14,
+    },
+    sectionHeaderContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        marginTop: 8,
+        marginBottom: 4,
+        backgroundColor: '#121212',
+    },
+    sectionHeader: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    createSmallButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    createSmallButtonText: {
+        fontWeight: '600',
+        fontSize: 12,
     },
 });

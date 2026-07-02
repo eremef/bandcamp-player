@@ -82,6 +82,8 @@ export interface Playlist {
   artworkUrl?: string; // First track's artwork or custom
   createdAt: string;
   updatedAt: string;
+  isBandcampPlaylist?: boolean; // Flag to indicate if it's a Bandcamp playlist (read-only)
+  bandcampUrl?: string; // URL for the Bandcamp playlist
 }
 
 export interface PlaylistCreateInput {

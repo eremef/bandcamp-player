@@ -29,6 +29,7 @@ export interface RemoteConfig {
     collectionItemsApi: string;
     wishlistItemsApi?: string;
     mobileTralbumDetailsApi: string;
+    bandcampPlaylistsApi: string;
     radioListApi: string;
     radioShowWeb: string;
     radioWeeklyWeb: string;

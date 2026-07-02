@@ -1,0 +1,50 @@
+{
+  "items": [
+    {
+      "attribution": {
+        "accountType": "fan",
+        "name": "eremef.xyz",
+        "imageId": 39539298,
+        "url": "https://bandcamp.com/eremef"
+      },
+      "creatorId": 801066,
+      "description": null,
+      "imageId": 44163044,
+      "imageState": "generated",
+      "isFeatured": null,
+      "isPrivate": true,
+      "itemId": 776715,
+      "itemUrl": "https://bandcamp.com/eremef/playlist/mix-1",
+      "modDate": "06 Feb 2026 17:21:40 GMT",
+      "title": "Mix 1",
+      "tracksSummary": {
+        "totalCount": 46,
+        "totalDuration": 20014
+      }
+    },
+    {
+      "attribution": {
+        "accountType": "fan",
+        "name": "eremef.xyz",
+        "imageId": 39539298,
+        "url": "https://bandcamp.com/eremef"
+      },
+      "creatorId": 801066,
+      "description": null,
+      "imageId": 44155522,
+      "imageState": "generated",
+      "isFeatured": null,
+      "isPrivate": true,
+      "itemId": 769179,
+      "itemUrl": "https://bandcamp.com/eremef/playlist/elvin",
+      "modDate": "29 Jan 2026 13:12:31 GMT",
+      "title": "Elvin",
+      "tracksSummary": {
+        "totalCount": 16,
+        "totalDuration": 3862
+      }
+    }
+  ],
+  "nextCursor": null,
+  "totalCount": 2
+}
