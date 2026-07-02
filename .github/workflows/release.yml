@@ -161,8 +161,34 @@ jobs:
       - name: Build APK and AAB
         env:
           GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true'
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd mobile/android
+          
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > app/release.keystore
+          
+          cat << 'EOF' > app/signing-config.gradle
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file("release.keystore")
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                  }
+              }
+          }
+          EOF
+          echo "apply from: 'signing-config.gradle'" >> app/build.gradle
+          
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
 
