@@ -158,19 +158,20 @@ jobs:
       - name: Check disk space
         run: df -h
 
-      - name: Build APK
+      - name: Build APK and AAB
         env:
           GRADLE_OPTS: '-Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=1g" -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dorg.gradle.parallel=true'
         run: |
           cd mobile/android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
 
       - name: Rename Artifacts
         env:
           REF_NAME: ${{ github.ref_name }}
         run: |
           mv mobile/android/app/build/outputs/apk/release/app-release.apk mobile/android/app/build/outputs/apk/release/beta-player-"$REF_NAME"-android.apk
+          mv mobile/android/app/build/outputs/bundle/release/app-release.aab mobile/android/app/build/outputs/bundle/release/beta-player-"$REF_NAME"-android.aab
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v7
@@ -178,6 +179,7 @@ jobs:
           name: mobile-android
           path: |
             mobile/android/app/build/outputs/apk/release/*.apk
+            mobile/android/app/build/outputs/bundle/release/*.aab
 
   # build-ios:
   #   name: Build iOS (IPA)
@@ -301,6 +303,7 @@ jobs:
             release/*.deb
             release/*.rpm
             release/*.apk
+            release/*.aab
             release/*.ipa
             release/*.yml
             release/*.blockmap
