@@ -156,7 +156,7 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
                                     {typeof action.checked === 'boolean' && (
                                         <View style={[
                                             styles.checkbox,
-                                            { borderColor: action.checked ? colors.accent : colors.border + '80' },
+                                            { borderColor: action.checked ? colors.accent : colors.textSecondary },
                                             action.checked && { backgroundColor: colors.accent }
                                         ]}>
                                             {action.checked && <Check size={12} color="white" strokeWidth={3} />}

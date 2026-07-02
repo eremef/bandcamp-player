@@ -63,6 +63,10 @@ async function handleMediaItemTransition(event: any) {
         if (mobilePlayerService.isLoadingTrack) {
             return;
         }
+        if (!store.currentTrack) {
+            console.log('[MobilePlayer] Ignoring transition: currentTrack is null');
+            return;
+        }
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
         if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
             if (event.index === mobilePlayerService.prefetchedQueueIndex) {

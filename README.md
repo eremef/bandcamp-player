@@ -35,7 +35,7 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
 - 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
-- 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, and Wishlist
+- 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
 - ↕️ **Sorting** - Persistent sorting (Date, Title, Artist) synchronized between devices
 - 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
 - 🎛️ **Windows Integration** - Control playback via system media keys and Taskbar thumbnail buttons (Thumbar)
@@ -197,6 +197,10 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
 - 🔗 **Gapless Playback** - Uninterrupted audio transitions in standalone mode
 - 🎼 **Simulated Crossfade** - Smooth volume fading between tracks for a continuous mix
+- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection and connectivity-aware switching
+- 📥 **Music Caching & Downloads** - Download entire albums or individual tracks for offline listening with background download progress tracking
+- 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
+- 🔽 **Downloaded Filter** - Filter your collection to show only downloaded music
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
@@ -262,7 +266,7 @@ mobile/
 
 | What                                           | Size | Status |
 | :--------------------------------------------- | ---- | :----: |
-| Offline mode and music caching - mobile        | XXL  | 🟡     |
+| Offline mode and music caching - mobile        | XXL  | 🟢     |
 
 **Legend**:
 🟢 finished (waiting for release)

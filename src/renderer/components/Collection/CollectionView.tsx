@@ -42,11 +42,13 @@ export function CollectionView() {
     collectionFilterAlbums,
     collectionFilterTracks,
     collectionFilterWishlist,
+    collectionFilterDownloaded,
     setCollectionSortKey: setSortKey,
     setCollectionSortDirection: setSortDirection,
     setCollectionFilterAlbums,
     setCollectionFilterTracks,
     setCollectionFilterWishlist,
+    setCollectionFilterDownloaded,
     clearQueue,
     addAlbumToQueue,
     addTracksToQueue,
@@ -56,9 +58,9 @@ export function CollectionView() {
     downloadAlbum,
     downloadTrack,
     showToast,
+    cachedAlbumIds,
+    cachedTrackIds,
   } = useStore();
-
-  const isOfflineMode = settings?.offlineMode ?? false;
 
   useEffect(() => {
     if (!collection && !isLoadingCollection) {
@@ -87,6 +89,19 @@ export function CollectionView() {
       }
       return true;
     });
+
+    // Apply downloaded-only filter
+    if (collectionFilterDownloaded) {
+      items = items.filter((item) => {
+        if (item.type === "album" && item.album) {
+          return cachedAlbumIds.has(item.album.id);
+        }
+        if (item.type === "track" && item.track) {
+          return cachedTrackIds.has(item.track.id);
+        }
+        return false;
+      });
+    }
 
     if (!searchQuery.trim()) return items;
 
@@ -118,6 +133,9 @@ export function CollectionView() {
     collectionFilterAlbums,
     collectionFilterTracks,
     collectionFilterWishlist,
+    collectionFilterDownloaded,
+    cachedAlbumIds,
+    cachedTrackIds,
     settings?.includeWishlistInCollection,
   ]);
 
@@ -127,7 +145,7 @@ export function CollectionView() {
   );
 
   const hasSearchQuery = searchQuery.trim().length > 0;
-  const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (settings?.includeWishlistInCollection && !collectionFilterWishlist);
+  const hasActiveFilter = !collectionFilterAlbums || !collectionFilterTracks || (settings?.includeWishlistInCollection && !collectionFilterWishlist) || collectionFilterDownloaded;
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -135,6 +153,7 @@ export function CollectionView() {
   const sortRef = useRef<HTMLDivElement>(null);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [isBulkOperating, setIsBulkOperating] = useState(false);
+  const isOfflineMode = settings?.offlineMode ?? false;
   const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const bulkRef = useRef<HTMLDivElement>(null);
 
@@ -411,6 +430,19 @@ export function CollectionView() {
                       <span>Wishlist</span>
                     </button>
                   )}
+                  <div className={styles.filterSeparator} />
+                  <p className={styles.filterSectionLabel}>Offline</p>
+                  <button
+                    data-testid="filter-downloaded-btn"
+                    className={styles.filterRow}
+                    onClick={() => setCollectionFilterDownloaded(!collectionFilterDownloaded)}
+                  >
+                    <span className={`${styles.filterCheck} ${collectionFilterDownloaded ? styles.checked : ""}`}>
+                      {collectionFilterDownloaded && <Check size={10} strokeWidth={3} />}
+                    </span>
+                    <Download size={13} />
+                    <span>Downloaded Only</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -547,10 +579,14 @@ export function CollectionView() {
                         ))}
                       </>
                     )}
-                    <div className={styles.bulkMenuDivider} />
-                    <button onClick={() => handleBulkAction('download')}>
-                      <Download size={16} /> Download All ({sortedItems.length})
-                    </button>
+                    {!isOfflineMode && (
+                      <>
+                        <div className={styles.bulkMenuDivider} />
+                        <button onClick={() => handleBulkAction('download')}>
+                          <Download size={16} /> Download All ({sortedItems.length})
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

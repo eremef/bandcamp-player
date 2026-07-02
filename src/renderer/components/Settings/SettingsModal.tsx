@@ -611,6 +611,18 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     </button>
                                 </p>
                             )}
+
+                            <div className={styles.supportBanner}>
+                                <p>Like the app? Want it to be actively developed?</p>
+                                <img
+                                    src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1"
+                                    alt="Buy me a coffee"
+                                    title="Buy me a coffee"
+                                    onClick={() => handleOpenLink('https://www.buymeacoffee.com/eremef.xyz')}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                            </div>
+
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://eremef.xyz')}>© {new Date().getFullYear()} eremef.xyz</p>
                             <p className={styles.copyright} onClick={() => handleOpenLink('https://github.com/eremef/bandcamp-player/blob/main/LICENSE.txt')}>
                                 Licensed under the MIT License.

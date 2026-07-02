@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
@@ -29,7 +29,17 @@ export default function SettingsScreen() {
         crossfadeDuration,
         setCrossfadeDuration,
         theme,
-        setTheme
+        setTheme,
+        offlineMode,
+        setOfflineMode,
+        downloadWifiOnly,
+        toggleDownloadWifiOnly,
+        cacheSize,
+        cacheSizeLimit,
+        setCacheSizeLimit,
+        clearCache,
+        floatingPlayerEnabled,
+        toggleFloatingPlayer
     } = useStore();
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
@@ -75,7 +85,24 @@ export default function SettingsScreen() {
                     {renderThemeOption('system', 'System', 'Follow device settings', Monitor)}
                     {renderThemeOption('light', 'Light', 'Always use light theme', Sun)}
                     {renderThemeOption('dark', 'Dark', 'Always use dark theme', Moon)}
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <Music color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Floating Playback Bubble</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Show a moveable bubble to control playback
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={floatingPlayerEnabled}
+                            onValueChange={toggleFloatingPlayer}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
                 </View>
+
 
                 <View style={styles.section}>
                     <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Remote Configuration</Text>
@@ -102,6 +129,7 @@ export default function SettingsScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
+
 
                 {mode === 'standalone' && (
                     <View style={styles.section}>
@@ -147,6 +175,88 @@ export default function SettingsScreen() {
                                 />
                             </View>
                         )}
+                    </View>
+                )}
+
+                {mode === 'standalone' && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Offline & Caching</Text>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <WifiOff color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Offline Mode</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Only play downloaded tracks
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={offlineMode}
+                                onValueChange={setOfflineMode}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <Database color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Wi-Fi Only Downloads</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        Prevent downloading over cellular data
+                                    </Text>
+                                </View>
+                            </View>
+                            <Switch
+                                value={downloadWifiOnly}
+                                onValueChange={toggleDownloadWifiOnly}
+                                trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                            />
+                        </View>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={[styles.settingLabelContainer, { marginLeft: 0 }]}>
+                                <Database color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Cache Size Limit</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        {cacheSizeLimit} GB
+                                    </Text>
+                                </View>
+                            </View>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity
+                                    onPress={() => setCacheSizeLimit(Math.max(1, cacheSizeLimit - 1))}
+                                    style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
+                                >
+                                    <Minus color={colors.text} size={16} />
+                                </TouchableOpacity>
+                                <Text style={[styles.stepperValue, { color: colors.text }]}>{cacheSizeLimit}GB</Text>
+                                <TouchableOpacity
+                                    onPress={() => setCacheSizeLimit(Math.min(20, cacheSizeLimit + 1))}
+                                    style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
+                                >
+                                    <Plus color={colors.text} size={16} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                            <View style={styles.settingLabelContainer}>
+                                <Trash2 color={colors.text} size={20} style={styles.settingIcon} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.settingTitle, { color: colors.text }]}>Clear Cache</Text>
+                                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                        {(cacheSize / 1024 / 1024).toFixed(1)} MB used
+                                    </Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={clearCache} style={styles.refreshButton}>
+                                <Text style={{ color: colors.accent, fontWeight: '600' }}>Clear</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
 
@@ -211,7 +321,8 @@ export default function SettingsScreen() {
 
                         {crossfadeEnabled && (
                             <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
-                                <View style={[styles.settingLabelContainer, { marginLeft: 32 }]}>
+                                <View style={styles.settingLabelContainer}>
+                                    <Timer color={colors.text} size={20} style={styles.settingIcon} />
                                     <View style={{ flex: 1 }}>
                                         <Text style={[styles.settingTitle, { color: colors.text }]}>Crossfade Duration</Text>
                                         <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
@@ -220,14 +331,14 @@ export default function SettingsScreen() {
                                     </View>
                                 </View>
                                 <View style={styles.stepperContainer}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={() => setCrossfadeDuration(Math.max(1, crossfadeDuration - 1))}
                                         style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
                                     >
                                         <Minus color={colors.text} size={16} />
                                     </TouchableOpacity>
                                     <Text style={[styles.stepperValue, { color: colors.text }]}>{crossfadeDuration}s</Text>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         onPress={() => setCrossfadeDuration(Math.min(10, crossfadeDuration + 1))}
                                         style={[styles.stepperButton, { borderColor: colors.border || '#333' }]}
                                     >
@@ -340,12 +451,12 @@ const styles = StyleSheet.create({
     stepperButton: {
         borderWidth: 1,
         borderRadius: 4,
-        padding: 6,
+        padding: 7,
+        marginHorizontal: 5,
         alignItems: 'center',
         justifyContent: 'center',
     },
     stepperValue: {
-        width: 32,
         textAlign: 'center',
         fontWeight: 'bold',
     },

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useStore } from '../store';
 import BandcampLoginScreen from '../app/bandcamp_login';
 

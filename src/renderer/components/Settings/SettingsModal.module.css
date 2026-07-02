@@ -744,3 +744,19 @@
         transform: translateY(0);
     }
 }
+
+.supportBanner {
+    margin-top: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.supportBanner p {
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    margin: 0;
+}

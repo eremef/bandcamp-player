@@ -208,6 +208,7 @@ export class Database {
       collectionFilterAlbums: true,
       collectionFilterTracks: true,
       collectionFilterWishlist: true,
+      collectionFilterDownloaded: false,
       offlineMode: false,
       includeWishlistInCollection: false,
     };

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { useStore } from '../../store';
