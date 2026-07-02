@@ -42,6 +42,21 @@ export class MobileDatabase {
                 cached_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS audio_cache (
+                track_id TEXT PRIMARY KEY,
+                album_id TEXT,
+                file_path TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                cached_at TEXT NOT NULL,
+                last_accessed_at TEXT NOT NULL,
+                title TEXT,
+                artist TEXT,
+                album TEXT,
+                duration INTEGER,
+                track_number INTEGER,
+                artwork_url TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS collection_items (
                 id TEXT PRIMARY KEY,
                 type TEXT NOT NULL,
@@ -191,6 +206,86 @@ export class MobileDatabase {
         );
     }
 
+    // --- Audio Cache ---
+
+    async addCacheEntry(entry: {
+        trackId: string;
+        albumId?: string;
+        filePath: string;
+        fileSize: number;
+        cachedAt: string;
+        lastAccessedAt: string;
+        title?: string;
+        artist?: string;
+        album?: string;
+        duration?: number;
+        trackNumber?: number;
+        artworkUrl?: string;
+    }) {
+        if (!this.db) await this.init();
+        await this.db!.runAsync(
+            `INSERT OR REPLACE INTO audio_cache 
+            (track_id, album_id, file_path, file_size, cached_at, last_accessed_at, title, artist, album, duration, track_number, artwork_url)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                entry.trackId,
+                entry.albumId ?? null,
+                entry.filePath,
+                entry.fileSize,
+                entry.cachedAt,
+                entry.lastAccessedAt,
+                entry.title ?? null,
+                entry.artist ?? null,
+                entry.album ?? null,
+                entry.duration ?? null,
+                entry.trackNumber ?? null,
+                entry.artworkUrl ?? null
+            ]
+        );
+    }
+
+    async deleteCacheEntry(trackId: string) {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM audio_cache WHERE track_id = ?', [trackId]);
+    }
+
+    async getCacheEntry(trackId: string): Promise<any | null> {
+        if (!this.db) await this.init();
+        return await this.db!.getFirstAsync('SELECT * FROM audio_cache WHERE track_id = ?', [trackId]);
+    }
+
+    async getAllCacheEntries(): Promise<any[]> {
+        if (!this.db) await this.init();
+        return await this.db!.getAllAsync('SELECT * FROM audio_cache');
+    }
+
+    async getCacheEntriesByAlbum(albumId: string): Promise<any[]> {
+        if (!this.db) await this.init();
+        return await this.db!.getAllAsync('SELECT * FROM audio_cache WHERE album_id = ?', [albumId]);
+    }
+
+    async getCacheTotalSize(): Promise<number> {
+        if (!this.db) await this.init();
+        const result = await this.db!.getFirstAsync<{ total: number }>('SELECT SUM(file_size) as total FROM audio_cache');
+        return result?.total || 0;
+    }
+
+    async getOldestCacheEntries(limit: number): Promise<any[]> {
+        if (!this.db) await this.init();
+        return await this.db!.getAllAsync('SELECT * FROM audio_cache ORDER BY last_accessed_at ASC LIMIT ?', [limit]);
+    }
+
+    async updateCacheAccess(trackId: string) {
+        if (!this.db) await this.init();
+        const now = new Date().toISOString();
+        await this.db!.runAsync('UPDATE audio_cache SET last_accessed_at = ? WHERE track_id = ?', [now, trackId]);
+    }
+
+    async clearAudioCache() {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM audio_cache');
+    }
+
     // Simple mutex for transaction serialization
     private transactionLock: Promise<void> = Promise.resolve();
 
@@ -272,7 +367,8 @@ export class MobileDatabase {
         sortDirection: 'asc' | 'desc' = 'asc',
         filterAlbums: boolean = true,
         filterTracks: boolean = true,
-        filterWishlist: boolean = true
+        filterWishlist: boolean = true,
+        filterDownloaded: boolean = false
     ): Promise<CollectionItem[]> {
         if (!this.db) await this.init();
 
@@ -299,7 +395,11 @@ export class MobileDatabase {
         if (filterTracks) filterParts.push("(ci.type = 'track' AND ci.is_wishlist = 0)");
         if (filterWishlist && includeWishlist) filterParts.push("(ci.is_wishlist = 1)");
 
-        const filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
+        let filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
+
+        if (filterDownloaded) {
+            filterSql += " AND (ci.id IN (SELECT album_id FROM audio_cache WHERE album_id IS NOT NULL) OR ci.id IN (SELECT track_id FROM audio_cache))";
+        }
 
         const selectCols = `ci.*, a.title as a_title, a.artist_name as a_artist, a.artwork_url as a_art, a.bandcamp_url as a_url, a.track_count as a_count, a.artist_id as a_aid,
                    t.title as t_title, t.artist_name as t_artist, t.artwork_url as t_art, t.stream_url as t_stream, t.duration as t_dur, t.bandcamp_url as t_url, t.album_title as t_album, t.artist_id as t_aid, t.album_id as t_alid`;
@@ -400,7 +500,8 @@ export class MobileDatabase {
         includeWishlist: boolean = false,
         filterAlbums: boolean = true,
         filterTracks: boolean = true,
-        filterWishlist: boolean = true
+        filterWishlist: boolean = true,
+        filterDownloaded: boolean = false
     ): Promise<number> {
         if (!this.db) await this.init();
 
@@ -409,7 +510,11 @@ export class MobileDatabase {
         if (filterTracks) filterParts.push("(ci.type = 'track' AND ci.is_wishlist = 0)");
         if (filterWishlist && includeWishlist) filterParts.push("(ci.is_wishlist = 1)");
 
-        const filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
+        let filterSql = filterParts.length > 0 ? `AND (${filterParts.join(' OR ')})` : "AND 0";
+
+        if (filterDownloaded) {
+            filterSql += " AND (ci.id IN (SELECT album_id FROM audio_cache WHERE album_id IS NOT NULL) OR ci.id IN (SELECT track_id FROM audio_cache))";
+        }
 
         if (query) {
             let result;

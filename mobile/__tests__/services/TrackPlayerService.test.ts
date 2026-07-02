@@ -5,6 +5,9 @@ import { useStore } from '../../store';
 jest.mock('../../services/MobilePlayerService', () => ({
     mobilePlayerService: {
         handleTrackEnd: jest.fn(),
+        playQueueIndex: jest.fn(),
+        isLoadingTrack: false,
+        prefetchedQueueIndex: -1,
     }
 }));
 
@@ -114,6 +117,56 @@ describe('TrackPlayerService (PlaybackService)', () => {
             const { mobilePlayerService } = require('../../services/MobilePlayerService');
             await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ended });
             expect(mobilePlayerService.handleTrackEnd).not.toHaveBeenCalled();
+        });
+
+        describe('MediaItemTransition', () => {
+            let syncNativeTransitionMock: jest.Mock;
+
+            beforeEach(() => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.playQueueIndex.mockClear();
+                mobilePlayerService.isLoadingTrack = false;
+                mobilePlayerService.prefetchedQueueIndex = -1;
+
+                syncNativeTransitionMock = jest.fn();
+                useStore.setState({
+                    mode: 'standalone',
+                    currentTrack: { id: '1' } as any,
+                    queue: { items: [{ id: '1' }, { id: '2' }], currentIndex: 0 },
+                    syncNativeTransition: syncNativeTransitionMock,
+                } as any);
+            });
+
+            it('ignores transition if isLoadingTrack is true', async () => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.isLoadingTrack = true;
+                await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
+
+            it('ignores transition if currentTrack is null', async () => {
+                useStore.setState({ currentTrack: null } as any);
+                await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
+
+            it('syncs transition if it matches prefetchedQueueIndex', async () => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.prefetchedQueueIndex = 1;
+                await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
+                expect(syncNativeTransitionMock).toHaveBeenCalledWith(1);
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
+
+            it('calls playQueueIndex if not prefetched and index changed', async () => {
+                jest.useFakeTimers();
+                await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
+                jest.runAllTimers();
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                expect(mobilePlayerService.playQueueIndex).toHaveBeenCalledWith(1);
+                jest.useRealTimers();
+            });
         });
     });
 

@@ -76,21 +76,37 @@ class MobilePlayerService {
 
         this.isPrefetching = true;
         try {
+            const isCached = store.cachedTrackIds?.has?.(nextTrack.id) || false;
+            
+            if (store.offlineMode && !isCached) {
+                // In offline mode, don't prefetch non-cached tracks
+                this.isPrefetching = false;
+                return;
+            }
+
+            if (isCached) {
+                const { mobileCacheService } = require('./MobileCacheService');
+                const cachedUri = await mobileCacheService?.getCachedTrackUri?.(nextTrack.id);
+                if (cachedUri) {
+                    streamUrl = cachedUri;
+                }
+            }
+
             if (!streamUrl && nextTrack.bandcampUrl) {
                 const { mobileScraperService } = require('./MobileScraperService');
                 const urlToFetch = nextTrack.bandcampUrl;
-                if (urlToFetch.includes('show=')) {
-                    const showId = urlToFetch.split('show=').pop()?.split('&')[0];
+                if (urlToFetch?.includes?.('show=')) {
+                    const showId = urlToFetch?.split?.('show=')?.pop()?.split?.('&')?.[0];
                     if (showId) {
-                        const result = await mobileScraperService.getStationStreamUrl(showId);
+                        const result = await mobileScraperService?.getStationStreamUrl?.(showId);
                         if (result?.streamUrl) streamUrl = result.streamUrl;
                     }
                 } else {
-                    const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                    const albumDetails = await mobileScraperService?.getAlbumDetails?.(urlToFetch);
                     if (albumDetails) {
-                        const foundTrack = albumDetails.tracks.find((t: any) => t.title.toLowerCase() === nextTrack.title.toLowerCase() || t.id === nextTrack.id);
+                        const foundTrack = albumDetails.tracks?.find?.((t: any) => t.title?.toLowerCase?.() === nextTrack.title?.toLowerCase?.() || t.id === nextTrack.id);
                         if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
-                        else if (albumDetails.tracks.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
+                        else if (albumDetails.tracks?.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
                     }
                 }
             }
@@ -105,7 +121,15 @@ class MobilePlayerService {
                     artworkUrl: nextTrack.artworkUrl,
                     duration: nextTrack.duration,
                 };
-                TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                try {
+                    if (typeof TrackPlayer.replaceMediaItem === 'function') {
+                        TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
+                    } else if (typeof TrackPlayer.updateMetadata === 'function') {
+                        TrackPlayer.updateMetadata(nextIndex, updatedItem);
+                    }
+                } catch (err) {
+                    console.warn('[MobilePlayer] Error replacing media item:', err);
+                }
 
                 const newItems = [...queue.items];
                 newItems[nextIndex] = {
@@ -115,8 +139,9 @@ class MobilePlayerService {
                 useStore.setState({ queue: { ...queue, items: newItems } });
                 this.prefetchedQueueIndex = nextIndex;
             }
-        } catch (e) {
-            console.log('[MobilePlayer] Prefetch failed', e);
+        } catch (e: any) {
+            console.log('[MobilePlayer] Prefetch failed', e?.message || e);
+            if (e?.stack) console.log(e.stack);
         } finally {
             this.isPrefetching = false;
         }
@@ -244,6 +269,12 @@ class MobilePlayerService {
             } else {
                 // End of queue
                 this.stop();
+                useStore.setState({
+                    currentTrack: null,
+                    currentTime: 0,
+                    duration: 0,
+                    queue: { ...queue, currentIndex: queue.items.length }
+                });
                 return;
             }
         }
@@ -333,7 +364,31 @@ class MobilePlayerService {
         try {
             if (!this.isInitialized) await this.setupPlayer();
 
+            const store = useStore.getState();
+            const { offlineMode, cachedTrackIds } = store;
+            const isCached = cachedTrackIds.has(track.id);
+
+            // In offline mode, skip non-cached tracks
+            if (offlineMode && !isCached) {
+                console.log(`[MobilePlayer] Skipping track ${track.id} - offline mode active and track not cached`);
+                this.isLoadingTrack = false;
+                useStore.setState({ collectionError: 'Track not available offline.' });
+                return false;
+            }
+
             let streamUrl = track.streamUrl;
+
+            // Check if track is cached locally
+            if (isCached) {
+                const { mobileCacheService } = require('./MobileCacheService');
+                const cachedUri = await mobileCacheService.getCachedUri(track.id);
+                if (cachedUri) {
+                    streamUrl = cachedUri;
+                    console.log(`[MobilePlayer] Using cached file: ${cachedUri}`);
+                } else {
+                     console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
+                }
+            }
 
             if (!streamUrl) {
                 console.log(`[MobilePlayer] fetching stream URL for ${track.title}`);
@@ -383,6 +438,17 @@ class MobilePlayerService {
                 return false;
             }
 
+            const state = useStore.getState();
+            const queueItems = state.queue.items;
+            const currentIndex = state.queue.currentIndex;
+
+            if (queueItems.length > 0) {
+                if (currentIndex < 0 || currentIndex >= queueItems.length || queueItems[currentIndex].track.id !== track.id) {
+                    console.log(`[MobilePlayer] Aborting loadTrack for ${track.title} - superseded`);
+                    return false;
+                }
+            }
+
             // Update Store (but don't set isPlaying yet)
             const artistName = track.artist || 'Unknown Artist';
             useStore.setState({
@@ -397,10 +463,6 @@ class MobilePlayerService {
             // To support native Next/Previous buttons and correct lock screen metadata,
             // we feed the entire queue to the native player. We only provide the real URL
             // for the current track. The others get dummy URLs and will be resolved when skipped to.
-            const state = useStore.getState();
-            const queueItems = state.queue.items;
-            const currentIndex = state.queue.currentIndex;
-
             const nativeQueue = queueItems.map((qTrack, idx) => ({
                 mediaId: qTrack.id,
                 url: idx === currentIndex ? streamUrl : 'http://localhost/dummy.mp3',
@@ -411,8 +473,23 @@ class MobilePlayerService {
                 duration: qTrack.track.duration,
             }));
 
+            let finalQueue = [...nativeQueue];
+            let finalIndex = currentIndex;
+            if (finalQueue.length === 0) {
+                finalQueue = [{
+                    mediaId: track.id,
+                    url: streamUrl,
+                    title: track.title || 'Untitled',
+                    artist: track.artist || 'Unknown Artist',
+                    albumTitle: track.album,
+                    artworkUrl: track.artworkUrl,
+                    duration: track.duration,
+                }];
+                finalIndex = 0;
+            }
+
             try {
-                TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+                TrackPlayer.setMediaItems(finalQueue, finalIndex);
                 TrackPlayer.setRepeatMode(state.repeatMode as any);
             } finally {
                 this.isLoadingTrack = false;

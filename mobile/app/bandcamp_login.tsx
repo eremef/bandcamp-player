@@ -36,8 +36,8 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                             'We found a Bandcamp confirmation link in your clipboard. Do you want to use it to log in?',
                             [
                                 { text: 'Cancel', style: 'cancel' },
-                                { 
-                                    text: 'Use Link', 
+                                {
+                                    text: 'Use Link',
                                     onPress: () => {
                                         if (webViewRef.current) {
                                             const js = `window.location.href = "${text}"; true;`;
@@ -344,7 +344,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                     <Text style={[styles.pasteText, { color: colors.text }]}>
                         If Bandcamp sent you an email confirmation link, copy it from your email app and paste it here:
                     </Text>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={[styles.pasteButton, { backgroundColor: colors.accent }]}
                         onPress={async () => {
                             const hasString = await Clipboard.hasStringAsync();

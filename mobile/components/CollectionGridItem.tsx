@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { Heart } from 'lucide-react-native';
+import { Heart, CheckCircle2 } from 'lucide-react-native';
 import { CollectionItem } from '@shared/types';
 import { useTheme } from '../theme';
+import { useStore } from '../store';
 
 interface CollectionGridItemProps {
     item: CollectionItem;
@@ -20,6 +21,20 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
     testID
 }) => {
     const colors = useTheme();
+
+    const isCached = useStore(state =>
+        item.type === 'album' && item.album ? state.cachedAlbumIds.has(item.album.id) :
+            item.type === 'track' && item.track ? state.cachedTrackIds.has(item.track.id) : false
+    );
+    const downloadState = useStore(state => {
+        if (item.type === 'album' && item.album) {
+            return state.activeDownloads[`album-${item.album.id}`];
+        } else if (item.type === 'track' && item.track) {
+            return state.activeDownloads[item.track.id];
+        }
+        return undefined;
+    });
+
     // ... logic remains same ...
     let artworkUrl, title, artist;
 
@@ -56,6 +71,16 @@ export const CollectionGridItem: React.FC<CollectionGridItemProps> = React.memo(
                         <Heart size={14} color={colors.error} fill={colors.error} />
                     </View>
                 )}
+                {isCached && !downloadState && (
+                    <View style={styles.cacheBadge}>
+                        <CheckCircle2 size={16} color={colors.accent || '#1DA1F2'} fill="#1a1a1a" />
+                    </View>
+                )}
+                {downloadState && (
+                    <View style={styles.downloadBadge}>
+                        <Text style={styles.progressText}>{Math.round(downloadState.progress)}%</Text>
+                    </View>
+                )}
             </View>
             <View style={styles.info}>
                 <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>{title}</Text>
@@ -89,6 +114,28 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         borderRadius: 12,
         padding: 4,
+    },
+    cacheBadge: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: 12,
+        padding: 2,
+    },
+    downloadBadge: {
+        position: 'absolute',
+        bottom: 6,
+        right: 6,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        borderRadius: 12,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+    },
+    progressText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     artwork: {
         width: '100%',

@@ -227,7 +227,7 @@ export function AlbumDetailView() {
                   <Download size={18} className={styles.spinningIcon} />
                   <span>Downloading...</span>
                 </button>
-              ) : (
+              ) : !isOfflineMode ? (
                 <button
                   className={styles.actionBtn}
                   onClick={handleAlbumDownload}
@@ -237,7 +237,7 @@ export function AlbumDetailView() {
                   <Download size={18} />
                   <span>Download Album</span>
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -359,9 +359,11 @@ export function AlbumDetailView() {
 
                           <div className={styles.menuDivider} />
                           {!cachedTrackIds.has(track.id) ? (
-                            <button onClick={() => handleTrackDownload(track)}>
-                              <Download size={14} /> Download
-                            </button>
+                            !isOfflineMode && (
+                              <button onClick={() => handleTrackDownload(track)}>
+                                <Download size={14} /> Download
+                              </button>
+                            )
                           ) : (
                             <button onClick={() => handleTrackRemoveFromCache(track)}>
                               <Trash2 size={14} /> Remove from cache
