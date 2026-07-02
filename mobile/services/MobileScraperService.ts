@@ -1008,7 +1008,7 @@ export class MobileScraperService {
                     pageFanId = fanIdMatch[1];
                     console.log(`[MobileScraper] Extracted fan_id ${pageFanId} from profile page`);
                 }
-            } catch (e) {
+            } catch {
                 console.warn('[MobileScraper] Failed to extract fan_id from profile page, using user ID');
             }
 
