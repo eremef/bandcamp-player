@@ -181,7 +181,7 @@ export function FloatingPlayer() {
 
     const ALLOWED_PATHS = ['/collection', '/artists', '/playlists', '/radio', '/queue'];
 
-    if (!floatingPlayerEnabled || !currentTrack || !isLoaded || !ALLOWED_PATHS.includes(pathname)) {
+    if (!floatingPlayerEnabled || !isLoaded || !ALLOWED_PATHS.includes(pathname)) {
         return null;
     }
 
@@ -192,41 +192,47 @@ export function FloatingPlayer() {
 
                 {!isExpanded ? (
                     <View style={styles.collapsedIconContainer}>
-                        <Music color={colors.text} size={24} />
+                        <Music color={"#FFF"} size={24} />
                     </View>
                 ) : (
                     <View style={styles.expandedContainer}>
                         <TouchableOpacity onPress={shrink} style={styles.shrinkButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            <Minimize2 color={colors.text} size={16} />
+                            <Minimize2 color={"#FFF"} size={16} />
                         </TouchableOpacity>
 
                         <TouchableOpacity onPress={() => { toggleFloatingPlayerLock(); resetTimeout(); }} style={styles.lockButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            {isFloatingPlayerLocked ? <Lock color={colors.text} size={16} /> : <Unlock color={colors.text} size={16} />}
+                            {isFloatingPlayerLocked ? <Lock color={"#FFF"} size={16} /> : <Unlock color={"#FFF"} size={16} />}
                         </TouchableOpacity>
 
                         <View style={styles.controlsRow}>
                             <TouchableOpacity activeOpacity={0.8} onPress={shrink}>
-                                <RNImage
-                                    source={{ uri: currentTrack.artworkUrl }}
-                                    style={styles.expandedImage}
-                                />
+                                {currentTrack?.artworkUrl ? (
+                                    <RNImage
+                                        source={{ uri: currentTrack.artworkUrl }}
+                                        style={styles.expandedImage}
+                                    />
+                                ) : (
+                                    <View style={[styles.expandedImage, { backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' }]}>
+                                        <Music color={"#FFF"} size={24} />
+                                    </View>
+                                )}
                             </TouchableOpacity>
 
                             <View style={styles.playbackControls}>
                                 <TouchableOpacity onPress={() => { previous(); resetTimeout(); }} style={styles.controlButton}>
-                                    <SkipBack color={colors.text} size={24} />
+                                    <SkipBack color={"#FFF"} size={24} />
                                 </TouchableOpacity>
 
                                 <TouchableOpacity onPress={() => { if (isPlaying) pause(); else play(); resetTimeout(); }} style={styles.controlButton}>
                                     {isPlaying ? (
-                                        <Pause color={colors.text} size={28} />
+                                        <Pause color={"#FFF"} size={28} />
                                     ) : (
-                                        <Play color={colors.text} size={28} />
+                                        <Play color={"#FFF"} size={28} />
                                     )}
                                 </TouchableOpacity>
 
                                 <TouchableOpacity onPress={() => { next(); resetTimeout(); }} style={styles.controlButton}>
-                                    <SkipForward color={colors.text} size={24} />
+                                    <SkipForward color={"#FFF"} size={24} />
                                 </TouchableOpacity>
                             </View>
                         </View>
