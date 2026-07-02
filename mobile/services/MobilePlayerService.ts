@@ -240,10 +240,14 @@ class MobilePlayerService {
         useStore.getState().saveQueue();
     }
 
-    stop() {
+    async stop() {
         useStore.setState({ userIntendedPause: true });
-        TrackPlayer.stop();
-        TrackPlayer.clear();
+        try {
+            await TrackPlayer.stop();
+            await TrackPlayer.clear();
+        } catch (e) {
+            console.log('[MobilePlayer] Error stopping player:', e);
+        }
         useStore.setState({ isPlaying: false });
         useStore.getState().saveQueue();
     }
@@ -255,6 +259,11 @@ class MobilePlayerService {
         this.prefetchedQueueIndex = -1; // Reset prefetch index on explicit next
 
         if (queue.items.length === 0) return;
+
+        // If we are already at the end of the queue and not repeating, do nothing
+        if (queue.currentIndex >= queue.items.length && repeatMode !== 'all') {
+            return;
+        }
 
         let nextIndex = queue.currentIndex + 1;
 
@@ -268,7 +277,7 @@ class MobilePlayerService {
                 nextIndex = 0;
             } else {
                 // End of queue
-                this.stop();
+                await this.stop();
                 useStore.setState({
                     currentTrack: null,
                     currentTime: 0,

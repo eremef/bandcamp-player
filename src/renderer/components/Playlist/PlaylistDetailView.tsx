@@ -121,7 +121,7 @@ export function PlaylistDetailView() {
                                 <Play size={18} fill="currentColor" />
                                 <span>Play All</span>
                             </button>
-                            {!isEditing && (
+                            {!isEditing && !selectedPlaylist.isBandcampPlaylist && (
                                 <button className={styles.actionBtn} onClick={handleRenameClick}>
                                     <Pencil size={18} />
                                     <span>Rename</span>
@@ -204,16 +204,18 @@ export function PlaylistDetailView() {
                                                         <List size={14} /> Add to Queue
                                                     </button>
                                                     <div className={styles.menuDivider} />
-                                                    <button
-                                                        className={styles.removeBtn}
-                                                        onClick={() => {
-                                                            setActiveTrackMenu(null);
-                                                            removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
-                                                        }}
-                                                        title="Remove from playlist"
-                                                    >
-                                                        <Trash2 size={14} /> Remove from Playlist
-                                                    </button>
+                                                    {!selectedPlaylist.isBandcampPlaylist && (
+                                                        <button
+                                                            className={styles.removeBtn}
+                                                            onClick={() => {
+                                                                setActiveTrackMenu(null);
+                                                                removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
+                                                            }}
+                                                            title="Remove from playlist"
+                                                        >
+                                                            <Trash2 size={14} /> Remove from Playlist
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

@@ -12,7 +12,8 @@ export function Sidebar() {
         selectPlaylist,
         auth,
         toggleSettings,
-        createPlaylist
+        createPlaylist,
+        bandcampPlaylists
     } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
@@ -87,7 +88,7 @@ export function Sidebar() {
                         </form>
                     ) : (
                         <>
-                            <h3>Your Playlists</h3>
+                            <h3>Local Playlists</h3>
                             <button
                                 className={styles.addButton}
                                 onClick={handleCreateClick}
@@ -122,6 +123,32 @@ export function Sidebar() {
                         </li>
                     )}
                 </ul>
+
+                {bandcampPlaylists.length > 0 && (
+                    <>
+                        <div className={styles.playlistsHeader} style={{ marginTop: '1rem' }}>
+                            <h3>Bandcamp Playlists</h3>
+                        </div>
+                        <ul className={styles.playlistList}>
+                            {bandcampPlaylists.map((playlist) => (
+                                <li key={playlist.id}>
+                                    <button
+                                        className={`${styles.playlistItem} ${currentView === 'playlist-detail' &&
+                                            useStore.getState().selectedPlaylistId === playlist.id
+                                            ? styles.active
+                                            : ''
+                                            }`}
+                                        onClick={() => selectPlaylist(playlist.id)}
+                                    >
+                                        <span className={styles.playlistIcon}><Music size={16} /></span>
+                                        <span className={styles.playlistName}>{playlist.name}</span>
+                                        <span className={styles.playlistCount}>{playlist.trackCount}</span>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )}
             </div>
 
             {/* User section */}

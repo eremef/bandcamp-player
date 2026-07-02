@@ -4,7 +4,7 @@ import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil } from 'lucide-r
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, isLoadingBandcampPlaylists, fetchBandcampPlaylists } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -25,6 +25,10 @@ export function PlaylistsView() {
             return () => clearTimeout(timer);
         }
     }, [isCreating]);
+
+    useEffect(() => {
+        fetchBandcampPlaylists();
+    }, [fetchBandcampPlaylists]);
 
     useEffect(() => {
         if (isEditingId) {
@@ -206,6 +210,37 @@ export function PlaylistsView() {
                         </div>
                     ))}
                 </div>
+            )}
+
+            {bandcampPlaylists.length > 0 && (
+                <>
+                    <header className={styles.header} style={{ marginTop: '2rem' }}>
+                        <div className={styles.headerContent}>
+                            <h2>Bandcamp Playlists</h2>
+                            <p>{bandcampPlaylists.length} playlists</p>
+                        </div>
+                    </header>
+                    <div className={styles.grid}>
+                        {bandcampPlaylists.map((playlist) => (
+                            <div key={playlist.id} className={styles.card} onClick={() => selectPlaylist(playlist.id)}>
+                                <div className={styles.cardArtwork}>
+                                    {playlist.artworkUrl ? (
+                                        <img src={playlist.artworkUrl} alt="" />
+                                    ) : (
+                                        <div className={styles.placeholderArtwork}><Music size={48} /></div>
+                                    )}
+                                </div>
+                                <div className={styles.cardInfo}>
+                                    <h3 className={styles.cardTitle}>{playlist.name}</h3>
+                                    <p className={styles.cardMeta}>
+                                        {playlist.trackCount} tracks
+                                        {playlist.description && ` • ${playlist.description}`}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
             )}
         </div>
     );
