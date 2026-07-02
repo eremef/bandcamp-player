@@ -201,7 +201,7 @@ export function FloatingPlayer() {
                         </TouchableOpacity>
 
                         <TouchableOpacity onPress={() => { toggleFloatingPlayerLock(); resetTimeout(); }} style={styles.lockButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                            {isFloatingPlayerLocked ? <Lock color={"#FFF"} size={16} /> : <Unlock color={"#FFF"} size={16} />}
+                            {isFloatingPlayerLocked ? <Lock color={"#FFF"} size={19} /> : <Unlock color={"#DDD"} size={19} />}
                         </TouchableOpacity>
 
                         <View style={styles.controlsRow}>
