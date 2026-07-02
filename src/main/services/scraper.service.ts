@@ -1554,7 +1554,7 @@ export class ScraperService extends EventEmitter {
           pageFanId = String(extractedFanId);
           console.log(`[ScraperService] Extracted fan_id ${pageFanId} from profile page`);
         }
-      } catch (_e) {
+      } catch {
         console.warn("[ScraperService] Failed to fetch profile page to extract fan_id, using auth user id");
       }
 
