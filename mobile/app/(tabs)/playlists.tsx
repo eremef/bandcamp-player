@@ -77,24 +77,39 @@ export default function PlaylistsScreen() {
         return `${minutes} min`;
     };
 
-    const renderItem = ({ item }: { item: Playlist }) => {
+    const renderItem = ({ item }: { item: Playlist | { id: string } }) => {
+        if (item.id === 'empty-local') {
+            return (
+                <View style={[styles.center, { marginTop: 40, paddingBottom: 40 }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
+                    <TouchableOpacity
+                        style={[styles.createButton, { backgroundColor: colors.accent }]}
+                        onPress={() => setCreateModalVisible(true)}
+                    >
+                        <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        const playlist = item as Playlist;
         return (
             <TouchableOpacity
                 style={[styles.item, { backgroundColor: colors.card }]}
-                onPress={() => handlePlayPlaylist(item)}
-                onLongPress={() => handleLongPress(item)}
+                onPress={() => handlePlayPlaylist(playlist)}
+                onLongPress={() => handleLongPress(playlist)}
             >
-                {item.artworkUrl ? (
-                    <Image source={{ uri: item.artworkUrl }} style={styles.artwork} />
+                {playlist.artworkUrl ? (
+                    <Image source={{ uri: playlist.artworkUrl }} style={styles.artwork} />
                 ) : (
                     <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.input }]}>
                         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
                 )}
                 <View style={styles.itemInfo}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{playlist.name}</Text>
                     <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
-                        {item.isBandcampPlaylist ? 'Bandcamp Playlist (Online)' : `${item.trackCount || 0} tracks • ${formatDuration(item.totalDuration)}`}
+                        {playlist.isBandcampPlaylist ? 'Bandcamp Playlist (Online)' : `${playlist.trackCount || 0} tracks • ${formatDuration(playlist.totalDuration)}`}
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -112,18 +127,6 @@ export default function PlaylistsScreen() {
         }, 1500);
     }, [refreshPlaylists]);
 
-    const renderEmptyComponent = () => (
-        <View style={styles.center}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
-            <TouchableOpacity
-                style={[styles.createButton, { backgroundColor: colors.accent }]}
-                onPress={() => setCreateModalVisible(true)}
-            >
-                <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
-            </TouchableOpacity>
-        </View>
-    );
-
     const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
         <View style={styles.sectionHeaderContainer}>
             <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
@@ -138,9 +141,13 @@ export default function PlaylistsScreen() {
         </View>
     );
 
-    const sections = [
-        { title: 'Local Playlists', data: playlists }
-    ];
+    const sections = [];
+    if (playlists.length === 0) {
+        sections.push({ title: 'Local Playlists', data: [{ id: 'empty-local' }] });
+    } else {
+        sections.push({ title: 'Local Playlists', data: playlists });
+    }
+    
     if (bandcampPlaylists.length > 0) {
         sections.push({ title: 'Bandcamp Playlists', data: bandcampPlaylists });
     }
@@ -153,7 +160,6 @@ export default function PlaylistsScreen() {
                 renderSectionHeader={renderSectionHeader}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={[styles.listContent, sections.length === 0 && { flex: 1 }]}
-                ListEmptyComponent={renderEmptyComponent}
                 refreshControl={mode === 'standalone' ? undefined :
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
