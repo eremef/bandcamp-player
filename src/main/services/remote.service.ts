@@ -468,6 +468,15 @@ export class RemoteControlService extends EventEmitter {
                 this.sendToClient(ws, 'playlists-data', playlists);
                 break;
             }
+            case 'get-bandcamp-playlists': {
+                try {
+                    const playlists = await this.scraperService.fetchBandcampPlaylists();
+                    this.sendToClient(ws, 'bandcamp-playlists-data', playlists);
+                } catch (e) {
+                    console.error('[RemoteService] Error processing get-bandcamp-playlists:', e);
+                }
+                break;
+            }
             case 'get-artists': {
                 try {
                     const artists = this.database.getArtists();
@@ -517,6 +526,19 @@ export class RemoteControlService extends EventEmitter {
                 if (album) {
                     this.playerService.clearQueue(false);
                     this.playerService.addTracksToQueue(album.tracks);
+                    await this.playerService.playIndex(0);
+                }
+                break;
+            }
+            case 'play-bandcamp-playlist': {
+                if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
+                    console.error('[RemoteService] Invalid play-bandcamp-playlist payload:', payload);
+                    return;
+                }
+                const tracks = await this.scraperService.fetchBandcampPlaylistTracks(payload);
+                if (tracks && tracks.length > 0) {
+                    this.playerService.clearQueue(false);
+                    this.playerService.addTracksToQueue(tracks);
                     await this.playerService.playIndex(0);
                 }
                 break;
