@@ -138,10 +138,9 @@ export default function PlaylistsScreen() {
         </View>
     );
 
-    const sections = [];
-    if (playlists.length > 0) {
-        sections.push({ title: 'Local Playlists', data: playlists });
-    }
+    const sections = [
+        { title: 'Local Playlists', data: playlists }
+    ];
     if (bandcampPlaylists.length > 0) {
         sections.push({ title: 'Bandcamp Playlists', data: bandcampPlaylists });
     }

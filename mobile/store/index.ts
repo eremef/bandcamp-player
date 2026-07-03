@@ -978,7 +978,12 @@ export const useStore = create<AppState>((set, get) => ({
     },
     playPlaylist: async (id) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-playlist', id);
+            const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
+            if (bcPlaylist && bcPlaylist.bandcampUrl) {
+                webSocketService.send('play-bandcamp-playlist', bcPlaylist.bandcampUrl);
+            } else {
+                webSocketService.send('play-playlist', id);
+            }
         } else {
             let playlist = get().playlists.find(p => p.id === id);
 
@@ -1814,6 +1819,8 @@ export const useStore = create<AppState>((set, get) => ({
     refreshPlaylists: () => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-playlists');
+            webSocketService.send('get-bandcamp-playlists');
+            set({ isLoadingBandcampPlaylists: true });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
             mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
@@ -2064,6 +2071,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
         webSocketService.send('get-playlists');
+        webSocketService.send('get-bandcamp-playlists');
         webSocketService.send('get-radio-stations');
         webSocketService.send('get-artists');
     }
@@ -2153,6 +2161,11 @@ webSocketService.on('collection-data', (collectionData) => {
 webSocketService.on('playlists-data', (playlists) => {
     if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ playlists });
+});
+
+webSocketService.on('bandcamp-playlists-data', (bandcampPlaylists) => {
+    if (useStore.getState().mode !== 'remote') return;
+    useStore.setState({ bandcampPlaylists, isLoadingBandcampPlaylists: false });
 });
 
 webSocketService.on('radio-data', (radioStations) => {

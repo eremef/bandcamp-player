@@ -106,7 +106,7 @@ export class PlayerService extends EventEmitter {
         });
 
         this.castService.on('device-status', (status) => {
-            if (this.isCasting && status.currentTime !== undefined) {
+            if (this.isCasting && status?.currentTime !== undefined) {
                 // Synchronize time from cast device
                 const duration = status.duration !== undefined ? status.duration : this.duration;
                 this.internalUpdateTime(status.currentTime, duration);
@@ -278,7 +278,7 @@ export class PlayerService extends EventEmitter {
         this.isRadioActive = false;
         this.currentStation = null;
         if (this.isCasting) {
-            this.castService.stop();
+            this.castService.stopPlayback().catch(() => {});
         }
         this.emitStateChange();
         this.emitTrackChange();

@@ -1,3 +1,7 @@
+import { app } from 'electron';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import { EventEmitter } from 'events';
 import { connect, PersistentClient, DefaultMediaApp, MediaController, createPlatform } from '@foxxmd/chromecast-client';
 import { Bonjour, Browser } from 'bonjour-service';
@@ -11,12 +15,30 @@ export class CastService extends EventEmitter {
     private client: PersistentClient | null = null;
     private mediaController: MediaController.MediaController | null = null;
     private connectedDeviceName: string | null = null;
+    private connectedDeviceHost: string | null = null;
     private isScanning: boolean = false;
     private hasActiveSession: boolean = false;
     private statusInterval: ReturnType<typeof setInterval> | null = null;
+    private logFilePath: string;
+
+    private log(message: string, error?: any) {
+        const timestamp = new Date().toISOString();
+        const errorText = error ? ` - ${error instanceof Error ? error.stack || error.message : JSON.stringify(error)}` : '';
+        const logLine = `${timestamp} - ${message}${errorText}\n`;
+        
+        if (error) {
+            console.error(message, error);
+        } else {
+            console.log(message);
+        }
+        
+        fs.appendFile(this.logFilePath, logLine, (err) => {
+            if (err) console.error('[CastService] Failed to write to log file:', err);
+        });
+    }
 
     private handleDeviceError = (err: any) => {
-        console.error('[CastService] Device error:', err);
+        this.log('[CastService] Device error:', err);
         this.emit('error', err);
     };
 
@@ -39,6 +61,8 @@ export class CastService extends EventEmitter {
     constructor() {
         super();
         this.bonjour = new Bonjour();
+        this.logFilePath = path.join(app.getPath('userData'), 'chromecast.log');
+        this.log('[CastService] Initialized');
     }
 
     private startStatusPolling() {
@@ -52,7 +76,8 @@ export class CastService extends EventEmitter {
                         this.handleDeviceStatus(unwrapped.value);
                     }
                 } catch (err) {
-                    console.error('[CastService] Error polling status:', err);
+                    this.log('[CastService] Error polling status:', err);
+                    this.disconnect();
                 }
             }
         }, 1000);
@@ -69,7 +94,13 @@ export class CastService extends EventEmitter {
         if (this.isScanning) return;
 
         this.isScanning = true;
-        console.log('[CastService] Starting discovery...');
+        this.log('[CastService] Starting discovery...');
+
+        if (!this.bonjour) {
+            this.log('[CastService] Recreating Bonjour instance...');
+            this.bonjour = new Bonjour();
+            this.mdnsBrowser = null;
+        }
 
         if (!this.mdnsBrowser && this.bonjour) {
             this.mdnsBrowser = this.bonjour.find({ type: 'googlecast' });
@@ -84,7 +115,7 @@ export class CastService extends EventEmitter {
 
                 // Only update if it's new or we found a better IP.
                 if (!existing || (ipv4 && !existing.host.includes('.'))) {
-                    console.log(`[CastService] Discovered/Updated device: ${name} at ${host}`);
+                    this.log(`[CastService] Discovered/Updated device: ${name} at ${host}`);
                     this.devices.set(name, {
                         friendlyName: name,
                         host: host,
@@ -109,7 +140,7 @@ export class CastService extends EventEmitter {
     stopDiscovery() {
         if (!this.isScanning) return;
         this.isScanning = false;
-        console.log('[CastService] Stopping discovery...');
+        this.log('[CastService] Stopping discovery...');
 
         if (this.mdnsBrowser) {
             this.mdnsBrowser.stop();
@@ -136,11 +167,17 @@ export class CastService extends EventEmitter {
         const device = this.devices.get(id);
         if (!device) throw new Error('Device not found');
 
-        console.log(`[CastService] Connecting to ${device.friendlyName} at ${device.host}...`);
+        this.connectedDeviceName = device.friendlyName;
+        this.connectedDeviceHost = device.host;
+        this.log(`[CastService] Connecting to ${device.friendlyName} at ${device.host}...`);
 
         try {
             if (this.client) {
-                this.client.close();
+                try {
+                    this.client.close();
+                } catch (e) {
+                    this.log('[CastService] Error closing previous client:', e);
+                }
                 this.client = null;
                 this.mediaController = null;
             }
@@ -157,7 +194,7 @@ export class CastService extends EventEmitter {
                 device: this.getDevices().find(d => d.id === id)
             });
         } catch (error) {
-            console.error('[CastService] Connection failed:', error);
+            this.log('[CastService] Connection failed:', error);
             this.connectedDeviceName = null;
             this.client = null;
             throw error;
@@ -165,78 +202,134 @@ export class CastService extends EventEmitter {
     }
 
     disconnect() {
+        this.log(`[CastService] Disconnecting from ${this.connectedDeviceName || 'unknown'}...`);
         if (this.client) {
-            console.log(`[CastService] Disconnecting from ${this.connectedDeviceName}...`);
             try {
                 if (this.mediaController) {
                     this.mediaController.stop().catch(() => { });
-                    this.mediaController.dispose();
                 }
                 this.client.close();
             } catch {
                 // Ignore stop errors on disconnect
             }
-            this.client = null;
-            this.mediaController = null;
-            this.connectedDeviceName = null;
-            this.hasActiveSession = false;
-            this.stopStatusPolling();
-            this.emit('status-changed', { status: 'disconnected' });
         }
+        this.handleDisconnect();
+    }
+
+    private handleDisconnect() {
+        if (this.statusInterval) {
+            clearInterval(this.statusInterval);
+            this.statusInterval = null;
+        }
+        
+        this.client = null;
+        this.mediaController = null;
+        this.connectedDeviceName = null;
+        this.connectedDeviceHost = null;
+        this.hasActiveSession = false;
+        
+        this.emit('device-status', null);
+        this.emit('connection-status', { connected: false, deviceName: null });
     }
 
     async play(track: Track, startTime: number = 0) {
         if (!this.client) {
-            console.warn('[CastService] Play called but no device connected');
+            this.log('[CastService] Play called but no device connected');
             return;
         }
 
-        console.log(`[CastService] Playing ${track.title} on ${this.connectedDeviceName}`);
+        this.log(`[CastService] Playing ${track.title} on ${this.connectedDeviceName}`);
 
         try {
-            // Re-launch media app to ensure clean state
-            const launchResult = await DefaultMediaApp.launchAndJoin({ client: this.client });
-            const unwrappedLaunch = launchResult.unwrapWithErr();
+            if (!this.mediaController) {
+                // Re-launch media app to ensure clean state
+                const launchResult = await DefaultMediaApp.launchAndJoin({ client: this.client });
+                const unwrappedLaunch = launchResult.unwrapWithErr();
 
-            if (!unwrappedLaunch.isOk) {
-                throw unwrappedLaunch.value;
+                if (!unwrappedLaunch.isOk) {
+                    throw unwrappedLaunch.value;
+                }
+                this.mediaController = unwrappedLaunch.value;
             }
-
-            if (this.mediaController) {
-                this.mediaController.dispose();
-            }
-            this.mediaController = unwrappedLaunch.value;
 
             this.hasActiveSession = false;
 
-            const loadResult = await this.mediaController.load({
-                media: {
-                    contentId: track.streamUrl,
-                    streamType: 'BUFFERED',
-                    contentType: 'audio/mpeg',
-                    metadata: {
-                        metadataType: 3, // MUSIC_TRACK
-                        title: track.title,
-                        artist: track.artist,
-                        albumName: track.album,
-                        images: track.artworkUrl ? [{ url: track.artworkUrl }] : []
+            let streamUrl = track.streamUrl;
+            let artworkUrl = track.artworkUrl;
+
+            if (streamUrl.includes('127.0.0.1') || (artworkUrl && artworkUrl.includes('127.0.0.1'))) {
+                const localIps = os.networkInterfaces();
+                let ipStr = '127.0.0.1';
+                let targetSubnet = '';
+                
+                if (this.connectedDeviceHost) {
+                    const parts = this.connectedDeviceHost.split('.');
+                    if (parts.length === 4) {
+                        targetSubnet = `${parts[0]}.${parts[1]}.${parts[2]}.`;
                     }
-                },
-                currentTime: startTime,
-                autoplay: true
-            });
+                }
 
-            const unwrappedLoad = loadResult.unwrapWithErr();
+                let bestMatch = '';
+                let fallbackIp = '';
 
-            if (unwrappedLoad.isOk) {
+                for (const name of Object.keys(localIps)) {
+                    for (const iface of localIps[name] || []) {
+                        if (iface.family === 'IPv4' && !iface.internal) {
+                            if (!fallbackIp) fallbackIp = iface.address;
+                            if (targetSubnet && iface.address.startsWith(targetSubnet)) {
+                                bestMatch = iface.address;
+                            }
+                        }
+                    }
+                }
+                
+                ipStr = bestMatch || fallbackIp || '127.0.0.1';
+                
+                if (streamUrl.includes('127.0.0.1')) {
+                    streamUrl = streamUrl.replace('127.0.0.1', ipStr);
+                }
+                if (artworkUrl && artworkUrl.includes('127.0.0.1')) {
+                    artworkUrl = artworkUrl.replace('127.0.0.1', ipStr);
+                }
+            }
+
+            this.log(`[CastService] Loading stream URL on Chromecast: ${streamUrl}`);
+
+            try {
+                const loadResult = await this.mediaController.load({
+                    media: {
+                        contentId: streamUrl,
+                        streamType: 'BUFFERED',
+                        contentType: 'audio/mpeg',
+                        metadata: {
+                            metadataType: 3, // MUSIC_TRACK
+                            title: track.title,
+                            artist: track.artist,
+                            albumName: track.album,
+                            images: artworkUrl ? [{ url: artworkUrl }] : []
+                        }
+                    },
+                    currentTime: startTime,
+                    autoplay: true
+                });
+
+                const unwrappedLoad = loadResult.unwrapWithErr();
+                if (unwrappedLoad.isOk) {
+                    this.hasActiveSession = true;
+                    this.handleDeviceStatus(unwrappedLoad.value);
+                    this.startStatusPolling();
+                } else {
+                    this.log(`[CastService] Media load returned error (ignoring as Chromecast often plays anyway): ${unwrappedLoad.value}`);
+                    this.hasActiveSession = true;
+                    this.startStatusPolling();
+                }
+            } catch (loadErr: any) {
+                this.log(`[CastService] Media load threw exception (ignoring as Chromecast often plays anyway): ${loadErr}`);
                 this.hasActiveSession = true;
-                this.handleDeviceStatus(unwrappedLoad.value);
                 this.startStatusPolling();
-            } else {
-                throw unwrappedLoad.value;
             }
         } catch (err: any) {
-            console.error('[CastService] Play error:', err);
+            this.log('[CastService] Play error:', err);
             this.emit('error', err);
         }
     }
@@ -248,7 +341,7 @@ export class CastService extends EventEmitter {
             const unwrapped = res.unwrapWithErr();
             if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
         } catch (err: any) {
-            console.error('[CastService] Pause error:', err);
+            this.log('[CastService] Pause error:', err);
             if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
         }
     }
@@ -260,7 +353,7 @@ export class CastService extends EventEmitter {
             const unwrapped = res.unwrapWithErr();
             if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
         } catch (err: any) {
-            console.error('[CastService] Resume error:', err);
+            this.log('[CastService] Resume error:', err);
             if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
         }
     }
@@ -274,7 +367,7 @@ export class CastService extends EventEmitter {
             this.hasActiveSession = false;
             this.stopStatusPolling();
         } catch (err: any) {
-            console.error('[CastService] Stop playback error:', err);
+            this.log('[CastService] Stop playback error:', err);
             if (err.message?.includes('INVALID_MEDIA_SESSION_ID')) this.hasActiveSession = false;
             this.hasActiveSession = false;
             this.stopStatusPolling();
@@ -288,7 +381,7 @@ export class CastService extends EventEmitter {
             const unwrapped = res.unwrapWithErr();
             if (unwrapped.isOk) this.handleDeviceStatus(unwrapped.value);
         } catch (err: any) {
-            console.error('[CastService] Seek error:', err);
+            this.log('[CastService] Seek error:', err);
         }
     }
 
@@ -300,7 +393,7 @@ export class CastService extends EventEmitter {
             const platform = createPlatform(this.client);
             await platform.setVolume({ level: volume });
         } catch (err) {
-            console.error('[CastService] Set volume error:', err);
+            this.log('[CastService] Set volume error:', err);
         }
     }
 
@@ -310,7 +403,7 @@ export class CastService extends EventEmitter {
             const platform = createPlatform(this.client);
             await platform.setVolume({ mute: muted });
         } catch (err) {
-            console.error('[CastService] Set muted error:', err);
+            this.log('[CastService] Set muted error:', err);
         }
     }
 
@@ -329,6 +422,7 @@ export class CastService extends EventEmitter {
         if (this.bonjour) {
             this.bonjour.destroy();
             this.bonjour = null;
+            this.mdnsBrowser = null;
         }
     }
 }
