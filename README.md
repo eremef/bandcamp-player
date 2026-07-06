@@ -275,7 +275,7 @@ mobile/
 
 ## Star History (just for fun)
 
-<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right" target="_blank>
+<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right" target="_blank">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&theme=dark&legend=bottom-right" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
