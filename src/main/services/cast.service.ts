@@ -25,13 +25,13 @@ export class CastService extends EventEmitter {
         const timestamp = new Date().toISOString();
         const errorText = error ? ` - ${error instanceof Error ? error.stack || error.message : JSON.stringify(error)}` : '';
         const logLine = `${timestamp} - ${message}${errorText}\n`;
-        
+
         if (error) {
             console.error(message, error);
         } else {
             console.log(message);
         }
-        
+
         fs.appendFile(this.logFilePath, logLine, (err) => {
             if (err) console.error('[CastService] Failed to write to log file:', err);
         });
@@ -107,8 +107,6 @@ export class CastService extends EventEmitter {
 
             this.mdnsBrowser.on('up', (service) => {
                 const name = service.txt?.fn || service.name;
-                const existing = this.devices.get(name);
-
                 const ipv4 = service.addresses?.find((ip: string) => ip.includes('.'));
                 const host = ipv4 || service.addresses?.[0] || service.host;
 
@@ -220,13 +218,13 @@ export class CastService extends EventEmitter {
             clearInterval(this.statusInterval);
             this.statusInterval = null;
         }
-        
+
         this.client = null;
         this.mediaController = null;
         this.connectedDeviceName = null;
         this.connectedDeviceHost = null;
         this.hasActiveSession = false;
-        
+
         this.emit('device-status', null);
         this.emit('connection-status', { connected: false, deviceName: null });
     }
@@ -260,7 +258,7 @@ export class CastService extends EventEmitter {
                 const localIps = os.networkInterfaces();
                 let ipStr = '127.0.0.1';
                 let targetSubnet = '';
-                
+
                 if (this.connectedDeviceHost) {
                     const parts = this.connectedDeviceHost.split('.');
                     if (parts.length === 4) {
@@ -281,9 +279,9 @@ export class CastService extends EventEmitter {
                         }
                     }
                 }
-                
+
                 ipStr = bestMatch || fallbackIp || '127.0.0.1';
-                
+
                 if (streamUrl.includes('127.0.0.1')) {
                     streamUrl = streamUrl.replace('127.0.0.1', ipStr);
                 }
@@ -415,7 +413,7 @@ export class CastService extends EventEmitter {
      * Stop discovery, playback, and close connections
      */
     stop(): void {
-        this.stopPlayback().catch(() => {});
+        this.stopPlayback().catch(() => { });
         this.stopDiscovery();
         this.disconnect();
         if (this.bonjour) {
