@@ -1,6 +1,7 @@
 <div align="center">
   
-![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml)
+![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml) [![All Contributors](https://img.shields.io/github/all-contributors/projectOwner/projectName?color=ee8449&style=flat-square)](#contributors)
+
 
 </div>
 
@@ -261,6 +262,23 @@ mobile/
 └── ios/                       # iOS native project
 ```
 
+## List of Supporters (in all meanings) / Acknowledgments
+
+- [@richardmalone](https://github.com/richardmalone)
+- [@danielmee](https://github.com/danielmee)
+- [@Lisiadito](https://github.com/Lisiadito)
+- [@bshurikan](https://github.com/bshurikan)
+- [@serkuh](https://github.com/serkuh)
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
 ## Roadmap
 
 | What                                           | Size | Status |
@@ -275,11 +293,11 @@ mobile/
 
 ## Star History (just for fun)
 
-<a href="https://www.star-history.com/#eremef/bandcamp-player&type=date&legend=bottom-right">
+<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?theme=dark&type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
  </picture>
 </a>
 
