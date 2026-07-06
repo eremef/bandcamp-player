@@ -33,7 +33,8 @@
     "memory:mine": "mempalace mine .",
     "memory:status": "mempalace status",
     "memory:checkpoint": "node scripts/memory-checkpoint.js",
-    "postinstall": "node scripts/create-shared-symlink.js && npm run rebuild && electron-builder install-app-deps"
+    "postinstall": "node scripts/create-shared-symlink.js && npm run rebuild && electron-builder install-app-deps",
+    "mock:cast": "node scripts/mock-cast-receiver.js"
   },
   "dependencies": {
     "@foxxmd/chromecast-client": "^1.0.4",
@@ -94,6 +95,7 @@
     "playwright": "^1.61.0",
     "png-to-ico": "^3.0.1",
     "rimraf": "^6.1.2",
+    "selfsigned": "^5.5.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
     "vite": "^8.0.16",
