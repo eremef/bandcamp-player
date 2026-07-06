@@ -261,6 +261,13 @@ mobile/
 └── ios/                       # iOS native project
 ```
 
+## List of Supporters (in all meanings) / Acknowledgments
+
+- [@richardmalone](https://github.com/richardmalone)
+- [@danielmee](https://github.com/danielmee)
+- [@Lisiadito](https://github.com/Lisiadito)
+- [@serkuh](https://github.com/serkuh)
+
 ## Roadmap
 
 | What                                           | Size | Status |
