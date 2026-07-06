@@ -266,6 +266,7 @@ mobile/
 - [@richardmalone](https://github.com/richardmalone)
 - [@danielmee](https://github.com/danielmee)
 - [@Lisiadito](https://github.com/Lisiadito)
+- [@bshurikan](https://github.com/bshurikan)
 - [@serkuh](https://github.com/serkuh)
 
 ## Roadmap
