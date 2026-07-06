@@ -1,4 +1,61 @@
 {
   "projectName": "bandcamp-player",
-  "projectOwner": "eremef"
+  "projectOwner": "eremef",
+  "repoType": "github",
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "richardmalone",
+      "name": "richardmalone",
+      "avatar_url": "https://avatars.githubusercontent.com/u/6492842?v=4",
+      "profile": "https://github.com/richardmalone",
+      "contributions": [
+        "bug",
+        "ideas",
+        "financial"
+      ]
+    },
+    {
+      "login": "danielmee",
+      "name": "Daniel Mee",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1150775?v=4",
+      "profile": "https://github.com/danielmee",
+      "contributions": [
+        "bug",
+        "financial",
+        "ideas"
+      ]
+    },
+    {
+      "login": "dustmop",
+      "name": "Dustin Long",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2515490?v=4",
+      "profile": "https://github.com/dustmop",
+      "contributions": [
+        "bug",
+        "code",
+        "ideas"
+      ]
+    },
+    {
+      "login": "Lisiadito",
+      "name": "Patrick Weingärtner",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13214912?v=4",
+      "profile": "https://github.com/Lisiadito",
+      "contributions": [
+        "bug",
+        "code",
+        "ideas"
+      ]
+    },
+    {
+      "login": "bshurikan",
+      "name": "bshurikan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/268649625?v=4",
+      "profile": "https://github.com/bshurikan",
+      "contributions": [
+        "promotion"
+      ]
+    }
+  ]
 }
