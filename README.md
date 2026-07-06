@@ -275,11 +275,11 @@ mobile/
 
 ## Star History (just for fun)
 
-<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right" target="_blank">
+<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&theme=dark&legend=bottom-right" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&legend=bottom-right" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?theme=dark&type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?type=date&legend=bottom-right&repos=eremef/bandcamp-player" />
  </picture>
 </a>
 
