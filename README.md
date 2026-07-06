@@ -1,6 +1,7 @@
 <div align="center">
   
-![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml)
+![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml) [![All Contributors](https://img.shields.io/github/all-contributors/projectOwner/projectName?color=ee8449&style=flat-square)](#contributors)
+
 
 </div>
 
@@ -268,6 +269,15 @@ mobile/
 - [@Lisiadito](https://github.com/Lisiadito)
 - [@bshurikan](https://github.com/bshurikan)
 - [@serkuh](https://github.com/serkuh)
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## Roadmap
 
