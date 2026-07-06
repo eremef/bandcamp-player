@@ -109,24 +109,21 @@ export class CastService extends EventEmitter {
                 const name = service.txt?.fn || service.name;
                 const existing = this.devices.get(name);
 
-                // IPv4 addresses are preferred.
                 const ipv4 = service.addresses?.find((ip: string) => ip.includes('.'));
                 const host = ipv4 || service.addresses?.[0] || service.host;
 
-                // Only update if it's new or we found a better IP.
-                if (!existing || (ipv4 && !existing.host.includes('.'))) {
-                    this.log(`[CastService] Discovered/Updated device: ${name} at ${host}`);
-                    this.devices.set(name, {
-                        friendlyName: name,
-                        host: host,
-                        port: service.port,
-                    });
-                    this.emit('devices-updated', this.getDevices());
-                }
+                this.log(`[CastService] Discovered/Updated device: ${name} at ${host}`);
+                this.devices.set(name, {
+                    friendlyName: name,
+                    host: host,
+                    port: service.port,
+                });
+                this.emit('devices-updated', this.getDevices());
             });
 
             this.mdnsBrowser.on('down', (service) => {
                 const name = service.txt?.fn || service.name;
+                this.log(`[CastService] Device went down: ${name}`);
                 if (this.devices.has(name) && name !== this.connectedDeviceName) {
                     this.devices.delete(name);
                     this.emit('devices-updated', this.getDevices());
@@ -144,6 +141,8 @@ export class CastService extends EventEmitter {
 
         if (this.mdnsBrowser) {
             this.mdnsBrowser.stop();
+            this.mdnsBrowser.removeAllListeners();
+            this.mdnsBrowser = null;
         }
 
         if (!this.client) {
