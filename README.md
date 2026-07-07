@@ -2,12 +2,11 @@
   
 ![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml)
 
-
 </div>
 
 <div align="center">
 <div>Like the app?</div>
-<div>Want it to be actively developed?</div> 
+<div>Want it to be actively developed?</div>
 <div style="padding-bottom: 20px">Or maybe money is overflowing your bank account?</div>
 <a href="https://www.buymeacoffee.com/eremef.xyz"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1" alt="Buy me a coffee" title="Buy me a coffee" /></a> <a href="https://buycoffee.to/eremef.xyz" target="_blank"><img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 195px; height: 51px" alt="Postaw kawę dla eremef.xyz na buycoffee.to" title="Postaw kawę dla eremef.xyz na buycoffee.to"></a>
 </div>
@@ -31,7 +30,7 @@ AI-generated feature-rich Electron desktop application for playing Bandcamp musi
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
-- 📝 **Playlist Management** - Create and manage custom playlists
+- 📝 **Playlist Management** - Browse your saved Bandcamp playlists or create local playlists
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
 - 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
 - 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
@@ -171,7 +170,7 @@ src/
 2. **Browse Collection** - Your purchased albums and tracks appear in the Collection view. Large collections (>100 items) are automatically cached for instant loading on subsequent launches.
 3. **Daily Refresh** - The app automatically keeps your collection up-to-date in the background every 24 hours. Use the "Refresh" button for a manual update.
 4. **Play Music** - Click on an album to start playing
-5. **Create Playlists** - Use the + button in the sidebar to create playlists
+5. **Playlists** - Access your saved Bandcamp playlists and use the New button in the sidebar to create local playlists
 6. **Add to Queue** - Right-click on albums/tracks or use the "More options" button to add to queue
 7. **Bulk Actions** - When a filter is active, use the "Bulk Actions" bar to operate on all matching items (Play, Queue, Download, Add to Playlist)
 8. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
