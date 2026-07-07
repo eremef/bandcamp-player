@@ -56,11 +56,11 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 16,
+        marginHorizontal: 0,
         borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 15,
+        paddingHorizontal: 5,
+        paddingVertical: 5,
+        marginBottom: 5,
     },
     searchIcon: {
         marginRight: 10,

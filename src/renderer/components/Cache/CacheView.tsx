@@ -137,6 +137,7 @@ export function CacheView() {
         )}
       </header>
 
+      <div className={`${styles.scrollContainer} custom-scrollbar`}>
       {cachedTracksDetailed.length === 0 ? (
         <div className={styles.emptyState}>
           <Download size={48} strokeWidth={1} />
@@ -219,6 +220,7 @@ export function CacheView() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

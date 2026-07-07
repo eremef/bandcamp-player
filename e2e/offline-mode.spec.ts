@@ -52,11 +52,6 @@ test.describe('Offline Mode & Caching', () => {
                 { id: 'mt-1', albumId: 'ma-1' }
             ]);
 
-            // Trigger the renderer store to fetch the mocked cached tracks
-            const wc = webContents.getAllWebContents()[0];
-            if (wc) {
-                wc.send('cache:on-stats-updated', { trackCount: 1, totalBytes: 1000 });
-            }
         }, MOCK_COLLECTION);
 
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
@@ -69,6 +64,15 @@ test.describe('Offline Mode & Caching', () => {
 
         await collectionBtn.click();
         await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
+
+        // Trigger the renderer store to fetch the mocked cached tracks after UI is ready
+        await electronApp.evaluate(({ webContents }) => {
+            const wc = webContents.getAllWebContents()[0];
+            if (wc) {
+                wc.send('cache:on-stats-updated', { trackCount: 1, totalBytes: 1000 });
+            }
+        });
+
         await window.getByTestId('icon-refresh').locator('..').click();
         await expect(window.locator('text=Cached Artist').first()).toBeVisible({ timeout: 10000 });
     });

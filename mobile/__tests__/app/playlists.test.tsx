@@ -105,10 +105,10 @@ describe('PlaylistsScreen', () => {
 
     it('handles pull to refresh', async () => {
         const { UNSAFE_getByType } = render(<PlaylistsScreen />);
-        const flatList = UNSAFE_getByType(require('react-native').FlatList);
+        const sectionList = UNSAFE_getByType(require('react-native').SectionList);
 
         await act(async () => {
-            flatList.props.refreshControl.props.onRefresh();
+            sectionList.props.refreshControl.props.onRefresh();
         });
 
         expect(mockRefreshPlaylists).toHaveBeenCalled();

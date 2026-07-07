@@ -180,6 +180,10 @@ const electronAPI = {
         fromIndex,
         toIndex,
       ),
+    getBandcampPlaylists: (): Promise<Playlist[]> =>
+      ipcRenderer.invoke(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLISTS),
+    getBandcampPlaylistTracks: (url: string): Promise<Track[]> =>
+      ipcRenderer.invoke(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLIST_TRACKS, url),
     onUpdated: createEventSubscriber<Playlist[]>(PLAYLIST_CHANNELS.ON_UPDATED),
   },
 

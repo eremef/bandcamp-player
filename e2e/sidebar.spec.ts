@@ -26,8 +26,8 @@ test.describe('Sidebar', () => {
     });
 
     test('should show playlists section in sidebar', async ({ window }) => {
-        // The sidebar has a "Your Playlists" heading
-        const playlistsHeading = window.locator('h3', { hasText: 'Your Playlists' });
+        // The sidebar has a "Local Playlists" heading
+        const playlistsHeading = window.locator('h3', { hasText: 'Local Playlists' });
         await expect(playlistsHeading).toBeVisible({ timeout: 5000 });
 
         // The "Create Playlist" button (plus icon) should be visible

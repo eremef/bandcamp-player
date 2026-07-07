@@ -9,6 +9,7 @@ import type {
   Collection,
   CollectionItem,
   RadioStation,
+  Playlist,
 } from "../../shared/types";
 import { EventEmitter } from "events";
 import { remoteConfigService } from "../../shared/remote-config.service";
@@ -1524,6 +1525,129 @@ export class ScraperService extends EventEmitter {
         e,
       );
       return url;
+    }
+  }
+
+  /**
+   * Fetch a user's public Bandcamp playlists
+   */
+  async fetchBandcampPlaylists(): Promise<Playlist[]> {
+    try {
+      const config = remoteConfigService.get();
+      const endpoint = config.endpoints.bandcampPlaylistsApi;
+      if (!endpoint) {
+        console.warn("[ScraperService] No endpoint found for bandcampPlaylistsApi, returning []");
+        return [];
+      }
+
+      const { isAuthenticated, user } = this.authService.getUser();
+      if (!isAuthenticated || !user) throw new Error("User not authenticated");
+
+      const cookies = await this.authService.getSessionCookies();
+      const profileUrl = user.profileUrl || "";
+      
+      let pageFanId = user.id;
+      try {
+        const response = await this.http.get(profileUrl, { headers: { Cookie: cookies } });
+        const extractedFanId = this.extractFanId(response.data);
+        if (extractedFanId) {
+          pageFanId = String(extractedFanId);
+          console.log(`[ScraperService] Extracted fan_id ${pageFanId} from profile page`);
+        }
+      } catch {
+        console.warn("[ScraperService] Failed to fetch profile page to extract fan_id, using auth user id");
+      }
+
+      console.log(`[ScraperService] Fetching Bandcamp playlists for fan_id: ${pageFanId}`);
+      const playlistsResponse = await this.http.post(
+        endpoint,
+        { page_fan_id: parseInt(pageFanId, 10), page_size: 20 },
+        { headers: { Cookie: cookies, "Content-Type": "application/json" } }
+      );
+
+      const playlistsData = playlistsResponse.data?.items || playlistsResponse.data?.playlists || [];
+      const playlists: Playlist[] = [];
+
+      for (const p of playlistsData) {
+        const playlistUrl = p.itemUrl || `${profileUrl}/playlist/${p.slug || p.itemId}`;
+        const artworkUrl = p.imageId ? config.endpoints.radioImageFormat.replace('{image_id}', p.imageId.toString()) : undefined;
+        
+        const playlist: Playlist = {
+          id: `bc-${p.itemId}`,
+          name: p.title,
+          description: p.description || "",
+          tracks: await this.fetchBandcampPlaylistTracks(playlistUrl),
+          trackCount: p.tracksSummary?.totalCount || 0,
+          totalDuration: p.tracksSummary?.totalDuration || 0,
+          createdAt: p.modDate || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isBandcampPlaylist: true,
+          bandcampUrl: playlistUrl,
+          artworkUrl: artworkUrl,
+        };
+        playlists.push(playlist);
+      }
+
+      console.log(`[ScraperService] Successfully parsed ${playlists.length} Bandcamp playlists`);
+      return playlists;
+    } catch (error) {
+      console.error("[ScraperService] Error fetching Bandcamp playlists:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch tracks for a specific Bandcamp playlist by parsing its HTML
+   */
+  async fetchBandcampPlaylistTracks(playlistUrl: string): Promise<Track[]> {
+    try {
+      console.log(`[ScraperService] Fetching tracks for Bandcamp playlist: ${playlistUrl}`);
+      const cookies = await this.authService.getSessionCookies();
+      const response = await this.http.get(playlistUrl, { headers: { Cookie: cookies } });
+      
+      const $ = cheerio.load(response.data);
+      const dataBlob = $("#PlaylistPage").attr("data-blob");
+      if (!dataBlob) {
+        console.warn("[ScraperService] No data-blob found for playlist page:", playlistUrl);
+        return [];
+      }
+
+      const entities: Record<string, string> = {
+        "&quot;": '"',
+        "&amp;": "&",
+        "&lt;": "<",
+        "&gt;": ">",
+      };
+      const decoded = dataBlob.replace(
+        /&quot;|&amp;|&lt;|&gt;/g,
+        (match) => entities[match],
+      );
+      
+      const pd = JSON.parse(decoded);
+      const tracksData = pd.appData?.tracks || pd.track_list || [];
+      const tracks: Track[] = [];
+
+      for (const t of tracksData) {
+        const track: Track = {
+          id: t.id ? String(t.id) : Math.random().toString(),
+          title: t.title || "Unknown Title",
+          artist: t.artistName || "Unknown Artist",
+          album: t.album?.title || "Unknown Album",
+          duration: t.duration || 0,
+          artworkUrl: t.artId ? `https://f4.bcbits.com/img/a${t.artId}_10.jpg` : "",
+          streamUrl: t.streamUrl || "",
+          bandcampUrl: t.url || "",
+          isCached: false,
+        };
+        tracks.push(track);
+      }
+      
+      
+      console.log(`[ScraperService] Successfully parsed ${tracks.length} tracks for playlist`);
+      return tracks;
+    } catch (error) {
+      console.error("[ScraperService] Error fetching Bandcamp playlist tracks:", error);
+      return [];
     }
   }
 }
