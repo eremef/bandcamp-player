@@ -103,6 +103,10 @@ interface PlaylistSlice {
     trackId: string,
   ) => Promise<void>;
   playPlaylist: (id: string) => Promise<void>;
+  bandcampPlaylists: Playlist[];
+  isLoadingBandcampPlaylists: boolean;
+  fetchBandcampPlaylists: () => Promise<void>;
+  getBandcampPlaylistTracks: (url: string) => Promise<Track[]>;
 }
 
 interface RadioSlice {
@@ -474,6 +478,11 @@ export const useStore = create<StoreState>()((set, get) => ({
         // fetchCachedTrackIds() call, so this is a pure in-memory derivation.
         cachedAlbumIds: deriveCachedAlbumIds(collection),
       });
+
+      // Also fetch Bandcamp playlists when collection is fetched/refreshed
+      // TODO: move it somewhere else?
+      get().fetchBandcampPlaylists();
+      get().fetchRadioStations();
     } catch (error) {
       set({
         collectionError:
@@ -525,6 +534,18 @@ export const useStore = create<StoreState>()((set, get) => ({
     set({ playlists });
   },
   selectPlaylist: async (id) => {
+    // Check if it's a Bandcamp playlist first
+    const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
+    if (bcPlaylist) {
+      set({
+        selectedPlaylist: bcPlaylist,
+        currentView: "playlist-detail",
+        selectedPlaylistId: id,
+      });
+      return;
+    }
+
+    // Otherwise, local playlist
     const playlist = await window.electron.playlist.getById(id);
     set({
       selectedPlaylist: playlist,
@@ -580,11 +601,53 @@ export const useStore = create<StoreState>()((set, get) => ({
     await window.electron.playlist.removeTrack(playlistId, trackId);
   },
   playPlaylist: async (id: string) => {
-    const playlist = await window.electron.playlist.getById(id);
-    if (playlist && playlist.tracks.length > 0) {
+    const playlist = get().playlists.find(p => p.id === id);
+    let tracksToPlay: Track[] = [];
+
+    if (!playlist) {
+      // Might be a Bandcamp playlist
+      const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
+      if (bcPlaylist && bcPlaylist.bandcampUrl) {
+        get().showToast("Loading Bandcamp playlist...", "success");
+        tracksToPlay = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
+        get().hideToast();
+      }
+    } else {
+      const fullPlaylist = await window.electron.playlist.getById(id);
+      if (fullPlaylist) {
+        tracksToPlay = fullPlaylist.tracks;
+      }
+    }
+
+    if (tracksToPlay.length > 0) {
       await get().clearQueue(false);
-      await get().addTracksToQueue(playlist.tracks);
+      await get().addTracksToQueue(tracksToPlay);
       await get().playQueueIndex(0);
+    }
+  },
+  bandcampPlaylists: [],
+  isLoadingBandcampPlaylists: false,
+  fetchBandcampPlaylists: async () => {
+    if (get().isLoadingBandcampPlaylists) return;
+    set({ isLoadingBandcampPlaylists: true });
+    try {
+      const playlists = await window.electron.playlist.getBandcampPlaylists();
+      
+      set({ bandcampPlaylists: playlists });
+    } catch (error) {
+      console.error("Store: fetchBandcampPlaylists failed", error);
+      get().showToast("Failed to fetch Bandcamp playlists", "error");
+    } finally {
+      set({ isLoadingBandcampPlaylists: false });
+    }
+  },
+  getBandcampPlaylistTracks: async (url: string) => {
+    try {
+      return await window.electron.playlist.getBandcampPlaylistTracks(url);
+    } catch (error) {
+      console.error("Store: getBandcampPlaylistTracks failed", error);
+      get().showToast("Failed to fetch Bandcamp playlist tracks", "error");
+      return [];
     }
   },
 

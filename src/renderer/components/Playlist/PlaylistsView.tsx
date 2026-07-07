@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
-import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil } from 'lucide-react';
+import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -12,6 +12,13 @@ export function PlaylistsView() {
     const [editName, setEditName] = useState('');
     const createInputRef = useRef<HTMLInputElement>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleRefreshBandcamp = async () => {
+        setIsRefreshing(true);
+        await fetchBandcampPlaylists();
+        setIsRefreshing(false);
+    };
 
     useEffect(() => {
         if (isCreating) {
@@ -94,36 +101,51 @@ export function PlaylistsView() {
                     <h1>Playlists</h1>
                     <p>{playlists.length} playlists</p>
                 </div>
-                {isCreating ? (
-                    <form className={styles.createForm} onSubmit={handleSubmit}>
-                        <input
-                            ref={createInputRef}
-                            className={styles.createInput}
-                            type="text"
-                            placeholder="Playlist Name"
-                            value={newPlaylistName}
-                            onChange={(e) => setNewPlaylistName(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Escape') handleCancel();
-                            }}
+                <div className={styles.headerActions}>
+                    {isCreating ? (
+                        <form className={styles.createForm} onSubmit={handleSubmit}>
+                            <input
+                                ref={createInputRef}
+                                className={styles.createInput}
+                                type="text"
+                                placeholder="Playlist Name"
+                                value={newPlaylistName}
+                                onChange={(e) => setNewPlaylistName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Escape') handleCancel();
+                                }}
+                            />
+                            <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
+                                <Check size={18} />
+                            </button>
+                            <button type="button" className={`${styles.iconBtn} ${styles.cancelBtn}`} onClick={handleCancel} title="Cancel">
+                                <X size={18} />
+                            </button>
+                        </form>
+                    ) : (
+                        <button className={styles.createBtn} onClick={handleCreate}>
+                            <Plus size={18} />
+                            <span>Create Playlist</span>
+                        </button>
+                    )}
+                    <button
+                        className={styles.actionButton}
+                        onClick={handleRefreshBandcamp}
+                        disabled={isRefreshing}
+                        title="Refresh Bandcamp playlists"
+                    >
+                        <RefreshCw
+                            size={20}
+                            className={isRefreshing ? styles.spinning : ""}
+                            data-testid="icon-refresh"
                         />
-                        <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
-                            <Check size={18} />
-                        </button>
-                        <button type="button" className={`${styles.iconBtn} ${styles.cancelBtn}`} onClick={handleCancel} title="Cancel">
-                            <X size={18} />
-                        </button>
-                    </form>
-                ) : (
-                    <button className={styles.createBtn} onClick={handleCreate}>
-                        <Plus size={18} />
-                        <span>Create Playlist</span>
                     </button>
-                )}
+                </div>
             </header>
 
-            {playlists.length === 0 ? (
-                <div className={styles.empty}>
+            <div className={`${styles.scrollContainer} custom-scrollbar`}>
+                {playlists.length === 0 ? (
+                    <div className={styles.empty}>
                     <div className={styles.emptyIcon}><ListMusic size={48} /></div>
                     <h3>No playlists yet</h3>
                     <p>Create a playlist to organize your favorite tracks</p>
@@ -207,6 +229,38 @@ export function PlaylistsView() {
                     ))}
                 </div>
             )}
+
+            {bandcampPlaylists.length > 0 && (
+                <>
+                    <header className={styles.header} style={{ marginTop: '2rem' }}>
+                        <div className={styles.headerContent}>
+                            <h2>Bandcamp Playlists</h2>
+                            <p>{bandcampPlaylists.length} playlists</p>
+                        </div>
+                    </header>
+                    <div className={styles.grid}>
+                        {bandcampPlaylists.map((playlist) => (
+                            <div key={playlist.id} className={styles.card} onClick={() => selectPlaylist(playlist.id)}>
+                                <div className={styles.cardArtwork}>
+                                    {playlist.artworkUrl ? (
+                                        <img src={playlist.artworkUrl} alt="" />
+                                    ) : (
+                                        <div className={styles.placeholderArtwork}><Music size={48} /></div>
+                                    )}
+                                </div>
+                                <div className={styles.cardInfo}>
+                                    <h3 className={styles.cardTitle}>{playlist.name}</h3>
+                                    <p className={styles.cardMeta}>
+                                        {playlist.trackCount} tracks
+                                        {playlist.description && ` • ${playlist.description}`}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </>
+            )}
+            </div>
         </div>
     );
 }

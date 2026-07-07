@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
+import { View, Text, SectionList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
 import { useStore } from '../../store';
 import { Playlist } from '@shared/types';
 import { useTheme } from '../../theme';
@@ -12,6 +12,7 @@ export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
     const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
+    const bandcampPlaylists = useStore((state) => state.bandcampPlaylists);
     const mode = useStore((state) => state.mode);
     const playPlaylist = useStore((state) => state.playPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
@@ -61,6 +62,7 @@ export default function PlaylistsScreen() {
     };
 
     const handleLongPress = (playlist: Playlist) => {
+        if (playlist.isBandcampPlaylist) return; // Uneditable
         setSelectedPlaylist(playlist);
         setActionSheetVisible(true);
     };
@@ -75,24 +77,39 @@ export default function PlaylistsScreen() {
         return `${minutes} min`;
     };
 
-    const renderItem = ({ item }: { item: Playlist }) => {
+    const renderItem = ({ item }: { item: Playlist | { id: string } }) => {
+        if (item.id === 'empty-local') {
+            return (
+                <View style={[styles.center, { marginTop: 40, paddingBottom: 40 }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
+                    <TouchableOpacity
+                        style={[styles.createButton, { backgroundColor: colors.accent }]}
+                        onPress={() => setCreateModalVisible(true)}
+                    >
+                        <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        const playlist = item as Playlist;
         return (
             <TouchableOpacity
                 style={[styles.item, { backgroundColor: colors.card }]}
-                onPress={() => handlePlayPlaylist(item)}
-                onLongPress={() => handleLongPress(item)}
+                onPress={() => handlePlayPlaylist(playlist)}
+                onLongPress={() => handleLongPress(playlist)}
             >
-                {item.artworkUrl ? (
-                    <Image source={{ uri: item.artworkUrl }} style={styles.artwork} />
+                {playlist.artworkUrl ? (
+                    <Image source={{ uri: playlist.artworkUrl }} style={styles.artwork} />
                 ) : (
                     <View style={[styles.artwork, styles.placeholderArtwork, { backgroundColor: colors.input }]}>
                         <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>♪</Text>
                     </View>
                 )}
                 <View style={styles.itemInfo}>
-                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{playlist.name}</Text>
                     <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]}>
-                        {item.trackCount} tracks • {formatDuration(item.totalDuration)}
+                        {playlist.isBandcampPlaylist ? 'Bandcamp Playlist (Online)' : `${playlist.trackCount || 0} tracks • ${formatDuration(playlist.totalDuration)}`}
                     </Text>
                 </View>
             </TouchableOpacity>
@@ -110,27 +127,39 @@ export default function PlaylistsScreen() {
         }, 1500);
     }, [refreshPlaylists]);
 
-    const renderEmptyComponent = () => (
-        <View style={styles.center}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
-            <TouchableOpacity
-                style={[styles.createButton, { backgroundColor: colors.accent }]}
-                onPress={() => setCreateModalVisible(true)}
-            >
-                <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
-            </TouchableOpacity>
+    const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
+        <View style={styles.sectionHeaderContainer}>
+            <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
+            {title === 'Local Playlists' && (
+                <TouchableOpacity
+                    style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
+                    onPress={() => setCreateModalVisible(true)}
+                >
+                    <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
+    const sections = [];
+    if (playlists.length === 0) {
+        sections.push({ title: 'Local Playlists', data: [{ id: 'empty-local' }] });
+    } else {
+        sections.push({ title: 'Local Playlists', data: playlists });
+    }
+    
+    if (bandcampPlaylists.length > 0) {
+        sections.push({ title: 'Bandcamp Playlists', data: bandcampPlaylists });
+    }
+
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
-
-            <FlatList
-                data={playlists}
+            <SectionList
+                sections={sections}
                 renderItem={renderItem}
+                renderSectionHeader={renderSectionHeader}
                 keyExtractor={(item) => item.id}
-                contentContainerStyle={[styles.listContent, playlists.length === 0 && { flex: 1 }]}
-                ListEmptyComponent={renderEmptyComponent}
+                contentContainerStyle={[styles.listContent, sections.length === 0 && { flex: 1 }]}
                 refreshControl={mode === 'standalone' ? undefined :
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
@@ -269,5 +298,29 @@ const styles = StyleSheet.create({
     itemSubtitle: {
         color: '#888',
         fontSize: 14,
+    },
+    sectionHeaderContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 4,
+        marginTop: 8,
+        marginBottom: 4,
+        backgroundColor: '#121212',
+    },
+    sectionHeader: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    createSmallButton: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    createSmallButtonText: {
+        fontWeight: '600',
+        fontSize: 12,
     },
 });

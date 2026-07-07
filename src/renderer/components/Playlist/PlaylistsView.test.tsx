@@ -18,6 +18,7 @@ vi.mock('lucide-react', () => ({
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
     Pencil: () => <span data-testid="icon-pencil" />,
+    RefreshCw: () => <span data-testid="icon-refresh-cw" />,
 }));
 
 describe('PlaylistsView', () => {
@@ -26,6 +27,8 @@ describe('PlaylistsView', () => {
             { id: '1', name: 'Chill', trackCount: 5, totalDuration: 600, artworkUrl: null, description: 'Cool' },
             { id: '2', name: 'Workout', trackCount: 10, totalDuration: 3600, artworkUrl: 'art.jpg' }
         ],
+        bandcampPlaylists: [],
+        fetchBandcampPlaylists: vi.fn(),
         selectPlaylist: vi.fn(),
         createPlaylist: vi.fn(),
         deletePlaylist: vi.fn(),

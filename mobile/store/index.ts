@@ -49,6 +49,9 @@ interface AppState extends PlayerState {
     // Data Caches
     collection: Collection | null;
     playlists: Playlist[];
+    bandcampPlaylists: Playlist[];
+    isLoadingBandcampPlaylists: boolean;
+    fetchBandcampPlaylists: () => Promise<void>;
     radioStations: RadioStation[];
     artists: Artist[];
     artistCollection: Collection | null;
@@ -223,6 +226,8 @@ export const useStore = create<AppState>((set, get) => ({
     recentIps: [],
     collection: null,
     playlists: [],
+    bandcampPlaylists: [],
+    isLoadingBandcampPlaylists: false,
     radioStations: [],
     artists: [],
     isScanning: false,
@@ -971,11 +976,39 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
     },
-    playPlaylist: (id) => {
+    playPlaylist: async (id) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('play-playlist', id);
+            const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
+            if (bcPlaylist && bcPlaylist.bandcampUrl) {
+                webSocketService.send('play-bandcamp-playlist', bcPlaylist.bandcampUrl);
+            } else {
+                webSocketService.send('play-playlist', id);
+            }
         } else {
-            const playlist = get().playlists.find(p => p.id === id);
+            let playlist = get().playlists.find(p => p.id === id);
+
+            if (!playlist) {
+                playlist = get().bandcampPlaylists.find(p => p.id === id);
+
+                if (playlist && playlist.tracks.length === 0 && playlist.bandcampUrl) {
+                    // Fetch tracks for bandcamp playlist on demand
+                    const { mobileScraperService } = require('../services/MobileScraperService');
+                    const tracks = await mobileScraperService.fetchBandcampPlaylistTracks(playlist.bandcampUrl);
+
+                    if (tracks && tracks.length > 0) {
+                        playlist = { ...playlist, tracks };
+                        // Update in store
+                        set((state) => ({
+                            bandcampPlaylists: state.bandcampPlaylists.map(p => p.id === id ? playlist! : p)
+                        }));
+                    } else {
+                        const { Alert } = require('react-native');
+                        Alert.alert('Error', 'Failed to load tracks for this playlist.');
+                        return;
+                    }
+                }
+            }
+
             if (!playlist || playlist.tracks.length === 0) return;
 
             const cachedTrackIds = get().cachedTrackIds;
@@ -1682,6 +1715,7 @@ export const useStore = create<AppState>((set, get) => ({
 
                     get().refreshArtists();
                     get().refreshCacheState();
+                    get().fetchBandcampPlaylists();
                 };
 
                 return fetchLogic().catch(err => {
@@ -1785,9 +1819,36 @@ export const useStore = create<AppState>((set, get) => ({
     refreshPlaylists: () => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-playlists');
+            webSocketService.send('get-bandcamp-playlists');
+            set({ isLoadingBandcampPlaylists: true });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
             mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
+            get().fetchBandcampPlaylists();
+        }
+    },
+
+    fetchBandcampPlaylists: async () => {
+        set({ isLoadingBandcampPlaylists: true });
+        try {
+            const { mobileScraperService } = require('../services/MobileScraperService');
+            const bandcampPlaylists = await mobileScraperService.fetchBandcampPlaylists();
+            
+            // Fetch tracks for each playlist automatically
+            const playlistsWithTracks = [];
+            for (const p of bandcampPlaylists) {
+                if (p.bandcampUrl) {
+                    const tracks = await mobileScraperService.fetchBandcampPlaylistTracks(p.bandcampUrl);
+                    playlistsWithTracks.push({ ...p, tracks });
+                } else {
+                    playlistsWithTracks.push(p);
+                }
+            }
+            
+            set({ bandcampPlaylists: playlistsWithTracks, isLoadingBandcampPlaylists: false });
+        } catch (error) {
+            console.error('[MobileStore] Failed to fetch Bandcamp playlists', error);
+            set({ isLoadingBandcampPlaylists: false });
         }
     },
     refreshRadio: () => {
@@ -2010,6 +2071,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
         webSocketService.send('get-playlists');
+        webSocketService.send('get-bandcamp-playlists');
         webSocketService.send('get-radio-stations');
         webSocketService.send('get-artists');
     }
@@ -2099,6 +2161,11 @@ webSocketService.on('collection-data', (collectionData) => {
 webSocketService.on('playlists-data', (playlists) => {
     if (useStore.getState().mode !== 'remote') return;
     useStore.setState({ playlists });
+});
+
+webSocketService.on('bandcamp-playlists-data', (bandcampPlaylists) => {
+    if (useStore.getState().mode !== 'remote') return;
+    useStore.setState({ bandcampPlaylists, isLoadingBandcampPlaylists: false });
 });
 
 webSocketService.on('radio-data', (radioStations) => {

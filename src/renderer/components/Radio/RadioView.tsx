@@ -224,6 +224,7 @@ export function RadioView() {
                 </div>
             </header>
 
+            <div className={`${styles.scrollContainer} custom-scrollbar`}>
             {/* Stations grid */}
             <div className={styles.grid}>
                 {filteredStations.slice(0, visibleCount).map((station: any) => (
@@ -342,6 +343,7 @@ export function RadioView() {
                     <p>Loading radio stations...</p>
                 </div>
             )}
+            </div>
         </div>
     );
 }

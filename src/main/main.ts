@@ -366,6 +366,15 @@ if (!gotTheLock) {
           res.end("Missing file path");
           return;
         }
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "Range",
+          });
+          res.end();
+          return;
+        }
 
         let safePath: string;
         try {
@@ -386,11 +395,39 @@ if (!gotTheLock) {
           return;
         }
 
-        console.log("[cache-server] Serving:", safePath);
+        console.log(`[cache-server] Serving [${req.method}]:`, safePath);
+        console.log(`[cache-server] Headers:`, JSON.stringify(req.headers));
+
+        const corsHeaders = {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+          "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Range, Icy-Metadata",
+          "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges, Icy-MetaInt",
+        };
+
+        if (req.method === "OPTIONS") {
+          res.writeHead(204, corsHeaders);
+          res.end();
+          return;
+        }
+        
         if (fs.existsSync(safePath)) {
           const stat = fs.statSync(safePath);
           const fileSize = stat.size;
+          
+          if (req.method === "HEAD") {
+            res.writeHead(200, {
+              "Content-Length": fileSize,
+              "Content-Type": "audio/mpeg",
+              "Accept-Ranges": "bytes",
+              ...corsHeaders
+            });
+            res.end();
+            return;
+          }
+
           const range = req.headers.range;
+          console.log(`[cache-server] Range requested:`, range);
 
           if (range) {
             const parts = range.replace(/bytes=/, "").split("-");
@@ -403,14 +440,23 @@ if (!gotTheLock) {
               "Accept-Ranges": "bytes",
               "Content-Length": chunkSize,
               "Content-Type": "audio/mpeg",
+              ...corsHeaders
             });
-            fs.createReadStream(safePath, { start, end }).pipe(res);
+            const stream = fs.createReadStream(safePath, { start, end });
+            stream.on('error', (err) => console.error('[cache-server] Stream error:', err));
+            res.on('close', () => console.log('[cache-server] Connection closed by client'));
+            stream.pipe(res);
           } else {
             res.writeHead(200, {
               "Content-Length": fileSize,
               "Content-Type": "audio/mpeg",
+              "Accept-Ranges": "bytes",
+              ...corsHeaders
             });
-            fs.createReadStream(safePath).pipe(res);
+            const stream = fs.createReadStream(safePath);
+            stream.on('error', (err) => console.error('[cache-server] Stream error:', err));
+            res.on('close', () => console.log('[cache-server] Connection closed by client'));
+            stream.pipe(res);
           }
         } else {
           res.writeHead(404);

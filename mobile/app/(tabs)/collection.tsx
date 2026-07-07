@@ -593,6 +593,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginTop: 5,
         marginBottom: 12,
     },
     headerButtons: {
@@ -622,7 +623,7 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 16,
-        paddingBottom: 16,
+        paddingBottom: 1,
     },
     center: {
         flex: 1,

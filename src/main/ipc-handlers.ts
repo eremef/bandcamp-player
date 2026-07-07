@@ -250,6 +250,12 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     (_, playlistId: string, from: number, to: number) =>
       playlistService.reorderTracks(playlistId, from, to),
   );
+  ipcMain.handle(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLISTS, () =>
+    scraperService.fetchBandcampPlaylists()
+  );
+  ipcMain.handle(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLIST_TRACKS, (_, playlistUrl: string) =>
+    scraperService.fetchBandcampPlaylistTracks(playlistUrl)
+  );
 
   // ---- Radio ----
   ipcMain.handle(RADIO_CHANNELS.GET_STATIONS, () =>
