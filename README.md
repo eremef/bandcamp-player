@@ -1,6 +1,6 @@
 <div align="center">
   
-![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml) [![All Contributors](https://img.shields.io/github/all-contributors/projectOwner/projectName?color=ee8449&style=flat-square)](#contributors)
+![open source badge](https://img.shields.io/badge/open_source-%E2%9D%A4%EF%B8%8F-blue) ![AI generated](https://img.shields.io/badge/AI_generated-%E2%98%A3%EF%B8%8F-red) [![Build & Release](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml/badge.svg)](https://github.com/eremef/bandcamp-player/actions/workflows/release.yml)
 
 
 </div>
@@ -269,26 +269,6 @@ mobile/
 - [@Lisiadito](https://github.com/Lisiadito)
 - [@bshurikan](https://github.com/bshurikan)
 - [@serkuh](https://github.com/serkuh)
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/richardmalone"><img src="https://avatars.githubusercontent.com/u/6492842?v=4?s=100" width="100px;" alt="richardmalone"/><br /><sub><b>richardmalone</b></sub></a><br /><a href="https://github.com/eremef/bandcamp-player/issues?q=author%3Arichardmalone" title="Bug reports">🐛</a> <a href="#ideas-richardmalone" title="Ideas, Planning, & Feedback">🤔</a> <a href="#financial-richardmalone" title="Financial">💵</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/danielmee"><img src="https://avatars.githubusercontent.com/u/1150775?v=4?s=100" width="100px;" alt="Daniel Mee"/><br /><sub><b>Daniel Mee</b></sub></a><br /><a href="https://github.com/eremef/bandcamp-player/issues?q=author%3Adanielmee" title="Bug reports">🐛</a> <a href="#financial-danielmee" title="Financial">💵</a> <a href="#ideas-danielmee" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/dustmop"><img src="https://avatars.githubusercontent.com/u/2515490?v=4?s=100" width="100px;" alt="Dustin Long"/><br /><sub><b>Dustin Long</b></sub></a><br /><a href="https://github.com/eremef/bandcamp-player/issues?q=author%3Adustmop" title="Bug reports">🐛</a> <a href="https://github.com/eremef/bandcamp-player/commits?author=dustmop" title="Code">💻</a> <a href="#ideas-dustmop" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Lisiadito"><img src="https://avatars.githubusercontent.com/u/13214912?v=4?s=100" width="100px;" alt="Patrick Weingärtner"/><br /><sub><b>Patrick Weingärtner</b></sub></a><br /><a href="https://github.com/eremef/bandcamp-player/issues?q=author%3ALisiadito" title="Bug reports">🐛</a> <a href="https://github.com/eremef/bandcamp-player/commits?author=Lisiadito" title="Code">💻</a> <a href="#ideas-Lisiadito" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/bshurikan"><img src="https://avatars.githubusercontent.com/u/268649625?v=4?s=100" width="100px;" alt="bshurikan"/><br /><sub><b>bshurikan</b></sub></a><br /><a href="#promotion-bshurikan" title="Promotion">📣</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## Roadmap
 
