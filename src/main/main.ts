@@ -379,13 +379,21 @@ if (!gotTheLock) {
         let safePath: string;
         try {
           const resolvedPath = path.resolve(canonicalCacheRoot, requestedPath);
-          safePath = fs.realpathSync(resolvedPath); // CodeQL: validated by path.sep check below
+          safePath = fs.realpathSync(resolvedPath);
         } catch {
           res.writeHead(404);
           res.end("File not found");
           return;
         }
 
+        // Verify that the file path is under the root directory to satisfy CodeQL
+        if (!safePath.startsWith(canonicalCacheRoot)) {
+          res.writeHead(403);
+          res.end("Access denied");
+          return;
+        }
+
+        // Prevent directory name prefix matching (e.g. /cache-hacked bypassing /cache check)
         if (
           safePath !== canonicalCacheRoot &&
           !safePath.startsWith(canonicalCacheRoot + path.sep)
