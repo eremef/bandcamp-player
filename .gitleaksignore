@@ -1,0 +1,11 @@
+# .gitleaksignore
+
+# False positives where value is "REDACTED"
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:mobile/assets/remote-config.json:generic-api-key:74
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:mobile/assets/remote-config.json:generic-api-key:75
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:remote-config.json:generic-api-key:74
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:remote-config.json:generic-api-key:75
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:src/main/services/scrobbler.service.ts:generic-api-key:14
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:src/main/services/scrobbler.service.ts:generic-api-key:15
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:mobile/services/MobileScrobblerService.ts:generic-api-key:11
+fa47d62c5a24f6b6d41aafb4c309fcbc76818c96:mobile/services/MobileScrobblerService.ts:generic-api-key:12
