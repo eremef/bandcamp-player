@@ -286,7 +286,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
       properties: ["openFile"],
     });
 
-    if (canceled || filePaths.length === 0) return false;
+    if (canceled || filePaths.length === 0) {
+      return null;
+    }
 
     try {
       const content = await fs.readFile(filePaths[0], "utf-8");
@@ -296,45 +298,10 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
         throw new Error("Invalid playlist file format");
       }
 
-      // Check if a playlist with this name already exists
-      const existingPlaylists = playlistService.getAll();
-      const existing = existingPlaylists.find((p) => p.name === importedData.name);
-
-      let targetPlaylistId: string | null = null;
-
-      if (existing) {
-        const { response } = await dialog.showMessageBox({
-          type: "question",
-          title: "Playlist Exists",
-          message: `A playlist named "${importedData.name}" already exists. Do you want to merge the imported tracks into the existing playlist, or create a new one?`,
-          buttons: ["Merge", "Create New", "Cancel"],
-          defaultId: 0,
-          cancelId: 2,
-        });
-
-        if (response === 2) {
-          return false; // Cancelled
-        } else if (response === 0) {
-          targetPlaylistId = existing.id; // Merge
-        } else {
-          // Create New
-          const newPlaylist = playlistService.create({ name: importedData.name, description: importedData.description });
-          targetPlaylistId = newPlaylist.id;
-        }
-      } else {
-        const newPlaylist = playlistService.create({ name: importedData.name, description: importedData.description });
-        targetPlaylistId = newPlaylist.id;
-      }
-
-      if (targetPlaylistId) {
-        playlistService.addTracks(targetPlaylistId, importedData.tracks);
-        return true;
-      }
-      return false;
+      return importedData;
     } catch (error) {
       console.error("[Playlist Import] Failed to import playlist:", error);
-      dialog.showErrorBox("Import Failed", "The selected file is not a valid playlist or an error occurred during import.");
-      return false;
+      throw new Error("The selected file is not a valid playlist or an error occurred during import.");
     }
   });
 

@@ -359,3 +359,83 @@
     cursor: default;
     color: var(--accent-primary);
 }
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modalContent {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-lg);
+    width: 450px;
+    max-width: 90%;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-subtle);
+}
+
+.modalContent h3 {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: var(--font-size-xl);
+    color: var(--text-primary);
+}
+
+.modalContent p {
+    margin: 0 0 var(--spacing-xl) 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.modalActions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+}
+
+.modalActions button {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    border: none;
+    transition: all var(--transition-fast);
+}
+
+.modalActions .saveBtnSmall {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.modalActions .saveBtnSmall:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.modalActions .createBtnLarge {
+    background: var(--accent-gradient);
+    color: var(--text-on-accent);
+}
+
+.modalActions .createBtnLarge:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.modalActions .cancelBtnSmall {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.modalActions .cancelBtnSmall:hover {
+    background: var(--bg-hover);
+}
+

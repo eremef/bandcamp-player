@@ -186,7 +186,7 @@ const electronAPI = {
       ipcRenderer.invoke(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLIST_TRACKS, url),
     export: (playlistId: string): Promise<boolean> =>
       ipcRenderer.invoke(PLAYLIST_CHANNELS.EXPORT, playlistId),
-    import: (): Promise<boolean> =>
+    import: (): Promise<Playlist | null> =>
       ipcRenderer.invoke(PLAYLIST_CHANNELS.IMPORT),
     onUpdated: createEventSubscriber<Playlist[]>(PLAYLIST_CHANNELS.ON_UPDATED),
   },

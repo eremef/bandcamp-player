@@ -13,11 +13,47 @@ export function PlaylistsView() {
     const createInputRef = useRef<HTMLInputElement>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [importConflictData, setImportConflictData] = useState<{data: any, existingId: string} | null>(null);
 
     const handleRefreshBandcamp = async () => {
         setIsRefreshing(true);
         await fetchBandcampPlaylists();
         setIsRefreshing(false);
+    };
+
+    const handleImportClick = async () => {
+        const importedData = await importPlaylist();
+        if (!importedData) return;
+
+        const existing = playlists.find((p: any) => p.name === importedData.name);
+        if (existing) {
+            setImportConflictData({ data: importedData, existingId: existing.id });
+        } else {
+            // Create new
+            const newPlaylist = await createPlaylist(importedData.name, importedData.description);
+            await useStore.getState().addTracksToPlaylist(newPlaylist.id, importedData.tracks);
+        }
+    };
+
+    const handleImportMerge = async () => {
+        if (!importConflictData) return;
+        
+        const fullExistingPlaylist = await window.electron.playlist.getById(importConflictData.existingId);
+        const existingTrackIds = new Set(fullExistingPlaylist?.tracks?.map((t: any) => t.id) || []);
+        const newTracks = importConflictData.data.tracks.filter((t: any) => !existingTrackIds.has(t.id));
+
+        if (newTracks.length > 0) {
+            await useStore.getState().addTracksToPlaylist(importConflictData.existingId, newTracks);
+        }
+        
+        setImportConflictData(null);
+    };
+
+    const handleImportCreateNew = async () => {
+        if (!importConflictData) return;
+        const newPlaylist = await createPlaylist(importConflictData.data.name, importConflictData.data.description);
+        await useStore.getState().addTracksToPlaylist(newPlaylist.id, importConflictData.data.tracks);
+        setImportConflictData(null);
     };
 
     useEffect(() => {
@@ -128,7 +164,7 @@ export function PlaylistsView() {
                                 <Plus size={18} />
                                 <span>Create Playlist</span>
                             </button>
-                            <button className={styles.createBtn} onClick={() => importPlaylist()} style={{ marginLeft: '10px' }}>
+                            <button className={styles.createBtn} onClick={handleImportClick} style={{ marginLeft: '10px' }}>
                                 <Upload size={18} />
                                 <span>Import Playlist</span>
                             </button>
@@ -277,6 +313,20 @@ export function PlaylistsView() {
                 </>
             )}
             </div>
+
+            {importConflictData && (
+                <div className={styles.modalOverlay} onClick={() => setImportConflictData(null)}>
+                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                        <h3>Playlist Exists</h3>
+                        <p>A playlist named &quot;{importConflictData.data.name}&quot; already exists. Do you want to merge the imported tracks into the existing playlist, or create a new one?</p>
+                        <div className={styles.modalActions}>
+                            <button className={styles.saveBtnSmall} onClick={handleImportMerge}>Merge</button>
+                            <button className={styles.createBtnLarge} onClick={handleImportCreateNew}>Create New</button>
+                            <button className={styles.cancelBtnSmall} onClick={() => setImportConflictData(null)}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

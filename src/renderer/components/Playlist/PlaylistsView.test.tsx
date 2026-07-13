@@ -13,6 +13,8 @@ vi.mock('lucide-react', () => ({
     Check: () => <span data-testid="icon-check" />,
     X: () => <span data-testid="icon-x" />,
     Plus: () => <span data-testid="icon-plus" />,
+    Upload: () => <span data-testid="icon-upload" />,
+    Download: () => <span data-testid="icon-download" />,
     ListMusic: () => <span data-testid="icon-list-music" />,
     Music: () => <span data-testid="icon-music" />,
     Play: () => <span data-testid="icon-play" />,

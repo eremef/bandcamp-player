@@ -40,8 +40,6 @@ export const ArtistsView: React.FC = () => {
     downloadingTracks,
     downloadingAlbumIds,
     settings,
-    radioSearchQuery,
-    setRadioSearchQuery,
     goBack,
   } = useStore();
 
@@ -251,7 +249,7 @@ export const ArtistsView: React.FC = () => {
     ],
   );
 
-  const handleBackClick = () => selectArtist(null);
+
 
   // Detail View
   if (selectedArtistId) {
@@ -271,8 +269,8 @@ export const ArtistsView: React.FC = () => {
               <h2>Artist not found</h2>
               <div style={{ marginTop: '20px', textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <p><strong>Debug Info:</strong></p>
-                  <p>selectedArtistId: "{selectedArtistId}"</p>
-                  <p>targetId: "{targetId}"</p>
+                  <p>selectedArtistId: &quot;{selectedArtistId}&quot;</p>
+                  <p>targetId: &quot;{targetId}&quot;</p>
                   <p>derivedCount: {derivedArtists.length}</p>
                   <p>Sample IDs: {derivedArtists.slice(0, 5).map(a => `"${a.id}"`).join(', ')}</p>
                   <p>Sample Names: {derivedArtists.slice(0, 5).map(a => `"${a.name}"`).join(', ')}</p>

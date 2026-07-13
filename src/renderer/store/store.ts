@@ -109,7 +109,7 @@ interface PlaylistSlice {
   fetchBandcampPlaylists: () => Promise<void>;
   getBandcampPlaylistTracks: (url: string) => Promise<Track[]>;
   exportPlaylist: (playlistId: string) => Promise<boolean>;
-  importPlaylist: () => Promise<boolean>;
+  importPlaylist: () => Promise<Playlist | null>;
 }
 
 interface RadioSlice {
@@ -735,16 +735,12 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   importPlaylist: async () => {
     try {
-      const success = await window.electron.playlist.import();
-      if (success) {
-        get().showToast("Playlist imported successfully", "success");
-        await get().fetchPlaylists();
-      }
-      return success;
+      const importedData = await window.electron.playlist.import();
+      return importedData;
     } catch (error) {
       console.error("Store: importPlaylist failed", error);
       get().showToast(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
-      return false;
+      return null;
     }
   },
 
