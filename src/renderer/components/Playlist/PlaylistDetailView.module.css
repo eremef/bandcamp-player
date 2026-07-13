@@ -28,6 +28,14 @@
     color: var(--text-primary);
 }
 
+.link {
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
+}
+
 .headerContent {
     display: flex;
     gap: var(--spacing-xl);
@@ -240,12 +248,10 @@
     text-align: center;
 }
 
-.colDuration {
-    width: 80px;
-    color: var(--text-tertiary);
-    font-size: var(--font-size-sm);
-    font-variant-numeric: tabular-nums;
-}
+.colTitle { width: 50%; min-width: 250px; }
+.colArtist { width: 25%; min-width: 150px; }
+.colAlbum { width: 25%; min-width: 150px; color: var(--text-tertiary); font-size: var(--font-size-sm); }
+.colDuration { width: 100px; text-align: right; font-variant-numeric: tabular-nums; }
 
 .colActions {
     width: 50px;

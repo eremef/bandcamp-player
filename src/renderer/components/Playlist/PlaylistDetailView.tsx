@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
-import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List, Download } from 'lucide-react';
 import styles from './PlaylistDetailView.module.css';
 
 export function PlaylistDetailView() {
@@ -14,6 +14,11 @@ export function PlaylistDetailView() {
         clearQueue,
         addTracksToQueue,
         playQueueIndex,
+        selectArtist,
+        navigateToAlbumFromTrack,
+        exportPlaylist,
+        deletePlaylist,
+        goBack
     } = useStore();
 
     const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
@@ -57,7 +62,7 @@ export function PlaylistDetailView() {
         if (!trimmedName) {
             return;
         }
-        
+
         if (trimmedName !== selectedPlaylist.name) {
             try {
                 await updatePlaylist(selectedPlaylist.id, trimmedName);
@@ -76,7 +81,7 @@ export function PlaylistDetailView() {
         <div className={styles.container}>
             {/* Header */}
             <header className={styles.header}>
-                <button className={styles.backBtn} onClick={() => setView('playlists')}>
+                <button className={styles.backBtn} onClick={() => goBack()}>
                     <ArrowLeft size={18} />
                     <span>Back</span>
                 </button>
@@ -122,10 +127,28 @@ export function PlaylistDetailView() {
                                 <span>Play All</span>
                             </button>
                             {!isEditing && !selectedPlaylist.isBandcampPlaylist && (
-                                <button className={styles.actionBtn} onClick={handleRenameClick}>
-                                    <Pencil size={18} />
-                                    <span>Rename</span>
-                                </button>
+                                <>
+                                    <button className={styles.actionBtn} onClick={handleRenameClick}>
+                                        <Pencil size={18} />
+                                        <span>Rename</span>
+                                    </button>
+                                    <button className={styles.actionBtn} onClick={() => exportPlaylist(selectedPlaylist.id)}>
+                                        <Download size={18} />
+                                        <span>Export</span>
+                                    </button>
+                                    <button
+                                        className={styles.actionBtn}
+                                        onClick={() => {
+                                            if (confirm(`Delete "${selectedPlaylist.name}"?`)) {
+                                                deletePlaylist(selectedPlaylist.id);
+                                            }
+                                        }}
+                                        style={{ color: 'var(--color-error)' }}
+                                    >
+                                        <Trash2 size={18} />
+                                        <span>Delete</span>
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -146,14 +169,15 @@ export function PlaylistDetailView() {
                                 <th className={styles.colNum}>#</th>
                                 <th className={styles.colTitle}>Title</th>
                                 <th className={styles.colArtist}>Artist</th>
+                                <th className={styles.colAlbum}>Album</th>
                                 <th className={styles.colDuration}>Duration</th>
                                 <th className={styles.colActions}></th>
                             </tr>
                         </thead>
                         <tbody>
                             {selectedPlaylist.tracks.map((track, index) => (
-                                <tr 
-                                    key={`${track.id}-${index}`} 
+                                <tr
+                                    key={`${track.id}-${index}`}
                                     className={styles.trackRow}
                                     onMouseLeave={() => setActiveTrackMenu(null)}
                                     onContextMenu={(e) => {
@@ -173,7 +197,24 @@ export function PlaylistDetailView() {
                                             <span>{track.title}</span>
                                         </div>
                                     </td>
-                                    <td className={styles.colArtist}>{track.artist}</td>
+                                    <td className={styles.colArtist}>
+                                        <span
+                                            className={styles.link}
+                                            onClick={(e) => { e.stopPropagation(); selectArtist(track.artist); }}
+                                        >
+                                            {track.artist}
+                                        </span>
+                                    </td>
+                                    <td className={styles.colAlbum}>
+                                        {track.album && (
+                                            <span
+                                                className={styles.link}
+                                                onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(track); }}
+                                            >
+                                                {track.album}
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className={styles.colDuration}>
                                         {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
                                     </td>

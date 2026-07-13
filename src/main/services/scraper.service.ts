@@ -1092,6 +1092,14 @@ export class ScraperService extends EventEmitter {
         return null;
       }
 
+      // If we accidentally scraped a track page instead of an album, redirect to the album page
+      if (tralbumData.item_type === "track" && tralbumData.album_url) {
+        console.log(`[ScraperService] Track URL provided, redirecting to album: ${tralbumData.album_url}`);
+        const baseUrl = tralbumData.url ? new URL(tralbumData.url).origin : new URL(albumUrl).origin;
+        const fullAlbumUrl = new URL(tralbumData.album_url, baseUrl).toString();
+        return this.getAlbumDetails(fullAlbumUrl);
+      }
+
       const tracks: Track[] = await Promise.all(
         (tralbumData.trackinfo || []).map(
           async (trackInfo: any, index: number) => {

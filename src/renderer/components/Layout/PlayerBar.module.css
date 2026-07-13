@@ -54,6 +54,21 @@
     text-overflow: ellipsis;
 }
 
+.trackAlbum {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.link {
+    cursor: pointer;
+}
+.link:hover {
+    text-decoration: underline;
+}
+
 .noTrack {
     color: var(--text-tertiary);
     font-size: var(--font-size-sm);

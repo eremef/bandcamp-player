@@ -39,6 +39,7 @@ export function AlbumCard({
     downloadingTracks,
     downloadingAlbumIds,
     settings,
+    selectArtist,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -232,7 +233,16 @@ export function AlbumCard({
       {/* Info */}
       <div className={styles.info}>
         <h3 className={styles.title}>{album.title}</h3>
-        <p className={styles.artist}>{album.artist}</p>
+        <p
+          className={`${styles.artist} ${styles.link}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            selectArtist(album.artist);
+          }}
+          title="Go to artist"
+        >
+          {album.artist}
+        </p>
       </div>
 
       {/* Context menu */}
@@ -262,9 +272,10 @@ export function AlbumCard({
           >
             <List size={16} /> Add to Queue
           </button>
-          <div className={styles.menuDivider} />
+
           {playlists.length > 0 && (
             <>
+              <div className={styles.menuDivider} />
               <span className={styles.menuLabel}>Add to Playlist</span>
               {playlists.map((playlist) => (
                 <button

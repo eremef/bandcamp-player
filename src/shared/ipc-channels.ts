@@ -90,6 +90,8 @@ export const PLAYLIST_CHANNELS = {
   ON_UPDATED: "playlist:on-updated",
   GET_BANDCAMP_PLAYLISTS: "playlist:get-bandcamp-playlists",
   GET_BANDCAMP_PLAYLIST_TRACKS: "playlist:get-bandcamp-playlist-tracks",
+  EXPORT: "playlist:export",
+  IMPORT: "playlist:import",
 } as const;
 
 // ============================================================================

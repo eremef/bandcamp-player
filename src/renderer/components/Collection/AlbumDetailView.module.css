@@ -379,3 +379,5 @@
         transform: rotate(360deg);
     }
 }
+.link { cursor: pointer; }
+.link:hover { text-decoration: underline; }

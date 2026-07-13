@@ -253,3 +253,6 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
+
+.link { cursor: pointer; }
+.link:hover { text-decoration: underline; }

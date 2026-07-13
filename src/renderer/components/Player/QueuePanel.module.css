@@ -162,10 +162,27 @@
 
 .artist {
     font-size: var(--font-size-xs);
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.album {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.8;
+}
+
+.link {
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
 }
 
 .dragHandle {

@@ -40,6 +40,9 @@ export const ArtistsView: React.FC = () => {
     downloadingTracks,
     downloadingAlbumIds,
     settings,
+    radioSearchQuery,
+    setRadioSearchQuery,
+    goBack,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -252,16 +255,29 @@ export const ArtistsView: React.FC = () => {
 
   // Detail View
   if (selectedArtistId) {
-    const artist = derivedArtists.find((a) => a.id === selectedArtistId);
+    const targetId = selectedArtistId.startsWith('name-') ? selectedArtistId : `name-${selectedArtistId.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    const artist = derivedArtists.find((a) => a.id === selectedArtistId || a.id === targetId || a.name.toLowerCase() === selectedArtistId.trim().toLowerCase());
+    console.log("ArtistsView debug:", { selectedArtistId, targetId, found: !!artist, derivedCount: derivedArtists.length, derivedSample: derivedArtists.slice(0, 3).map(a => a.name) });
     const artistItems = artist?.items ?? [];
 
     if (!artist) {
       return (
         <div className={styles.notFound}>
-          <button onClick={handleBackClick} className={styles.backButton}>
-            <ArrowLeft size={20} className="mr-2" /> Back to Artists
+          <button onClick={() => goBack()} className={styles.backBtn}>
+            <ArrowLeft size={18} />
+            <span>Back</span>
           </button>
-          <div className={styles.emptyState}>Artist not found</div>
+          <div className={styles.emptyState}>
+              <h2>Artist not found</h2>
+              <div style={{ marginTop: '20px', textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                  <p><strong>Debug Info:</strong></p>
+                  <p>selectedArtistId: "{selectedArtistId}"</p>
+                  <p>targetId: "{targetId}"</p>
+                  <p>derivedCount: {derivedArtists.length}</p>
+                  <p>Sample IDs: {derivedArtists.slice(0, 5).map(a => `"${a.id}"`).join(', ')}</p>
+                  <p>Sample Names: {derivedArtists.slice(0, 5).map(a => `"${a.name}"`).join(', ')}</p>
+              </div>
+          </div>
         </div>
       );
     }
@@ -270,11 +286,11 @@ export const ArtistsView: React.FC = () => {
       <div className={styles.container}>
         <div className={styles.detailHeader}>
           <button
-            onClick={handleBackClick}
-            className={styles.backButton}
-            title="Back to Artists"
+            onClick={() => goBack()}
+            className={styles.backBtn}
           >
-            <ArrowLeft size={24} />
+            <ArrowLeft size={18} />
+            <span>Back</span>
           </button>
 
           <div className={styles.detailImageContainer}>

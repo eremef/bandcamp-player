@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
-import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw } from 'lucide-react';
+import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw, Upload, Download } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, importPlaylist, exportPlaylist } = useStore();
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -123,10 +123,16 @@ export function PlaylistsView() {
                             </button>
                         </form>
                     ) : (
-                        <button className={styles.createBtn} onClick={handleCreate}>
-                            <Plus size={18} />
-                            <span>Create Playlist</span>
-                        </button>
+                        <>
+                            <button className={styles.createBtn} onClick={handleCreate}>
+                                <Plus size={18} />
+                                <span>Create Playlist</span>
+                            </button>
+                            <button className={styles.createBtn} onClick={() => importPlaylist()} style={{ marginLeft: '10px' }}>
+                                <Upload size={18} />
+                                <span>Import Playlist</span>
+                            </button>
+                        </>
                     )}
                     <button
                         className={styles.actionButton}
@@ -211,6 +217,16 @@ export function PlaylistsView() {
                                     title="Rename playlist"
                                 >
                                     <Pencil size={18} />
+                                </button>
+                                <button
+                                    className={styles.actionBtn}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        exportPlaylist(playlist.id);
+                                    }}
+                                    title="Export playlist"
+                                >
+                                    <Download size={18} />
                                 </button>
                                 <button
                                     className={styles.deleteBtn}

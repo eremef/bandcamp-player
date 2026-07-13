@@ -1,4 +1,5 @@
-import { IpcMain, BrowserWindow, app, shell, nativeTheme } from "electron";
+import { IpcMain, BrowserWindow, app, shell, nativeTheme, dialog } from "electron";
+import * as fs from "fs/promises";
 import * as dns from "dns";
 import {
   AUTH_CHANNELS,
@@ -256,6 +257,86 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLIST_TRACKS, (_, playlistUrl: string) =>
     scraperService.fetchBandcampPlaylistTracks(playlistUrl)
   );
+
+  ipcMain.handle(PLAYLIST_CHANNELS.EXPORT, async (_, playlistId: string) => {
+    const playlist = playlistService.getById(playlistId);
+    if (!playlist) throw new Error("Playlist not found");
+
+    const exportData = {
+      ...playlist,
+      tracks: playlist.tracks.map((t) => ({ ...t, streamUrl: undefined })),
+    };
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Export Playlist",
+      defaultPath: `${playlist.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.json`,
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+    });
+
+    if (canceled || !filePath) return false;
+
+    await fs.writeFile(filePath, JSON.stringify(exportData, null, 2), "utf-8");
+    return true;
+  });
+
+  ipcMain.handle(PLAYLIST_CHANNELS.IMPORT, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: "Import Playlist",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (canceled || filePaths.length === 0) return false;
+
+    try {
+      const content = await fs.readFile(filePaths[0], "utf-8");
+      const importedData = JSON.parse(content) as Playlist;
+
+      if (!importedData.name || !Array.isArray(importedData.tracks)) {
+        throw new Error("Invalid playlist file format");
+      }
+
+      // Check if a playlist with this name already exists
+      const existingPlaylists = playlistService.getAll();
+      const existing = existingPlaylists.find((p) => p.name === importedData.name);
+
+      let targetPlaylistId: string | null = null;
+
+      if (existing) {
+        const { response } = await dialog.showMessageBox({
+          type: "question",
+          title: "Playlist Exists",
+          message: `A playlist named "${importedData.name}" already exists. Do you want to merge the imported tracks into the existing playlist, or create a new one?`,
+          buttons: ["Merge", "Create New", "Cancel"],
+          defaultId: 0,
+          cancelId: 2,
+        });
+
+        if (response === 2) {
+          return false; // Cancelled
+        } else if (response === 0) {
+          targetPlaylistId = existing.id; // Merge
+        } else {
+          // Create New
+          const newPlaylist = playlistService.create({ name: importedData.name, description: importedData.description });
+          targetPlaylistId = newPlaylist.id;
+        }
+      } else {
+        const newPlaylist = playlistService.create({ name: importedData.name, description: importedData.description });
+        targetPlaylistId = newPlaylist.id;
+      }
+
+      if (targetPlaylistId) {
+        playlistService.addTracks(targetPlaylistId, importedData.tracks);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("[Playlist Import] Failed to import playlist:", error);
+      dialog.showErrorBox("Import Failed", "The selected file is not a valid playlist or an error occurred during import.");
+      return false;
+    }
+  });
 
   // ---- Radio ----
   ipcMain.handle(RADIO_CHANNELS.GET_STATIONS, () =>

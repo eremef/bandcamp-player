@@ -4,7 +4,7 @@ import { X, Play, Trash2 } from 'lucide-react';
 import styles from './QueuePanel.module.css';
 
 export function QueuePanel() {
-    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue } = useStore();
+    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack } = useStore();
 
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -88,7 +88,20 @@ export function QueuePanel() {
                                     {/* <img src={item.track.artworkUrl} alt="" className={styles.artwork} /> */}
                                     <div className={styles.details}>
                                         <span className={styles.title}>{item.track.title}</span>
-                                        <span className={styles.artist}>{item.track.artist}</span>
+                                        <span 
+                                            className={`${styles.artist} ${styles.link}`} 
+                                            onClick={(e) => { e.stopPropagation(); selectArtist(item.track.artist); }}
+                                        >
+                                            {item.track.artist}
+                                        </span>
+                                        {item.track.album && (
+                                            <span 
+                                                className={`${styles.album} ${styles.link}`} 
+                                                onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(item.track); }}
+                                            >
+                                                {item.track.album}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <button
