@@ -110,6 +110,8 @@ interface AppState extends PlayerState {
     createPlaylist: (name: string, description?: string) => void;
     renamePlaylist: (id: string, name: string, description?: string) => void;
     deletePlaylist: (id: string) => void;
+    importPlaylist: () => Promise<void>;
+    exportPlaylist: (id: string) => Promise<void>;
 
     // Refresh Actions
     refreshCollection: (reset?: boolean, query?: string, forceServerRefresh?: boolean) => void;
@@ -1620,6 +1622,118 @@ export const useStore = create<AppState>((set, get) => ({
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
             mobileDatabase.deletePlaylist(id).then(() => get().refreshPlaylists());
+        }
+    },
+
+    importPlaylist: async () => {
+        try {
+            const DocumentPicker = require('expo-document-picker');
+            const { File } = require('expo-file-system');
+
+            const result = await DocumentPicker.getDocumentAsync({
+                type: 'application/json',
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled || !result.assets || result.assets.length === 0) {
+                return;
+            }
+
+            const fileUri = result.assets[0].uri;
+            const file = new File(fileUri);
+            const fileContent = await file.text();
+            const playlist = JSON.parse(fileContent);
+
+            if (!playlist.name) {
+                throw new Error('Invalid playlist format');
+            }
+
+            if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+                webSocketService.send('import-playlist', playlist);
+            } else {
+                const { mobileDatabase } = require('../services/MobileDatabase');
+                await mobileDatabase.importPlaylist(playlist);
+                get().refreshPlaylists();
+            }
+        } catch (error) {
+            console.error('Error importing playlist:', error);
+            const { Alert } = require('react-native');
+            Alert.alert('Error', 'Failed to import playlist');
+        }
+    },
+
+    exportPlaylist: async (id: string) => {
+        try {
+            const state = get();
+            let playlist = state.playlists.find(p => p.id === id);
+
+            if (!playlist) {
+                throw new Error('Playlist not found');
+            }
+
+            // In remote mode, fetch the full playlist (with tracks) from the desktop
+            if (state.mode === 'remote' && state.connectionStatus === 'connected') {
+                const fetchedPlaylist = await new Promise<Playlist | undefined>((resolve) => {
+                    const timeout = setTimeout(() => {
+                        resolve(undefined);
+                        cleanup();
+                    }, 5000);
+
+                    const cleanup = webSocketService.on('export-playlist-data', (data: Playlist) => {
+                        if (data && data.id === id) {
+                            clearTimeout(timeout);
+                            cleanup();
+                            resolve(data);
+                        }
+                    });
+                    webSocketService.send('get-playlist-for-export', id);
+                });
+
+                if (!fetchedPlaylist) {
+                    throw new Error('Failed to fetch full playlist from desktop');
+                }
+                playlist = fetchedPlaylist;
+            }
+
+
+            const { Platform, Alert } = require('react-native');
+            const safeName = playlist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            const jsonContent = JSON.stringify(playlist, null, 2);
+
+            if (Platform.OS === 'android') {
+                const { Directory } = require('expo-file-system');
+                
+                try {
+                    const destDir = await Directory.pickDirectoryAsync();
+                    if (destDir) {
+                        const file = destDir.createFile(`${safeName}_playlist.json`, 'application/json');
+                        await file.write(jsonContent);
+                        Alert.alert('Success', 'Playlist saved to device');
+                    }
+                } catch (error) {
+                    console.log('Error or cancelled picking directory', error);
+                }
+            } else {
+                const { File, Paths } = require('expo-file-system');
+                const Sharing = require('expo-sharing');
+                
+                const file = new File(Paths.cache, `${safeName}_playlist.json`);
+                await file.create();
+                await file.write(jsonContent);
+                
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(file.uri, {
+                        mimeType: 'application/json',
+                        dialogTitle: 'Export Playlist'
+                    });
+                } else {
+                    Alert.alert('Error', 'Sharing is not available on this device');
+                }
+            }
+        } catch (error) {
+            console.error('Error exporting playlist:', error);
+            const { Alert } = require('react-native');
+            Alert.alert('Error', 'Failed to export playlist');
         }
     },
 

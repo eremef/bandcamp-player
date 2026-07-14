@@ -602,6 +602,43 @@ export class MobileDatabase {
         };
     }
 
+    async importPlaylist(playlist: Playlist): Promise<void> {
+        if (!this.db) await this.init();
+
+        const release = await this.acquireLock();
+        try {
+            await this.db!.withTransactionAsync(async () => {
+                const newId = this.generateUUID();
+                const now = new Date().toISOString();
+                await this.db!.runAsync(
+                    'INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+                    [newId, playlist.name, playlist.createdAt || now, playlist.updatedAt || now]
+                );
+
+                if (playlist.tracks && playlist.tracks.length > 0) {
+                    const BATCH_SIZE = 100;
+                    for (let i = 0; i < playlist.tracks.length; i += BATCH_SIZE) {
+                        const batch = playlist.tracks.slice(i, i + BATCH_SIZE);
+                        const placeholders = batch.map(() => '(?, ?, ?, ?, ?)').join(', ');
+                        const params = batch.flatMap((t, idx) => [
+                            this.generateUUID(),
+                            newId,
+                            JSON.stringify(t),
+                            i + idx,
+                            now
+                        ]);
+                        await this.db!.runAsync(
+                            `INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at) VALUES ${placeholders}`,
+                            params
+                        );
+                    }
+                }
+            });
+        } finally {
+            release();
+        }
+    }
+
     async deletePlaylist(id: string) {
         if (!this.db) await this.init();
         await this.db!.runAsync('DELETE FROM playlists WHERE id = ?', [id]);

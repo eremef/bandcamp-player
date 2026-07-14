@@ -6,7 +6,7 @@ import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionSheet } from '../../components/ActionSheet';
 import { InputModal } from '../../components/InputModal';
-import { Pencil, Trash2 } from 'lucide-react-native';
+import { Pencil, Trash2, Share } from 'lucide-react-native';
 
 export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
@@ -18,6 +18,8 @@ export default function PlaylistsScreen() {
     const createPlaylist = useStore((state) => state.createPlaylist);
     const renamePlaylist = useStore((state) => state.renamePlaylist);
     const deletePlaylist = useStore((state) => state.deletePlaylist);
+    const importPlaylist = useStore((state) => state.importPlaylist);
+    const exportPlaylist = useStore((state) => state.exportPlaylist);
 
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -88,6 +90,12 @@ export default function PlaylistsScreen() {
                     >
                         <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.createButton, { backgroundColor: colors.card, marginTop: 12, borderWidth: 1, borderColor: colors.border }]}
+                        onPress={importPlaylist}
+                    >
+                        <Text style={[styles.createButtonText, { color: colors.text }]}>Import Playlist</Text>
+                    </TouchableOpacity>
                 </View>
             );
         }
@@ -131,12 +139,20 @@ export default function PlaylistsScreen() {
         <View style={styles.sectionHeaderContainer}>
             <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
             {title === 'Local Playlists' && (
-                <TouchableOpacity
-                    style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
-                    onPress={() => setCreateModalVisible(true)}
-                >
-                    <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
-                </TouchableOpacity>
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity
+                        style={[styles.createSmallButton, { backgroundColor: colors.card, marginRight: 8, borderWidth: 1, borderColor: colors.border }]}
+                        onPress={importPlaylist}
+                    >
+                        <Text style={[styles.createSmallButtonText, { color: colors.text }]}>Import</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
+                        onPress={() => setCreateModalVisible(true)}
+                    >
+                        <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
+                    </TouchableOpacity>
+                </View>
             )}
         </View>
     );
@@ -200,6 +216,17 @@ export default function PlaylistsScreen() {
                         icon: Pencil,
                         onPress: () => {
                             setRenameModalVisible(true);
+                        }
+                    },
+                    {
+                        text: 'Export',
+                        icon: Share,
+                        onPress: () => {
+                            if (selectedPlaylist) {
+                                exportPlaylist(selectedPlaylist.id);
+                                setActionSheetVisible(false);
+                                setSelectedPlaylist(null);
+                            }
                         }
                     },
                     {
@@ -323,4 +350,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 12,
     },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    }
 });

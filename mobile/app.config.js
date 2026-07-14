@@ -63,6 +63,7 @@ module.exports = {
       'expo-secure-store',
       'expo-status-bar',
       'expo-splash-screen',
+      'expo-sharing',
     ],
     extra: {
       eas: {

@@ -174,8 +174,8 @@ export class PlayerService extends EventEmitter {
                 }
             }
 
-            // Refresh stream URL only for non-cached tracks (radio, casting, or expired stream)
-            if (!isTrackCached && (track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
+            // Refresh stream URL only for non-cached tracks (missing stream, radio, casting, or expired stream)
+            if (!isTrackCached && (!track.streamUrl || track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
                     let streamUrl = track.streamUrl;

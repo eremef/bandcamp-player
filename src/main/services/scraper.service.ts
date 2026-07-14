@@ -1161,7 +1161,7 @@ export class ScraperService extends EventEmitter {
                 : "",
               streamUrl,
               bandcampUrl: trackInfo.title_link
-                ? `${tralbumData.url}${trackInfo.title_link}`
+                ? new URL(trackInfo.title_link, tralbumData.url).href
                 : albumUrl,
               isCached: false,
             };
@@ -1487,9 +1487,12 @@ export class ScraperService extends EventEmitter {
       console.log(
         `[ScraperService] Refreshing stream URL for ${track.title} (ID: ${track.id})...`,
       );
+      const type = track.albumId ? "a" : "t";
+      const id = track.albumId || track.id;
       const mobileUrl = config.endpoints.mobileTralbumDetailsApi
         .replace("{band_id}", track.artistId)
-        .replace("{track_id}", track.id);
+        .replace("tralbum_type=t", `tralbum_type=${type}`)
+        .replace("{track_id}", id);
       const cookies = await this.authService.getSessionCookies();
       const response = await this.http.get(mobileUrl, {
         headers: { Cookie: cookies },
@@ -1500,13 +1503,38 @@ export class ScraperService extends EventEmitter {
         response.data.tracks &&
         response.data.tracks.length > 0
       ) {
-        const mobileTrack = response.data.tracks[0];
+        const mobileTrack = response.data.tracks.find((t: any) => t.track_id?.toString() === track.id) || response.data.tracks[0];
         const freshUrl =
           mobileTrack.streaming_url?.["mp3-128"] ||
           mobileTrack.streaming_url?.["mp3-v0"];
         if (freshUrl) {
-          console.log("[ScraperService] Successfully refreshed stream URL");
+          console.log("[ScraperService] Successfully refreshed stream URL via mobile API");
           return await this.resolveRedirect(freshUrl);
+        }
+      }
+
+      // Fallback: fetch track.bandcampUrl and scrape data-tralbum
+      if (track.bandcampUrl) {
+        try {
+          console.log(`[ScraperService] Falling back to scraping track URL: ${track.bandcampUrl}`);
+          const html = await this.http.get(track.bandcampUrl, {
+            headers: { Cookie: cookies },
+          }).then(res => res.data);
+
+          const $ = cheerio.load(html);
+          const tralbumData = this.extractTralbumData($);
+          if (tralbumData && tralbumData.trackinfo) {
+            const foundTrack = tralbumData.trackinfo.find((t: any) => t.track_id?.toString() === track.id) || tralbumData.trackinfo[0];
+            if (foundTrack && foundTrack.file) {
+              const scrapedUrl = foundTrack.file["mp3-128"] || foundTrack.file["mp3-v0"];
+              if (scrapedUrl) {
+                console.log("[ScraperService] Successfully refreshed stream URL via HTML scrape");
+                return await this.resolveRedirect(scrapedUrl);
+              }
+            }
+          }
+        } catch (scrapeErr) {
+          console.error("[ScraperService] HTML scraping fallback failed:", scrapeErr);
         }
       }
     } catch (e) {
@@ -1553,7 +1581,7 @@ export class ScraperService extends EventEmitter {
 
       const cookies = await this.authService.getSessionCookies();
       const profileUrl = user.profileUrl || "";
-      
+
       let pageFanId = user.id;
       try {
         const response = await this.http.get(profileUrl, { headers: { Cookie: cookies } });
@@ -1579,7 +1607,7 @@ export class ScraperService extends EventEmitter {
       for (const p of playlistsData) {
         const playlistUrl = p.itemUrl || `${profileUrl}/playlist/${p.slug || p.itemId}`;
         const artworkUrl = p.imageId ? config.endpoints.radioImageFormat.replace('{image_id}', p.imageId.toString()) : undefined;
-        
+
         const playlist: Playlist = {
           id: `bc-${p.itemId}`,
           name: p.title,
@@ -1612,7 +1640,7 @@ export class ScraperService extends EventEmitter {
       console.log(`[ScraperService] Fetching tracks for Bandcamp playlist: ${playlistUrl}`);
       const cookies = await this.authService.getSessionCookies();
       const response = await this.http.get(playlistUrl, { headers: { Cookie: cookies } });
-      
+
       const $ = cheerio.load(response.data);
       const dataBlob = $("#PlaylistPage").attr("data-blob");
       if (!dataBlob) {
@@ -1630,7 +1658,7 @@ export class ScraperService extends EventEmitter {
         /&quot;|&amp;|&lt;|&gt;/g,
         (match) => entities[match],
       );
-      
+
       const pd = JSON.parse(decoded);
       const tracksData = pd.appData?.tracks || pd.track_list || [];
       const tracks: Track[] = [];
@@ -1649,8 +1677,8 @@ export class ScraperService extends EventEmitter {
         };
         tracks.push(track);
       }
-      
-      
+
+
       console.log(`[ScraperService] Successfully parsed ${tracks.length} tracks for playlist`);
       return tracks;
     } catch (error) {

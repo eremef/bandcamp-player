@@ -468,6 +468,20 @@ export class RemoteControlService extends EventEmitter {
                 this.sendToClient(ws, 'playlists-data', playlists);
                 break;
             }
+            case 'get-playlist-for-export': {
+                const playlistId = payload;
+                if (!playlistId) {
+                    this.sendToClient(ws, 'error', { message: 'Missing playlist ID' });
+                    return;
+                }
+                const playlist = this.playlistService.getById(playlistId);
+                if (playlist) {
+                    this.sendToClient(ws, 'export-playlist-data', playlist);
+                } else {
+                    this.sendToClient(ws, 'error', { message: 'Playlist not found' });
+                }
+                break;
+            }
             case 'get-bandcamp-playlists': {
                 try {
                     const playlists = await this.scraperService.fetchBandcampPlaylists();
@@ -489,6 +503,18 @@ export class RemoteControlService extends EventEmitter {
             case 'create-playlist': {
                 const { name, description } = payload;
                 this.playlistService.create({ name, description });
+                break;
+            }
+            case 'import-playlist': {
+                const importedData = payload as any;
+                if (!importedData || !importedData.name) {
+                    console.error('[RemoteService] Invalid import-playlist payload');
+                    break;
+                }
+                const newPlaylist = this.playlistService.create({ name: importedData.name, description: importedData.description });
+                if (importedData.tracks && importedData.tracks.length > 0) {
+                    this.playlistService.addTracks(newPlaylist.id, importedData.tracks);
+                }
                 break;
             }
             case 'update-playlist': {
