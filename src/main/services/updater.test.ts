@@ -53,6 +53,10 @@ describe('UpdaterService', () => {
         vi.clearAllMocks();
         vi.spyOn(global, 'setTimeout');
         vi.spyOn(global, 'setInterval');
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue([{}])
+        });
         const mockDatabase = { getSettings: () => ({ allowBetaUpdates: false }) };
         updaterService = new UpdaterService(false, mockDatabase as any);
     });
