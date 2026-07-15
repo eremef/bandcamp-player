@@ -275,6 +275,7 @@ mobile/
 | :--------------------------------- | ---- | :----: |
 | Playlist import/export             | L    | 🟢     |
 | Artist & album links - desktop app | M    | 🟢     |
+| Queue & playlist enhancements      | M    | 🟡     |
 
 **Legend**:
 🟢 finished (waiting for release)
