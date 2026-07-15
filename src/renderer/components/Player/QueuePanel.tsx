@@ -50,8 +50,8 @@ const DraggableQueueItem = forwardRef<HTMLLIElement, DraggableQueueItemProps>(({
 });
 DraggableQueueItem.displayName = 'DraggableQueueItem';
 
-const VirtuosoList = forwardRef<HTMLUListElement, any>((props, ref) => (
-    <ul {...props} ref={ref} className={styles.list} style={{ ...props.style, margin: 0, padding: 0 }} />
+const VirtuosoList = forwardRef<HTMLDivElement, any>((props, ref) => (
+    <div {...props} ref={ref} className={styles.list} style={{ ...props.style, margin: 0, padding: 0 }} />
 ));
 VirtuosoList.displayName = 'VirtuosoList';
 
