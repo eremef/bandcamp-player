@@ -65,6 +65,9 @@
     },
     "@yarnpkg/parsers": {
       "js-yaml": "^3.15.0"
+    },
+    "discord-rpc": {
+      "register-scheme": "npm:register-scheme@0.0.2"
     }
   },
   "devDependencies": {
