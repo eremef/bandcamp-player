@@ -50,7 +50,7 @@ test.describe('Radio Interactions', () => {
 
         // Navigate to Radio
         await window.getByRole('button', { name: 'Radio' }).click();
-        await expect(window.getByText('Bandcamp Radio')).toBeVisible({ timeout: 10000 });
+        await expect(window.getByRole('heading', { name: 'Bandcamp Radio', exact: true })).toBeVisible({ timeout: 10000 });
 
         // Trigger a refresh so the mock handler broadcasts the updated stations to the store
         await window.evaluate(async () => {

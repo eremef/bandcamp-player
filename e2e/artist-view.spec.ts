@@ -52,7 +52,7 @@ test.describe('Artists View', () => {
             }
 
             // Verify back button exists and click it
-            const backBtn = window.getByTitle('Back to Artists');
+            const backBtn = window.getByRole('button', { name: 'Back', exact: true });
             await expect(backBtn).toBeVisible({ timeout: 5000 });
             await backBtn.click();
 

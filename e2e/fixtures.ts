@@ -12,7 +12,7 @@ export const test = base.extend<AppFixtures>({
         const electronApp = await electron.launch({
             args: [
                 join(__dirname, '../dist/main/main.js'),
-                `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.workerIndex.toString())}`
+                `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.testId)}`
             ],
             env: {
                 ...process.env,

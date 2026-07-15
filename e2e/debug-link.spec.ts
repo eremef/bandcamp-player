@@ -1,4 +1,5 @@
-import { test } from './fixtures';
+import { test, expect } from './fixtures';
+
 test.describe('Debug Artist Link', () => {
   let app: any;
   let window: any;
@@ -7,17 +8,18 @@ test.describe('Debug Artist Link', () => {
     app = electronApp;
     window = win;
 
+    const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
+    const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
-
-  });
-
-  test.afterEach(async () => {
-    if (app) await app.close();
+    if (await loginBtn.isVisible()) {
+        await loginBtn.click();
+    }
+    await expect(collectionBtn).toBeVisible({ timeout: 15000 });
   });
 
   test('should not show artist not found', async () => {
     // Navigate to collection
-    await window.click('text=Collection');
+    await window.getByRole('button', { name: 'Collection', exact: true }).click();
 
     // Wait for the mock items to render
     await window.waitForTimeout(1000);

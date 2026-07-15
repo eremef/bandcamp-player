@@ -123,7 +123,15 @@ test.describe('Offline Mode & Caching', () => {
         // Right click to open context menu
         await onlineCard.click({ button: 'right' });
 
-        // Context menu should show "Download for Offline" because it's not cached
+        // If it was already cached from a previous test leak, we'll see "Remove from Cache"
+        const removeBtn = window.locator('button', { hasText: 'Remove from Cache' });
+        if (await removeBtn.isVisible()) {
+            await removeBtn.click();
+            await window.waitForTimeout(500);
+            await onlineCard.click({ button: 'right' }); // Re-open menu
+        }
+
+        // Context menu should now show "Download for Offline"
         await expect(window.locator('button', { hasText: 'Download for Offline' })).toBeVisible();
     });
 
