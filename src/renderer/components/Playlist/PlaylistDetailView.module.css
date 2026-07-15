@@ -7,7 +7,7 @@
 /* Header */
 .header {
     padding: var(--spacing-lg);
-    background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%);
+    background: var(--bg-primary);
     border-top: 1px solid var(--border-subtle);
 }
 
@@ -220,7 +220,9 @@
 
 .table {
     width: 100%;
-    border-collapse: collapse;
+    padding-right: 5px;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .table th {
@@ -231,20 +233,40 @@
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border-subtle);
+    background-color: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-.trackRow {
-    transition: background var(--transition-fast);
+.table th:first-child {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
 }
 
-.trackRow:hover {
-    background: var(--bg-hover);
+.table th:last-child {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
 }
 
 .trackRow td {
     padding: var(--spacing-sm) var(--spacing-md);
     vertical-align: middle;
+    transition: background var(--transition-fast);
+}
+
+.trackRow:hover td {
+    background: var(--bg-hover);
+}
+
+.trackRow td:first-child {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
+}
+
+.trackRow td:last-child {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
 }
 
 .colNum {
@@ -412,4 +434,12 @@
 
 .dragOver td {
     border-top: 2px solid var(--accent-primary);
+}
+
+tfoot td:first-child {
+    border-top-left-radius: var(--radius-md);
+}
+
+tfoot td:last-child {
+    border-top-right-radius: var(--radius-md);
 }

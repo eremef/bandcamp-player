@@ -247,6 +247,10 @@ export interface AppSettings {
   lastfmSessionKey?: string;
   lastfmApiKey?: string;
   lastfmApiSecret?: string;
+
+  // Saved queue state
+  savedQueue?: Queue;
+  queueWidth?: number;
 }
 
 // ============================================================================

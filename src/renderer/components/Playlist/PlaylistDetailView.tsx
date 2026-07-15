@@ -14,10 +14,11 @@ interface DraggableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
     onDropRow: (index: number) => void;
     onDragEndRow: () => void;
     setActiveTrackMenu: (id: string | null) => void;
+    isDraggable?: boolean;
 }
 
 const DraggableRow = React.forwardRef<HTMLTableRowElement, DraggableRowProps>(({
-    index, track, dragIndex, dragOverIndex, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow, setActiveTrackMenu, className, children, ...rest
+    index, track, dragIndex, dragOverIndex, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow, setActiveTrackMenu, isDraggable = true, className, children, ...rest
 }, ref) => {
     const isDragOver = dragOverIndex === index;
 
@@ -31,14 +32,14 @@ const DraggableRow = React.forwardRef<HTMLTableRowElement, DraggableRowProps>(({
                 e.preventDefault();
                 setActiveTrackMenu(track.id);
             }}
-            draggable
-            onDragStart={() => onDragStartRow(index)}
-            onDragOver={(e) => onDragOverRow(e, index)}
-            onDrop={(e) => {
+            draggable={isDraggable}
+            onDragStart={isDraggable ? () => onDragStartRow(index) : undefined}
+            onDragOver={isDraggable ? (e) => onDragOverRow(e, index) : undefined}
+            onDrop={isDraggable ? (e) => {
                 e.preventDefault();
                 onDropRow(index);
-            }}
-            onDragEnd={onDragEndRow}
+            } : undefined}
+            onDragEnd={isDraggable ? onDragEndRow : undefined}
         >
             {children}
         </tr>
@@ -47,12 +48,12 @@ const DraggableRow = React.forwardRef<HTMLTableRowElement, DraggableRowProps>(({
 DraggableRow.displayName = 'DraggableRow';
 
 const VirtuosoTable = (props: any) => (
-    <table {...props} className={styles.table} style={{ ...props.style, width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }} />
+    <table {...props} className={styles.table} style={{ ...props.style, width: '100%', tableLayout: 'fixed' }} />
 );
 VirtuosoTable.displayName = 'VirtuosoTable';
 
 const VirtuosoTableHead = React.forwardRef<HTMLTableSectionElement, any>((props, ref) => (
-    <thead {...props} ref={ref} />
+    <thead {...props} ref={ref} style={props.style} />
 ));
 VirtuosoTableHead.displayName = 'VirtuosoTableHead';
 
@@ -79,10 +80,16 @@ const VirtuosoTableRow = React.forwardRef<HTMLTableRowElement, any>((props, ref)
             onDropRow={context.handleDrop}
             onDragEndRow={context.handleDragEnd}
             setActiveTrackMenu={context.setActiveTrackMenu}
+            isDraggable={context.isDraggable}
         />
     );
 });
 VirtuosoTableRow.displayName = 'VirtuosoTableRow';
+
+const VirtuosoTableFoot = React.forwardRef<HTMLTableSectionElement, any>((props, ref) => (
+    <tfoot {...props} ref={ref} />
+));
+VirtuosoTableFoot.displayName = 'VirtuosoTableFoot';
 
 export function PlaylistDetailView() {
     const {
@@ -105,7 +112,7 @@ export function PlaylistDetailView() {
     const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState('');
-    
+
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -295,14 +302,45 @@ export function PlaylistDetailView() {
                             handleDragOverRow,
                             handleDrop,
                             handleDragEnd,
-                            setActiveTrackMenu
+                            setActiveTrackMenu,
+                            isDraggable: !selectedPlaylist.isBandcampPlaylist
                         }}
                         components={{
                             Table: VirtuosoTable,
                             TableHead: VirtuosoTableHead as any,
                             TableBody: VirtuosoTableBody as any,
-                            TableRow: VirtuosoTableRow as any
+                            TableRow: VirtuosoTableRow as any,
+                            TableFoot: VirtuosoTableFoot as any
                         }}
+                        fixedFooterContent={() => !selectedPlaylist.isBandcampPlaylist ? (
+                            <tr
+                                onDragOver={(e) => { e.preventDefault(); setDragOverIndex(selectedPlaylist.tracks.length); }}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    const toIndex = selectedPlaylist.tracks.length - 1;
+                                    if (dragIndex !== null && dragIndex !== toIndex) {
+                                        const { reorderPlaylistTracks } = useStore.getState();
+                                        reorderPlaylistTracks(selectedPlaylist.id, dragIndex, toIndex).catch(
+                                            (err: unknown) => console.error('Failed to reorder playlist tracks:', err)
+                                        );
+                                    }
+                                    setDragIndex(null);
+                                    setDragOverIndex(null);
+                                }}
+                                onDragLeave={() => { if (dragOverIndex === selectedPlaylist.tracks.length) setDragOverIndex(null); }}
+                            >
+                                <td
+                                    colSpan={6}
+                                    style={{
+                                        height: '24px',
+                                        borderTop: dragOverIndex === selectedPlaylist.tracks.length
+                                            ? '3px solid var(--accent-primary)'
+                                            : '3px solid transparent',
+                                        transition: 'border-color 0.1s',
+                                    }}
+                                />
+                            </tr>
+                        ) : null}
                         fixedHeaderContent={() => (
                             <tr>
                                 <th className={styles.colNum}>#</th>

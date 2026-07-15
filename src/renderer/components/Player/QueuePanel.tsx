@@ -1,4 +1,4 @@
-import { useState, forwardRef } from 'react';
+import { useState, forwardRef, useRef, useEffect } from 'react';
 import { useStore } from '../../store/store';
 import { X, Play, Trash2 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
@@ -51,7 +51,7 @@ const DraggableQueueItem = forwardRef<HTMLLIElement, DraggableQueueItemProps>(({
 DraggableQueueItem.displayName = 'DraggableQueueItem';
 
 const VirtuosoList = forwardRef<HTMLDivElement, any>((props, ref) => (
-    <div {...props} ref={ref} className={styles.list} style={{ ...props.style, margin: 0, padding: 0 }} />
+    <div {...props} ref={ref} className={styles.list} style={props.style} />
 ));
 VirtuosoList.displayName = 'VirtuosoList';
 
@@ -79,12 +79,67 @@ const VirtuosoItem = forwardRef<HTMLLIElement, any>((props, ref) => {
 });
 VirtuosoItem.displayName = 'VirtuosoItem';
 
+const VirtuosoQueueFooter = ({ context }: any) => (
+    <div
+        onDragOver={(e) => { e.preventDefault(); context.setDragOverIndex(context.totalItems); }}
+        onDrop={(e) => {
+            e.preventDefault();
+            context.handleDropSentinel();
+        }}
+        onDragLeave={() => { if (context.dragOverIndex === context.totalItems) context.setDragOverIndex(null); }}
+        style={{
+            minHeight: '24px',
+            width: '100%',
+            borderTop: context.dragOverIndex === context.totalItems
+                ? '3px solid var(--accent-primary)'
+                : '3px solid transparent',
+            transition: 'border-color 0.1s',
+        }}
+    />
+);
+VirtuosoQueueFooter.displayName = 'VirtuosoQueueFooter';
+
 
 export function QueuePanel() {
-    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack } = useStore();
+    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack, settings, updateSettings } = useStore();
 
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const [width, setWidth] = useState(settings?.queueWidth ?? 300);
+    const isResizing = useRef(false);
+    const currentWidth = useRef(width);
+
+    useEffect(() => {
+        if (settings?.queueWidth && !isResizing.current) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setWidth(settings.queueWidth);
+        }
+    }, [settings?.queueWidth]);
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        e.preventDefault();
+        isResizing.current = true;
+        document.body.style.cursor = 'col-resize';
+        
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing.current) return;
+            const newWidth = Math.max(250, Math.min(800, window.innerWidth - e.clientX));
+            setWidth(newWidth);
+            currentWidth.current = newWidth;
+        };
+        
+        const handleMouseUp = () => {
+            isResizing.current = false;
+            document.body.style.cursor = '';
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            updateSettings({ queueWidth: currentWidth.current });
+        };
+        
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
 
     const handleDragStart = (index: number) => {
         setDragIndex(index);
@@ -111,8 +166,18 @@ export function QueuePanel() {
         setDragOverIndex(null);
     };
 
+    const handleDropSentinel = () => {
+        const toIndex = queue.items.length - 1;
+        if (dragIndex !== null && dragIndex !== toIndex) {
+            reorderQueue(dragIndex, toIndex);
+        }
+        setDragIndex(null);
+        setDragOverIndex(null);
+    };
+
     return (
-        <div className={styles.panel}>
+        <div className={styles.panel} style={{ width }}>
+            <div className={styles.resizer} onMouseDown={handleMouseDown} />
             <header className={styles.header}>
                 <h2>Queue</h2>
                 <div className={styles.headerActions}>
@@ -141,15 +206,19 @@ export function QueuePanel() {
                             currentIndex: queue.currentIndex,
                             dragIndex,
                             dragOverIndex,
+                            totalItems: queue.items.length,
                             handleDragStart,
                             handleDragOver,
                             handleDrop,
                             handleDragEnd,
-                            playQueueIndex
+                            playQueueIndex,
+                            setDragOverIndex,
+                            handleDropSentinel
                         }}
                         components={{
                             List: VirtuosoList as any,
-                            Item: VirtuosoItem as any
+                            Item: VirtuosoItem as any,
+                            Footer: VirtuosoQueueFooter
                         }}
                         itemContent={(index, item) => (
                             <>
@@ -168,15 +237,15 @@ export function QueuePanel() {
                                 <div className={styles.trackInfo}>
                                     <div className={styles.details}>
                                         <span className={styles.title}>{item.track.title}</span>
-                                        <span 
-                                            className={`${styles.artist} ${styles.link}`} 
+                                        <span
+                                            className={`${styles.artist} ${styles.link}`}
                                             onClick={(e) => { e.stopPropagation(); selectArtist(item.track.artist); }}
                                         >
                                             {item.track.artist}
                                         </span>
                                         {item.track.album && (
-                                            <span 
-                                                className={`${styles.album} ${styles.link}`} 
+                                            <span
+                                                className={`${styles.album} ${styles.link}`}
                                                 onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(item.track); }}
                                             >
                                                 {item.track.album}

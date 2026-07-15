@@ -1076,7 +1076,15 @@ export const useStore = create<StoreState>()((set, get) => ({
       albumDetailSourceView: previousState.albumDetailSourceView,
     };
   }),
-  setView: (view) => set((s) => ({ viewHistory: pushViewState(s as StoreState), currentView: view })),
+  setView: (view) => set((s) => ({
+    viewHistory: pushViewState(s as StoreState),
+    currentView: view,
+    selectedAlbum: null,
+    selectedArtistId: null,
+    selectedPlaylistId: null,
+    selectedPlaylist: null,
+    albumDetailSourceView: null
+  })),
   setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
   toggleQueue: () => set((s) => ({ isQueueVisible: !s.isQueueVisible })),
   toggleMiniPlayer: async () => {
