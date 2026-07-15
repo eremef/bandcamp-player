@@ -387,45 +387,60 @@ export function PlaylistDetailView() {
                                     {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
                                 </td>
                                 <td className={styles.colActions}>
-                                    <div className={styles.menuContainer}>
-                                        <button
-                                            className={styles.menuBtn}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
-                                            }}
-                                        >
-                                            <MoreHorizontal size={16} />
-                                        </button>
+                                    <div className={styles.actionsWrapper}>
 
-                                        {activeTrackMenu === track.id && (
-                                            <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
-                                                <button onClick={() => {
-                                                    setActiveTrackMenu(null);
-                                                    addToQueue(track, true);
-                                                }}>
-                                                    <Play size={14} /> Play Next
-                                                </button>
-                                                <button onClick={() => {
-                                                    setActiveTrackMenu(null);
-                                                    addToQueue(track);
-                                                }}>
-                                                    <List size={14} /> Add to Queue
-                                                </button>
-                                                <div className={styles.menuDivider} />
-                                                {!selectedPlaylist.isBandcampPlaylist && (
-                                                    <button
-                                                        className={styles.removeBtn}
-                                                        onClick={() => {
-                                                            setActiveTrackMenu(null);
-                                                            removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
-                                                        }}
-                                                        title="Remove from playlist"
-                                                    >
-                                                        <Trash2 size={14} /> Remove from Playlist
+                                        <div className={styles.menuContainer}>
+                                            <button
+                                                className={styles.menuBtn}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
+                                                }}
+                                            >
+                                                <MoreHorizontal size={16} />
+                                            </button>
+
+                                            {activeTrackMenu === track.id && (
+                                                <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
+                                                    <button onClick={() => {
+                                                        setActiveTrackMenu(null);
+                                                        addToQueue(track, true);
+                                                    }}>
+                                                        <Play size={14} /> Play Next
                                                     </button>
-                                                )}
-                                            </div>
+                                                    <button onClick={() => {
+                                                        setActiveTrackMenu(null);
+                                                        addToQueue(track);
+                                                    }}>
+                                                        <List size={14} /> Add to Queue
+                                                    </button>
+                                                    <div className={styles.menuDivider} />
+                                                    {!selectedPlaylist.isBandcampPlaylist && (
+                                                        <button
+                                                            className={styles.removeBtn}
+                                                            onClick={() => {
+                                                                setActiveTrackMenu(null);
+                                                                removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
+                                                            }}
+                                                            title="Remove from playlist"
+                                                        >
+                                                            <Trash2 size={14} /> Remove from Playlist
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                        {!selectedPlaylist.isBandcampPlaylist && (
+                                            <button
+                                                className={styles.rowRemoveBtn}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
+                                                }}
+                                                title="Remove from playlist"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         )}
                                     </div>
                                 </td>

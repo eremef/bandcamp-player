@@ -200,7 +200,7 @@
 
 /* Track list */
 .trackList {
-    padding: 0 var(--spacing-xl) var(--spacing-xl);
+    padding: 0 var(--spacing-lg) var(--spacing-lg);
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -220,7 +220,6 @@
 
 .table {
     width: 100%;
-    padding-right: 5px;
     border-collapse: separate;
     border-spacing: 0;
 }
@@ -274,13 +273,42 @@
     text-align: center;
 }
 
-.colTitle { width: 50%; min-width: 250px; }
-.colArtist { width: 25%; min-width: 150px; }
-.colAlbum { width: 25%; min-width: 150px; color: var(--text-tertiary); font-size: var(--font-size-sm); }
+.colTitle { width: auto; min-width: 200px; }
+.colArtist { width: 25%; min-width: 120px; }
+.colAlbum { width: 25%; min-width: 120px; color: var(--text-tertiary); font-size: var(--font-size-sm); }
 .colDuration { width: 100px; text-align: right; font-variant-numeric: tabular-nums; }
 
 .colActions {
-    width: 50px;
+    width: 70px;
+}
+
+.actionsWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    height: 100%;
+}
+
+.rowRemoveBtn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.trackRow:hover .rowRemoveBtn {
+    opacity: 1;
+}
+
+.rowRemoveBtn:hover {
+    background: var(--color-error);
+    color: var(--text-on-accent);
 }
 
 .playTrackBtn {
