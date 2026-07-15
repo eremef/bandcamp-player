@@ -47,8 +47,8 @@ export class PlayerService extends EventEmitter {
     private currentStation: RadioStation | null = null;
 
     // Persistence
-    private saveVolumeTimeout: NodeJS.Timeout | null = null;
-    private persistQueueTimeout: NodeJS.Timeout | null = null;
+    private saveVolumeTimeout: ReturnType<typeof setTimeout> | null = null;
+    private persistQueueTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Power save
     private powerSaveBlockerId: number | null = null;
@@ -540,7 +540,7 @@ export class PlayerService extends EventEmitter {
         this.saveVolumeTimeout = setTimeout(() => {
             this.database.setSettings({ defaultVolume: this.volume });
             this.saveVolumeTimeout = null;
-        }, 2000) as unknown as NodeJS.Timeout;
+        }, 2000);
     }
 
     toggleMute(): void {
