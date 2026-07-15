@@ -560,12 +560,16 @@ export class MobileDatabase {
 
         for (const p of playlists) {
             // Get tracks for each playlist
-            const tracks = await this.db!.getAllAsync<{ track_data: string }>(
-                'SELECT track_data FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
+            const tracks = await this.db!.getAllAsync<{ id: string, track_data: string }>(
+                'SELECT id, track_data FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
                 [p.id]
             );
 
-            const parsedTracks = tracks.map(t => JSON.parse(t.track_data));
+            const parsedTracks = tracks.map(t => {
+                const parsed = JSON.parse(t.track_data);
+                parsed.playlistEntryId = t.id;
+                return parsed;
+            });
 
             result.push({
                 id: p.id,
@@ -677,6 +681,54 @@ export class MobileDatabase {
         );
     }
 
+    async removeTrackFromPlaylist(playlistId: string, trackId: string) {
+        if (!this.db) await this.init();
+        const now = new Date().toISOString();
+        
+        await this.db!.runAsync(
+            'DELETE FROM playlist_tracks WHERE playlist_id = ? AND (id = ? OR json_extract(track_data, "$.id") = ?)',
+            [playlistId, trackId, trackId]
+        );
+        
+        await this.db!.runAsync(
+            'UPDATE playlists SET updated_at = ? WHERE id = ?',
+            [now, playlistId]
+        );
+    }
+
+    async reorderPlaylistTracks(playlistId: string, fromIndex: number, toIndex: number) {
+        if (!this.db) await this.init();
+
+        const tracks = await this.db!.getAllAsync<{ id: string, position: number }>(
+            'SELECT id, position FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
+            [playlistId]
+        );
+
+        if (fromIndex < 0 || fromIndex >= tracks.length || toIndex < 0 || toIndex >= tracks.length) return;
+
+        const item = tracks.splice(fromIndex, 1)[0];
+        tracks.splice(toIndex, 0, item);
+
+        const release = await this.acquireLock();
+        try {
+            await this.db!.withTransactionAsync(async () => {
+                for (let i = 0; i < tracks.length; i++) {
+                    await this.db!.runAsync(
+                        'UPDATE playlist_tracks SET position = ? WHERE id = ?',
+                        [i, tracks[i].id]
+                    );
+                }
+                const now = new Date().toISOString();
+                await this.db!.runAsync(
+                    'UPDATE playlists SET updated_at = ? WHERE id = ?',
+                    [now, playlistId]
+                );
+            });
+        } finally {
+            release();
+        }
+    }
+
     // --- Scrobble Queue ---
 
     async addScrobble(artist: string, track: string, album: string | undefined, duration: number | undefined, timestamp: number) {
@@ -707,14 +759,6 @@ export class MobileDatabase {
         });
     }
 
-    async removeTrackFromPlaylist(_playlistId: string, _trackId: string) { // Note: this removes logically by track content ID if needed, 
-        // but typically robust apps use a unique playlist_entry_id. 
-        // For now, mirroring desktop which might just use array filtering.
-        // Implementing simple removal by matching track ID inside JSON is hard in SQLite.
-        // Ideally we pass the playlist_track row ID.
-        // For MVP, if the track object has a unique ID, we can fetch all, filter, and rewrite, or delete based on match.
-        // Let's assume playlisEntryId logic will be handled at service layer or we just don't support granular delete in this first pass.
-    }
 
     async getCollectionByArtistNames(userId: string, artistNames: string[]): Promise<CollectionItem[]> {
         if (!this.db) await this.init();

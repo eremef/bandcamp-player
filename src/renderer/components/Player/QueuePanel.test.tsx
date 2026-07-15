@@ -92,11 +92,12 @@ describe('QueuePanel', () => {
         const { container } = render(<QueuePanel />);
         const items = container.querySelectorAll('li');
 
-        fireEvent.dragStart(items[0]);
-        fireEvent.dragOver(items[1]);
-        fireEvent.drop(items[1]);
+        fireEvent.dragStart(items[1]);
+        fireEvent.dragOver(items[0]);
+        fireEvent.drop(items[0]);
 
-        expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 1);
+        // Dragging up from 1 to 0 means dropping before 0, so adjusted target is 0
+        expect(mockStore.reorderQueue).toHaveBeenCalledWith(1, 0);
     });
 
     it('does not call reorderQueue when dropped on the same item', () => {

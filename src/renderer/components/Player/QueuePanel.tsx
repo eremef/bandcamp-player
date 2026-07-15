@@ -1,7 +1,84 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { useStore } from '../../store/store';
 import { X, Play, Trash2 } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import styles from './QueuePanel.module.css';
+
+interface DraggableQueueItemProps extends React.HTMLAttributes<HTMLLIElement> {
+    index: number;
+    item: any;
+    dragIndex: number | null;
+    dragOverIndex: number | null;
+    currentIndex: number;
+    onDragStartItem: (index: number) => void;
+    onDragOverItem: (e: React.DragEvent, index: number) => void;
+    onDropItem: (index: number) => void;
+    onDragEndItem: () => void;
+    onDoubleClickItem: (index: number) => void;
+}
+
+const DraggableQueueItem = forwardRef<HTMLLIElement, DraggableQueueItemProps>(({
+    index, item, dragIndex, dragOverIndex, currentIndex, onDragStartItem, onDragOverItem, onDropItem, onDragEndItem, onDoubleClickItem, className, children, ...rest
+}, ref) => {
+    const isDragOver = dragOverIndex === index;
+
+    return (
+        <li
+            {...rest}
+            ref={ref}
+            className={[
+                className,
+                styles.item,
+                index === currentIndex ? styles.current : '',
+                index < currentIndex ? styles.played : '',
+                isDragOver ? styles.dragOver : '',
+                dragIndex === index ? styles.dragging : '',
+            ].filter(Boolean).join(' ')}
+            draggable
+            onDragStart={() => onDragStartItem(index)}
+            onDragOver={(e) => onDragOverItem(e, index)}
+            onDrop={(e) => {
+                e.preventDefault();
+                onDropItem(index);
+            }}
+            onDragEnd={onDragEndItem}
+            onDoubleClick={() => onDoubleClickItem(index)}
+        >
+            {children}
+        </li>
+    );
+});
+DraggableQueueItem.displayName = 'DraggableQueueItem';
+
+const VirtuosoList = forwardRef<HTMLUListElement, any>((props, ref) => (
+    <ul {...props} ref={ref} className={styles.list} style={{ ...props.style, margin: 0, padding: 0 }} />
+));
+VirtuosoList.displayName = 'VirtuosoList';
+
+const VirtuosoItem = forwardRef<HTMLLIElement, any>((props, ref) => {
+    const { context } = props;
+    const index = props['data-index'] as number;
+    const item = context.queueItems[index];
+
+    return (
+        <DraggableQueueItem
+            {...props}
+            ref={ref}
+            index={index}
+            item={item}
+            dragIndex={context.dragIndex}
+            dragOverIndex={context.dragOverIndex}
+            currentIndex={context.currentIndex}
+            onDragStartItem={context.handleDragStart}
+            onDragOverItem={context.handleDragOver}
+            onDropItem={context.handleDrop}
+            onDragEndItem={context.handleDragEnd}
+            onDoubleClickItem={context.playQueueIndex}
+        />
+    );
+});
+VirtuosoItem.displayName = 'VirtuosoItem';
+
 
 export function QueuePanel() {
     const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack } = useStore();
@@ -22,7 +99,8 @@ export function QueuePanel() {
 
     const handleDrop = (toIndex: number) => {
         if (dragIndex !== null && dragIndex !== toIndex) {
-            reorderQueue(dragIndex, toIndex);
+            const adjustedToIndex = dragIndex < toIndex ? toIndex - 1 : toIndex;
+            reorderQueue(dragIndex, adjustedToIndex);
         }
         setDragIndex(null);
         setDragOverIndex(null);
@@ -54,24 +132,27 @@ export function QueuePanel() {
                         <p className={styles.emptyHint}>Add songs from your collection</p>
                     </div>
                 ) : (
-                    <ul className={styles.list}>
-                        {queue.items.map((item, index) => (
-                            <li
-                                key={item.id}
-                                className={[
-                                    styles.item,
-                                    index === queue.currentIndex ? styles.current : '',
-                                    index < queue.currentIndex ? styles.played : '',
-                                    dragOverIndex === index ? styles.dragOver : '',
-                                    dragIndex === index ? styles.dragging : '',
-                                ].filter(Boolean).join(' ')}
-                                draggable
-                                onDragStart={() => handleDragStart(index)}
-                                onDragOver={(e) => handleDragOver(e, index)}
-                                onDrop={() => handleDrop(index)}
-                                onDragEnd={handleDragEnd}
-                                onDoubleClick={() => playQueueIndex(index)}
-                            >
+                    <Virtuoso
+                        data={queue.items}
+                        style={{ height: '100%' }}
+                        initialItemCount={Math.min(queue.items.length, 50)}
+                        context={{
+                            queueItems: queue.items,
+                            currentIndex: queue.currentIndex,
+                            dragIndex,
+                            dragOverIndex,
+                            handleDragStart,
+                            handleDragOver,
+                            handleDrop,
+                            handleDragEnd,
+                            playQueueIndex
+                        }}
+                        components={{
+                            List: VirtuosoList,
+                            Item: VirtuosoItem
+                        }}
+                        itemContent={(index, item) => (
+                            <>
                                 <button
                                     className={styles.playBtn}
                                     onClick={() => playQueueIndex(index)}
@@ -85,7 +166,6 @@ export function QueuePanel() {
                                 </button>
                                 <img src={item.track.artworkUrl} alt="" className={styles.artwork} />
                                 <div className={styles.trackInfo}>
-                                    {/* <img src={item.track.artworkUrl} alt="" className={styles.artwork} /> */}
                                     <div className={styles.details}>
                                         <span className={styles.title}>{item.track.title}</span>
                                         <span 
@@ -111,9 +191,9 @@ export function QueuePanel() {
                                 >
                                     <Trash2 size={16} />
                                 </button>
-                            </li>
-                        ))}
-                    </ul>
+                            </>
+                        )}
+                    />
                 )}
             </div>
 

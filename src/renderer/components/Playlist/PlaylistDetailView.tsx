@@ -1,7 +1,88 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useStore } from '../../store/store';
 import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List, Download } from 'lucide-react';
+import { TableVirtuoso } from 'react-virtuoso';
 import styles from './PlaylistDetailView.module.css';
+
+interface DraggableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {
+    index: number;
+    track: any;
+    dragIndex: number | null;
+    dragOverIndex: number | null;
+    onDragStartRow: (index: number) => void;
+    onDragOverRow: (e: React.DragEvent, index: number) => void;
+    onDropRow: (index: number) => void;
+    onDragEndRow: () => void;
+    setActiveTrackMenu: (id: string | null) => void;
+}
+
+const DraggableRow = React.forwardRef<HTMLTableRowElement, DraggableRowProps>(({
+    index, track, dragIndex, dragOverIndex, onDragStartRow, onDragOverRow, onDropRow, onDragEndRow, setActiveTrackMenu, className, children, ...rest
+}, ref) => {
+    const isDragOver = dragOverIndex === index;
+
+    return (
+        <tr
+            {...rest}
+            ref={ref}
+            className={`${className} ${styles.trackRow} ${dragIndex === index ? styles.dragging : ''} ${isDragOver ? styles.dragOver : ''}`}
+            onMouseLeave={() => setActiveTrackMenu(null)}
+            onContextMenu={(e) => {
+                e.preventDefault();
+                setActiveTrackMenu(track.id);
+            }}
+            draggable
+            onDragStart={() => onDragStartRow(index)}
+            onDragOver={(e) => onDragOverRow(e, index)}
+            onDrop={(e) => {
+                e.preventDefault();
+                onDropRow(index);
+            }}
+            onDragEnd={onDragEndRow}
+        >
+            {children}
+        </tr>
+    );
+});
+DraggableRow.displayName = 'DraggableRow';
+
+const VirtuosoTable = (props: any) => (
+    <table {...props} className={styles.table} style={{ ...props.style, width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }} />
+);
+VirtuosoTable.displayName = 'VirtuosoTable';
+
+const VirtuosoTableHead = React.forwardRef<HTMLTableSectionElement, any>((props, ref) => (
+    <thead {...props} ref={ref} />
+));
+VirtuosoTableHead.displayName = 'VirtuosoTableHead';
+
+const VirtuosoTableBody = React.forwardRef<HTMLTableSectionElement, any>((props, ref) => (
+    <tbody {...props} ref={ref} />
+));
+VirtuosoTableBody.displayName = 'VirtuosoTableBody';
+
+const VirtuosoTableRow = React.forwardRef<HTMLTableRowElement, any>((props, ref) => {
+    const { context } = props;
+    const index = props['data-index'] as number;
+    const track = context.tracks[index];
+
+    return (
+        <DraggableRow
+            {...props}
+            ref={ref}
+            index={index}
+            track={track}
+            dragIndex={context.dragIndex}
+            dragOverIndex={context.dragOverIndex}
+            onDragStartRow={context.handleDragStart}
+            onDragOverRow={context.handleDragOverRow}
+            onDropRow={context.handleDrop}
+            onDragEndRow={context.handleDragEnd}
+            setActiveTrackMenu={context.setActiveTrackMenu}
+        />
+    );
+});
+VirtuosoTableRow.displayName = 'VirtuosoTableRow';
 
 export function PlaylistDetailView() {
     const {
@@ -24,6 +105,43 @@ export function PlaylistDetailView() {
     const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState('');
+    
+    const [dragIndex, setDragIndex] = useState<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+    const handleDragStart = (index: number) => {
+        setDragIndex(index);
+    };
+
+    const handleDragOverRow = (e: React.DragEvent, index: number) => {
+        e.preventDefault();
+        if (dragIndex !== index) {
+            setDragOverIndex(index);
+        }
+    };
+
+    const handleDrop = async (toIndex: number) => {
+        if (dragIndex !== null && dragIndex !== toIndex && selectedPlaylist) {
+            const fromIndex = dragIndex;
+            setDragIndex(null);
+            setDragOverIndex(null);
+            const { reorderPlaylistTracks } = useStore.getState();
+            try {
+                const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+                await reorderPlaylistTracks(selectedPlaylist.id, fromIndex, adjustedToIndex);
+            } catch (err) {
+                console.error('Failed to reorder playlist tracks:', err);
+            }
+        } else {
+            setDragIndex(null);
+            setDragOverIndex(null);
+        }
+    };
+
+    const handleDragEnd = () => {
+        setDragIndex(null);
+        setDragOverIndex(null);
+    };
 
     if (!selectedPlaylist) {
         return (
@@ -163,8 +281,29 @@ export function PlaylistDetailView() {
                         <p className={styles.emptyHint}>Add tracks from your collection</p>
                     </div>
                 ) : (
-                    <table className={styles.table}>
-                        <thead>
+                    <TableVirtuoso
+                        data={selectedPlaylist.tracks}
+                        className={styles.table}
+                        style={{ flex: 1 }}
+                        initialItemCount={selectedPlaylist.tracks.length}
+                        useWindowScroll={false}
+                        context={{
+                            tracks: selectedPlaylist.tracks,
+                            dragIndex,
+                            dragOverIndex,
+                            handleDragStart,
+                            handleDragOverRow,
+                            handleDrop,
+                            handleDragEnd,
+                            setActiveTrackMenu
+                        }}
+                        components={{
+                            Table: VirtuosoTable,
+                            TableHead: VirtuosoTableHead as any,
+                            TableBody: VirtuosoTableBody as any,
+                            TableRow: VirtuosoTableRow as any
+                        }}
+                        fixedHeaderContent={() => (
                             <tr>
                                 <th className={styles.colNum}>#</th>
                                 <th className={styles.colTitle}>Title</th>
@@ -173,98 +312,88 @@ export function PlaylistDetailView() {
                                 <th className={styles.colDuration}>Duration</th>
                                 <th className={styles.colActions}></th>
                             </tr>
-                        </thead>
-                        <tbody>
-                            {selectedPlaylist.tracks.map((track, index) => (
-                                <tr
-                                    key={`${track.id}-${index}`}
-                                    className={styles.trackRow}
-                                    onMouseLeave={() => setActiveTrackMenu(null)}
-                                    onContextMenu={(e) => {
-                                        e.preventDefault();
-                                        setActiveTrackMenu(track.id);
-                                    }}
-                                >
-                                    <td className={styles.colNum}>
-                                        <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => play(track)}>
-                                            <span className={styles.trackNumber}>{index + 1}</span>
-                                            <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
-                                        </button>
-                                    </td>
-                                    <td className={styles.colTitle}>
-                                        <div className={styles.trackTitle}>
-                                            <img src={track.artworkUrl} alt="" className={styles.trackArtwork} />
-                                            <span>{track.title}</span>
-                                        </div>
-                                    </td>
-                                    <td className={styles.colArtist}>
+                        )}
+                        itemContent={(index, track) => (
+                            <>
+                                <td className={styles.colNum}>
+                                    <button data-testid="play-track-btn" className={styles.playTrackBtn} onClick={() => play(track)}>
+                                        <span className={styles.trackNumber}>{index + 1}</span>
+                                        <span className={styles.playIcon}><Play size={14} fill="currentColor" /></span>
+                                    </button>
+                                </td>
+                                <td className={styles.colTitle}>
+                                    <div className={styles.trackTitle}>
+                                        <img src={track.artworkUrl} alt="" className={styles.trackArtwork} />
+                                        <span>{track.title}</span>
+                                    </div>
+                                </td>
+                                <td className={styles.colArtist}>
+                                    <span
+                                        className={styles.link}
+                                        onClick={(e) => { e.stopPropagation(); selectArtist(track.artist); }}
+                                    >
+                                        {track.artist}
+                                    </span>
+                                </td>
+                                <td className={styles.colAlbum}>
+                                    {track.album && (
                                         <span
                                             className={styles.link}
-                                            onClick={(e) => { e.stopPropagation(); selectArtist(track.artist); }}
+                                            onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(track); }}
                                         >
-                                            {track.artist}
+                                            {track.album}
                                         </span>
-                                    </td>
-                                    <td className={styles.colAlbum}>
-                                        {track.album && (
-                                            <span
-                                                className={styles.link}
-                                                onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(track); }}
-                                            >
-                                                {track.album}
-                                            </span>
-                                        )}
-                                    </td>
-                                    <td className={styles.colDuration}>
-                                        {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
-                                    </td>
-                                    <td className={styles.colActions}>
-                                        <div className={styles.menuContainer}>
-                                            <button
-                                                className={styles.menuBtn}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
-                                                }}
-                                            >
-                                                <MoreHorizontal size={16} />
-                                            </button>
+                                    )}
+                                </td>
+                                <td className={styles.colDuration}>
+                                    {Math.floor(track.duration / 60)}:{String(Math.floor(track.duration % 60)).padStart(2, '0')}
+                                </td>
+                                <td className={styles.colActions}>
+                                    <div className={styles.menuContainer}>
+                                        <button
+                                            className={styles.menuBtn}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveTrackMenu(activeTrackMenu === track.id ? null : track.id);
+                                            }}
+                                        >
+                                            <MoreHorizontal size={16} />
+                                        </button>
 
-                                            {activeTrackMenu === track.id && (
-                                                <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
-                                                    <button onClick={() => {
-                                                        setActiveTrackMenu(null);
-                                                        addToQueue(track, true);
-                                                    }}>
-                                                        <Play size={14} /> Play Next
+                                        {activeTrackMenu === track.id && (
+                                            <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
+                                                <button onClick={() => {
+                                                    setActiveTrackMenu(null);
+                                                    addToQueue(track, true);
+                                                }}>
+                                                    <Play size={14} /> Play Next
+                                                </button>
+                                                <button onClick={() => {
+                                                    setActiveTrackMenu(null);
+                                                    addToQueue(track);
+                                                }}>
+                                                    <List size={14} /> Add to Queue
+                                                </button>
+                                                <div className={styles.menuDivider} />
+                                                {!selectedPlaylist.isBandcampPlaylist && (
+                                                    <button
+                                                        className={styles.removeBtn}
+                                                        onClick={() => {
+                                                            setActiveTrackMenu(null);
+                                                            removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
+                                                        }}
+                                                        title="Remove from playlist"
+                                                    >
+                                                        <Trash2 size={14} /> Remove from Playlist
                                                     </button>
-                                                    <button onClick={() => {
-                                                        setActiveTrackMenu(null);
-                                                        addToQueue(track);
-                                                    }}>
-                                                        <List size={14} /> Add to Queue
-                                                    </button>
-                                                    <div className={styles.menuDivider} />
-                                                    {!selectedPlaylist.isBandcampPlaylist && (
-                                                        <button
-                                                            className={styles.removeBtn}
-                                                            onClick={() => {
-                                                                setActiveTrackMenu(null);
-                                                                removeTrackFromPlaylist(selectedPlaylist.id, track.playlistEntryId || track.id);
-                                                            }}
-                                                            title="Remove from playlist"
-                                                        >
-                                                            <Trash2 size={14} /> Remove from Playlist
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
+                            </>
+                        )}
+                    />
                 )}
             </div>
         </div>

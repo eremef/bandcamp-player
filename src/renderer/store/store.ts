@@ -103,6 +103,11 @@ interface PlaylistSlice {
     playlistId: string,
     trackId: string,
   ) => Promise<void>;
+  reorderPlaylistTracks: (
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => Promise<void>;
   playPlaylist: (id: string) => Promise<void>;
   bandcampPlaylists: Playlist[];
   isLoadingBandcampPlaylists: boolean;
@@ -669,6 +674,9 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   removeTrackFromPlaylist: async (playlistId, trackId) => {
     await window.electron.playlist.removeTrack(playlistId, trackId);
+  },
+  reorderPlaylistTracks: async (playlistId, fromIndex, toIndex) => {
+    await window.electron.playlist.reorderTracks(playlistId, fromIndex, toIndex);
   },
   playPlaylist: async (id: string) => {
     const playlist = get().playlists.find(p => p.id === id);

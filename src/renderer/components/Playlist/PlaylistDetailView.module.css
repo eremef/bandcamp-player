@@ -1,6 +1,7 @@
 .container {
-    min-height: 100%;
-
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header */
@@ -200,6 +201,9 @@
 /* Track list */
 .trackList {
     padding: 0 var(--spacing-xl) var(--spacing-xl);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .empty {
@@ -399,4 +403,13 @@
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.dragging {
+    opacity: 0.4;
+    background: var(--bg-elevated);
+}
+
+.dragOver td {
+    border-top: 2px solid var(--accent-primary);
 }

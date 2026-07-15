@@ -532,9 +532,33 @@ export class RemoteControlService extends EventEmitter {
                 if (playlist && playlist.tracks.length > 0) {
                     this.playerService.clearQueue(false);
                     // Add all tracks from playlist
-                    this.playerService.addTracksToQueue(playlist.tracks);
-                    await this.playerService.playIndex(0);
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist');
+                    this.playerService.playIndex(0);
                 }
+                break;
+            }
+            case 'play-playlist-next': {
+                const playlist = this.playlistService.getById(payload);
+                if (playlist && playlist.tracks.length > 0) {
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist', true);
+                }
+                break;
+            }
+            case 'add-playlist-to-queue': {
+                const playlist = this.playlistService.getById(payload);
+                if (playlist && playlist.tracks.length > 0) {
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist');
+                }
+                break;
+            }
+            case 'remove-track-from-playlist': {
+                const { playlistId, trackId } = payload;
+                this.playlistService.removeTrack(playlistId, trackId);
+                break;
+            }
+            case 'reorder-playlist-tracks': {
+                const { playlistId, from, to } = payload;
+                this.playlistService.reorderTracks(playlistId, from, to);
                 break;
             }
             case 'toggle-shuffle':

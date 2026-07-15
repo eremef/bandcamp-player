@@ -98,6 +98,13 @@ interface AppState extends PlayerState {
     addAlbumToQueue: (albumUrl: string, playNext?: boolean, tracks?: Track[], knownArtist?: string) => void;
     addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>;
     addAlbumToPlaylist: (playlistId: string, albumUrl: string, album?: Album) => Promise<void>;
+    removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
+    reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => void;
+    fetchPlaylistDetails: (id: string) => Promise<Playlist | undefined>;
+    
+    // Playlists Playback Actions
+    playPlaylistNext: (id: string) => void;
+    addPlaylistToQueue: (id: string) => void;
 
     // Queue Actions
     playQueueIndex: (index: number) => void;
@@ -1445,6 +1452,68 @@ export const useStore = create<AppState>((set, get) => ({
             get().refreshPlaylists();
         }
     },
+    removeTrackFromPlaylist: (playlistId, trackId) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('remove-track-from-playlist', { playlistId, trackId });
+        } else {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            mobileDatabase.removeTrackFromPlaylist(playlistId, trackId).then(() => get().refreshPlaylists());
+        }
+    },
+    reorderPlaylistTracks: (playlistId, fromIndex, toIndex) => {
+        const state = get();
+        if (state.mode === 'remote' && state.connectionStatus === 'connected') {
+            const playlist = state.playlists.find(p => p.id === playlistId);
+            if (playlist && playlist.tracks) {
+                const newTracks = [...playlist.tracks];
+                const [moved] = newTracks.splice(fromIndex, 1);
+                newTracks.splice(toIndex, 0, moved);
+                
+                const updatedPlaylists = state.playlists.map(p => 
+                    p.id === playlistId ? { ...p, tracks: newTracks } : p
+                );
+                set({ playlists: updatedPlaylists });
+            }
+            webSocketService.send('reorder-playlist-tracks', { playlistId, from: fromIndex, to: toIndex });
+        } else {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            mobileDatabase.reorderPlaylistTracks(playlistId, fromIndex, toIndex).then(() => get().refreshPlaylists());
+        }
+    },
+    fetchPlaylistDetails: async (id) => {
+        const state = get();
+        if (state.mode === 'remote' && state.connectionStatus === 'connected') {
+            const fetchedPlaylist = await new Promise<Playlist | undefined>((resolve) => {
+                const timeout = setTimeout(() => {
+                    resolve(undefined);
+                    cleanup();
+                }, 5000);
+
+                const cleanup = webSocketService.on('export-playlist-data', (data: Playlist) => {
+                    if (data && data.id === id) {
+                        clearTimeout(timeout);
+                        cleanup();
+                        resolve(data);
+                    }
+                });
+                webSocketService.send('get-playlist-for-export', id);
+            });
+
+            if (fetchedPlaylist) {
+                // Update the playlist in the store so it has tracks using the latest state
+                set((s) => {
+                    const exists = s.playlists.some(p => p.id === id);
+                    if (exists) {
+                        return { playlists: s.playlists.map(p => p.id === id ? fetchedPlaylist : p) };
+                    } else {
+                        return { playlists: [...s.playlists, fetchedPlaylist] };
+                    }
+                });
+                return fetchedPlaylist;
+            }
+        }
+        return state.playlists.find(p => p.id === id);
+    },
     addAlbumToPlaylist: async (playlistId, albumUrl, album) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('add-album-to-playlist', { playlistId, albumUrl });
@@ -1598,6 +1667,46 @@ export const useStore = create<AppState>((set, get) => ({
         if (newItems.length === 0) {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
             mobilePlayerService.stop();
+        }
+    },
+    playPlaylistNext: (id) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('play-playlist-next', id);
+        } else {
+            const playlist = get().playlists.find(p => p.id === id);
+            if (playlist && playlist.tracks.length > 0) {
+                // Standalone mode: we loop through and insert after currentIndex
+                const { queue } = get();
+                const newItems = [...queue.items];
+                const insertIndex = queue.items.length === 0 ? 0 : queue.currentIndex + 1;
+                
+                const newQueueItems: QueueItem[] = playlist.tracks.map(track => ({
+                    id: `${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    track,
+                    source: 'playlist'
+                }));
+                
+                newItems.splice(insertIndex, 0, ...newQueueItems);
+                set({ queue: { ...queue, items: newItems } });
+                get().saveQueue();
+            }
+        }
+    },
+    addPlaylistToQueue: (id) => {
+        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            webSocketService.send('add-playlist-to-queue', id);
+        } else {
+            const playlist = get().playlists.find(p => p.id === id);
+            if (playlist && playlist.tracks.length > 0) {
+                const { queue } = get();
+                const newQueueItems: QueueItem[] = playlist.tracks.map(track => ({
+                    id: `${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    track,
+                    source: 'playlist'
+                }));
+                set({ queue: { ...queue, items: [...queue.items, ...newQueueItems] } });
+                get().saveQueue();
+            }
         }
     },
     createPlaylist: (name, description) => {
@@ -2279,9 +2388,18 @@ webSocketService.on('collection-data', (collectionData) => {
 });
 
 
-webSocketService.on('playlists-data', (playlists) => {
+webSocketService.on('playlists-data', (newPlaylists: Playlist[]) => {
     if (useStore.getState().mode !== 'remote') return;
-    useStore.setState({ playlists });
+    useStore.setState((state) => {
+        const mergedPlaylists = newPlaylists.map(newP => {
+            const existingP = state.playlists.find(p => p.id === newP.id);
+            if (existingP && existingP.tracks) {
+                return { ...newP, tracks: existingP.tracks };
+            }
+            return newP;
+        });
+        return { playlists: mergedPlaylists };
+    });
 });
 
 webSocketService.on('bandcamp-playlists-data', (bandcampPlaylists) => {
