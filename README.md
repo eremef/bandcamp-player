@@ -271,9 +271,11 @@ mobile/
 
 ## Roadmap
 
-| What                                           | Size | Status |
-| :--------------------------------------------- | ---- | :----: |
-| Offline mode and music caching - mobile        | XXL  | 🟢     |
+| What                               | Size | Status |
+| :--------------------------------- | ---- | :----: |
+| Playlist import/export             | L    | 🟢     |
+| Artist & album links - desktop app | M    | 🟢     |
+| Queue & playlist enhancements      | M    | 🟡     |
 
 **Legend**:
 🟢 finished (waiting for release)
