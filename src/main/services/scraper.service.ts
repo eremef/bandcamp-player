@@ -1535,7 +1535,7 @@ export class ScraperService extends EventEmitter {
                 urlToScrape = urlObj.href;
                 console.log(`[ScraperService] Un-mangled track URL to: ${urlToScrape}`);
               }
-            } catch (e) {
+            } catch {
               // Ignore invalid URL errors
             }
           }

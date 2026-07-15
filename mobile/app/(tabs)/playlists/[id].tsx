@@ -1,9 +1,9 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
+import { useCallback, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { useStore } from '../../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical, Plus, ChevronLeft } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ChevronLeft } from 'lucide-react-native';
 import { Track } from '@shared/types';
 import { useTheme } from '../../../theme';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';

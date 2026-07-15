@@ -77,7 +77,7 @@ class MobilePlayerService {
         this.isPrefetching = true;
         try {
             const isCached = store.cachedTrackIds?.has?.(nextTrack.id) || false;
-            
+
             if (store.offlineMode && !isCached) {
                 // In offline mode, don't prefetch non-cached tracks
                 this.isPrefetching = false;
@@ -395,7 +395,7 @@ class MobilePlayerService {
                     streamUrl = cachedUri;
                     console.log(`[MobilePlayer] Using cached file: ${cachedUri}`);
                 } else {
-                     console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
+                    console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
                 }
             }
 
@@ -432,7 +432,7 @@ class MobilePlayerService {
                                     finalUrlToFetch = urlObj.href;
                                     console.log(`[MobilePlayer] Un-mangled track URL to: ${finalUrlToFetch}`);
                                 }
-                            } catch (e) {
+                            } catch {
                                 // Ignore invalid URL errors
                             }
                         }

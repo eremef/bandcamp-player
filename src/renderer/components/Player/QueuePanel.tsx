@@ -6,7 +6,7 @@ import styles from './QueuePanel.module.css';
 
 interface DraggableQueueItemProps extends React.HTMLAttributes<HTMLLIElement> {
     index: number;
-    item: any;
+    _item: any;
     dragIndex: number | null;
     dragOverIndex: number | null;
     currentIndex: number;
@@ -18,7 +18,7 @@ interface DraggableQueueItemProps extends React.HTMLAttributes<HTMLLIElement> {
 }
 
 const DraggableQueueItem = forwardRef<HTMLLIElement, DraggableQueueItemProps>(({
-    index, item, dragIndex, dragOverIndex, currentIndex, onDragStartItem, onDragOverItem, onDropItem, onDragEndItem, onDoubleClickItem, className, children, ...rest
+    index, _item, dragIndex, dragOverIndex, currentIndex, onDragStartItem, onDragOverItem, onDropItem, onDragEndItem, onDoubleClickItem, className, children, ...rest
 }, ref) => {
     const isDragOver = dragOverIndex === index;
 
@@ -65,7 +65,7 @@ const VirtuosoItem = forwardRef<HTMLLIElement, any>((props, ref) => {
             {...props}
             ref={ref}
             index={index}
-            item={item}
+            _item={item}
             dragIndex={context.dragIndex}
             dragOverIndex={context.dragOverIndex}
             currentIndex={context.currentIndex}
@@ -148,8 +148,8 @@ export function QueuePanel() {
                             playQueueIndex
                         }}
                         components={{
-                            List: VirtuosoList,
-                            Item: VirtuosoItem
+                            List: VirtuosoList as any,
+                            Item: VirtuosoItem as any
                         }}
                         itemContent={(index, item) => (
                             <>
