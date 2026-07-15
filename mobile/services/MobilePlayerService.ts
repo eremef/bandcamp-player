@@ -421,7 +421,22 @@ class MobilePlayerService {
                         }
                     } else {
                         // Album/Track branch
-                        const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                        let finalUrlToFetch = urlToFetch;
+                        // Self-healing: fix mangled URLs (e.g. /album/.../track/...) from older versions
+                        if (finalUrlToFetch.includes('/album/') && finalUrlToFetch.includes('/track/')) {
+                            try {
+                                const urlObj = new URL(finalUrlToFetch);
+                                const trackIdx = urlObj.pathname.indexOf('/track/');
+                                if (trackIdx > 0) {
+                                    urlObj.pathname = urlObj.pathname.substring(trackIdx);
+                                    finalUrlToFetch = urlObj.href;
+                                    console.log(`[MobilePlayer] Un-mangled track URL to: ${finalUrlToFetch}`);
+                                }
+                            } catch (e) {
+                                // Ignore invalid URL errors
+                            }
+                        }
+                        const albumDetails = await mobileScraperService.getAlbumDetails(finalUrlToFetch);
                         if (albumDetails) {
                             // Find matching track
                             const foundTrack = albumDetails.tracks.find(t =>

@@ -264,7 +264,8 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
 
     const exportData = {
       ...playlist,
-      tracks: playlist.tracks.map((t) => ({ ...t, streamUrl: undefined })),
+      // We no longer strip streamUrl so playback has a valid URL before expiration
+      tracks: playlist.tracks,
     };
 
     const { canceled, filePath } = await dialog.showSaveDialog({

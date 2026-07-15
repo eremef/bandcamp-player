@@ -1160,9 +1160,17 @@ export class ScraperService extends EventEmitter {
                 )
                 : "",
               streamUrl,
-              bandcampUrl: trackInfo.title_link
-                ? new URL(trackInfo.title_link, tralbumData.url).href
-                : albumUrl,
+              bandcampUrl: (() => {
+                if (!trackInfo.title_link) return albumUrl;
+                try {
+                  const baseOrigin = new URL(tralbumData.url || albumUrl).origin;
+                  if (trackInfo.title_link.startsWith('http')) return trackInfo.title_link;
+                  const path = trackInfo.title_link.startsWith('/') ? trackInfo.title_link : `/${trackInfo.title_link}`;
+                  return new URL(path, baseOrigin).href;
+                } catch {
+                  return albumUrl;
+                }
+              })(),
               isCached: false,
             };
           },
@@ -1516,8 +1524,23 @@ export class ScraperService extends EventEmitter {
       // Fallback: fetch track.bandcampUrl and scrape data-tralbum
       if (track.bandcampUrl) {
         try {
-          console.log(`[ScraperService] Falling back to scraping track URL: ${track.bandcampUrl}`);
-          const html = await this.http.get(track.bandcampUrl, {
+          let urlToScrape = track.bandcampUrl;
+          // Self-healing: fix mangled URLs (e.g. /album/.../track/...) from older versions
+          if (urlToScrape.includes('/album/') && urlToScrape.includes('/track/')) {
+            try {
+              const urlObj = new URL(urlToScrape);
+              const trackIdx = urlObj.pathname.indexOf('/track/');
+              if (trackIdx > 0) {
+                urlObj.pathname = urlObj.pathname.substring(trackIdx);
+                urlToScrape = urlObj.href;
+                console.log(`[ScraperService] Un-mangled track URL to: ${urlToScrape}`);
+              }
+            } catch (e) {
+              // Ignore invalid URL errors
+            }
+          }
+          console.log(`[ScraperService] Falling back to scraping track URL: ${urlToScrape}`);
+          const html = await this.http.get(urlToScrape, {
             headers: { Cookie: cookies },
           }).then(res => res.data);
 

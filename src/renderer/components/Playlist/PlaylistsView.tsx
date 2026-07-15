@@ -1,10 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
+import { useShallow } from 'zustand/react/shallow';
 import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw, Upload, Download } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, importPlaylist, exportPlaylist } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, importPlaylist, exportPlaylist } = useStore(useShallow(state => ({
+        playlists: state.playlists,
+        selectPlaylist: state.selectPlaylist,
+        createPlaylist: state.createPlaylist,
+        deletePlaylist: state.deletePlaylist,
+        playPlaylist: state.playPlaylist,
+        updatePlaylist: state.updatePlaylist,
+        bandcampPlaylists: state.bandcampPlaylists,
+        fetchBandcampPlaylists: state.fetchBandcampPlaylists,
+        importPlaylist: state.importPlaylist,
+        exportPlaylist: state.exportPlaylist
+    })));
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -150,6 +162,7 @@ export function PlaylistsView() {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') handleCancel();
                                 }}
+                                autoFocus
                             />
                             <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
                                 <Check size={18} />

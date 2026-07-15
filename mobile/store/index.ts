@@ -1698,7 +1698,14 @@ export const useStore = create<AppState>((set, get) => ({
 
             const { Platform, Alert } = require('react-native');
             const safeName = playlist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            const jsonContent = JSON.stringify(playlist, null, 2);
+            
+            const exportData = {
+                ...playlist,
+                // We no longer strip streamUrl so playback has a valid URL before expiration
+                tracks: playlist.tracks,
+            };
+            
+            const jsonContent = JSON.stringify(exportData, null, 2);
 
             if (Platform.OS === 'android') {
                 const { Directory } = require('expo-file-system');
