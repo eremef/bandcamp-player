@@ -273,7 +273,7 @@ mobile/
 
 | What                               | Size | Status |
 | :--------------------------------- | ---- | :----: |
-| Playlist import/export             | L    | 🟡     |
+| Playlist import/export             | L    | 🟢     |
 | Artist & album links - desktop app | M    | 🟢     |
 
 **Legend**:
