@@ -275,7 +275,7 @@ mobile/
 | :-------------------------------------------- | ---- | --------------------------------------------------------------------------------------- | :----: |
 | Playlist import/export - desktop & mobile app | M    | Playlist can be exported and imported as a JSON file among the destkop and mobile apps  |🟢      |
 | Artist & album links - desktop app            | M    | Navigation between Collection, PlayerBar, Queue and Playlists to Album & Artist details |🟢      |
-| Queue & playlist enhancements - desktop app   | M    | Queue and playlist reordering; enhanced performance                                     |🟡      |
+| Queue & playlist enhancements - desktop app   | M    | Queue and playlist reordering; enhanced performance; resizable Queue view               |🟡      |
 
 **Legend**:
 🟢 finished (waiting for release)
