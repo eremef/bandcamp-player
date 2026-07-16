@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useStore } from '../../store/store';
-import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List, Download } from 'lucide-react';
+import { ArrowLeft, Music, Play, Pencil, Trash2, MoreHorizontal, List, Download, Clock } from 'lucide-react';
 import { TableVirtuoso } from 'react-virtuoso';
 import styles from './PlaylistDetailView.module.css';
 
@@ -347,7 +347,7 @@ export function PlaylistDetailView() {
                                 <th className={styles.colTitle}>Title</th>
                                 <th className={styles.colArtist}>Artist</th>
                                 <th className={styles.colAlbum}>Album</th>
-                                <th className={styles.colDuration}>Duration</th>
+                                <th className={styles.colDuration}><Clock size={16} /></th>
                                 <th className={styles.colActions}></th>
                             </tr>
                         )}
@@ -361,7 +361,6 @@ export function PlaylistDetailView() {
                                 </td>
                                 <td className={styles.colTitle}>
                                     <div className={styles.trackTitle}>
-                                        <img src={track.artworkUrl} alt="" className={styles.trackArtwork} />
                                         <span>{track.title}</span>
                                     </div>
                                 </td>

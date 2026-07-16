@@ -225,7 +225,7 @@
 }
 
 .table th {
-    padding: var(--spacing-md);
+    padding: var(--spacing-xs);
     text-align: left;
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
@@ -249,7 +249,7 @@
 }
 
 .trackRow td {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-xs);
     vertical-align: middle;
     transition: background var(--transition-fast);
 }
@@ -273,13 +273,13 @@
     text-align: center;
 }
 
-.colTitle { width: auto; min-width: 200px; }
-.colArtist { width: 25%; min-width: 120px; }
-.colAlbum { width: 25%; min-width: 120px; color: var(--text-tertiary); font-size: var(--font-size-sm); }
-.colDuration { width: 100px; text-align: right; font-variant-numeric: tabular-nums; }
+.colTitle { width: 20%; word-break: break-word; }
+.colArtist { width: 20%; word-break: break-word; }
+.colAlbum { width: 20%; color: var(--text-tertiary); font-size: var(--font-size-sm); word-break: break-word; }
+.colDuration { width: 60px; text-align: center !important; font-variant-numeric: tabular-nums; }
 
 .colActions {
-    width: 70px;
+    width: 50px;
 }
 
 .actionsWrapper {
