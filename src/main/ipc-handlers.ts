@@ -1,4 +1,5 @@
-import { IpcMain, BrowserWindow, app, shell, nativeTheme } from "electron";
+import { IpcMain, BrowserWindow, app, shell, nativeTheme, dialog } from "electron";
+import * as fs from "fs/promises";
 import * as dns from "dns";
 import {
   AUTH_CHANNELS,
@@ -256,6 +257,54 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(PLAYLIST_CHANNELS.GET_BANDCAMP_PLAYLIST_TRACKS, (_, playlistUrl: string) =>
     scraperService.fetchBandcampPlaylistTracks(playlistUrl)
   );
+
+  ipcMain.handle(PLAYLIST_CHANNELS.EXPORT, async (_, playlistId: string) => {
+    const playlist = playlistService.getById(playlistId);
+    if (!playlist) throw new Error("Playlist not found");
+
+    const exportData = {
+      ...playlist,
+      // We no longer strip streamUrl so playback has a valid URL before expiration
+      tracks: playlist.tracks,
+    };
+
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Export Playlist",
+      defaultPath: `${playlist.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.json`,
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+    });
+
+    if (canceled || !filePath) return false;
+
+    await fs.writeFile(filePath, JSON.stringify(exportData, null, 2), "utf-8");
+    return true;
+  });
+
+  ipcMain.handle(PLAYLIST_CHANNELS.IMPORT, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: "Import Playlist",
+      filters: [{ name: "JSON Files", extensions: ["json"] }],
+      properties: ["openFile"],
+    });
+
+    if (canceled || filePaths.length === 0) {
+      return null;
+    }
+
+    try {
+      const content = await fs.readFile(filePaths[0], "utf-8");
+      const importedData = JSON.parse(content) as Playlist;
+
+      if (!importedData.name || !Array.isArray(importedData.tracks)) {
+        throw new Error("Invalid playlist file format");
+      }
+
+      return importedData;
+    } catch (error) {
+      console.error("[Playlist Import] Failed to import playlist:", error);
+      throw new Error("The selected file is not a valid playlist or an error occurred during import.");
+    }
+  });
 
   // ---- Radio ----
   ipcMain.handle(RADIO_CHANNELS.GET_STATIONS, () =>

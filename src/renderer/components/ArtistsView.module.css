@@ -347,16 +347,22 @@
     margin-bottom: var(--spacing-xl);
 }
 
-.backButton {
-    margin-right: var(--spacing-lg);
-    padding: var(--spacing-sm);
-    border-radius: 50%;
-    color: var(--text-primary);
-    transition: background 0.2s;
+.backBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+    transition: all var(--transition-fast);
 }
 
-.backButton:hover {
+.backBtn:hover {
     background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 .detailImageContainer {

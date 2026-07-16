@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, SectionList, Image, TouchableOpacity, StyleSheet, Alert, RefreshControl } from 'react-native';
-import { useStore } from '../../store';
+import { useStore } from '../../../store';
 import { Playlist } from '@shared/types';
-import { useTheme } from '../../theme';
+import { useTheme } from '../../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ActionSheet } from '../../components/ActionSheet';
-import { InputModal } from '../../components/InputModal';
-import { Pencil, Trash2 } from 'lucide-react-native';
+import { ActionSheet } from '../../../components/ActionSheet';
+import { InputModal } from '../../../components/InputModal';
+import { Pencil, Trash2, Share, Play, ListPlus, Forward } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
 export default function PlaylistsScreen() {
     const insets = useSafeAreaInsets();
@@ -18,14 +19,17 @@ export default function PlaylistsScreen() {
     const createPlaylist = useStore((state) => state.createPlaylist);
     const renamePlaylist = useStore((state) => state.renamePlaylist);
     const deletePlaylist = useStore((state) => state.deletePlaylist);
+    const importPlaylist = useStore((state) => state.importPlaylist);
+    const exportPlaylist = useStore((state) => state.exportPlaylist);
 
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [renameModalVisible, setRenameModalVisible] = useState(false);
     const [actionSheetVisible, setActionSheetVisible] = useState(false);
     const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
+    const router = useRouter();
 
-    const handlePlayPlaylist = (playlist: Playlist) => {
-        playPlaylist(playlist.id);
+    const handlePress = (playlist: Playlist) => {
+        router.push(`/playlists/${playlist.id}`);
     };
 
     const handleCreate = (name: string) => {
@@ -88,6 +92,12 @@ export default function PlaylistsScreen() {
                     >
                         <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.createButton, { backgroundColor: colors.card, marginTop: 12, borderWidth: 1, borderColor: colors.border }]}
+                        onPress={importPlaylist}
+                    >
+                        <Text style={[styles.createButtonText, { color: colors.text }]}>Import Playlist</Text>
+                    </TouchableOpacity>
                 </View>
             );
         }
@@ -96,7 +106,7 @@ export default function PlaylistsScreen() {
         return (
             <TouchableOpacity
                 style={[styles.item, { backgroundColor: colors.card }]}
-                onPress={() => handlePlayPlaylist(playlist)}
+                onPress={() => handlePress(playlist)}
                 onLongPress={() => handleLongPress(playlist)}
             >
                 {playlist.artworkUrl ? (
@@ -131,12 +141,20 @@ export default function PlaylistsScreen() {
         <View style={styles.sectionHeaderContainer}>
             <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
             {title === 'Local Playlists' && (
-                <TouchableOpacity
-                    style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
-                    onPress={() => setCreateModalVisible(true)}
-                >
-                    <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
-                </TouchableOpacity>
+                <View style={styles.headerButtons}>
+                    <TouchableOpacity
+                        style={[styles.createSmallButton, { backgroundColor: colors.card, marginRight: 8, borderWidth: 1, borderColor: colors.border }]}
+                        onPress={importPlaylist}
+                    >
+                        <Text style={[styles.createSmallButtonText, { color: colors.text }]}>Import</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.createSmallButton, { backgroundColor: colors.accent }]}
+                        onPress={() => setCreateModalVisible(true)}
+                    >
+                        <Text style={[styles.createSmallButtonText, { color: '#fff' }]}>New</Text>
+                    </TouchableOpacity>
+                </View>
             )}
         </View>
     );
@@ -147,13 +165,13 @@ export default function PlaylistsScreen() {
     } else {
         sections.push({ title: 'Local Playlists', data: playlists });
     }
-    
+
     if (bandcampPlaylists.length > 0) {
         sections.push({ title: 'Bandcamp Playlists', data: bandcampPlaylists });
     }
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
             <SectionList
                 sections={sections}
                 renderItem={renderItem}
@@ -196,10 +214,54 @@ export default function PlaylistsScreen() {
                 title={selectedPlaylist?.name}
                 actions={[
                     {
+                        text: 'Play',
+                        icon: Play,
+                        onPress: () => {
+                            if (selectedPlaylist) {
+                                playPlaylist(selectedPlaylist.id);
+                                setActionSheetVisible(false);
+                                setSelectedPlaylist(null);
+                            }
+                        }
+                    },
+                    {
+                        text: 'Play Next',
+                        icon: Forward,
+                        onPress: () => {
+                            if (selectedPlaylist) {
+                                useStore.getState().playPlaylistNext(selectedPlaylist.id);
+                                setActionSheetVisible(false);
+                                setSelectedPlaylist(null);
+                            }
+                        }
+                    },
+                    {
+                        text: 'Add to Queue',
+                        icon: ListPlus,
+                        onPress: () => {
+                            if (selectedPlaylist) {
+                                useStore.getState().addPlaylistToQueue(selectedPlaylist.id);
+                                setActionSheetVisible(false);
+                                setSelectedPlaylist(null);
+                            }
+                        }
+                    },
+                    {
                         text: 'Rename',
                         icon: Pencil,
                         onPress: () => {
                             setRenameModalVisible(true);
+                        }
+                    },
+                    {
+                        text: 'Export',
+                        icon: Share,
+                        onPress: () => {
+                            if (selectedPlaylist) {
+                                exportPlaylist(selectedPlaylist.id);
+                                setActionSheetVisible(false);
+                                setSelectedPlaylist(null);
+                            }
                         }
                     },
                     {
@@ -230,8 +292,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 16,
-        paddingBottom: 8,
+        paddingHorizontal: 16,
+        paddingBottom: 5,
     },
     headerTitle: {
         fontSize: 24,
@@ -303,9 +365,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingBottom: 5,
         paddingHorizontal: 4,
-        marginTop: 8,
         marginBottom: 4,
         backgroundColor: '#121212',
     },
@@ -323,4 +384,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 12,
     },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    }
 });

@@ -5,6 +5,22 @@
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    position: relative;
+}
+
+.resizer {
+    position: absolute;
+    left: -3px;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 10;
+}
+
+.resizer:hover {
+    background-color: var(--accent-primary);
+    opacity: 0.5;
 }
 
 .header {
@@ -162,10 +178,27 @@
 
 .artist {
     font-size: var(--font-size-xs);
-    color: var(--text-secondary);
+    color: var(--text-tertiary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.album {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.8;
+}
+
+.link {
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
 }
 
 .dragHandle {

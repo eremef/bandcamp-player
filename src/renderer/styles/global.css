@@ -128,6 +128,8 @@ textarea {
     border-radius: var(--radius-md);
     padding: var(--spacing-sm) var(--spacing-md);
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 input:focus,

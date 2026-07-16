@@ -35,6 +35,8 @@ export function AlbumDetailView() {
     downloadingTracks,
     downloadingAlbumIds,
     settings,
+    selectArtist,
+    goBack,
   } = useStore();
 
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -169,7 +171,7 @@ export function AlbumDetailView() {
       <header className={styles.header}>
         <button
           className={styles.backBtn}
-          onClick={() => setView(albumDetailSourceView || "collection")}
+          onClick={() => goBack()}
         >
           <ArrowLeft size={18} />
           <span>Back</span>
@@ -187,7 +189,17 @@ export function AlbumDetailView() {
           <div className={styles.info}>
             <span className={styles.label}>Album</span>
             <h1 className={styles.title}>{albumDetails?.title}</h1>
-            <h2 className={styles.artist}>{albumDetails?.artist}</h2>
+            <h2 
+              className={`${styles.artist} ${styles.link}`}
+              onClick={() => {
+                if (albumDetails) {
+                  selectArtist(albumDetails.artist);
+                }
+              }}
+              title="Go to artist"
+            >
+              {albumDetails?.artist}
+            </h2>
 
             <p className={styles.meta}>
               {albumDetails?.tracks.length || 0} tracks

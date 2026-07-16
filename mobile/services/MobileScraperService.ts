@@ -753,7 +753,17 @@ export class MobileScraperService {
                     trackNumber: trackInfo.track_num || index + 1,
                     artworkUrl: tralbumData.art_id ? config.endpoints.artworkFormat.replace('{art_id}', tralbumData.art_id.toString()) : '',
                     streamUrl,
-                    bandcampUrl: trackInfo.title_link ? `${tralbumData.url}${trackInfo.title_link}` : albumUrl,
+                    bandcampUrl: (() => {
+                        if (!trackInfo.title_link) return albumUrl;
+                        try {
+                            const baseOrigin = new URL(tralbumData.url || albumUrl).origin;
+                            if (trackInfo.title_link.startsWith('http')) return trackInfo.title_link;
+                            const path = trackInfo.title_link.startsWith('/') ? trackInfo.title_link : `/${trackInfo.title_link}`;
+                            return new URL(path, baseOrigin).href;
+                        } catch {
+                            return albumUrl;
+                        }
+                    })(),
                     isCached: false,
                 };
             }));
@@ -1099,7 +1109,6 @@ export class MobileScraperService {
             const tracksData = pd.appData?.tracks || pd.track_list || pd.playlist_data?.tracks || [];
 
             if (!tracksData || tracksData.length === 0) {
-                console.warn('[MobileScraper] No track data in data-blob');
                 return [];
             }
 

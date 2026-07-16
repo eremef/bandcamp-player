@@ -27,6 +27,8 @@ export function PlayerBar() {
         stopCastDiscovery,
         connectCast,
         disconnectCast,
+        selectArtist,
+        navigateToAlbumFromTrack,
     } = useStore();
 
     const audio1Ref = useRef<HTMLAudioElement>(null);
@@ -406,7 +408,22 @@ export function PlayerBar() {
                         </div>
                         <div className={styles.trackDetails}>
                             <div className={styles.trackTitle}>{currentTrack.title}</div>
-                            <div className={styles.trackArtist}>{currentTrack.artist}</div>
+                            <div 
+                                className={`${styles.trackArtist} ${styles.link}`} 
+                                onClick={(e) => { e.stopPropagation(); selectArtist(currentTrack.artist); }}
+                                title="Go to artist"
+                            >
+                                {currentTrack.artist}
+                            </div>
+                            {currentTrack.album && (
+                                <div 
+                                    className={`${styles.trackAlbum} ${styles.link}`} 
+                                    onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(currentTrack); }}
+                                    title="Go to album"
+                                >
+                                    {currentTrack.album}
+                                </div>
+                            )}
                         </div>
                     </>
                 ) : (

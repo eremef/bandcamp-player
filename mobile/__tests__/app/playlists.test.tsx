@@ -88,10 +88,12 @@ describe('PlaylistsScreen', () => {
         expect(mockCreatePlaylist).toHaveBeenCalledWith('My First Playlist');
     });
 
-    it('calls playPlaylist on press', () => {
+    it('navigates to playlist detail on press', () => {
+        const mockPush = jest.fn();
+        jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push: mockPush, back: jest.fn() } as any);
         const { getByText } = render(<PlaylistsScreen />);
         fireEvent.press(getByText('Chill Vibes'));
-        expect(mockPlayPlaylist).toHaveBeenCalledWith('pl-1');
+        expect(mockPush).toHaveBeenCalledWith('/playlists/pl-1');
     });
 
     it('long press opens ActionSheet', () => {

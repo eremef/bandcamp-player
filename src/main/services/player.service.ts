@@ -47,7 +47,8 @@ export class PlayerService extends EventEmitter {
     private currentStation: RadioStation | null = null;
 
     // Persistence
-    private saveVolumeTimeout: NodeJS.Timeout | null = null;
+    private saveVolumeTimeout: ReturnType<typeof setTimeout> | null = null;
+    private persistQueueTimeout: ReturnType<typeof setTimeout> | null = null;
 
     // Power save
     private powerSaveBlockerId: number | null = null;
@@ -60,10 +61,23 @@ export class PlayerService extends EventEmitter {
         this.castService = castService;
         this.database = database;
 
-        // Initialize volume from settings
+        // Initialize volume and queue from settings
         const settings = this.database.getSettings();
         if (settings) {
             this.volume = settings.defaultVolume;
+            if (settings.savedQueue) {
+                this.queue = settings.savedQueue.items || [];
+                this.currentIndex = settings.savedQueue.currentIndex ?? -1;
+                this.shuffleOrder = settings.savedQueue.shuffleOrder || [];
+                if (this.shuffleOrder.length > 0) {
+                    this.isShuffled = true;
+                }
+                
+                // Restore current track if valid
+                if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
+                    this.currentTrack = this.queue[this.currentIndex].track;
+                }
+            }
         }
 
         this.setupCastListeners();
@@ -125,6 +139,7 @@ export class PlayerService extends EventEmitter {
                 this.error = `Chromecast error: ${error.message || 'Unknown error'}`;
                 this.emitStateChange();
             }
+            this.persistQueue();
         });
     }
 
@@ -174,8 +189,8 @@ export class PlayerService extends EventEmitter {
                 }
             }
 
-            // Refresh stream URL only for non-cached tracks (radio, casting, or expired stream)
-            if (!isTrackCached && (track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
+            // Refresh stream URL only for non-cached tracks (missing stream, radio, casting, or expired stream)
+            if (!isTrackCached && (!track.streamUrl || track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
                     let streamUrl = track.streamUrl;
@@ -204,7 +219,9 @@ export class PlayerService extends EventEmitter {
             if (this.isOfflineMode() && !this.cacheService.isCached(track.id)) {
                 console.warn(`[PlayerService] Offline mode: track ${track.title} is not cached, blocking playback.`);
                 this.error = `Offline mode: "${track.title}" is not available offline`;
+                this.currentTrack = null;
                 this.isPlaying = false;
+                this.persistQueue(); // Update queue persistence when finished
                 this.emitStateChange();
                 return;
             }
@@ -393,10 +410,10 @@ export class PlayerService extends EventEmitter {
         this.isRadioActive = false;
         this.currentStation = null;
 
+        this.isShuffled = false;
+        this.shuffleOrder = [];
         this.emitStateChange();
-        this.emitTrackChange();
-        this.emitRadioStateChange();
-        this.emitQueueUpdate();
+        this.persistQueue();
     }
 
     async next(): Promise<void> {
@@ -523,7 +540,7 @@ export class PlayerService extends EventEmitter {
         this.saveVolumeTimeout = setTimeout(() => {
             this.database.setSettings({ defaultVolume: this.volume });
             this.saveVolumeTimeout = null;
-        }, 2000) as unknown as NodeJS.Timeout;
+        }, 2000);
     }
 
     toggleMute(): void {
@@ -542,9 +559,11 @@ export class PlayerService extends EventEmitter {
     toggleShuffle(): void {
         this.isShuffled = !this.isShuffled;
         if (this.isShuffled) {
-            this.generateShuffleOrder();
+            this.shuffleOrder = [];
         }
+
         this.emitStateChange();
+        this.persistQueue();
     }
 
     // ---- Queue Management ----
@@ -583,6 +602,7 @@ export class PlayerService extends EventEmitter {
         if (emitUpdate) {
             this.emitQueueUpdate();
         }
+        this.persistQueue();
     }
 
     addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection', playNext = false): void {
@@ -601,6 +621,7 @@ export class PlayerService extends EventEmitter {
             this.addToQueue(tracksToAdd[i], source, playNext, false);
         }
         this.emitQueueUpdate();
+        this.persistQueue();
     }
 
     removeFromQueue(queueItemId: string): void {
@@ -628,6 +649,7 @@ export class PlayerService extends EventEmitter {
         }
 
         this.emitQueueUpdate();
+        this.persistQueue();
     }
 
     clearQueue(keepCurrent = true): void {
@@ -646,6 +668,7 @@ export class PlayerService extends EventEmitter {
 
         this.shuffleOrder = [];
         this.emitQueueUpdate();
+        this.persistQueue();
     }
 
     reorderQueue(fromIndex: number, toIndex: number): void {
@@ -669,6 +692,7 @@ export class PlayerService extends EventEmitter {
         }
 
         this.emitQueueUpdate();
+        this.persistQueue();
     }
 
     async playIndex(index: number): Promise<void> {
@@ -683,6 +707,7 @@ export class PlayerService extends EventEmitter {
         }
 
         this.play(queueItem.track, false);
+        this.persistQueue();
         this.emitQueueUpdate();
     }
 
@@ -786,6 +811,21 @@ export class PlayerService extends EventEmitter {
             return `http://127.0.0.1:${port}/${encoded}`;
         }
         return track.streamUrl;
+    }
+
+    private persistQueue() {
+        if (this.persistQueueTimeout) {
+            clearTimeout(this.persistQueueTimeout);
+        }
+        this.persistQueueTimeout = setTimeout(() => {
+            this.database.setSettings({
+                savedQueue: {
+                    items: this.queue,
+                    currentIndex: this.currentIndex,
+                    shuffleOrder: this.shuffleOrder
+                }
+            });
+        }, 1000);
     }
 
     // ---- Private Helpers ----

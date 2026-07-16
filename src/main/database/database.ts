@@ -211,6 +211,7 @@ export class Database {
       collectionFilterDownloaded: false,
       offlineMode: false,
       includeWishlistInCollection: false,
+      queueWidth: 300,
     };
 
     const existing = this.db

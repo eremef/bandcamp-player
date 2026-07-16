@@ -40,6 +40,7 @@ describe("AlbumDetailView", () => {
     mockUseStore.mockReturnValue({
       selectedAlbum: mockAlbum,
       setView: vi.fn(),
+      goBack: vi.fn(),
       play: vi.fn(),
       addAlbumToQueue: vi.fn(),
       addTracksToQueue: vi.fn(),
@@ -72,18 +73,18 @@ describe("AlbumDetailView", () => {
     expect(screen.getByText(/2\s+tracks/)).toBeInTheDocument();
   });
 
-  it("calls setView when back button is clicked", async () => {
-    const setView = vi.fn();
+  it("calls goBack when back button is clicked", async () => {
+    const goBack = vi.fn();
     mockUseStore.mockReturnValue({
       ...mockUseStore(),
-      setView,
+      goBack,
     });
     render(<AlbumDetailView />);
 
     const backBtn = screen.getByText("Back").closest("button");
     fireEvent.click(backBtn!);
 
-    expect(setView).toHaveBeenCalledWith("collection");
+    expect(goBack).toHaveBeenCalled();
   });
 
   it("plays all tracks when Play button is clicked", async () => {
@@ -176,6 +177,7 @@ describe("AlbumDetailView", () => {
     mockUseStore.mockReturnValue({
       selectedAlbum: null,
       setView: vi.fn(),
+      goBack: vi.fn(),
     });
 
     render(<AlbumDetailView />);
@@ -188,6 +190,7 @@ describe("AlbumDetailView", () => {
     mockUseStore.mockReturnValue({
       selectedAlbum: albumWithoutTracks,
       setView: vi.fn(),
+      goBack: vi.fn(),
       getAlbumDetails: getAlbumDetails.mockResolvedValue(mockAlbum),
       addToQueue: vi.fn(),
       addTracksToPlaylist: vi.fn(),

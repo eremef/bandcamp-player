@@ -434,7 +434,7 @@ describe('Mobile useStore', () => {
             const mockPlaylists = [{ id: 'p1' }];
 
             act(() => callback(mockPlaylists));
-            expect(useStore.getState().playlists).toBe(mockPlaylists);
+            expect(useStore.getState().playlists).toEqual(mockPlaylists);
         });
 
         it('should handle radio-data event', () => {

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../../store/store';
+import { useShallow } from 'zustand/react/shallow';
 import type { ViewType } from '../../../shared/types';
 import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X, Download } from 'lucide-react';
 import styles from './Sidebar.module.css';
@@ -14,7 +15,16 @@ export function Sidebar() {
         toggleSettings,
         createPlaylist,
         bandcampPlaylists
-    } = useStore();
+    } = useStore(useShallow(state => ({
+        currentView: state.currentView,
+        setView: state.setView,
+        playlists: state.playlists,
+        selectPlaylist: state.selectPlaylist,
+        auth: state.auth,
+        toggleSettings: state.toggleSettings,
+        createPlaylist: state.createPlaylist,
+        bandcampPlaylists: state.bandcampPlaylists
+    })));
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');

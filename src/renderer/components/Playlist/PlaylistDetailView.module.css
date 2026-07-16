@@ -1,12 +1,13 @@
 .container {
-    min-height: 100%;
-
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Header */
 .header {
     padding: var(--spacing-lg);
-    background: linear-gradient(180deg, var(--bg-tertiary) 0%, var(--bg-primary) 100%);
+    background: var(--bg-primary);
     border-top: 1px solid var(--border-subtle);
 }
 
@@ -26,6 +27,14 @@
 .backBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
+}
+
+.link {
+    cursor: pointer;
+}
+
+.link:hover {
+    text-decoration: underline;
 }
 
 .headerContent {
@@ -191,7 +200,10 @@
 
 /* Track list */
 .trackList {
-    padding: 0 var(--spacing-xl) var(--spacing-xl);
+    padding: 0 var(--spacing-lg) var(--spacing-lg);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .empty {
@@ -208,31 +220,52 @@
 
 .table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .table th {
-    padding: var(--spacing-md);
+    padding: var(--spacing-xs);
     text-align: left;
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border-subtle);
+    background-color: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-.trackRow {
-    transition: background var(--transition-fast);
+.table th:first-child {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
 }
 
-.trackRow:hover {
-    background: var(--bg-hover);
+.table th:last-child {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
 }
 
 .trackRow td {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-xs);
     vertical-align: middle;
+    transition: background var(--transition-fast);
+}
+
+.trackRow:hover td {
+    background: var(--bg-hover);
+}
+
+.trackRow td:first-child {
+    border-top-left-radius: var(--radius-md);
+    border-bottom-left-radius: var(--radius-md);
+}
+
+.trackRow td:last-child {
+    border-top-right-radius: var(--radius-md);
+    border-bottom-right-radius: var(--radius-md);
 }
 
 .colNum {
@@ -240,15 +273,42 @@
     text-align: center;
 }
 
-.colDuration {
-    width: 80px;
-    color: var(--text-tertiary);
-    font-size: var(--font-size-sm);
-    font-variant-numeric: tabular-nums;
-}
+.colTitle { width: 20%; word-break: break-word; }
+.colArtist { width: 20%; word-break: break-word; }
+.colAlbum { width: 20%; color: var(--text-tertiary); font-size: var(--font-size-sm); word-break: break-word; }
+.colDuration { width: 60px; text-align: center !important; font-variant-numeric: tabular-nums; }
 
 .colActions {
     width: 50px;
+}
+
+.actionsWrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs);
+    height: 100%;
+}
+
+.rowRemoveBtn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    border-radius: var(--radius-md);
+    opacity: 0;
+    transition: all var(--transition-fast);
+}
+
+.trackRow:hover .rowRemoveBtn {
+    opacity: 1;
+}
+
+.rowRemoveBtn:hover {
+    background: var(--color-error);
+    color: var(--text-on-accent);
 }
 
 .playTrackBtn {
@@ -393,4 +453,21 @@
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
+}
+
+.dragging {
+    opacity: 0.4;
+    background: var(--bg-elevated);
+}
+
+.dragOver td {
+    border-top: 2px solid var(--accent-primary);
+}
+
+tfoot td:first-child {
+    border-top-left-radius: var(--radius-md);
+}
+
+tfoot td:last-child {
+    border-top-right-radius: var(--radius-md);
 }

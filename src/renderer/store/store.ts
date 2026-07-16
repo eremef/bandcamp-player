@@ -82,6 +82,7 @@ interface CollectionSlice {
   updateAlbumInCollection: (album: Album) => void;
   searchCollection: (query: string) => Promise<Collection>;
   getAlbumDetails: (url: string) => Promise<Album | null>;
+  navigateToAlbumFromTrack: (track: Track) => void;
 }
 
 interface PlaylistSlice {
@@ -102,11 +103,18 @@ interface PlaylistSlice {
     playlistId: string,
     trackId: string,
   ) => Promise<void>;
+  reorderPlaylistTracks: (
+    playlistId: string,
+    fromIndex: number,
+    toIndex: number,
+  ) => Promise<void>;
   playPlaylist: (id: string) => Promise<void>;
   bandcampPlaylists: Playlist[];
   isLoadingBandcampPlaylists: boolean;
   fetchBandcampPlaylists: () => Promise<void>;
   getBandcampPlaylistTracks: (url: string) => Promise<Track[]>;
+  exportPlaylist: (playlistId: string) => Promise<boolean>;
+  importPlaylist: () => Promise<Playlist | null>;
 }
 
 interface RadioSlice {
@@ -200,7 +208,18 @@ interface CastSlice {
   disconnectCast: () => Promise<void>;
 }
 
+export interface HistoryState {
+  currentView: ViewType;
+  selectedAlbum: Album | null;
+  selectedArtistId: string | null;
+  selectedPlaylistId: string | null;
+  selectedPlaylist: Playlist | null;
+  albumDetailSourceView: ViewType | null;
+}
+
 interface UISlice {
+  viewHistory: HistoryState[];
+  goBack: () => void;
   currentView: ViewType;
   selectedPlaylistId: string | null;
   isQueueVisible: boolean;
@@ -303,6 +322,19 @@ function deriveCachedAlbumIds(collection: Collection | null): Set<string> {
   });
   return ids;
 }
+
+// Helper to push history state
+const pushViewState = (s: StoreState): HistoryState[] => {
+  const state: HistoryState = {
+    currentView: s.currentView,
+    selectedAlbum: s.selectedAlbum,
+    selectedArtistId: s.selectedArtistId,
+    selectedPlaylistId: s.selectedPlaylistId,
+    selectedPlaylist: s.selectedPlaylist,
+    albumDetailSourceView: s.albumDetailSourceView,
+  };
+  return [...s.viewHistory, state].slice(-20); // Keep last 20 views
+};
 
 export const useStore = create<StoreState>()((set, get) => ({
   // ---- Auth Slice ----
@@ -493,6 +525,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   selectAlbum: (album) =>
     set((s) => ({
+      viewHistory: pushViewState(s as StoreState),
       selectedAlbum: album,
       currentView: "album-detail",
       albumDetailSourceView:
@@ -525,6 +558,40 @@ export const useStore = create<StoreState>()((set, get) => ({
   getAlbumDetails: async (url) => {
     return window.electron.collection.getAlbum(url);
   },
+  navigateToAlbumFromTrack: async (track) => {
+    const s = get();
+    const collectionAlbum = s.collection?.items.find((i) => i.type === "album" && i.album?.id === track.albumId)?.album;
+    if (collectionAlbum) {
+      s.selectAlbum(collectionAlbum);
+      return;
+    }
+
+    const tempId = track.albumId || `temp-${track.id}`;
+
+    // Select temporary album state so UI updates instantly
+    s.selectAlbum({
+      id: tempId,
+      title: track.album || track.title,
+      artist: track.artist,
+      artistId: track.artistId,
+      artworkUrl: track.artworkUrl,
+      bandcampUrl: track.bandcampUrl,
+      tracks: [track],
+      trackCount: 1
+    });
+
+    if (track.bandcampUrl) {
+      try {
+        const fullAlbum = await s.getAlbumDetails(track.bandcampUrl);
+        // If we are still viewing this album, update the state with full details
+        if (fullAlbum && get().selectedAlbum?.id === tempId) {
+          set({ selectedAlbum: fullAlbum });
+        }
+      } catch (e) {
+        console.error("Failed to load album from track URL", e);
+      }
+    }
+  },
 
   // ---- Playlist Slice ----
   playlists: [],
@@ -537,21 +604,29 @@ export const useStore = create<StoreState>()((set, get) => ({
     // Check if it's a Bandcamp playlist first
     const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
     if (bcPlaylist) {
-      set({
+      set((s) => ({
+        viewHistory: pushViewState(s as StoreState),
         selectedPlaylist: bcPlaylist,
         currentView: "playlist-detail",
         selectedPlaylistId: id,
-      });
+      }));
       return;
     }
 
-    // Otherwise, local playlist
-    const playlist = await window.electron.playlist.getById(id);
-    set({
-      selectedPlaylist: playlist,
-      currentView: "playlist-detail",
-      selectedPlaylistId: id,
-    });
+    // Check offline playlists
+    try {
+      const playlist = await window.electron.playlist.getById(id);
+      if (playlist) {
+        set((s) => ({
+          viewHistory: pushViewState(s as StoreState),
+          selectedPlaylist: playlist,
+          currentView: "playlist-detail",
+          selectedPlaylistId: id,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to fetch playlist", e);
+    }
   },
   createPlaylist: async (name, description) => {
     return window.electron.playlist.create({ name, description });
@@ -599,6 +674,9 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   removeTrackFromPlaylist: async (playlistId, trackId) => {
     await window.electron.playlist.removeTrack(playlistId, trackId);
+  },
+  reorderPlaylistTracks: async (playlistId, fromIndex, toIndex) => {
+    await window.electron.playlist.reorderTracks(playlistId, fromIndex, toIndex);
   },
   playPlaylist: async (id: string) => {
     const playlist = get().playlists.find(p => p.id === id);
@@ -648,6 +726,29 @@ export const useStore = create<StoreState>()((set, get) => ({
       console.error("Store: getBandcampPlaylistTracks failed", error);
       get().showToast("Failed to fetch Bandcamp playlist tracks", "error");
       return [];
+    }
+  },
+  exportPlaylist: async (playlistId: string) => {
+    try {
+      const success = await window.electron.playlist.export(playlistId);
+      if (success) {
+        get().showToast("Playlist exported successfully", "success");
+      }
+      return success;
+    } catch (error) {
+      console.error("Store: exportPlaylist failed", error);
+      get().showToast(`Export failed: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+      return false;
+    }
+  },
+  importPlaylist: async () => {
+    try {
+      const importedData = await window.electron.playlist.import();
+      return importedData;
+    } catch (error) {
+      console.error("Store: importPlaylist failed", error);
+      get().showToast(`Import failed: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
+      return null;
     }
   },
 
@@ -960,7 +1061,30 @@ export const useStore = create<StoreState>()((set, get) => ({
   searchQuery: "",
   radioSearchQuery: "",
   albumDetailSourceView: null,
-  setView: (view) => set({ currentView: view }),
+  viewHistory: [],
+  goBack: () => set((s) => {
+    if (s.viewHistory.length === 0) return s;
+    const history = [...s.viewHistory];
+    const previousState = history.pop()!;
+    return {
+      viewHistory: history,
+      currentView: previousState.currentView,
+      selectedAlbum: previousState.selectedAlbum,
+      selectedArtistId: previousState.selectedArtistId,
+      selectedPlaylistId: previousState.selectedPlaylistId,
+      selectedPlaylist: previousState.selectedPlaylist,
+      albumDetailSourceView: previousState.albumDetailSourceView,
+    };
+  }),
+  setView: (view) => set((s) => ({
+    viewHistory: pushViewState(s as StoreState),
+    currentView: view,
+    selectedAlbum: null,
+    selectedArtistId: null,
+    selectedPlaylistId: null,
+    selectedPlaylist: null,
+    albumDetailSourceView: null
+  })),
   setSelectedPlaylistId: (id) => set({ selectedPlaylistId: id }),
   toggleQueue: () => set((s) => ({ isQueueVisible: !s.isQueueVisible })),
   toggleMiniPlayer: async () => {
@@ -988,7 +1112,11 @@ export const useStore = create<StoreState>()((set, get) => ({
       set({ isLoadingArtists: false });
     }
   },
-  selectArtist: (artistId) => set({ selectedArtistId: artistId }),
+  selectArtist: (artistId) => set((s) => ({
+    viewHistory: pushViewState(s as StoreState),
+    selectedArtistId: artistId,
+    currentView: artistId ? "artists" : s.currentView
+  })),
 
   // ---- Remote Config Slice ----
   remoteConfig: null,

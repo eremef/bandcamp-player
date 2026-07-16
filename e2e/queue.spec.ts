@@ -20,6 +20,13 @@ test.describe('Queue Management', () => {
         }
 
         await expect(queueHeading).toBeVisible({ timeout: 5000 });
+        
+        // Clear the queue if it's not empty from a previous test in the same worker
+        const clearBtn = window.getByRole('button', { name: 'Clear queue' });
+        if (await clearBtn.isVisible()) {
+             await clearBtn.click();
+        }
+        
         await expect(window.locator('text=Queue is empty')).toBeVisible();
         await expect(window.locator('text=0 tracks')).toBeVisible();
     });

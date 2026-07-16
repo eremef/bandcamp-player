@@ -1,10 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
-import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw } from 'lucide-react';
+import { useShallow } from 'zustand/react/shallow';
+import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw, Upload, Download } from 'lucide-react';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists } = useStore();
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, importPlaylist, exportPlaylist } = useStore(useShallow(state => ({
+        playlists: state.playlists,
+        selectPlaylist: state.selectPlaylist,
+        createPlaylist: state.createPlaylist,
+        deletePlaylist: state.deletePlaylist,
+        playPlaylist: state.playPlaylist,
+        updatePlaylist: state.updatePlaylist,
+        bandcampPlaylists: state.bandcampPlaylists,
+        fetchBandcampPlaylists: state.fetchBandcampPlaylists,
+        importPlaylist: state.importPlaylist,
+        exportPlaylist: state.exportPlaylist
+    })));
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -13,11 +25,47 @@ export function PlaylistsView() {
     const createInputRef = useRef<HTMLInputElement>(null);
     const editInputRef = useRef<HTMLInputElement>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [importConflictData, setImportConflictData] = useState<{data: any, existingId: string} | null>(null);
 
     const handleRefreshBandcamp = async () => {
         setIsRefreshing(true);
         await fetchBandcampPlaylists();
         setIsRefreshing(false);
+    };
+
+    const handleImportClick = async () => {
+        const importedData = await importPlaylist();
+        if (!importedData) return;
+
+        const existing = playlists.find((p: any) => p.name === importedData.name);
+        if (existing) {
+            setImportConflictData({ data: importedData, existingId: existing.id });
+        } else {
+            // Create new
+            const newPlaylist = await createPlaylist(importedData.name, importedData.description);
+            await useStore.getState().addTracksToPlaylist(newPlaylist.id, importedData.tracks);
+        }
+    };
+
+    const handleImportMerge = async () => {
+        if (!importConflictData) return;
+        
+        const fullExistingPlaylist = await window.electron.playlist.getById(importConflictData.existingId);
+        const existingTrackIds = new Set(fullExistingPlaylist?.tracks?.map((t: any) => t.id) || []);
+        const newTracks = importConflictData.data.tracks.filter((t: any) => !existingTrackIds.has(t.id));
+
+        if (newTracks.length > 0) {
+            await useStore.getState().addTracksToPlaylist(importConflictData.existingId, newTracks);
+        }
+        
+        setImportConflictData(null);
+    };
+
+    const handleImportCreateNew = async () => {
+        if (!importConflictData) return;
+        const newPlaylist = await createPlaylist(importConflictData.data.name, importConflictData.data.description);
+        await useStore.getState().addTracksToPlaylist(newPlaylist.id, importConflictData.data.tracks);
+        setImportConflictData(null);
     };
 
     useEffect(() => {
@@ -114,6 +162,7 @@ export function PlaylistsView() {
                                 onKeyDown={(e) => {
                                     if (e.key === 'Escape') handleCancel();
                                 }}
+                                autoFocus
                             />
                             <button type="submit" className={`${styles.iconBtn} ${styles.saveBtn}`} title="Save">
                                 <Check size={18} />
@@ -123,10 +172,16 @@ export function PlaylistsView() {
                             </button>
                         </form>
                     ) : (
-                        <button className={styles.createBtn} onClick={handleCreate}>
-                            <Plus size={18} />
-                            <span>Create Playlist</span>
-                        </button>
+                        <>
+                            <button className={styles.createBtn} onClick={handleCreate}>
+                                <Plus size={18} />
+                                <span>Create Playlist</span>
+                            </button>
+                            <button className={styles.createBtn} onClick={handleImportClick} style={{ marginLeft: '10px' }}>
+                                <Upload size={18} />
+                                <span>Import Playlist</span>
+                            </button>
+                        </>
                     )}
                     <button
                         className={styles.actionButton}
@@ -213,6 +268,16 @@ export function PlaylistsView() {
                                     <Pencil size={18} />
                                 </button>
                                 <button
+                                    className={styles.actionBtn}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        exportPlaylist(playlist.id);
+                                    }}
+                                    title="Export playlist"
+                                >
+                                    <Download size={18} />
+                                </button>
+                                <button
                                     className={styles.deleteBtn}
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -261,6 +326,20 @@ export function PlaylistsView() {
                 </>
             )}
             </div>
+
+            {importConflictData && (
+                <div className={styles.modalOverlay} onClick={() => setImportConflictData(null)}>
+                    <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                        <h3>Playlist Exists</h3>
+                        <p>A playlist named &quot;{importConflictData.data.name}&quot; already exists. Do you want to merge the imported tracks into the existing playlist, or create a new one?</p>
+                        <div className={styles.modalActions}>
+                            <button className={styles.saveBtnSmall} onClick={handleImportMerge}>Merge</button>
+                            <button className={styles.createBtnLarge} onClick={handleImportCreateNew}>Create New</button>
+                            <button className={styles.cancelBtnSmall} onClick={() => setImportConflictData(null)}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

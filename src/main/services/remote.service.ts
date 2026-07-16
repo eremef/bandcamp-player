@@ -468,6 +468,20 @@ export class RemoteControlService extends EventEmitter {
                 this.sendToClient(ws, 'playlists-data', playlists);
                 break;
             }
+            case 'get-playlist-for-export': {
+                const playlistId = payload;
+                if (!playlistId) {
+                    this.sendToClient(ws, 'error', { message: 'Missing playlist ID' });
+                    return;
+                }
+                const playlist = this.playlistService.getById(playlistId);
+                if (playlist) {
+                    this.sendToClient(ws, 'export-playlist-data', playlist);
+                } else {
+                    this.sendToClient(ws, 'error', { message: 'Playlist not found' });
+                }
+                break;
+            }
             case 'get-bandcamp-playlists': {
                 try {
                     const playlists = await this.scraperService.fetchBandcampPlaylists();
@@ -491,6 +505,18 @@ export class RemoteControlService extends EventEmitter {
                 this.playlistService.create({ name, description });
                 break;
             }
+            case 'import-playlist': {
+                const importedData = payload as any;
+                if (!importedData || !importedData.name) {
+                    console.error('[RemoteService] Invalid import-playlist payload');
+                    break;
+                }
+                const newPlaylist = this.playlistService.create({ name: importedData.name, description: importedData.description });
+                if (importedData.tracks && importedData.tracks.length > 0) {
+                    this.playlistService.addTracks(newPlaylist.id, importedData.tracks);
+                }
+                break;
+            }
             case 'update-playlist': {
                 const { id, name, description } = payload;
                 this.playlistService.update({ id, name, description });
@@ -506,9 +532,33 @@ export class RemoteControlService extends EventEmitter {
                 if (playlist && playlist.tracks.length > 0) {
                     this.playerService.clearQueue(false);
                     // Add all tracks from playlist
-                    this.playerService.addTracksToQueue(playlist.tracks);
-                    await this.playerService.playIndex(0);
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist');
+                    this.playerService.playIndex(0);
                 }
+                break;
+            }
+            case 'play-playlist-next': {
+                const playlist = this.playlistService.getById(payload);
+                if (playlist && playlist.tracks.length > 0) {
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist', true);
+                }
+                break;
+            }
+            case 'add-playlist-to-queue': {
+                const playlist = this.playlistService.getById(payload);
+                if (playlist && playlist.tracks.length > 0) {
+                    this.playerService.addTracksToQueue(playlist.tracks, 'playlist');
+                }
+                break;
+            }
+            case 'remove-track-from-playlist': {
+                const { playlistId, trackId } = payload;
+                this.playlistService.removeTrack(playlistId, trackId);
+                break;
+            }
+            case 'reorder-playlist-tracks': {
+                const { playlistId, from, to } = payload;
+                this.playlistService.reorderTracks(playlistId, from, to);
                 break;
             }
             case 'toggle-shuffle':

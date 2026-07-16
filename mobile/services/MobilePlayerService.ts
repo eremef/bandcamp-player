@@ -77,7 +77,7 @@ class MobilePlayerService {
         this.isPrefetching = true;
         try {
             const isCached = store.cachedTrackIds?.has?.(nextTrack.id) || false;
-            
+
             if (store.offlineMode && !isCached) {
                 // In offline mode, don't prefetch non-cached tracks
                 this.isPrefetching = false;
@@ -395,7 +395,7 @@ class MobilePlayerService {
                     streamUrl = cachedUri;
                     console.log(`[MobilePlayer] Using cached file: ${cachedUri}`);
                 } else {
-                     console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
+                    console.log(`[MobilePlayer] Cache entry exists but file missing for track ${track.id}. Proceeding with stream.`);
                 }
             }
 
@@ -421,7 +421,22 @@ class MobilePlayerService {
                         }
                     } else {
                         // Album/Track branch
-                        const albumDetails = await mobileScraperService.getAlbumDetails(urlToFetch);
+                        let finalUrlToFetch = urlToFetch;
+                        // Self-healing: fix mangled URLs (e.g. /album/.../track/...) from older versions
+                        if (finalUrlToFetch.includes('/album/') && finalUrlToFetch.includes('/track/')) {
+                            try {
+                                const urlObj = new URL(finalUrlToFetch);
+                                const trackIdx = urlObj.pathname.indexOf('/track/');
+                                if (trackIdx > 0) {
+                                    urlObj.pathname = urlObj.pathname.substring(trackIdx);
+                                    finalUrlToFetch = urlObj.href;
+                                    console.log(`[MobilePlayer] Un-mangled track URL to: ${finalUrlToFetch}`);
+                                }
+                            } catch {
+                                // Ignore invalid URL errors
+                            }
+                        }
+                        const albumDetails = await mobileScraperService.getAlbumDetails(finalUrlToFetch);
                         if (albumDetails) {
                             // Find matching track
                             const foundTrack = albumDetails.tracks.find(t =>
