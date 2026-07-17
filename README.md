@@ -24,7 +24,7 @@ The Unofficial multi-platform Bandcamp desktop player with mobile remote control
 
 ## Desktop App
 
-AI-generated feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more.
+Feature-rich Electron desktop application for playing Bandcamp music with fan account integration, offline caching, playlist management, native media controls, and many more. Coded with AI agents.
 
 ### Features
 
