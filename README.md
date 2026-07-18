@@ -21,6 +21,7 @@ The Unofficial multi-platform Bandcamp desktop player with mobile remote control
 
 - <https://eremef.xyz/beta-player> - download page
 - <https://github.com/eremef/bandcamp-player/releases/latest> - raw release files
+- <https://f-droid.org/en/packages/dev.imranr.obtainium.fdroid> - Obtainium - for Android app updates notification
 
 ## Desktop App
 
