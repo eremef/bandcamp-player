@@ -30,12 +30,12 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
 - 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
-- 📝 **Playlist Management** - Browse your saved Bandcamp playlists or create local playlists
+- 📝 **Playlist Management** - Browse your saved Bandcamp playlists, create local playlists, and export/import them
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
 - 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
-- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows
+- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with dedicated episode tracklists
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
-- ↕️ **Sorting** - Persistent sorting (Date, Title, Artist) synchronized between devices
+- ↕️ **Sorting** - Persistent sorting (Date, Title, Artist)
 - 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
 - 🎛️ **Windows Integration** - Control playback via system media keys and Taskbar thumbnail buttons (Thumbar)
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
@@ -191,7 +191,8 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery & Sync** - Automatic local network discovery with real-time sorting/filtering synchronization with Host
-- ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist) and filter by Albums, Tracks, or Wishlist
+- ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist)
+- 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
 - 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
 - 🔗 **Gapless Playback** - Uninterrupted audio transitions in standalone mode
@@ -199,7 +200,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection and connectivity-aware switching
 - 📥 **Music Caching & Downloads** - Download entire albums or individual tracks for offline listening with background download progress tracking
 - 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
-- 🔽 **Downloaded Filter** - Filter your collection to show only downloaded music
+
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
@@ -273,9 +274,6 @@ mobile/
 
 | What                                          | Size | Description                                                                             | Status |
 | :-------------------------------------------- | ---- | --------------------------------------------------------------------------------------- | :----: |
-| Playlist import/export - desktop & mobile app | M    | Playlist can be exported and imported as a JSON file among the destkop and mobile apps  |🟢      |
-| Artist & album links - desktop app            | M    | Navigation between Collection, PlayerBar, Queue and Playlists to Album & Artist details |🟢      |
-| Queue & playlist enhancements - desktop app   | M    | Queue and playlist reordering; enhanced performance; resizable Queue view               |🟡      |
 
 **Legend**:
 🟢 finished (waiting for release)
