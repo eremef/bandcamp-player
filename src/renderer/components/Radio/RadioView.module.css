@@ -156,6 +156,10 @@
 .card:hover .cardOverlay {
     opacity: 1;
 }
+.playButtons {
+    display: flex;
+    gap: var(--spacing-sm);
+}
 
 .playBtn {
     width: 56px;
@@ -164,6 +168,7 @@
     align-items: center;
     justify-content: center;
     background: var(--accent-primary);
+    color: var(--text-on-accent);
     border-radius: var(--radius-full);
     font-size: 1.5rem;
     transition: all var(--transition-fast);
@@ -193,11 +198,12 @@
 
 .externalLink:hover {
     background: var(--accent-primary);
-    color: var(--text-primary);
+    color: var(--text-on-accent);
 }
 
 .menuButton:hover {
     background: var(--accent-primary);
+    color: var(--text-on-accent);
 }
 
 .cardInfo {
@@ -248,7 +254,7 @@
 
 .loadMoreBtn {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     border: none;
     padding: 0.8rem 2rem;
     border-radius: 20px;

@@ -134,6 +134,8 @@ interface RadioSlice {
     playlistId: string,
     station: RadioStation,
   ) => Promise<void>;
+  selectedRadioStation: RadioStation | null;
+  selectRadioStation: (station: RadioStation) => void;
 }
 
 interface CacheSlice {
@@ -797,10 +799,13 @@ export const useStore = create<StoreState>()((set, get) => ({
         get().showToast(`Tracks from ${station.name} added to ${playlist.name}`, "success");
       }
     } catch (error) {
+      get().showToast(`Failed to extract tracks from ${station.name}`, "error");
       console.error(error);
-      get().showToast(`Failed to extract tracks: ${error instanceof Error ? error.message : "Unknown error"}`, "error");
     }
   },
+  selectedRadioStation: null,
+  selectRadioStation: (station: RadioStation) => set({ selectedRadioStation: station, currentView: "radio-detail" }),
+
   // ---- Cache Slice ----
   cacheStats: null,
   cachedTrackIds: new Set(),

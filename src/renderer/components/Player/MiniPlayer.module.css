@@ -1,13 +1,13 @@
 .miniPlayer {
     width: 100vw;
     height: 100vh;
-    background-color: #111;
-    color: white;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border-default);
 }
 
 .dragRegion {
@@ -48,7 +48,7 @@
 .placeholderArt {
     width: 100%;
     height: 100%;
-    background: #333;
+    background: var(--bg-secondary);
     border-radius: 4px;
 }
 
@@ -71,7 +71,7 @@
 
 .artist {
     font-size: 0.8rem;
-    color: #aaa;
+    color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -89,7 +89,7 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #ddd;
+    color: var(--text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -98,7 +98,7 @@
 
 .controlBtn:hover,
 .restoreBtn:hover {
-    color: white;
+    color: var(--text-primary);
 }
 
 .controlBtn {
@@ -107,15 +107,15 @@
 
 .playBtn {
     font-size: 1.5rem;
-    background: #1da0c3;
+    background: var(--accent-primary);
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    color: white;
+    color: var(--text-on-accent);
 }
 
 .playBtn:hover {
-    background: #22b8e0;
+    background: var(--accent-hover);
 }
 
 .restoreBtn {

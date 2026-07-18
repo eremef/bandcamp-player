@@ -319,6 +319,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(RADIO_CHANNELS.EXTRACT_TRACKS, (_, station: RadioStation, append?: boolean) =>
     playerService.extractRadioTracksToQueue(station, append),
   );
+  ipcMain.handle(RADIO_CHANNELS.GET_STATION_TRACKS, (_, stationId: string) =>
+    scraperService.getStationTracks(stationId),
+  );
   ipcMain.handle(
     RADIO_CHANNELS.EXTRACT_TO_PLAYLIST,
     async (_, station: RadioStation, playlistId: string) => {

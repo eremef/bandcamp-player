@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Download,
   Trash2,
+  ExternalLink,
 } from "lucide-react";
 import styles from "./AlbumDetailView.module.css";
 
@@ -250,6 +251,18 @@ export function AlbumDetailView() {
                   <span>Download Album</span>
                 </button>
               ) : null}
+              {albumDetails?.bandcampUrl && (
+                <button
+                  className={styles.actionBtn}
+                  onClick={() => {
+                    window.electron.system.openExternal(albumDetails.bandcampUrl);
+                  }}
+                  title="View on Bandcamp"
+                >
+                  <ExternalLink size={18} />
+                  <span>Bandcamp</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

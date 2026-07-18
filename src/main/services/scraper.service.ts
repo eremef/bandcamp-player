@@ -1270,7 +1270,9 @@ export class ScraperService extends EventEmitter {
           stations.push({
             id: String(episode.show_id || episode.id),
             name: episode.title || `Bandcamp Weekly ${episode.id}`,
-            description: episode.subtitle || episode.desc,
+            description: episode.subtitle,
+            longDescription: episode.desc,
+            imageCaption: episode.image_caption ? episode.image_caption.replace(/<[^>]*>?/gm, '') : undefined,
             imageUrl: episode.image_id
               ? config.endpoints.radioImageFormat.replace(
                 "{image_id}",

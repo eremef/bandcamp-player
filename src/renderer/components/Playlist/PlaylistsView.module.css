@@ -164,6 +164,7 @@
     align-items: center;
     justify-content: center;
     background: var(--accent-primary);
+    color: var(--text-on-accent);
     border-radius: var(--radius-full);
     font-size: 1.2rem;
     transition: all var(--transition-fast);

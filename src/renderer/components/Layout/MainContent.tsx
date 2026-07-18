@@ -4,6 +4,7 @@ import { AlbumDetailView } from '../Collection/AlbumDetailView';
 import { PlaylistsView } from '../Playlist/PlaylistsView';
 import { PlaylistDetailView } from '../Playlist/PlaylistDetailView';
 import { RadioView } from '../Radio/RadioView';
+import { RadioDetailView } from '../Radio/RadioDetailView';
 import { ArtistsView } from '../ArtistsView';
 import { CacheView } from '../Cache/CacheView';
 import styles from './MainContent.module.css';
@@ -25,6 +26,8 @@ export function MainContent() {
                 return <ArtistsView />;
             case 'radio':
                 return <RadioView />;
+            case 'radio-detail':
+                return <RadioDetailView />;
             case 'cache':
                 return <CacheView />;
             default:

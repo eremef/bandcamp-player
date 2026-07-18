@@ -201,6 +201,8 @@ const electronAPI = {
       ipcRenderer.invoke(RADIO_CHANNELS.PLAY_STATION, station),
     extractTracks: (station: RadioStation, append?: boolean): Promise<void> =>
       ipcRenderer.invoke(RADIO_CHANNELS.EXTRACT_TRACKS, station, append),
+    getStationTracks: (stationId: string): Promise<Track[]> =>
+      ipcRenderer.invoke(RADIO_CHANNELS.GET_STATION_TRACKS, stationId),
     extractToPlaylist: (station: RadioStation, playlistId: string): Promise<void> =>
       ipcRenderer.invoke(RADIO_CHANNELS.EXTRACT_TO_PLAYLIST, station, playlistId),
     stop: (): Promise<void> => ipcRenderer.invoke(RADIO_CHANNELS.STOP),

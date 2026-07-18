@@ -110,6 +110,7 @@ export const RADIO_CHANNELS = {
   ON_STATIONS_UPDATED: "radio:on-stations-updated",
   EXTRACT_TRACKS: "radio:extract-tracks",
   EXTRACT_TO_PLAYLIST: "radio:extract-to-playlist",
+  GET_STATION_TRACKS: "radio:get-station-tracks",
 } as const;
 
 // ============================================================================

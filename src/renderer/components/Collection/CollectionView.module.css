@@ -234,7 +234,7 @@
 .filterCheck.checked {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
 }
 
 .filterSeparator {
@@ -354,7 +354,7 @@
 .dropdownCheck.checked {
     background: var(--accent-primary);
     border-color: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
 }
 
 .dropdownDivider {
@@ -592,7 +592,7 @@
 
 .loadMoreBtn {
     background: var(--accent-primary);
-    color: white;
+    color: var(--text-on-accent);
     border: none;
     padding: 0.8rem 2rem;
     border-radius: 20px;

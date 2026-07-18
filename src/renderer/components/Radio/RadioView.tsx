@@ -18,9 +18,10 @@ export function RadioView() {
         fetchPlaylists,
         radioSearchQuery,
         setRadioSearchQuery,
-        clearQueue,
         playQueueIndex,
+        clearQueue,
         extractRadioToPlaylist,
+        selectRadioStation,
     } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
     const [contextMenu, setContextMenu] = useState<{ station: any } | null>(null);
@@ -231,7 +232,7 @@ export function RadioView() {
                     <div
                         key={station.id}
                         className={`${styles.card} ${radioState.currentStation?.id === station.id ? styles.active : ''}`}
-                        onClick={() => playRadioStation(station)}
+                        onClick={() => selectRadioStation(station)}
                         onContextMenu={(e) => handleContextMenu(e, station)}
                         onMouseLeave={() => setContextMenu(null)}
                         style={{ zIndex: contextMenu?.station?.id === station.id ? 50 : 1 }}
@@ -244,9 +245,22 @@ export function RadioView() {
                                 <div className={styles.placeholderImage}><Radio size={48} /></div>
                             )}
                             <div className={styles.cardOverlay}>
-                                <button className={styles.playBtn}>
-                                    <Play size={32} fill="currentColor" />
-                                </button>
+                                <div className={styles.playButtons}>
+                                    <button 
+                                        className={styles.playBtn} 
+                                        onClick={(e) => { e.stopPropagation(); playRadioStation(station); }}
+                                        title="Play Mix"
+                                    >
+                                        <Play size={32} fill="currentColor" />
+                                    </button>
+                                    <button 
+                                        className={styles.playBtn} 
+                                        onClick={(e) => { e.stopPropagation(); window.electron.radio.extractTracks(station, false); }}
+                                        title="Play Extracted Tracks"
+                                    >
+                                        <ListPlus size={32} />
+                                    </button>
+                                </div>
                                 <button
                                     className={styles.menuButton}
                                     onClick={(e) => handleMenuClick(e, station)}

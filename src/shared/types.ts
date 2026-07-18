@@ -145,6 +145,8 @@ export interface RadioStation {
   id: string;
   name: string;
   description?: string;
+  longDescription?: string;
+  imageCaption?: string;
   imageUrl?: string;
   streamUrl: string;
   date?: string;
@@ -290,6 +292,7 @@ export type ViewType =
   | "album-detail"
   | "artists"
   | "radio"
+  | "radio-detail"
   | "settings"
   | "cache";
 

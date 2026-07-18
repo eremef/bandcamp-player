@@ -182,7 +182,7 @@
     width: 18px;
     left: 3px;
     bottom: 3px;
-    background: var(--text-primary);
+    background: var(--text-on-accent);
     border-radius: var(--radius-full);
     transition: var(--transition-fast);
 }
