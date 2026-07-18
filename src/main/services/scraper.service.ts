@@ -1272,7 +1272,7 @@ export class ScraperService extends EventEmitter {
             name: episode.title || `Bandcamp Weekly ${episode.id}`,
             description: episode.subtitle,
             longDescription: episode.desc,
-            imageCaption: episode.image_caption ? episode.image_caption.replace(/<[^>]*>?/gm, '') : undefined,
+            imageCaption: episode.image_caption ? cheerio.load(episode.image_caption).text() : undefined,
             imageUrl: episode.image_id
               ? config.endpoints.radioImageFormat.replace(
                 "{image_id}",
