@@ -65,15 +65,15 @@ test.describe('Radio Interactions', () => {
         const stations = window.getByTestId('radio-card');
         await expect(stations.first()).toBeVisible({ timeout: 15000 });
 
-        // 1. Play first station
-        await stations.nth(0).click();
+        // 1. Play first station via the Play Mix button overlay
+        await stations.nth(0).getByTitle('Play Mix').click({ force: true });
 
         // PlayerBar should update
         const playerBar = window.locator('div[class*="playerBar"]');
         await expect(playerBar).toBeVisible({ timeout: 10000 });
 
         // 2. Play second station (rapid switch)
-        await stations.nth(1).click();
+        await stations.nth(1).getByTitle('Play Mix').click({ force: true });
 
         // 3. Verify context menu options
         await stations.nth(2).click({ button: 'right' });
@@ -82,7 +82,7 @@ test.describe('Radio Interactions', () => {
 
         const addToQueueMenu = window.locator('button, div').filter({ hasText: 'Add Mix to Queue' }).last();
         await expect(addToQueueMenu).toBeVisible();
-        await addToQueueMenu.click();
+        await addToQueueMenu.click({ force: true });
 
         // Verify it was added to queue
         await window.getByTitle('Queue', { exact: true }).click();

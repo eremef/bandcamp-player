@@ -82,10 +82,12 @@ if (typeof window !== 'undefined') {
             addTracks: vi.fn(),
             removeTrack: vi.fn(),
             reorderTracks: vi.fn(),
+            getBandcampPlaylists: vi.fn(),
             onUpdated: vi.fn(() => vi.fn()),
         },
         radio: {
             getStations: vi.fn(),
+            getStationTracks: vi.fn(),
             playStation: vi.fn(),
             stop: vi.fn(),
             getState: vi.fn(),

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { PlaylistsView } from './PlaylistsView';
 import { useStore } from '../../store/store';
 
@@ -61,7 +61,7 @@ describe('PlaylistsView', () => {
         expect(screen.getByText('No playlists yet')).toBeInTheDocument();
     });
 
-    it('opens create form and submits new playlist', () => {
+    it('opens create form and submits new playlist', async () => {
         render(<PlaylistsView />);
         const createBtn = screen.getByText('Create Playlist');
         fireEvent.click(createBtn);
@@ -70,7 +70,9 @@ describe('PlaylistsView', () => {
         fireEvent.change(input, { target: { value: 'New List' } });
         
         const saveBtn = screen.getByTitle('Save');
-        fireEvent.click(saveBtn);
+        await act(async () => {
+            fireEvent.click(saveBtn);
+        });
 
         expect(mockStore.createPlaylist).toHaveBeenCalledWith('New List');
     });
@@ -91,7 +93,7 @@ describe('PlaylistsView', () => {
         expect(mockStore.selectPlaylist).toHaveBeenCalledWith('1');
     });
 
-    it('calls updatePlaylist when inline rename is submitted', () => {
+    it('calls updatePlaylist when inline rename is submitted', async () => {
         render(<PlaylistsView />);
         const renameBtn = screen.getAllByTitle('Rename playlist')[0];
         fireEvent.click(renameBtn);
@@ -100,15 +102,20 @@ describe('PlaylistsView', () => {
         fireEvent.change(input, { target: { value: 'Super Chill' } });
         
         const saveBtn = screen.getByText('Save');
-        fireEvent.click(saveBtn);
+        await act(async () => {
+            fireEvent.click(saveBtn);
+        });
 
         expect(mockStore.updatePlaylist).toHaveBeenCalledWith('1', 'Super Chill');
     });
 
-    it('deletes playlist after confirmation', () => {
+    it('deletes playlist after confirmation', async () => {
         render(<PlaylistsView />);
         const deleteBtns = screen.getAllByTitle('Delete playlist');
-        fireEvent.click(deleteBtns[0]);
+        
+        await act(async () => {
+            fireEvent.click(deleteBtns[0]);
+        });
 
         expect(window.confirm).toHaveBeenCalled();
         expect(mockStore.deletePlaylist).toHaveBeenCalledWith('1');

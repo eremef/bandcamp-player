@@ -88,8 +88,9 @@ describe('ConnectedDevicesModal', () => {
         });
     });
 
-    it('closes modal on close button click', () => {
+    it('closes modal on close button click', async () => {
         const { getByTestId } = render(<ConnectedDevicesModal onClose={mockOnClose} />);
+        await waitFor(() => expect(mockFetch).toHaveBeenCalled());
         fireEvent.click(getByTestId('icon-x').parentElement!); // Assuming icon is inside button
         expect(mockOnClose).toHaveBeenCalled();
     });

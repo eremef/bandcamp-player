@@ -1,7 +1,58 @@
 import { test, expect } from './fixtures';
+import { AppHelpers } from './test-helpers';
+
+const MOCK_COLLECTION = {
+    items: [
+        {
+            id: 'item-album1', type: 'album' as const, token: 'tok-album1',
+            purchaseDate: new Date().toISOString(),
+            album: {
+                id: 'ma-1', title: 'Album 1', artist: 'Artist',
+                artistId: 'artist-id', artworkUrl: '',
+                bandcampUrl: 'https://mock.bandcamp.com/album/1',
+                trackCount: 1,
+                tracks: [
+                    {
+                        id: 'mt-1', title: 'Track 1', artist: 'Artist',
+                        artistId: 'artist-id', album: 'Album 1', duration: 180,
+                        artworkUrl: '', streamUrl: 'https://mock.stream/1.mp3',
+                        bandcampUrl: '', isCached: true,
+                    }
+                ],
+            },
+        },
+        {
+            id: 'item-album2', type: 'album' as const, token: 'tok-album2',
+            purchaseDate: new Date().toISOString(),
+            album: {
+                id: 'ma-2', title: 'Album 2', artist: 'Artist',
+                artistId: 'artist-id', artworkUrl: '',
+                bandcampUrl: 'https://mock.bandcamp.com/album/2',
+                trackCount: 1,
+                tracks: [
+                    {
+                        id: 'mt-2', title: 'Track 2', artist: 'Artist',
+                        artistId: 'artist-id', album: 'Album 2', duration: 180,
+                        artworkUrl: '', streamUrl: 'https://mock.stream/2.mp3',
+                        bandcampUrl: '', isCached: true,
+                    }
+                ],
+            },
+        },
+    ],
+    totalCount: 2,
+    lastUpdated: new Date().toISOString(),
+};
 
 test.describe('Queue Interactions', () => {
-    test.beforeEach(async ({ window }) => {
+    test.beforeEach(async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ ipcMain }, mockCollection) => {
+            ipcMain.removeHandler('collection:fetch');
+            ipcMain.removeHandler('collection:refresh');
+            ipcMain.handle('collection:fetch', async () => mockCollection);
+            ipcMain.handle('collection:refresh', async () => mockCollection);
+        }, MOCK_COLLECTION);
+
         // Perform login if needed
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
         const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
@@ -10,6 +61,12 @@ test.describe('Queue Interactions', () => {
             await loginBtn.click();
         }
         await expect(collectionBtn).toBeVisible({ timeout: 15000 });
+
+        const helpers = new AppHelpers(window);
+        await helpers.resetCollectionState();
+
+        await collectionBtn.click();
+        await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
     });
 
     test('should play and remove tracks from the queue', async ({ window }) => {

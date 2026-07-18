@@ -71,6 +71,7 @@ test.describe('Collection Filters', () => {
 
         const helpers = new AppHelpers(window);
         await helpers.resetCollectionState();
+        await window.evaluate(() => window.electron.settings.set({ includeWishlistInCollection: true }));
 
         await collectionBtn.click();
         await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });

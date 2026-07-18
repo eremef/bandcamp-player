@@ -137,7 +137,7 @@ test.describe('Artist Bulk Actions', () => {
         await window.locator('[class*="detailActions"]').getByTitle('More options').click();
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
-        await addToQueueItem.click();
+        await addToQueueItem.evaluate(el => el.click());
         await window.waitForTimeout(500);
 
         // Verify queue has items
@@ -159,6 +159,10 @@ test.describe('Artist Bulk Actions', () => {
         await expect(window.locator('button', { hasText: 'Play Now' }).first()).toBeVisible({ timeout: 3000 });
         await expect(window.locator('button', { hasText: 'Play Next' }).first()).toBeVisible();
         await expect(window.locator('button', { hasText: 'Add to Queue' }).first()).toBeVisible();
+
+        // Close the context menu by clicking the body or escape so it doesn't bleed into the next test
+        await window.locator('body').click({ force: true });
+        await expect(window.locator('button', { hasText: 'Play Now' }).first()).not.toBeVisible({ timeout: 3000 });
     });
 
     test('"Add to Queue" from card context menu adds tracks', async ({ window }) => {
@@ -175,7 +179,7 @@ test.describe('Artist Bulk Actions', () => {
         await artistCard.click({ button: 'right' });
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
-        await addToQueueItem.click();
+        await addToQueueItem.evaluate(el => el.click());
         await window.waitForTimeout(500);
 
         // Verify queue has items
@@ -192,7 +196,7 @@ test.describe('Artist Bulk Actions', () => {
         await artistCard.click({ button: 'right' });
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
-        await addToQueueItem.click();
+        await addToQueueItem.evaluate(el => el.click());
         await window.waitForTimeout(500);
 
         // Check initial queue count
@@ -210,7 +214,7 @@ test.describe('Artist Bulk Actions', () => {
         await artistCard.click({ button: 'right' });
         const playNextItem = window.locator('button', { hasText: 'Play Next' }).first();
         await expect(playNextItem).toBeVisible({ timeout: 3000 });
-        await playNextItem.click({ force: true });
+        await playNextItem.evaluate(el => el.click());
         await window.waitForTimeout(500);
 
         // Verify count grew

@@ -1,7 +1,40 @@
 import { test, expect } from './fixtures';
+import { AppHelpers } from './test-helpers';
+
+const MOCK_COLLECTION = {
+    items: [
+        {
+            id: 'item-album', type: 'album' as const, token: 'tok-album',
+            purchaseDate: new Date().toISOString(),
+            album: {
+                id: 'ma-1', title: 'B Mock Album', artist: 'Artist B',
+                artistId: 'artist-b', artworkUrl: '',
+                bandcampUrl: 'https://mock.bandcamp.com/album/b',
+                trackCount: 1,
+                tracks: [
+                    {
+                        id: 'mt-2', title: 'Track B', artist: 'Artist B',
+                        artistId: 'artist-b', album: 'Album B', duration: 180,
+                        artworkUrl: '', streamUrl: 'https://mock.stream/b.mp3',
+                        bandcampUrl: '', isCached: true,
+                    }
+                ],
+            },
+        },
+    ],
+    totalCount: 1,
+    lastUpdated: new Date().toISOString(),
+};
 
 test.describe('Queue Management', () => {
-    test.beforeEach(async ({ window }) => {
+    test.beforeEach(async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ ipcMain }, mockCollection) => {
+            ipcMain.removeHandler('collection:fetch');
+            ipcMain.removeHandler('collection:refresh');
+            ipcMain.handle('collection:fetch', async () => mockCollection);
+            ipcMain.handle('collection:refresh', async () => mockCollection);
+        }, MOCK_COLLECTION);
+
         const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
         const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
 
@@ -9,6 +42,12 @@ test.describe('Queue Management', () => {
             await loginBtn.click();
         }
         await expect(collectionBtn).toBeVisible({ timeout: 15000 });
+        
+        const helpers = new AppHelpers(window);
+        await helpers.resetCollectionState();
+
+        await collectionBtn.click();
+        await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
     });
 
     test('should open queue panel showing empty state', async ({ window }) => {
