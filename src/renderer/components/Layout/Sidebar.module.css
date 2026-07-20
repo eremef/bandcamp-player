@@ -64,7 +64,7 @@
     margin-left: var(--spacing-sm);
     margin-right: var(--spacing-sm);
     padding-bottom: var(--spacing-sm);
-    border-top: 2px dotted var(--border-subtle);
+    border-top: 1px solid var(--border-subtle);
 }
 
 .playlistsHeader {
@@ -213,7 +213,7 @@
 /* User section */
 .userSection {
     padding: var(--spacing-lg);
-    border-top: 2px dotted var(--border-subtle);
+    border-top: 1px solid var(--border-subtle);
     display: flex;
     align-items: center;
     margin-left: var(--spacing-sm);
