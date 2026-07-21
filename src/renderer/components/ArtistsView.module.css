@@ -280,7 +280,7 @@
     align-items: center;
     justify-content: center;
     background: rgba(0, 0, 0, 0.5);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     border-radius: var(--radius-full);
     backdrop-filter: blur(4px);
     transition: all var(--transition-fast);
