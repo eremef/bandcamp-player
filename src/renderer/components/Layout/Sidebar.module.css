@@ -60,7 +60,6 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 0 var(--spacing-lg);
     margin-left: var(--spacing-sm);
     margin-right: var(--spacing-sm);
     padding-bottom: var(--spacing-sm);
@@ -71,7 +70,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-md) 0;
+    padding: var(--spacing-xs) 0;
 }
 
 .playlistsHeader h3 {
@@ -154,7 +153,6 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
 }
 
 .playlistItem {
