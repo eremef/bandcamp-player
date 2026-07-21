@@ -106,7 +106,9 @@ export function PlaylistDetailView() {
         navigateToAlbumFromTrack,
         exportPlaylist,
         deletePlaylist,
-        goBack
+        goBack,
+        knownArtists,
+        knownAlbums
     } = useStore();
 
     const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
@@ -366,8 +368,13 @@ export function PlaylistDetailView() {
                                 </td>
                                 <td className={styles.colArtist}>
                                     <span
-                                        className={styles.link}
-                                        onClick={(e) => { e.stopPropagation(); selectArtist(track.artist); }}
+                                        className={knownArtists.has(track.artist) ? styles.link : ''}
+                                        onClick={(e) => { 
+                                            if (!knownArtists.has(track.artist)) return;
+                                            e.stopPropagation(); 
+                                            selectArtist(track.artist); 
+                                        }}
+                                        title={knownArtists.has(track.artist) ? "Go to artist" : undefined}
                                     >
                                         {track.artist}
                                     </span>
@@ -375,8 +382,13 @@ export function PlaylistDetailView() {
                                 <td className={styles.colAlbum}>
                                     {track.album && (
                                         <span
-                                            className={styles.link}
-                                            onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(track); }}
+                                            className={knownAlbums.has(`${track.artist}|${track.album}`) ? styles.link : ''}
+                                            onClick={(e) => { 
+                                                if (!knownAlbums.has(`${track.artist}|${track.album}`)) return;
+                                                e.stopPropagation(); 
+                                                navigateToAlbumFromTrack(track); 
+                                            }}
+                                            title={knownAlbums.has(`${track.artist}|${track.album}`) ? "Go to album" : undefined}
                                         >
                                             {track.album}
                                         </span>

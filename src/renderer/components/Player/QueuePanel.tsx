@@ -101,7 +101,7 @@ VirtuosoQueueFooter.displayName = 'VirtuosoQueueFooter';
 
 
 export function QueuePanel() {
-    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack, settings, updateSettings } = useStore();
+    const { queue, player, playQueueIndex, removeFromQueue, clearQueue, toggleQueue, reorderQueue, selectArtist, navigateToAlbumFromTrack, settings, updateSettings, knownArtists, knownAlbums } = useStore();
 
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -238,15 +238,23 @@ export function QueuePanel() {
                                     <div className={styles.details}>
                                         <span className={styles.title}>{item.track.title}</span>
                                         <span
-                                            className={`${styles.artist} ${styles.link}`}
-                                            onClick={(e) => { e.stopPropagation(); selectArtist(item.track.artist); }}
+                                            className={`${styles.artist} ${knownArtists.has(item.track.artist) ? styles.link : ''}`}
+                                            onClick={(e) => { 
+                                                if (!knownArtists.has(item.track.artist)) return;
+                                                e.stopPropagation(); 
+                                                selectArtist(item.track.artist); 
+                                            }}
                                         >
                                             {item.track.artist}
                                         </span>
                                         {item.track.album && (
                                             <span
-                                                className={`${styles.album} ${styles.link}`}
-                                                onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(item.track); }}
+                                                className={`${styles.album} ${knownAlbums.has(`${item.track.artist}|${item.track.album}`) ? styles.link : ''}`}
+                                                onClick={(e) => { 
+                                                    if (!knownAlbums.has(`${item.track.artist}|${item.track.album}`)) return;
+                                                    e.stopPropagation(); 
+                                                    navigateToAlbumFromTrack(item.track); 
+                                                }}
                                             >
                                                 {item.track.album}
                                             </span>

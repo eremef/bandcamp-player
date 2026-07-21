@@ -65,6 +65,8 @@ interface CollectionSlice {
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
   collectionError: string | null;
+  knownArtists: Set<string>;
+  knownAlbums: Set<string>;
   collection_sort_key: SortKey;
   collection_sort_direction: "asc" | "desc";
   collectionFilterAlbums: boolean;
@@ -293,6 +295,23 @@ const _downloadingTrackAlbums = new Map<string, string>();
 // so the collection can be re-evaluated without a second IPC round-trip.
 const _cachedTrackCountByAlbum = new Map<string, number>();
 
+// Derive known artists and albums from the collection
+function deriveKnownArtistsAndAlbums(collection: Collection | null): { knownArtists: Set<string>, knownAlbums: Set<string> } {
+  const artists = new Set<string>();
+  const albums = new Set<string>();
+  collection?.items.forEach((item) => {
+    if (item.album) {
+      if (item.album.artist) artists.add(item.album.artist);
+      if (item.album.title && item.album.artist) albums.add(`${item.album.artist}|${item.album.title}`);
+    }
+    if (item.track) {
+      if (item.track.artist) artists.add(item.track.artist);
+      if (item.track.album && item.track.artist) albums.add(`${item.track.artist}|${item.track.album}`);
+    }
+  });
+  return { knownArtists: artists, knownAlbums: albums };
+}
+
 // Derive the set of fully-cached album IDs from the current count map and
 // the provided collection.  An album is "fully cached" when the number of
 // cache entries for its ID matches its known trackCount (> 0).
@@ -456,6 +475,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   selectedAlbum: null,
   isLoadingCollection: false,
   collectionError: null,
+  knownArtists: new Set(),
+  knownAlbums: new Set(),
   collection_sort_key: "default",
   collection_sort_direction: "desc",
   collectionFilterAlbums: true,
@@ -504,6 +525,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       const collection = forceRefresh
         ? await window.electron.collection.refresh()
         : await window.electron.collection.fetch();
+      const { knownArtists, knownAlbums } = deriveKnownArtistsAndAlbums(collection);
       set({
         collection,
         isLoadingCollection: false,
@@ -511,6 +533,8 @@ export const useStore = create<StoreState>()((set, get) => ({
         // _cachedTrackCountByAlbum may already be populated from the startup
         // fetchCachedTrackIds() call, so this is a pure in-memory derivation.
         cachedAlbumIds: deriveCachedAlbumIds(collection),
+        knownArtists,
+        knownAlbums,
       });
 
       // Also fetch Bandcamp playlists when collection is fetched/refreshed
@@ -712,7 +736,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     set({ isLoadingBandcampPlaylists: true });
     try {
       const playlists = await window.electron.playlist.getBandcampPlaylists();
-      
+
       set({ bandcampPlaylists: playlists });
     } catch (error) {
       console.error("Store: fetchBandcampPlaylists failed", error);

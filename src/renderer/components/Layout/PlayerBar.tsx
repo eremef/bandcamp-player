@@ -29,6 +29,8 @@ export function PlayerBar() {
         disconnectCast,
         selectArtist,
         navigateToAlbumFromTrack,
+        knownArtists,
+        knownAlbums,
     } = useStore();
 
     const audio1Ref = useRef<HTMLAudioElement>(null);
@@ -409,17 +411,25 @@ export function PlayerBar() {
                         <div className={styles.trackDetails}>
                             <div className={styles.trackTitle}>{currentTrack.title}</div>
                             <div 
-                                className={`${styles.trackArtist} ${styles.link}`} 
-                                onClick={(e) => { e.stopPropagation(); selectArtist(currentTrack.artist); }}
-                                title="Go to artist"
+                                className={`${styles.trackArtist} ${knownArtists.has(currentTrack.artist) ? styles.link : ''}`} 
+                                onClick={(e) => { 
+                                    if (!knownArtists.has(currentTrack.artist)) return;
+                                    e.stopPropagation(); 
+                                    selectArtist(currentTrack.artist); 
+                                }}
+                                title={knownArtists.has(currentTrack.artist) ? "Go to artist" : undefined}
                             >
                                 {currentTrack.artist}
                             </div>
                             {currentTrack.album && (
                                 <div 
-                                    className={`${styles.trackAlbum} ${styles.link}`} 
-                                    onClick={(e) => { e.stopPropagation(); navigateToAlbumFromTrack(currentTrack); }}
-                                    title="Go to album"
+                                    className={`${styles.trackAlbum} ${knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`) ? styles.link : ''}`} 
+                                    onClick={(e) => { 
+                                        if (!knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`)) return;
+                                        e.stopPropagation(); 
+                                        navigateToAlbumFromTrack(currentTrack); 
+                                    }}
+                                    title={knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`) ? "Go to album" : undefined}
                                 >
                                     {currentTrack.album}
                                 </div>
