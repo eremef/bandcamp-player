@@ -30,6 +30,8 @@ describe('QueuePanel', () => {
         clearQueue: vi.fn(),
         toggleQueue: vi.fn(),
         reorderQueue: vi.fn(),
+        knownArtists: new Set(),
+        knownAlbums: new Set(),
     };
 
     beforeEach(() => {

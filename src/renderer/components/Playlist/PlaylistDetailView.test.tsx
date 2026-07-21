@@ -40,6 +40,8 @@ describe('PlaylistDetailView', () => {
             clearQueue: vi.fn(),
             addTracksToQueue: vi.fn(),
             playQueueIndex: vi.fn(),
+            knownArtists: new Set(),
+            knownAlbums: new Set(),
         });
     });
 

@@ -61,6 +61,8 @@ describe('PlayerBar', () => {
             stopCastDiscovery: vi.fn(),
             connectCast: vi.fn(),
             disconnectCast: vi.fn(),
+            knownArtists: new Set(),
+            knownAlbums: new Set(),
         };
         (useStore as any).mockImplementation((selector?: any) => selector ? selector(mockStore) : mockStore);
 
