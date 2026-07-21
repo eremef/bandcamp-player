@@ -94,6 +94,7 @@
     "typescript": "~6.0.3"
   },
   "overrides": {
+    "shell-quote": "1.10.0",
     "js-yaml": "^3.15.0",
     "@expo/xcpretty": {
       "js-yaml": "^4.3.0"
