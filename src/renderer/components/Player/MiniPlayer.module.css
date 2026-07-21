@@ -105,6 +105,10 @@
     font-size: 1.2rem;
 }
 
+.controlBtn.active {
+    color: var(--accent-primary);
+}
+
 .playBtn {
     font-size: 1.5rem;
     background: var(--accent-primary);

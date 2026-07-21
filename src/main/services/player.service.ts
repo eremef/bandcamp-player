@@ -420,21 +420,29 @@ export class PlayerService extends EventEmitter {
         if (this.queue.length === 0) return;
 
         let nextIndex: number;
+        let shufflePos = -1;
 
         if (this.isShuffled && this.shuffleOrder.length > 0) {
-            const currentShufflePos = this.shuffleOrder.indexOf(this.currentIndex);
-            const nextShufflePos = (currentShufflePos + 1) % this.shuffleOrder.length;
-            nextIndex = this.shuffleOrder[nextShufflePos];
+            shufflePos = this.shuffleOrder.indexOf(this.currentIndex);
+            shufflePos++;
+            if (shufflePos >= this.shuffleOrder.length) {
+                if (this.repeatMode === 'all') {
+                    shufflePos = 0;
+                } else {
+                    this.finishQueue();
+                    return;
+                }
+            }
+            nextIndex = this.shuffleOrder[shufflePos];
         } else {
             nextIndex = this.currentIndex + 1;
-        }
-
-        if (nextIndex >= this.queue.length) {
-            if (this.repeatMode === 'all') {
-                nextIndex = 0;
-            } else {
-                this.finishQueue();
-                return;
+            if (nextIndex >= this.queue.length) {
+                if (this.repeatMode === 'all') {
+                    nextIndex = 0;
+                } else {
+                    this.finishQueue();
+                    return;
+                }
             }
         }
 
@@ -442,15 +450,29 @@ export class PlayerService extends EventEmitter {
         if (this.isOfflineMode()) {
             const startIndex = nextIndex;
             while (!this.cacheService.isCached(this.queue[nextIndex].track.id)) {
-                nextIndex++;
-                if (nextIndex >= this.queue.length) {
-                    if (this.repeatMode === 'all') {
-                        nextIndex = 0;
-                    } else {
-                        this.finishQueue();
-                        return;
+                if (this.isShuffled && this.shuffleOrder.length > 0) {
+                    shufflePos++;
+                    if (shufflePos >= this.shuffleOrder.length) {
+                        if (this.repeatMode === 'all') {
+                            shufflePos = 0;
+                        } else {
+                            this.finishQueue();
+                            return;
+                        }
+                    }
+                    nextIndex = this.shuffleOrder[shufflePos];
+                } else {
+                    nextIndex++;
+                    if (nextIndex >= this.queue.length) {
+                        if (this.repeatMode === 'all') {
+                            nextIndex = 0;
+                        } else {
+                            this.finishQueue();
+                            return;
+                        }
                     }
                 }
+                
                 if (nextIndex === startIndex) {
                     // Looped through all — none cached
                     this.finishQueue();
@@ -472,21 +494,29 @@ export class PlayerService extends EventEmitter {
         }
 
         let prevIndex: number;
+        let shufflePos = -1;
 
         if (this.isShuffled && this.shuffleOrder.length > 0) {
-            const currentShufflePos = this.shuffleOrder.indexOf(this.currentIndex);
-            const prevShufflePos = currentShufflePos > 0 ? currentShufflePos - 1 : this.shuffleOrder.length - 1;
-            prevIndex = this.shuffleOrder[prevShufflePos];
+            shufflePos = this.shuffleOrder.indexOf(this.currentIndex);
+            shufflePos--;
+            if (shufflePos < 0) {
+                if (this.repeatMode === 'all') {
+                    shufflePos = this.shuffleOrder.length - 1;
+                } else {
+                    this.seek(0);
+                    return;
+                }
+            }
+            prevIndex = this.shuffleOrder[shufflePos];
         } else {
             prevIndex = this.currentIndex - 1;
-        }
-
-        if (prevIndex < 0) {
-            if (this.repeatMode === 'all') {
-                prevIndex = this.queue.length - 1;
-            } else {
-                this.seek(0);
-                return;
+            if (prevIndex < 0) {
+                if (this.repeatMode === 'all') {
+                    prevIndex = this.queue.length - 1;
+                } else {
+                    this.seek(0);
+                    return;
+                }
             }
         }
 
@@ -494,15 +524,29 @@ export class PlayerService extends EventEmitter {
         if (this.isOfflineMode()) {
             const startIndex = prevIndex;
             while (!this.cacheService.isCached(this.queue[prevIndex].track.id)) {
-                prevIndex--;
-                if (prevIndex < 0) {
-                    if (this.repeatMode === 'all') {
-                        prevIndex = this.queue.length - 1;
-                    } else {
-                        this.seek(0);
-                        return;
+                if (this.isShuffled && this.shuffleOrder.length > 0) {
+                    shufflePos--;
+                    if (shufflePos < 0) {
+                        if (this.repeatMode === 'all') {
+                            shufflePos = this.shuffleOrder.length - 1;
+                        } else {
+                            this.seek(0);
+                            return;
+                        }
+                    }
+                    prevIndex = this.shuffleOrder[shufflePos];
+                } else {
+                    prevIndex--;
+                    if (prevIndex < 0) {
+                        if (this.repeatMode === 'all') {
+                            prevIndex = this.queue.length - 1;
+                        } else {
+                            this.seek(0);
+                            return;
+                        }
                     }
                 }
+
                 if (prevIndex === startIndex) {
                     this.seek(0);
                     return;
@@ -559,6 +603,8 @@ export class PlayerService extends EventEmitter {
     toggleShuffle(): void {
         this.isShuffled = !this.isShuffled;
         if (this.isShuffled) {
+            this.generateShuffleOrder();
+        } else {
             this.shuffleOrder = [];
         }
 

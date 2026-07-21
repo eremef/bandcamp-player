@@ -1,18 +1,20 @@
 import { useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { SkipBack, Play, Pause, SkipForward, ExternalLink } from 'lucide-react';
+import { SkipBack, Play, Pause, SkipForward, ExternalLink, Shuffle, Repeat, Repeat1 } from 'lucide-react';
 import styles from './MiniPlayer.module.css';
 
 export function MiniPlayer() {
     const {
         player,
         togglePlay,
+        toggleShuffle,
+        setRepeat,
         next,
         previous,
         toggleMiniPlayer,
     } = useStore();
 
-    const { isPlaying, currentTrack } = player;
+    const { isPlaying, currentTrack, isShuffled, repeatMode } = player;
 
     // Apply mini-player specific global styles on mount
     useEffect(() => {
@@ -47,6 +49,14 @@ export function MiniPlayer() {
 
                 {/* Controls */}
                 <div className={styles.controls}>
+                    <button
+                        className={`${styles.controlBtn} ${isShuffled ? styles.active : ''}`}
+                        onClick={toggleShuffle}
+                        title="Shuffle"
+                        data-testid="player-shuffle-btn"
+                    >
+                        <Shuffle size={18} />
+                    </button>
                     <button className={styles.controlBtn} onClick={previous} title="Previous">
                         <SkipBack size={18} fill="currentColor" />
                     </button>
@@ -55,6 +65,18 @@ export function MiniPlayer() {
                     </button>
                     <button className={styles.controlBtn} onClick={next} title="Next">
                         <SkipForward size={18} fill="currentColor" />
+                    </button>
+                    <button
+                        className={`${styles.controlBtn} ${repeatMode !== 'off' ? styles.active : ''}`}
+                        onClick={() => {
+                            const modes: Array<'off' | 'all' | 'one'> = ['off', 'all', 'one'];
+                            const currentIndex = modes.indexOf(repeatMode);
+                            setRepeat(modes[(currentIndex + 1) % modes.length]);
+                        }}
+                        title={`Repeat: ${repeatMode}`}
+                        data-testid="player-repeat-btn"
+                    >
+                        {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
                     </button>
                 </div>
 
