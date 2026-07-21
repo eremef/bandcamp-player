@@ -59,6 +59,7 @@
     "zustand": "^5.0.12"
   },
   "overrides": {
+    "shell-quote": "1.9.0",
     "protobufjs": "^7.5.5",
     "js-yaml": "^4.3.0",
     "@istanbuljs/load-nyc-config": {
