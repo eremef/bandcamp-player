@@ -1097,37 +1097,65 @@ export class MobileScraperService {
             const html = await response.text();
             const $ = cheerio.load(html);
 
-            const dataBlobStr = $('#PlaylistPage').attr('data-blob');
+            let dataBlobStr = $('#PlaylistPage').attr('data-blob') || $('[data-blob]').attr('data-blob');
+
+            if (!dataBlobStr) {
+                const blobMatch = html.match(/data-blob="([^"]+)"/);
+                if (blobMatch) {
+                    dataBlobStr = blobMatch[1];
+                }
+            }
+
             if (!dataBlobStr) {
                 console.error('[MobileScraper] Could not find data-blob on playlist page');
                 return [];
             }
 
-            const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>' };
-            const decoded = dataBlobStr.replace(/&quot;|&amp;|&lt;|&gt;/g, (match) => entities[match]);
+            const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#39;': "'" };
+            const decoded = dataBlobStr.replace(/&quot;|&amp;|&lt;|&gt;|&#39;/g, (match) => entities[match]);
             const pd = JSON.parse(decoded);
-            const tracksData = pd.appData?.tracks || pd.track_list || pd.playlist_data?.tracks || [];
+
+            const rawTracklist = pd.appData?.tracklist || pd.appData?.tracks;
+            const tracksData =
+                (Array.isArray(rawTracklist) ? rawTracklist : (rawTracklist?.items || rawTracklist?.tracks)) ||
+                pd.appData?.playlist_tracks ||
+                pd.appData?.items ||
+                pd.tracks ||
+                pd.track_list ||
+                pd.playlist_data?.tracks ||
+                pd.playlist?.tracks ||
+                pd.items ||
+                [];
 
             if (!tracksData || tracksData.length === 0) {
+                console.warn('[MobileScraper] No tracksData found in playlist data-blob:', playlistUrl);
                 return [];
             }
 
             const tracks: Track[] = tracksData.map((t: any, index: number) => {
-                let streamUrl = t.streamUrl || t.file?.['mp3-128'] || t.file?.['mp3-v0'] || '';
+                let streamUrl =
+                    t.streamUrl ||
+                    t.stream_url ||
+                    t.file?.['mp3-128'] ||
+                    t.file?.['mp3-v0'] ||
+                    '';
+
                 if (!streamUrl && t.encodings) {
                     const mp3Enc = t.encodings.find((e: any) => e.format_id === 1 || e.name === 'mp3-128');
                     if (mp3Enc) streamUrl = mp3Enc.url;
                 }
 
+                const artId = t.artId || t.art_id || t.imageId || t.image_id;
+
                 return {
-                    id: String(t.id || t.track_id || `pl-track-${index}-${Date.now()}`),
-                    title: t.title || 'Unknown Title',
-                    artist: t.artistName || t.artist || t.band_name || 'Unknown Artist',
+                    id: String(t.id || t.track_id || t.itemId || `pl-track-${index}-${Date.now()}`),
+                    title: t.title || t.trackTitle || 'Unknown Title',
+                    artist: t.artistName || t.artist || t.band_name || t.bandName || 'Unknown Artist',
                     artistId: t.bandId ? String(t.bandId) : t.band_id ? String(t.band_id) : undefined,
-                    album: t.album?.title || t.album_title || '',
+                    album: t.album?.title || t.albumTitle || t.album_title || '',
                     albumId: t.album?.id ? String(t.album.id) : t.album_id ? String(t.album_id) : undefined,
-                    duration: t.duration || 0,
-                    artworkUrl: t.artId ? config.endpoints.artworkFormat.replace('{art_id}', t.artId.toString()) : t.art_id ? config.endpoints.artworkFormat.replace('{art_id}', t.art_id.toString()) : '',
+                    duration: t.duration || t.length || 0,
+                    artworkUrl: artId ? config.endpoints.artworkFormat.replace('{art_id}', artId.toString()) : '',
                     streamUrl,
                     bandcampUrl: t.url || t.track_url || playlistUrl,
                     isCached: false,
