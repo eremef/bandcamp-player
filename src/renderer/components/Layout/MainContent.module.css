@@ -3,6 +3,6 @@
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--bg-primary);
-    border-top-left-radius: 14px;
-    border-bottom-left-radius: 14px;
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
 }
