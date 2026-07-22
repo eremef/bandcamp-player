@@ -312,6 +312,18 @@ export function PlaylistsView() {
                                     ) : (
                                         <div className={styles.placeholderArtwork}><Music size={48} /></div>
                                     )}
+                                    <div className={styles.cardOverlay}>
+                                        <button
+                                            className={styles.playBtn}
+                                            title="Play"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                playPlaylist(playlist.id);
+                                            }}
+                                        >
+                                            <Play size={32} fill="currentColor" />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className={styles.cardInfo}>
                                     <h3 className={styles.cardTitle}>{playlist.name}</h3>

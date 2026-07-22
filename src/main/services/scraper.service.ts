@@ -1637,7 +1637,7 @@ export class ScraperService extends EventEmitter {
           id: `bc-${p.itemId}`,
           name: p.title,
           description: p.description || "",
-          tracks: await this.fetchBandcampPlaylistTracks(playlistUrl),
+          tracks: [],
           trackCount: p.tracksSummary?.totalCount || 0,
           totalDuration: p.tracksSummary?.totalDuration || 0,
           createdAt: p.modDate || new Date().toISOString(),
@@ -1665,10 +1665,19 @@ export class ScraperService extends EventEmitter {
       console.log(`[ScraperService] Fetching tracks for Bandcamp playlist: ${playlistUrl}`);
       const cookies = await this.authService.getSessionCookies();
       const response = await this.http.get(playlistUrl, { headers: { Cookie: cookies } });
+      const html = response.data || "";
 
-      const $ = cheerio.load(response.data);
-      const dataBlob = $("#PlaylistPage").attr("data-blob");
-      if (!dataBlob) {
+      const $ = cheerio.load(html);
+      let dataBlobStr = $("#PlaylistPage").attr("data-blob") || $("[data-blob]").attr("data-blob");
+
+      if (!dataBlobStr) {
+        const blobMatch = html.match(/data-blob="([^"]+)"/);
+        if (blobMatch) {
+          dataBlobStr = blobMatch[1];
+        }
+      }
+
+      if (!dataBlobStr) {
         console.warn("[ScraperService] No data-blob found for playlist page:", playlistUrl);
         return [];
       }
@@ -1678,31 +1687,67 @@ export class ScraperService extends EventEmitter {
         "&amp;": "&",
         "&lt;": "<",
         "&gt;": ">",
+        "&#39;": "'",
       };
-      const decoded = dataBlob.replace(
-        /&quot;|&amp;|&lt;|&gt;/g,
+      const decoded = dataBlobStr.replace(
+        /&quot;|&amp;|&lt;|&gt;|&#39;/g,
         (match) => entities[match],
       );
 
       const pd = JSON.parse(decoded);
-      const tracksData = pd.appData?.tracks || pd.track_list || [];
+
+      const rawTracklist = pd.appData?.tracklist || pd.appData?.tracks;
+      const tracksData =
+        (Array.isArray(rawTracklist) ? rawTracklist : (rawTracklist?.items || rawTracklist?.tracks)) ||
+        pd.appData?.playlist_tracks ||
+        pd.appData?.items ||
+        pd.tracks ||
+        pd.track_list ||
+        pd.playlist_data?.tracks ||
+        pd.playlist?.tracks ||
+        pd.items ||
+        [];
+
+      if (!tracksData || tracksData.length === 0) {
+        console.warn("[ScraperService] No tracksData array found in data-blob for playlist:", playlistUrl);
+        return [];
+      }
+
       const tracks: Track[] = [];
 
-      for (const t of tracksData) {
+      for (let i = 0; i < tracksData.length; i++) {
+        const t = tracksData[i];
+        let streamUrl =
+          t.streamUrl ||
+          t.stream_url ||
+          t.file?.["mp3-128"] ||
+          t.file?.["mp3-v0"] ||
+          "";
+
+        if (!streamUrl && t.encodings) {
+          const mp3Enc = t.encodings.find(
+            (e: any) => e.format_id === 1 || e.name === "mp3-128",
+          );
+          if (mp3Enc) streamUrl = mp3Enc.url;
+        }
+
+        const artId = t.artId || t.art_id || t.imageId || t.image_id;
+
         const track: Track = {
-          id: t.id ? String(t.id) : Math.random().toString(),
-          title: t.title || "Unknown Title",
-          artist: t.artistName || "Unknown Artist",
-          album: t.album?.title || "Unknown Album",
-          duration: t.duration || 0,
-          artworkUrl: t.artId ? `https://f4.bcbits.com/img/a${t.artId}_10.jpg` : "",
-          streamUrl: t.streamUrl || "",
-          bandcampUrl: t.url || "",
+          id: String(t.id || t.track_id || t.itemId || `bc-pl-track-${i}`),
+          title: t.title || t.trackTitle || "Unknown Title",
+          artist: t.artistName || t.artist || t.band_name || t.bandName || "Unknown Artist",
+          artistId: t.bandId ? String(t.bandId) : t.band_id ? String(t.band_id) : undefined,
+          album: t.album?.title || t.albumTitle || t.album_title || "",
+          albumId: t.album?.id ? String(t.album.id) : t.album_id ? String(t.album_id) : undefined,
+          duration: t.duration || t.length || 0,
+          artworkUrl: artId ? `https://f4.bcbits.com/img/a${artId}_10.jpg` : "",
+          streamUrl,
+          bandcampUrl: t.url || t.track_url || playlistUrl,
           isCached: false,
         };
         tracks.push(track);
       }
-
 
       console.log(`[ScraperService] Successfully parsed ${tracks.length} tracks for playlist`);
       return tracks;

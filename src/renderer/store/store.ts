@@ -630,9 +630,22 @@ export const useStore = create<StoreState>()((set, get) => ({
     // Check if it's a Bandcamp playlist first
     const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
     if (bcPlaylist) {
+      let fullPlaylist = bcPlaylist;
+      if ((!bcPlaylist.tracks || bcPlaylist.tracks.length === 0) && bcPlaylist.bandcampUrl) {
+        try {
+          const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
+          fullPlaylist = { ...bcPlaylist, tracks, trackCount: tracks.length || bcPlaylist.trackCount };
+          // Update store's bandcampPlaylists array so it retains fetched tracks
+          set((s) => ({
+            bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? fullPlaylist : p)
+          }));
+        } catch (e) {
+          console.error("Failed to fetch Bandcamp playlist tracks", e);
+        }
+      }
       set((s) => ({
         viewHistory: pushViewState(s as StoreState),
-        selectedPlaylist: bcPlaylist,
+        selectedPlaylist: fullPlaylist,
         currentView: "playlist-detail",
         selectedPlaylistId: id,
       }));
