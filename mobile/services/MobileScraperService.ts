@@ -1121,7 +1121,7 @@ export class MobileScraperService {
 
             const pd = JSON.parse(decoded);
 
-            const rawTracklist = pd.appData?.tracklist || pd.appData?.tracks;
+            const rawTracklist = pd.appData?.tracklist || pd.appData?.tracks || pd.appData?.playlist?.tracks || pd.appData?.playlist?.items;
             const tracksData =
                 (Array.isArray(rawTracklist) ? rawTracklist : (rawTracklist?.items || rawTracklist?.tracks)) ||
                 pd.appData?.playlist_tracks ||
@@ -1130,6 +1130,7 @@ export class MobileScraperService {
                 pd.track_list ||
                 pd.playlist_data?.tracks ||
                 pd.playlist?.tracks ||
+                pd.playlist?.items ||
                 pd.items ||
                 [];
 

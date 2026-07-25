@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
     },
     listContent: {
-        paddingBottom: 20,
+        paddingBottom: 50,
     },
     item: {
         flexDirection: 'row',

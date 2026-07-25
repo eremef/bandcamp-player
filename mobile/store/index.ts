@@ -110,7 +110,7 @@ interface AppState extends PlayerState {
     playQueueIndex: (index: number) => void;
     syncNativeTransition: (index: number) => void;
     removeFromQueue: (id: string) => void;
-    reorderQueue: (fromIndex: number, toIndex: number) => void;
+    reorderQueue: (fromIndex: number, toIndex: number, newItemsData?: QueueItem[]) => void;
     clearQueue: (keepTrack?: boolean) => void;
 
     // Playlist Actions
@@ -591,14 +591,6 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (mode === 'standalone') {
             await get().restoreStandaloneState();
-            
-            // Trigger data refresh after transition to standalone
-            runAfterInteractions(() => {
-                get().refreshCollection(false);
-                get().refreshPlaylists();
-                get().refreshRadio();
-                get().refreshArtists();
-            });
         } else {
             // Remote mode: only reset data collections, NOT playback state.
             // The server will provide playback state via state-changed event.
@@ -1607,15 +1599,19 @@ export const useStore = create<AppState>((set, get) => ({
             get().saveQueue();
         }
     },
-    reorderQueue: (fromIndex, toIndex) => {
+    reorderQueue: (fromIndex, toIndex, newItemsData) => {
         const { queue } = get();
         if (fromIndex < 0 || fromIndex >= queue.items.length) return;
         if (toIndex < 0 || toIndex >= queue.items.length) return;
-        if (fromIndex === toIndex) return;
+        if (fromIndex === toIndex && !newItemsData) return;
 
-        const newItems = [...queue.items];
-        const [movedItem] = newItems.splice(fromIndex, 1);
-        newItems.splice(toIndex, 0, movedItem);
+        lastReorderTime = Date.now();
+
+        const newItems = newItemsData ? [...newItemsData] : [...queue.items];
+        if (!newItemsData) {
+            const [movedItem] = newItems.splice(fromIndex, 1);
+            newItems.splice(toIndex, 0, movedItem);
+        }
 
         // Adjust currentIndex (mirrors desktop PlayerService.reorderQueue)
         let newCurrentIndex = queue.currentIndex;
@@ -2104,6 +2100,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     fetchBandcampPlaylists: async () => {
+        if (get().isLoadingBandcampPlaylists) return;
         set({ isLoadingBandcampPlaylists: true });
         try {
             const { mobileScraperService } = require('../services/MobileScraperService');
@@ -2352,10 +2349,42 @@ webSocketService.on('connection-status', (status, isExplicit) => {
     }
 });
 
+let lastReorderTime = 0;
+
 webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
     if (useStore.getState().mode !== 'remote' || !useStore.getState().storeInitialized) return;
     const currentState = useStore.getState();
     const prevTrackId = currentState.currentTrack?.id;
+
+    if (payload.queue && payload.queue.items) {
+        const isRecentReorder = Date.now() - lastReorderTime < 2500;
+        const currentItems = currentState.queue.items;
+        const incomingItems = payload.queue.items;
+
+        let isIdenticalSequence = currentItems.length === incomingItems.length;
+        if (isIdenticalSequence) {
+            for (let i = 0; i < currentItems.length; i++) {
+                const cTrack = currentItems[i]?.track;
+                const iTrack = incomingItems[i]?.track;
+                if ((cTrack?.id && iTrack?.id && cTrack.id !== iTrack.id) ||
+                    (cTrack?.streamUrl && iTrack?.streamUrl && cTrack.streamUrl !== iTrack.streamUrl) ||
+                    (cTrack?.title && iTrack?.title && cTrack.title !== iTrack.title)) {
+                    isIdenticalSequence = false;
+                    break;
+                }
+            }
+        }
+
+        if (isIdenticalSequence || (isRecentReorder && currentItems.length === incomingItems.length)) {
+            payload = {
+                ...payload,
+                queue: {
+                    ...payload.queue,
+                    items: currentItems
+                }
+            };
+        }
+    }
 
     useStore.setState(payload);
 

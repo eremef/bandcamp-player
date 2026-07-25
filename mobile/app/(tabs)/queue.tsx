@@ -39,17 +39,20 @@ export default function QueueScreen() {
         removeFromQueue(id);
     }, [removeFromQueue]);
 
-    const handleDragEnd = useCallback(({ from, to }: { from: number; to: number }) => {
+    const handleDragEnd = useCallback(({ data, from, to }: { data: QueueItem[]; from: number; to: number }) => {
         if (from !== to) {
-            reorderQueue(from, to);
+            reorderQueue(from, to, data);
         }
     }, [reorderQueue]);
 
-    const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<QueueItem>) => {
-        const index = queue.items.findIndex(qi => qi.id === item.id);
-        if (index === -1) return <></>;
-        const isCurrent = index === queue.currentIndex;
-        const isPlayed = index < queue.currentIndex;
+    const renderItem = useCallback(({ item, drag, isActive, getIndex }: RenderItemParams<QueueItem>) => {
+        const dynamicIndex = getIndex();
+        const fallbackIndex = queue.items.findIndex(qi => qi.id === item.id);
+        const index = dynamicIndex !== undefined ? dynamicIndex : (fallbackIndex !== -1 ? fallbackIndex : 0);
+        
+        const currentPlayingId = queue.items[queue.currentIndex]?.id;
+        const isCurrent = item.id === currentPlayingId;
+        const isPlayed = index >= 0 && index < queue.currentIndex;
 
         return (
             <ScaleDecorator>
