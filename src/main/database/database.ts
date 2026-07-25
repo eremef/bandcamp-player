@@ -252,19 +252,35 @@ export class Database {
   // ---- Settings ----
 
   getSettings(): AppSettings | null {
-    const row = this.db
-      .prepare("SELECT value FROM settings WHERE key = ?")
-      .get("app_settings") as { value: string } | undefined;
-    return row ? JSON.parse(row.value) : null;
+    if (!this.db || !this.db.open) {
+      return null;
+    }
+    try {
+      const row = this.db
+        .prepare("SELECT value FROM settings WHERE key = ?")
+        .get("app_settings") as { value: string } | undefined;
+      return row ? JSON.parse(row.value) : null;
+    } catch {
+      return null;
+    }
   }
 
   setSettings(settings: Partial<AppSettings>): AppSettings {
-    const current = this.getSettings() || ({} as AppSettings);
-    const updated = { ...current, ...settings };
-    this.db
-      .prepare("UPDATE settings SET value = ? WHERE key = ?")
-      .run(JSON.stringify(updated), "app_settings");
-    return updated;
+    if (!this.db || !this.db.open) {
+      console.warn("[Database] Attempted to setSettings on closed database connection.");
+      return settings as AppSettings;
+    }
+    try {
+      const current = this.getSettings() || ({} as AppSettings);
+      const updated = { ...current, ...settings };
+      this.db
+        .prepare("UPDATE settings SET value = ? WHERE key = ?")
+        .run(JSON.stringify(updated), "app_settings");
+      return updated;
+    } catch (err) {
+      console.warn("[Database] Failed to setSettings:", err);
+      return settings as AppSettings;
+    }
   }
 
   // ---- Playlists ----

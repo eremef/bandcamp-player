@@ -541,6 +541,7 @@ if (!gotTheLock) {
     // Stop all services and servers for a clean exit
     // This prevents the process from hanging and blocking uninstallation
     try {
+      playerService?.destroy();
       remoteService?.stop();
       castService?.stop();
       updaterService?.stop();

@@ -989,4 +989,15 @@ export class PlayerService extends EventEmitter {
     private emitRadioStateChange(): void {
         this.emit('radio-state-changed', this.getRadioState());
     }
+
+    destroy(): void {
+        if (this.saveVolumeTimeout) {
+            clearTimeout(this.saveVolumeTimeout);
+            this.saveVolumeTimeout = null;
+        }
+        if (this.persistQueueTimeout) {
+            clearTimeout(this.persistQueueTimeout);
+            this.persistQueueTimeout = null;
+        }
+    }
 }
