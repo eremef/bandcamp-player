@@ -87,6 +87,7 @@ describe('PlayerBar', () => {
                 updateTime: vi.fn(),
                 onSeek: vi.fn(() => () => { }),
                 trackEnded: vi.fn(),
+                reportPlaybackError: vi.fn(),
             }
         };
     });
@@ -174,6 +175,7 @@ describe('PlayerBar', () => {
 
         // Error (non-critical)
         fireEvent.error(audio); // Should log console.error but not crash
+        expect(window.electron.player.reportPlaybackError).toHaveBeenCalled();
     });
 
     it('handles Media Session API actions', () => {

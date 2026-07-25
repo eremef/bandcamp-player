@@ -59,6 +59,8 @@ if (typeof window !== 'undefined') {
             onTimeUpdate: vi.fn(() => vi.fn()),
             onSeek: vi.fn(() => vi.fn()),
             updateTime: vi.fn(),
+            trackEnded: vi.fn(),
+            reportPlaybackError: vi.fn(),
         },
         queue: {
             addTrack: vi.fn(),
