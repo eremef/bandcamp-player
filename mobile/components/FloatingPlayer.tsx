@@ -181,7 +181,7 @@ export function FloatingPlayer() {
 
     const ALLOWED_PATHS = ['/collection', '/artists', '/playlists', '/radio', '/queue'];
 
-    if (!floatingPlayerEnabled || !isLoaded || !ALLOWED_PATHS.includes(pathname)) {
+    if (!floatingPlayerEnabled || !isLoaded || (!ALLOWED_PATHS.includes(pathname) && !pathname.startsWith('/playlists/'))) {
         return null;
     }
 

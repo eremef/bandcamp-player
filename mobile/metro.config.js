@@ -6,13 +6,8 @@ const workspaceRoot = path.resolve(projectRoot, '..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch all files within the monorepo
-config.watchFolders = [workspaceRoot];
-
-// 2. Let Metro know where to resolve packages and in what order
-config.resolver.nodeModulesPaths = [
-    path.resolve(projectRoot, 'node_modules'),
-    path.resolve(workspaceRoot, 'node_modules'),
-];
+// Removed watchFolders to prevent Metro from crashing due to scanning the entire parent directory.
+// Cross-project resolution is handled transparently via a Windows Junction (mobile/src -> src)
+// as created by scripts/create-shared-symlink.js
 
 module.exports = config;

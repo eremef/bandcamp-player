@@ -1100,9 +1100,9 @@ export class MobileScraperService {
             let dataBlobStr = $('#PlaylistPage').attr('data-blob') || $('[data-blob]').attr('data-blob');
 
             if (!dataBlobStr) {
-                const blobMatch = html.match(/data-blob="([^"]+)"/);
+                const blobMatch = html.match(/data-blob=(['"])([^"']+)\1/);
                 if (blobMatch) {
-                    dataBlobStr = blobMatch[1];
+                    dataBlobStr = blobMatch[2];
                 }
             }
 
@@ -1111,8 +1111,14 @@ export class MobileScraperService {
                 return [];
             }
 
-            const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#39;': "'" };
-            const decoded = dataBlobStr.replace(/&quot;|&amp;|&lt;|&gt;|&#39;/g, (match) => entities[match]);
+            const entities: Record<string, string> = { '&quot;': '"', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&#39;': "'", '&nbsp;': ' ' };
+            const decoded = dataBlobStr.replace(/&[a-z]+;|&#\d+;|&#x[a-fA-F0-9]+;/g, (match) => {
+                if (entities[match]) return entities[match];
+                if (match.startsWith('&#x')) return String.fromCharCode(parseInt(match.slice(3, -1), 16));
+                if (match.startsWith('&#')) return String.fromCharCode(parseInt(match.slice(2, -1), 10));
+                return match;
+            });
+
             const pd = JSON.parse(decoded);
 
             const rawTracklist = pd.appData?.tracklist || pd.appData?.tracks;

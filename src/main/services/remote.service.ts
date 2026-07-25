@@ -593,6 +593,15 @@ export class RemoteControlService extends EventEmitter {
                 }
                 break;
             }
+            case 'get-bandcamp-playlist-tracks': {
+                if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
+                    this.sendToClient(ws, 'error', { message: 'Invalid Bandcamp playlist URL' });
+                    return;
+                }
+                const tracks = await this.scraperService.fetchBandcampPlaylistTracks(payload);
+                this.sendToClient(ws, 'bandcamp-playlist-tracks-data', { url: payload, tracks: tracks || [] });
+                break;
+            }
             case 'get-album': {
                 if (!payload || typeof payload !== 'string' || !payload.startsWith('http')) {
                     this.sendToClient(ws, 'error', { message: 'Invalid album URL' });

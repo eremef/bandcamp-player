@@ -75,3 +75,4 @@ entities.json
 .agent/skills/
 scratch/
 .opencode/package-lock.json
+.serena/

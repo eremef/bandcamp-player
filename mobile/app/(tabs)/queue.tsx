@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
         padding: 4,
     },
     listContent: {
-        paddingBottom: 20,
+        paddingBottom: 43,
     },
     item: {
         flexDirection: 'row',

@@ -591,6 +591,14 @@ export const useStore = create<AppState>((set, get) => ({
 
         if (mode === 'standalone') {
             await get().restoreStandaloneState();
+            
+            // Trigger data refresh after transition to standalone
+            runAfterInteractions(() => {
+                get().refreshCollection(false);
+                get().refreshPlaylists();
+                get().refreshRadio();
+                get().refreshArtists();
+            });
         } else {
             // Remote mode: only reset data collections, NOT playback state.
             // The server will provide playback state via state-changed event.
@@ -1483,36 +1491,73 @@ export const useStore = create<AppState>((set, get) => ({
     fetchPlaylistDetails: async (id) => {
         const state = get();
         if (state.mode === 'remote' && state.connectionStatus === 'connected') {
-            const fetchedPlaylist = await new Promise<Playlist | undefined>((resolve) => {
-                const timeout = setTimeout(() => {
-                    resolve(undefined);
-                    cleanup();
-                }, 5000);
-
-                const cleanup = webSocketService.on('export-playlist-data', (data: Playlist) => {
-                    if (data && data.id === id) {
-                        clearTimeout(timeout);
+            const isBandcamp = state.bandcampPlaylists.some(p => p.id === id);
+            
+            if (isBandcamp) {
+                const bcPlaylist = state.bandcampPlaylists.find(p => p.id === id);
+                if (!bcPlaylist || !bcPlaylist.bandcampUrl) return undefined;
+                
+                const fetchedTracks = await new Promise<Track[] | undefined>((resolve) => {
+                    const timeout = setTimeout(() => {
+                        resolve(undefined);
                         cleanup();
-                        resolve(data);
-                    }
-                });
-                webSocketService.send('get-playlist-for-export', id);
-            });
+                    }, 5000);
 
-            if (fetchedPlaylist) {
-                // Update the playlist in the store so it has tracks using the latest state
-                set((s) => {
-                    const exists = s.playlists.some(p => p.id === id);
-                    if (exists) {
-                        return { playlists: s.playlists.map(p => p.id === id ? fetchedPlaylist : p) };
-                    } else {
-                        return { playlists: [...s.playlists, fetchedPlaylist] };
-                    }
+                    const cleanup = webSocketService.on('bandcamp-playlist-tracks-data', (data: { url: string, tracks: Track[] }) => {
+                        if (data && data.url === bcPlaylist.bandcampUrl) {
+                            clearTimeout(timeout);
+                            cleanup();
+                            resolve(data.tracks);
+                        }
+                    });
+                    webSocketService.send('get-bandcamp-playlist-tracks', bcPlaylist.bandcampUrl);
                 });
-                return fetchedPlaylist;
+                
+                if (fetchedTracks) {
+                    const updatedPlaylist = { ...bcPlaylist, tracks: fetchedTracks };
+                    set((s) => ({
+                        bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? updatedPlaylist : p)
+                    }));
+                    return updatedPlaylist;
+                }
+                return undefined;
+            } else {
+                const fetchedPlaylist = await new Promise<Playlist | undefined>((resolve) => {
+                    const timeout = setTimeout(() => {
+                        resolve(undefined);
+                        cleanup();
+                    }, 5000);
+
+                    const cleanup = webSocketService.on('export-playlist-data', (data: Playlist) => {
+                        if (data && data.id === id) {
+                            clearTimeout(timeout);
+                            cleanup();
+                            resolve(data);
+                        }
+                    });
+                    webSocketService.send('get-playlist-for-export', id);
+                });
+
+                if (fetchedPlaylist) {
+                    // Update the playlist in the store so it has tracks using the latest state
+                    set((s) => {
+                        const exists = s.playlists.some(p => p.id === id);
+                        if (exists) {
+                            return { playlists: s.playlists.map(p => p.id === id ? fetchedPlaylist : p) };
+                        } else {
+                            return { playlists: [...s.playlists, fetchedPlaylist] };
+                        }
+                    });
+                    return fetchedPlaylist;
+                }
             }
         }
-        return state.playlists.find(p => p.id === id);
+        
+        let playlist = get().playlists.find(p => p.id === id);
+        if (!playlist) {
+             playlist = get().bandcampPlaylists.find(p => p.id === id);
+        }
+        return playlist;
     },
     addAlbumToPlaylist: async (playlistId, albumUrl, album) => {
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
