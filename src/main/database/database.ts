@@ -252,7 +252,7 @@ export class Database {
   // ---- Settings ----
 
   getSettings(): AppSettings | null {
-    if (!this.db || !this.db.open) {
+    if (!this.db || this.db.open === false) {
       return null;
     }
     try {
@@ -266,7 +266,7 @@ export class Database {
   }
 
   setSettings(settings: Partial<AppSettings>): AppSettings {
-    if (!this.db || !this.db.open) {
+    if (!this.db || this.db.open === false) {
       console.warn("[Database] Attempted to setSettings on closed database connection.");
       return settings as AppSettings;
     }

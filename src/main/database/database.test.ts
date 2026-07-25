@@ -14,10 +14,11 @@ const mockStatement = {
 vi.mock('better-sqlite3', () => {
     // Create a constructor function that Vitest treats as a class
     const MockDatabase = function (this: any) {
+        this.open = true;
         this.pragma = vi.fn();
         this.prepare = mockPrepare.mockReturnValue(mockStatement);
         this.exec = vi.fn();
-        this.close = vi.fn();
+        this.close = vi.fn(() => { this.open = false; });
         // Mock transaction to execute the callback immediately
         this.transaction = vi.fn((callback) => callback);
     };
