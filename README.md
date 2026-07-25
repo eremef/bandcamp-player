@@ -273,7 +273,7 @@ mobile/
 
 | What                                          | Size | Description                                                                             | Status |
 | :-------------------------------------------- | ---- | --------------------------------------------------------------------------------------- | :----: |
-| Stability and other bugs | XXL | | 🔴 | 
+| Stability and other bugs | XXL | | 🟡 | 
 
 **Legend**:
 🟢 finished (waiting for release)
