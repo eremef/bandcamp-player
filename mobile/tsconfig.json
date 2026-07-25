@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "allowJs": false,
+    "jsx": "react-native",
     "baseUrl": ".",
     "paths": {
       "@shared/*": [
