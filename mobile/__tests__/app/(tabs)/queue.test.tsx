@@ -139,7 +139,7 @@ describe('QueueScreen', () => {
         expect(dragEndRef.current).toBeDefined();
         dragEndRef.current({ from: 0, to: 2, data: mockQueue.items });
 
-        expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 2);
+        expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 2, mockQueue.items);
     });
 
     it('does not call reorderQueue when drag ends at same position', () => {

@@ -208,7 +208,7 @@ describe('MobilePlayerService', () => {
 
             await mobilePlayerService.next();
 
-            expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith({ id: '3' }, 0); // next is index 2
+            expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith({ id: '3' }, 0, false); // next is index 2
         });
 
         it('should pick random next if shuffled', async () => {
