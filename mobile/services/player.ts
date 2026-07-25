@@ -1,5 +1,6 @@
 import TrackPlayer, { PlayerCommand } from '@rntp/player';
 import { Track } from '@shared/types';
+import { useStore } from '../store';
 
 export async function setupPlayer() {
     let isSetup = false;
@@ -47,21 +48,30 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
         streamUrl = streamUrl.replace(/localhost|127\.0\.0\.1/g, hostIp);
     }
 
+    const storeDuration = useStore.getState().duration;
+
     // To support native Next/Previous buttons and correct lock screen metadata in remote mode,
     // we feed the entire queue to the native player. We only provide the real URL
     // for the current track.
-    let nativeQueue = queueItems.map((qTrack) => ({
-        mediaId: qTrack.id,
-        url: streamUrl,
-        title: qTrack.track.title || 'Untitled',
-        artist: qTrack.track.artist || 'Unknown Artist',
-        albumTitle: qTrack.track.album,
-        artworkUrl: qTrack.track.artworkUrl,
-        duration: qTrack.track.duration,
-    }));
+    let nativeQueue = queueItems.map((qTrack, idx) => {
+        let dur = qTrack.track.duration;
+        if ((!dur || dur <= 0) && (idx === currentIndex || qTrack.track.id === track.id) && storeDuration > 0) {
+            dur = storeDuration;
+        }
+        return {
+            mediaId: qTrack.id,
+            url: streamUrl,
+            title: qTrack.track.title || 'Untitled',
+            artist: qTrack.track.artist || 'Unknown Artist',
+            albumTitle: qTrack.track.album,
+            artworkUrl: qTrack.track.artworkUrl,
+            duration: dur && dur > 0 ? dur : 0,
+        };
+    });
 
     // Fallback if queue is empty for some reason
     if (nativeQueue.length === 0) {
+        const dur = track.duration || (storeDuration > 0 ? storeDuration : 0);
         nativeQueue = [{
             mediaId: track.id,
             url: streamUrl,
@@ -69,7 +79,7 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
             artist: track.artist || 'Unknown Artist',
             albumTitle: track.album,
             artworkUrl: track.artworkUrl,
-            duration: track.duration,
+            duration: dur && dur > 0 ? dur : 0,
         }];
         currentIndex = 0;
     }

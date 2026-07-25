@@ -798,10 +798,66 @@ export class PlayerService extends EventEmitter {
     private internalUpdateTime(currentTime: number, duration: number): void {
         this.currentTime = currentTime;
         this.duration = duration;
+        if (this.currentTrack && duration > 0 && (!this.currentTrack.duration || this.currentTrack.duration === 0)) {
+            this.currentTrack.duration = duration;
+        }
         this.emitTimeUpdate();
 
         // Check for scrobble
         this.checkScrobble();
+    }
+
+    async reportPlaybackError(trackId?: string): Promise<void> {
+        const track = this.currentTrack;
+        if (!track || (trackId && track.id !== trackId)) {
+            console.log('[PlayerService] Playback error reported for non-current track, ignoring.');
+            return;
+        }
+
+        console.warn(`[PlayerService] Playback error reported for track: ${track.title} (${track.id})`);
+
+        const isTrackCached = this.cacheService.isCached(track.id);
+        if (isTrackCached) {
+            console.error(`[PlayerService] Cached playback failed for: ${track.title}`);
+            this.error = `Playback error for cached track: "${track.title}"`;
+            this.isPlaying = false;
+            this.emitStateChange();
+            setTimeout(() => {
+                this.next().catch(() => {});
+            }, 1500);
+            return;
+        }
+
+        console.log(`[PlayerService] Attempting on-demand stream URL refresh for: ${track.title}`);
+        try {
+            let freshStreamUrl = '';
+            if (track.radioStationId) {
+                const streamInfo = await this.scraperService.getStationStreamUrl(track.radioStationId);
+                freshStreamUrl = streamInfo.streamUrl;
+                if (streamInfo.duration) track.duration = streamInfo.duration;
+            } else {
+                freshStreamUrl = await this.scraperService.getTrackStreamUrl(track);
+            }
+
+            if (freshStreamUrl && freshStreamUrl !== track.streamUrl) {
+                console.log(`[PlayerService] Successfully refreshed stream URL for: ${track.title}`);
+                track.streamUrl = freshStreamUrl;
+                this.error = null;
+                this.emitStateChange();
+                this.emitTrackChange();
+                return;
+            }
+        } catch (err) {
+            console.error('[PlayerService] Failed to refresh stream URL on playback error:', err);
+        }
+
+        console.error(`[PlayerService] Unrecoverable stream error for "${track.title}". Auto-skipping...`);
+        this.error = `Stream URL expired or unavailable: "${track.title}"`;
+        this.isPlaying = false;
+        this.emitStateChange();
+        setTimeout(() => {
+            this.next().catch(() => {});
+        }, 1500);
     }
 
     private checkScrobble(): void {

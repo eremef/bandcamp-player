@@ -127,6 +127,8 @@ const electronAPI = {
       ipcRenderer.invoke(PLAYER_CHANNELS.UPDATE_TIME, currentTime, duration),
     trackEnded: (): Promise<void> =>
       ipcRenderer.invoke(PLAYER_CHANNELS.TRACK_ENDED),
+    reportPlaybackError: (trackId?: string): Promise<void> =>
+      ipcRenderer.invoke(PLAYER_CHANNELS.REPORT_PLAYBACK_ERROR, trackId),
   },
 
   // ---- Queue ----

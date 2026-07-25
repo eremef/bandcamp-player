@@ -30,6 +30,24 @@ function handleIsPlayingChanged(event: any) {
 }
 
 
+async function handlePlaybackError(event: any) {
+    if (useStore.getState().mode !== 'standalone') return;
+    console.warn('[TrackPlayerService] PlaybackError event received:', event);
+    const { mobilePlayerService } = require('./MobilePlayerService');
+    const store = useStore.getState();
+    if (store.currentTrack) {
+        console.log(`[TrackPlayerService] Attempting URL refresh for ${store.currentTrack.title}...`);
+        const success = await mobilePlayerService.loadTrack(store.currentTrack, 0, true);
+        if (success) {
+            TrackPlayer.play();
+            useStore.setState({ isPlaying: true });
+            return;
+        }
+    }
+    console.warn('[TrackPlayerService] Unrecoverable error. Skipping track...');
+    await mobilePlayerService.next();
+}
+
 async function handleStateChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
@@ -51,6 +69,8 @@ async function handleStateChanged(event: any) {
                 }
             }
         }
+    } else if (event.state === (PlaybackState as any).Error || event.state === 'error' || event.state === 5) {
+        await handlePlaybackError(event);
     }
 }
 
@@ -104,6 +124,10 @@ export async function PlaybackService(event?: any) {
             break;
         case Event.PlaybackStateChanged:
             await handleStateChanged(event);
+            break;
+        case (Event as any).PlaybackError:
+        case (Event as any).PlayerError:
+            await handlePlaybackError(event);
             break;
         case Event.MediaItemTransition:
             await handleMediaItemTransition(event);

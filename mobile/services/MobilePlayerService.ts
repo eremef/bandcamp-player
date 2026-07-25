@@ -164,6 +164,9 @@ class MobilePlayerService {
                     };
                     if (progress.duration > 0) {
                         update.duration = progress.duration;
+                        if (state.currentTrack && (!state.currentTrack.duration || state.currentTrack.duration === 0)) {
+                            (update as any).currentTrack = { ...state.currentTrack, duration: progress.duration };
+                        }
                     }
                     useStore.setState(update);
                     this.lastStoreUpdateTime = now;
@@ -368,7 +371,7 @@ class MobilePlayerService {
     /**
      * Prepare the player with a track (resolve URL, add to player) without playing
      */
-    public async loadTrack(track: Track, initialPosition: number = 0): Promise<boolean> {
+    public async loadTrack(track: Track, initialPosition: number = 0, forceRefreshUrl: boolean = false): Promise<boolean> {
         this.isLoadingTrack = true;
         try {
             if (!this.isInitialized) await this.setupPlayer();
@@ -385,7 +388,7 @@ class MobilePlayerService {
                 return false;
             }
 
-            let streamUrl = track.streamUrl;
+            let streamUrl = forceRefreshUrl ? '' : track.streamUrl;
 
             // Check if track is cached locally
             if (isCached) {
@@ -400,7 +403,7 @@ class MobilePlayerService {
             }
 
             if (!streamUrl) {
-                console.log(`[MobilePlayer] fetching stream URL for ${track.title}`);
+                console.log(`[MobilePlayer] fetching stream URL for ${track.title} (forceRefresh=${forceRefreshUrl})`);
                 // Try to get album details using bandcampUrl
                 // If bandcampUrl is missing, try to construct it or fail
 
@@ -532,8 +535,8 @@ class MobilePlayerService {
     /**
      * Load and play a specific track
      */
-    public async playTrack(track: Track, initialPosition: number = 0) {
-        const success = await this.loadTrack(track, initialPosition);
+    public async playTrack(track: Track, initialPosition: number = 0, forceRefreshUrl: boolean = false) {
+        const success = await this.loadTrack(track, initialPosition, forceRefreshUrl);
         if (success) {
             const { volume } = useStore.getState();
             TrackPlayer.setVolume(volume);
@@ -550,8 +553,8 @@ class MobilePlayerService {
 
     private lastPlayedQueueIndex = -1;
 
-    async playQueueIndex(index: number, initialPosition: number = 0) {
-        if (this.isLoadingTrack && index === this.lastPlayedQueueIndex) {
+    async playQueueIndex(index: number, initialPosition: number = 0, forceRefreshUrl: boolean = false) {
+        if (this.isLoadingTrack && index === this.lastPlayedQueueIndex && !forceRefreshUrl) {
             console.log('[MobilePlayer] Ignoring duplicate call to playQueueIndex');
             return;
         }
@@ -567,7 +570,7 @@ class MobilePlayerService {
                 queue: { ...queue, currentIndex: index }
             });
 
-            await this.playTrack(item.track, initialPosition);
+            await this.playTrack(item.track, initialPosition, forceRefreshUrl);
             this.onQueueChange?.();
         }
     }

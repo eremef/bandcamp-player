@@ -132,6 +132,9 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     playerService.seek(time),
   );
   ipcMain.handle(PLAYER_CHANNELS.TRACK_ENDED, () => playerService.handleTrackEnd());
+  ipcMain.handle(PLAYER_CHANNELS.REPORT_PLAYBACK_ERROR, (_, trackId?: string) =>
+    playerService.reportPlaybackError(trackId),
+  );
   ipcMain.handle(PLAYER_CHANNELS.SET_VOLUME, (_, volume: number) =>
     playerService.setVolume(volume),
   );

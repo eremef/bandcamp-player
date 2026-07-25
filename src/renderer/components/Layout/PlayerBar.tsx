@@ -196,6 +196,8 @@ export function PlayerBar() {
                 const srcAttr = target.getAttribute('src');
                 if (target.error?.code === 4 && (srcAttr === '' || srcAttr === null)) return;
                 if (target.error?.message?.includes('Empty src')) return;
+                console.error('[PlayerBar] Audio playback error:', target.error, 'src:', srcAttr);
+                window.electron.player.reportPlaybackError(currentTrack?.id);
             };
 
             audioNode.addEventListener('timeupdate', handleTimeUpdate);
@@ -218,7 +220,7 @@ export function PlayerBar() {
             cleanup1();
             cleanup2();
         };
-    }, [crossfadeEnabled, crossfadeDuration, queue?.currentIndex, queue?.items?.length, player.repeatMode, player.isCasting]);
+    }, [crossfadeEnabled, crossfadeDuration, queue?.currentIndex, queue?.items?.length, player.repeatMode, player.isCasting, currentTrack?.id]);
 
     useEffect(() => {
         const unsubscribe = window.electron.player.onSeek((time) => {

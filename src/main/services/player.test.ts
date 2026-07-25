@@ -218,6 +218,40 @@ describe("PlayerService", () => {
       expect(state.currentTrack).toBeNull();
       expect(state.currentTime).toBe(0);
     });
+
+    it("should attempt stream URL refresh on reportPlaybackError for non-cached track", async () => {
+      const staleTrack = { ...mockTrack, id: "stale-1", streamUrl: "http://expired.stream/1" };
+      await playerService.play(staleTrack, true);
+
+      mockScraperService.getTrackStreamUrl.mockResolvedValue("http://fresh.stream/1");
+
+      await playerService.reportPlaybackError("stale-1");
+
+      expect(mockScraperService.getTrackStreamUrl).toHaveBeenCalledWith(staleTrack);
+      expect(playerService.getState().currentTrack?.streamUrl).toBe("http://fresh.stream/1");
+      expect(playerService.getState().isPlaying).toBe(true);
+    });
+
+    it("should auto-skip to next track if stream refresh fails on reportPlaybackError", async () => {
+      vi.useFakeTimers();
+      const track1 = { ...mockTrack, id: "t1", streamUrl: "http://expired.stream/1" };
+      const track2 = { ...mockTrack, id: "t2", streamUrl: "http://valid.stream/2" };
+      await playerService.play(track1, true);
+      playerService.addToQueue(track2);
+
+      mockScraperService.getTrackStreamUrl.mockRejectedValue(new Error("403 Forbidden"));
+
+      await playerService.reportPlaybackError("t1");
+
+      expect(playerService.getState().isPlaying).toBe(false);
+      expect(playerService.getState().error).toContain("Stream URL expired");
+
+      vi.advanceTimersByTime(1600);
+      await vi.runAllTimersAsync();
+
+      expect(playerService.getState().currentTrack?.id).toBe("t2");
+      vi.useRealTimers();
+    });
   });
 
   describe("Time Updates & Scrobbling", () => {
