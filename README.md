@@ -281,16 +281,6 @@ mobile/
 🟠 just started
 🔴 not started
 
-## Star History (just for fun)
-
-<a href="https://www.star-history.com/?repos=eremef%2Fbandcamp-player&type=date&legend=bottom-right">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&theme=dark&legend=bottom-right&sealed_token=3ZlGVVOJf-FqlhGfO4OcqYcUpIHLEsrsz78QupFRgnWLEE99OcL8c718WoXhw6CurvJK9fAsGuc83d8OqBcuTDYnj0cuMqxud_Bs60X-Gh9QlBadkwPJpqr9h1yeAO6yJLZcd0NM0fDKDX8NGBNjRQGek0tSHg8tBx2wv1A5s4GZz2vvNYnarejmgQPe" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&legend=bottom-right&sealed_token=3ZlGVVOJf-FqlhGfO4OcqYcUpIHLEsrsz78QupFRgnWLEE99OcL8c718WoXhw6CurvJK9fAsGuc83d8OqBcuTDYnj0cuMqxud_Bs60X-Gh9QlBadkwPJpqr9h1yeAO6yJLZcd0NM0fDKDX8NGBNjRQGek0tSHg8tBx2wv1A5s4GZz2vvNYnarejmgQPe" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=eremef/bandcamp-player&type=date&legend=bottom-right&sealed_token=3ZlGVVOJf-FqlhGfO4OcqYcUpIHLEsrsz78QupFRgnWLEE99OcL8c718WoXhw6CurvJK9fAsGuc83d8OqBcuTDYnj0cuMqxud_Bs60X-Gh9QlBadkwPJpqr9h1yeAO6yJLZcd0NM0fDKDX8NGBNjRQGek0tSHg8tBx2wv1A5s4GZz2vvNYnarejmgQPe" />
- </picture>
-</a>
-
 ## Also-Known-As
 
 - Bandcamp Eccentric Transport App
