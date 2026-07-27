@@ -297,6 +297,34 @@ export function PlayerBar() {
 
     // Update Media Session playback state
     useEffect(() => {
+        if (!('mediaSession' in navigator)) return;
+
+        if (!currentTrack) {
+            navigator.mediaSession.playbackState = 'none';
+        } else {
+            navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+        }
+    }, [isPlaying, currentTrack]);
+
+    // Update Media Session position state for OS controls/scrubbing
+    useEffect(() => {
+        if (!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
+
+        if (duration && !isNaN(duration) && duration > 0) {
+            try {
+                navigator.mediaSession.setPositionState({
+                    duration: duration,
+                    playbackRate: 1.0,
+                    position: Math.max(0, Math.min(currentTime, duration)),
+                });
+            } catch {
+                // Ignore invalid duration/position state errors if browser rejects invalid numbers
+            }
+        }
+    }, [currentTime, duration]);
+
+    // Manage Cast discovery when cast menu is toggled
+    useEffect(() => {
         if (isCastMenuOpen) {
             startCastDiscovery();
         } else {

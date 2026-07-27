@@ -178,8 +178,15 @@ describe('PlayerBar', () => {
         expect(window.electron.player.reportPlaybackError).toHaveBeenCalled();
     });
 
-    it('handles Media Session API actions', () => {
+    it('handles Media Session API actions and status synchronization', () => {
         render(<PlayerBar />);
+
+        expect(navigator.mediaSession.playbackState).toBe('paused');
+        expect(navigator.mediaSession.setPositionState).toHaveBeenCalledWith({
+            duration: 100,
+            playbackRate: 1.0,
+            position: 0,
+        });
 
         // Find handlers registered in useEffect
         const handlers: Record<string, (handler?: any) => void> = {};
