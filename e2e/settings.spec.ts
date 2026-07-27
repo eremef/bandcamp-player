@@ -48,21 +48,13 @@ test.describe('Settings', () => {
         await minimizeTrayLabel.scrollIntoViewIfNeeded();
         await expect(minimizeTrayLabel).toBeVisible({ timeout: 5000 });
 
-        // The checkbox is hidden (opacity:0, width:0, height:0) inside a toggle switch <label>.
-        // We'll use evaluate() to directly check and toggle the checkbox state
-        // since Playwright cannot interact with zero-dimension elements.
-
-        // Get the checkbox's current state via the accessibility role
         const trayCheckbox = window.getByTestId('setting-minimize-tray');
         const initialState = await trayCheckbox.isChecked();
         const newState = !initialState;
 
-        // Use evaluate to programmatically toggle the checkbox
-        await trayCheckbox.evaluate((el: HTMLInputElement, shouldBeChecked: boolean) => {
-            if (el.checked !== shouldBeChecked) {
-                el.click();
-            }
-        }, newState);
+        // The checkbox is hidden inside a toggle switch <label>.
+        // Click the input via evaluate to trigger React's onChange properly.
+        await trayCheckbox.evaluate((el: HTMLInputElement) => el.click());
 
         // Verify the checkbox state changed
         await expect(trayCheckbox).toBeChecked({ checked: newState });
@@ -76,7 +68,7 @@ test.describe('Settings', () => {
         await window.waitForTimeout(2000);
 
         // 4. Close the app
-        const userDataDir = join(__dirname, '../temp-test-data', testInfo.workerIndex.toString());
+        const userDataDir = join(__dirname, '../temp-test-data', testInfo.testId);
         const remotePort = (9999 + testInfo.workerIndex).toString();
 
         await electronApp.close();

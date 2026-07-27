@@ -23,11 +23,13 @@ import {
   Download,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
+import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./CollectionView.module.css";
 import { dedupeCollectionItems, sortCollectionItems } from "../../utils/collection-utils";
 
 
 export function CollectionView() {
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const {
     collection,
     isLoadingCollection,
@@ -568,17 +570,13 @@ export function CollectionView() {
                     <button onClick={() => handleBulkAction('addToQueue')}>
                       <List size={16} /> Add to Queue ({sortedItems.length})
                     </button>
-                    {playlists.length > 0 && (
-                      <>
-                        <div className={styles.bulkMenuDivider} />
-                        <span className={styles.bulkMenuLabel}>Add to Playlist ({sortedItems.length})</span>
-                        {playlists.map((playlist) => (
-                          <button key={playlist.id} onClick={() => handleBulkAction('addToPlaylist', playlist.id)}>
-                            <Music size={14} /> {playlist.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    <div className={styles.bulkMenuDivider} />
+                    <button onClick={() => {
+                      setShowBulkMenu(false);
+                      setShowPlaylistModal(true);
+                    }}>
+                      <Music size={14} /> Add to Playlist ({sortedItems.length})
+                    </button>
                     {!isOfflineMode && (
                       <>
                         <div className={styles.bulkMenuDivider} />
@@ -610,6 +608,12 @@ export function CollectionView() {
           }
         />
       </div>
+
+      <AddToPlaylistModal
+        isOpen={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        onSelectPlaylist={(playlistId) => handleBulkAction('addToPlaylist', playlistId)}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   ExternalLink,
 } from "lucide-react";
+import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./RadioDetailView.module.css";
 import type { Track } from "../../../shared/types";
 
@@ -27,6 +28,7 @@ export function RadioDetailView() {
   const [isLoading, setIsLoading] = useState(false);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
+  const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<any | null>(null);
 
   useEffect(() => {
     if (!selectedRadioStation) return;
@@ -253,24 +255,13 @@ export function RadioDetailView() {
                             <List size={14} /> Add to Queue
                           </button>
 
-                          {playlists.length > 0 && (
-                            <>
-                              <div className={styles.menuDivider} />
-                              <span className={styles.menuLabel}>
-                                Add to Playlist
-                              </span>
-                              {playlists.map((playlist) => (
-                                <button
-                                  key={playlist.id}
-                                  onClick={() =>
-                                    handleTrackAddToPlaylist(playlist.id, track)
-                                  }
-                                >
-                                  <Music size={14} /> {playlist.name}
-                                </button>
-                              ))}
-                            </>
-                          )}
+                          <div className={styles.menuDivider} />
+                          <button onClick={() => {
+                            setActiveTrackMenu(null);
+                            setSelectedTrackForPlaylist(track);
+                          }}>
+                            <Music size={14} /> Add to Playlist
+                          </button>
                         </div>
                       )}
                     </div>
@@ -281,6 +272,17 @@ export function RadioDetailView() {
           </table>
         )}
       </div>
+
+      <AddToPlaylistModal
+        isOpen={!!selectedTrackForPlaylist}
+        onClose={() => setSelectedTrackForPlaylist(null)}
+        onSelectPlaylist={(playlistId) => {
+          if (selectedTrackForPlaylist) {
+            handleTrackAddToPlaylist(playlistId, selectedTrackForPlaylist);
+            setSelectedTrackForPlaylist(null);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -209,7 +209,7 @@ export default function RadioDetailScreen() {
                         activeOpacity={0.8}
                     >
                         <Play size={18} color="#fff" fill="#fff" />
-                        <Text style={styles.actionBtnText}>Play Full Mix</Text>
+                        <Text style={styles.actionBtnText}>Play Mix</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                         testID="play-extracted-btn"
@@ -218,13 +218,13 @@ export default function RadioDetailScreen() {
                         activeOpacity={0.8}
                     >
                         <ListPlus size={18} color={colors.text} />
-                        <Text style={[styles.actionBtnText, { color: colors.text }]}>Play Extracted Tracks</Text>
+                        <Text style={[styles.actionBtnText, { color: colors.text }]}>Play Tracks</Text>
                     </TouchableOpacity>
                 </View>
 
                 {tracks.length > 0 && (
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                        Extracted Tracks ({tracks.length})
+                        Tracks ({tracks.length})
                     </Text>
                 )}
             </View>
@@ -417,7 +417,6 @@ const styles = StyleSheet.create({
     stationHost: {
         fontSize: 13,
         fontWeight: 'bold',
-        marginTop: 6,
         marginBottom: 4,
     },
     actionButtonsRow: {

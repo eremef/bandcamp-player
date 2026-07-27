@@ -10,9 +10,11 @@ import {
   Trash2,
   ExternalLink,
 } from "lucide-react";
+import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./AlbumDetailView.module.css";
 
 export function AlbumDetailView() {
+  const [selectedTrackForPlaylist, setSelectedTrackForPlaylist] = useState<any | null>(null);
   const {
     selectedAlbum,
     setView,
@@ -363,24 +365,13 @@ export function AlbumDetailView() {
                             <List size={14} /> Add to Queue
                           </button>
 
-                          {playlists.length > 0 && (
-                            <>
-                              <div className={styles.menuDivider} />
-                              <span className={styles.menuLabel}>
-                                Add to Playlist
-                              </span>
-                              {playlists.map((playlist) => (
-                                <button
-                                  key={playlist.id}
-                                  onClick={() =>
-                                    handleTrackAddToPlaylist(playlist.id, track)
-                                  }
-                                >
-                                  <Music size={14} /> {playlist.name}
-                                </button>
-                              ))}
-                            </>
-                          )}
+                          <div className={styles.menuDivider} />
+                          <button onClick={() => {
+                            setActiveTrackMenu(null);
+                            setSelectedTrackForPlaylist(track);
+                          }}>
+                            <Music size={14} /> Add to Playlist
+                          </button>
 
                           <div className={styles.menuDivider} />
                           {!cachedTrackIds.has(track.id) ? (
@@ -404,6 +395,17 @@ export function AlbumDetailView() {
           </table>
         )}
       </div>
+
+      <AddToPlaylistModal
+        isOpen={!!selectedTrackForPlaylist}
+        onClose={() => setSelectedTrackForPlaylist(null)}
+        onSelectPlaylist={(playlistId) => {
+          if (selectedTrackForPlaylist) {
+            handleTrackAddToPlaylist(playlistId, selectedTrackForPlaylist);
+            setSelectedTrackForPlaylist(null);
+          }
+        }}
+      />
     </div>
   );
 }

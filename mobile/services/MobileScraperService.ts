@@ -856,7 +856,13 @@ export class MobileScraperService {
                             const $ = cheerio.load(episode.image_caption);
                             imageCaption = $.text().trim();
                         } catch {
-                            imageCaption = String(episode.image_caption).replace(/<[^>]*>?/gm, '').trim();
+                            let sanitized = String(episode.image_caption);
+                            let prev;
+                            do {
+                                prev = sanitized;
+                                sanitized = sanitized.replace(/<[^>]*>?/gm, '');
+                            } while (sanitized !== prev);
+                            imageCaption = sanitized.trim();
                         }
                     }
 

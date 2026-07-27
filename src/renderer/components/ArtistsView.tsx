@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { useStore } from "../store/store";
 import type { CollectionItem, Track } from "../../shared/types";
 import { ItemsGrid } from "./Collection/ItemsGrid";
+import { AddToPlaylistModal } from "./Playlist/AddToPlaylistModal";
 import {
   ArrowLeft,
   ExternalLink,
@@ -24,6 +25,7 @@ interface DerivedArtist {
 }
 
 export const ArtistsView: React.FC = () => {
+  const [playlistTargetArtistItems, setPlaylistTargetArtistItems] = useState<CollectionItem[] | null>(null);
   const {
     collection,
     selectedArtistId,
@@ -389,30 +391,13 @@ export const ArtistsView: React.FC = () => {
                     >
                       <List size={16} /> Add to Queue
                     </button>
-                    {playlists.length > 0 && (
-                      <>
-                        <div className={styles.menuDivider} />
-                        <span className={styles.menuLabel}>Add to Playlist</span>
-                        {playlists.map((playlist) => (
-                          <button
-                            key={playlist.id}
-                            onClick={async () => {
-                              setShowDetailMenu(false);
-                              setIsActionsLoading(true);
-                              try {
-                                const tracks = await getArtistTracks(artistItems);
-                                if (tracks.length > 0)
-                                  await addTracksToPlaylist(playlist.id, tracks);
-                              } finally {
-                                setIsActionsLoading(false);
-                              }
-                            }}
-                          >
-                            <Music size={14} /> {playlist.name}
-                          </button>
-                        ))}
-                      </>
-                    )}
+                    <div className={styles.menuDivider} />
+                    <button onClick={() => {
+                      setShowDetailMenu(false);
+                      setPlaylistTargetArtistItems(artistItems);
+                    }}>
+                      <Music size={14} /> Add to Playlist
+                    </button>
                     {!cachedArtistIds.has(selectedArtistId) && (
                       <>
                         <div className={styles.menuDivider} />
@@ -559,22 +544,13 @@ export const ArtistsView: React.FC = () => {
                       <button onClick={() => handleCardAction(artist.id, "addToQueue")}>
                         <List size={16} /> Add to Queue
                       </button>
-                      {playlists.length > 0 && (
-                        <>
-                          <div className={styles.menuDivider} />
-                          <span className={styles.menuLabel}>Add to Playlist</span>
-                          {playlists.map((playlist) => (
-                            <button
-                              key={playlist.id}
-                              onClick={() =>
-                                handleCardAction(artist.id, "addToPlaylist", playlist.id)
-                              }
-                            >
-                              <Music size={14} /> {playlist.name}
-                            </button>
-                          ))}
-                        </>
-                      )}
+                      <div className={styles.menuDivider} />
+                      <button onClick={() => {
+                        setCardMenuArtistId(null);
+                        setPlaylistTargetArtistItems(artist.items);
+                      }}>
+                        <Music size={14} /> Add to Playlist
+                      </button>
                       {!cachedArtistIds.has(artist.id) && !isOfflineMode && (
                         <>
                           <div className={styles.menuDivider} />
@@ -598,6 +574,25 @@ export const ArtistsView: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AddToPlaylistModal
+        isOpen={!!playlistTargetArtistItems}
+        onClose={() => setPlaylistTargetArtistItems(null)}
+        onSelectPlaylist={async (playlistId) => {
+          if (playlistTargetArtistItems) {
+            setIsActionsLoading(true);
+            try {
+              const tracks = await getArtistTracks(playlistTargetArtistItems);
+              if (tracks.length > 0) {
+                await addTracksToPlaylist(playlistId, tracks);
+              }
+            } finally {
+              setIsActionsLoading(false);
+              setPlaylistTargetArtistItems(null);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

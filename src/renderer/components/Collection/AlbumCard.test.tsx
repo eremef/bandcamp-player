@@ -171,6 +171,7 @@ describe("AlbumCard", () => {
       ?.parentElement as HTMLElement;
 
     fireEvent.contextMenu(card);
+    fireEvent.click(screen.getByText("Add to Playlist"));
     fireEvent.click(screen.getByText("My Playlist"));
 
     await waitFor(() => {

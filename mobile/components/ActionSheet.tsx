@@ -114,6 +114,16 @@ export function ActionSheet({ visible, onClose, title, subtitle, actions }: Acti
 
                         {mainActions.map((action, index) => {
                             if (action.type === 'separator') {
+                                if (action.text) {
+                                    return (
+                                        <View key={index}>
+                                            <View style={[styles.separator, { backgroundColor: colors.border + '40' }]} />
+                                            <View style={styles.labelContainer}>
+                                                <Text style={[styles.labelText, { color: colors.accent }]}>{action.text}</Text>
+                                            </View>
+                                        </View>
+                                    );
+                                }
                                 return <View key={index} style={[styles.separator, { backgroundColor: colors.border + '40' }]} />;
                             }
 

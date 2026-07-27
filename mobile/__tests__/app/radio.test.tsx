@@ -113,23 +113,24 @@ describe('RadioScreen', () => {
     });
 
     it('long press opens ActionSheet with correct options', () => {
-        const { getByText } = render(<RadioScreen />);
+        const { getByText, getAllByText } = render(<RadioScreen />);
 
         // Trigger long press
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
         // We should see action sheet options
-        expect(getByText('Play Mix Next')).toBeTruthy();
-        expect(getByText('Add Mix to Queue')).toBeTruthy();
-        expect(getByText('Add to Playlist')).toBeTruthy();
+        expect(getByText('Play Next')).toBeTruthy();
+        expect(getAllByText('Add to Queue').length).toBeGreaterThan(0);
+        expect(getAllByText('Add to Playlist').length).toBeGreaterThan(0);
         expect(getByText('Cancel')).toBeTruthy();
     });
 
     it('Add to Queue works from ActionSheet', () => {
-        const { getByText } = render(<RadioScreen />);
+        const { getByText, getAllByText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        fireEvent.press(getByText('Add Mix to Queue'));
+        // Target the Mix "Add to Queue" option (first occurrence)
+        fireEvent.press(getAllByText('Add to Queue')[0]);
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], false);
     });
 
@@ -137,16 +138,16 @@ describe('RadioScreen', () => {
         const { getByText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        fireEvent.press(getByText('Play Mix Next'));
+        fireEvent.press(getByText('Play Next'));
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], true);
     });
 
     it('Add to Playlist flow', () => {
-        const { getByText } = render(<RadioScreen />);
+        const { getByText, getAllByText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        // Click Add to Playlist
-        fireEvent.press(getByText('Add to Playlist'));
+        // Click Mix "Add to Playlist" (first occurrence)
+        fireEvent.press(getAllByText('Add to Playlist')[0]);
 
         // Playlist selection modal should open
         expect(getByText('My Playlist')).toBeTruthy();
@@ -158,9 +159,9 @@ describe('RadioScreen', () => {
     });
 
     it('Create new playlist flow', () => {
-        const { getByText, getByPlaceholderText } = render(<RadioScreen />);
+        const { getByText, getAllByText, getByPlaceholderText } = render(<RadioScreen />);
         fireEvent(getByText('Cool Station 1'), 'onLongPress');
-        fireEvent.press(getByText('Add to Playlist'));
+        fireEvent.press(getAllByText('Add to Playlist')[0]);
 
         fireEvent.press(getByText('Create New Playlist'));
 

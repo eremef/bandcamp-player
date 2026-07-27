@@ -81,18 +81,19 @@ export default function RadioScreen() {
     const handleLongPress = (station: RadioStation) => {
         setActionSheetTitle(station.name);
         setActionSheetActions([
+            { text: "Mix", type: "separator", onPress: () => { } },
             {
-                text: "Play Mix Now",
+                text: "Play Now",
                 icon: Play,
                 onPress: () => playStation(station)
             },
             {
-                text: "Play Mix Next",
+                text: "Play Next",
                 icon: ListEnd,
                 onPress: () => addStationToQueue(station, true)
             },
             {
-                text: "Add Mix to Queue",
+                text: "Add to Queue",
                 icon: ListPlus,
                 onPress: () => addStationToQueue(station, false)
             },
@@ -104,19 +105,19 @@ export default function RadioScreen() {
                     setPlaylistModalVisible(true);
                 }
             },
-            { text: "", type: "separator", onPress: () => { } },
+            { text: "Extracted Tracks", type: "separator", onPress: () => { } },
             {
-                text: "Extract & Play",
+                text: "Play",
                 icon: Play,
                 onPress: () => extractRadioTracksToQueue(station, false)
             },
             {
-                text: "Extract & Add to Queue",
+                text: "Add to Queue",
                 icon: ListPlus,
                 onPress: () => extractRadioTracksToQueue(station, true)
             },
             {
-                text: "Extract to Playlist",
+                text: "Add to Playlist",
                 icon: ListMusic,
                 onPress: () => {
                     setSelectedStation(station);
@@ -185,18 +186,19 @@ export default function RadioScreen() {
     }, [filteredStations, extractRadioToPlaylist]);
 
     const bulkActions: Action[] = React.useMemo(() => [
+        { text: "Mixes", type: "separator", onPress: () => { } },
         {
-            text: "Play Mix Now",
+            text: "Play Now",
             icon: Play,
             onPress: handleBulkPlayNow,
         },
         {
-            text: "Play Mix Next",
+            text: "Play Next",
             icon: ListEnd,
             onPress: handleBulkPlayNext,
         },
         {
-            text: "Add Mix to Queue",
+            text: "Add to Queue",
             icon: ListPlus,
             onPress: handleBulkAddToQueue,
         },
@@ -205,24 +207,23 @@ export default function RadioScreen() {
             icon: ListMusic,
             onPress: () => setBulkPlaylistModalVisible(true),
         },
-        { text: "", type: "separator", onPress: () => { } },
-        { text: "", type: "separator", onPress: () => { } },
+        { text: "Extracted Tracks", type: "separator", onPress: () => { } },
         {
-            text: "Extract & Play",
+            text: "Play",
             icon: Play,
             onPress: () => {
                 filteredStations.forEach(s => extractRadioTracksToQueue(s, false));
             },
         },
         {
-            text: "Extract & Add to Queue",
+            text: "Add to Queue",
             icon: ListPlus,
             onPress: () => {
                 filteredStations.forEach(s => extractRadioTracksToQueue(s, true));
             },
         },
         {
-            text: "Extract to Playlist",
+            text: "Add to Playlist",
             icon: ListMusic,
             onPress: () => setBulkExtractPlaylistModalVisible(true),
         },

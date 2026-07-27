@@ -10,6 +10,7 @@ import {
   Download,
   Heart,
 } from "lucide-react";
+import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./AlbumCard.module.css";
 
 interface AlbumCardProps {
@@ -45,6 +46,7 @@ export function AlbumCard({
   const isOfflineMode = settings?.offlineMode ?? false;
   const [isLoading, setIsLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
   // An album is fully cached if its ID appears in cachedAlbumIds (derived from
   // DB counts vs trackCount — works even when album.tracks is still empty).
@@ -273,23 +275,16 @@ export function AlbumCard({
             <List size={16} /> Add to Queue
           </button>
 
-          {playlists.length > 0 && (
-            <>
-              <div className={styles.menuDivider} />
-              <span className={styles.menuLabel}>Add to Playlist</span>
-              {playlists.map((playlist) => (
-                <button
-                  key={playlist.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddToPlaylist(playlist.id);
-                  }}
-                >
-                  <Music size={14} /> {playlist.name}
-                </button>
-              ))}
-            </>
-          )}
+          <div className={styles.menuDivider} />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(false);
+              setShowPlaylistModal(true);
+            }}
+          >
+            <Music size={14} /> Add to Playlist
+          </button>
           {!isCached && !isOfflineMode && (
             <>
               <div className={styles.menuDivider} />
@@ -305,6 +300,12 @@ export function AlbumCard({
           )}
         </div>
       )}
+
+      <AddToPlaylistModal
+        isOpen={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        onSelectPlaylist={(playlistId) => handleAddToPlaylist(playlistId)}
+      />
     </div>
   );
 }

@@ -108,10 +108,10 @@ describe('RadioDetailScreen', () => {
         expect(await findByText('First cool station description')).toBeTruthy();
         expect(getAllByText('Cool Station 1').length).toBeGreaterThan(0);
         expect(await findByText(/2023-01-01/)).toBeTruthy();
-        expect(await findByText('Play Full Mix')).toBeTruthy();
+        expect(await findByText('Play Mix')).toBeTruthy();
     });
 
-    it('fetches and displays extracted tracks using playlist-style layout', async () => {
+    it('fetches and displays tracks using playlist-style layout', async () => {
         const { findByText } = render(<RadioDetailScreen />);
 
         expect(await findByText('Extracted Track 1')).toBeTruthy();
@@ -120,9 +120,9 @@ describe('RadioDetailScreen', () => {
         expect(await findByText('Artist Two')).toBeTruthy();
     });
 
-    it('plays full mix when Play Full Mix is pressed', async () => {
+    it('plays full mix when Play Mix is pressed', async () => {
         const { getByTestId, findByText } = render(<RadioDetailScreen />);
-        await findByText('Play Full Mix');
+        await findByText('Play Mix');
         const playBtn = getByTestId('play-mix-btn');
         await act(async () => {
             fireEvent.press(playBtn);
@@ -134,9 +134,9 @@ describe('RadioDetailScreen', () => {
         }));
     });
 
-    it('extracts tracks when Play Extracted Tracks is pressed', async () => {
+    it('extracts tracks when Play Tracks is pressed', async () => {
         const { getByTestId, findByText } = render(<RadioDetailScreen />);
-        await findByText('Play Extracted Tracks');
+        await findByText('Play Tracks');
         const extractBtn = getByTestId('play-extracted-btn');
         await act(async () => {
             fireEvent.press(extractBtn);
