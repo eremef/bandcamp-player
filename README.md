@@ -36,7 +36,7 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
 - ↕️ **Sorting** - Persistent sorting (Date, Title, Artist)
 - 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
-- 🎛️ **Windows Integration** - Control playback via system media keys and Taskbar thumbnail buttons (Thumbar)
+- 🎛️ **OS & Media Session Integration** - Full integration with Windows System Media Transport Controls (SMTC) & macOS Now Playing, supporting media keys, position scrubbing, artwork display, Taskbar thumbnail buttons (Thumbar), and third-party scrobblers (Pano Scrobbler, etc.)
 - 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes
@@ -114,9 +114,10 @@ Access the settings menu (gear icon) to configure:
   - View cache usage statistics
   - Clear cache to free up space
 
-- **Last.fm & Discord**
-  - Connect/disconnect Last.fm account for automatic scrobbling
+- **Last.fm, Discord & External Scrobblers**
+  - Connect/disconnect Last.fm account for built-in automatic scrobbling
   - Enable Discord Rich Presence to show current track in your profile
+  - **Pano Scrobbler & External Scrobblers**: The app fully supports OS Media Sessions (Windows SMTC / macOS Now Playing) with playback state and scrubber synchronization. If using Pano Scrobbler (or similar OS-level scrobblers), it will detect the app as `xyz.eremef.beta.app`. Make sure playback is active before adding the app to the scrobbler's allowlist.
 
 - **Playback**
   - Toggle gapless playback and crossfade
@@ -273,7 +274,7 @@ mobile/
 
 | What                                          | Size | Description                                                                             | Status |
 | :-------------------------------------------- | ---- | --------------------------------------------------------------------------------------- | :----: |
-| Stability and other bugs | XXL | | 🟡 | 
+| Stability and other bugs | XXL | | 🟡 |
 
 **Legend**:
 🟢 finished (waiting for release)
