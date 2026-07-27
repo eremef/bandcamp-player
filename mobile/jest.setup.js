@@ -10,16 +10,23 @@ jest.mock('expo-linking', () => ({
     createURL: jest.fn(),
 }));
 
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+const mockBack = jest.fn();
+
 jest.mock('expo-router', () => ({
     useRouter: () => ({
-        push: jest.fn(),
-        replace: jest.fn(),
-        back: jest.fn(),
+        push: mockPush,
+        replace: mockReplace,
+        back: mockBack,
     }),
     useLocalSearchParams: () => ({}),
     useFocusEffect: (callback) => {
         callback();
     },
+    mockPush,
+    mockReplace,
+    mockBack,
 }));
 
 jest.mock('expo-network', () => ({

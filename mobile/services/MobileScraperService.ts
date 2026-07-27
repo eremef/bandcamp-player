@@ -850,10 +850,22 @@ export class MobileScraperService {
                         }
                     }
 
+                    let imageCaption = undefined;
+                    if (episode.image_caption) {
+                        try {
+                            const $ = cheerio.load(episode.image_caption);
+                            imageCaption = $.text().trim();
+                        } catch {
+                            imageCaption = String(episode.image_caption).replace(/<[^>]*>?/gm, '').trim();
+                        }
+                    }
+
                     stations.push({
                         id: String(episode.show_id || episode.id),
                         name: episode.title || `Bandcamp Weekly ${episode.id}`,
-                        description: episode.subtitle || episode.desc,
+                        description: episode.subtitle,
+                        longDescription: episode.desc,
+                        imageCaption: imageCaption,
                         imageUrl: episode.image_id ? config.endpoints.radioImageFormat.replace('{image_id}', episode.image_id.toString()) : undefined,
                         streamUrl: '', // Will be fetched on demand
                         date: formattedDate,

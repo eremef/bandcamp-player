@@ -8,9 +8,11 @@ import { InputModal } from '../../components/InputModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
 
 export default function RadioScreen() {
+    const router = useRouter();
     const insets = useSafeAreaInsets();
     const colors = useTheme();
     const radioStations = useStore((state) => state.radioStations);
@@ -60,7 +62,20 @@ export default function RadioScreen() {
     }, [refreshRadio]);
 
     const handlePlayStation = (station: RadioStation) => {
-        playStation(station);
+        router.push({
+            pathname: '/radio_detail',
+            params: {
+                id: station.id,
+                name: station.name,
+                description: station.description || '',
+                longDescription: station.longDescription || '',
+                imageCaption: station.imageCaption || '',
+                date: station.date || '',
+                imageUrl: station.imageUrl || '',
+                streamUrl: station.streamUrl || '',
+                duration: station.duration ? station.duration.toString() : '',
+            }
+        });
     };
 
     const handleLongPress = (station: RadioStation) => {

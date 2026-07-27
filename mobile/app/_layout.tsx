@@ -110,6 +110,7 @@ export default function RootLayout() {
                 <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="album_detail" />
+                <Stack.Screen name="radio_detail" />
                 <Stack.Screen name="about" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="license" />

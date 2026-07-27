@@ -102,10 +102,14 @@ describe('RadioScreen', () => {
         expect(queryByText('Cool Station 1')).toBeNull();
     });
 
-    it('calls playStation on press', () => {
+    it('navigates to radio_detail on press', () => {
         const { getByText } = render(<RadioScreen />);
         fireEvent.press(getByText('Cool Station 1'));
-        expect(mockPlayStation).toHaveBeenCalledWith(mockStations[0]);
+        const { mockPush } = require('expo-router');
+        expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({
+            pathname: '/radio_detail',
+            params: expect.objectContaining({ id: 'station-1', name: 'Cool Station 1' }),
+        }));
     });
 
     it('long press opens ActionSheet with correct options', () => {
