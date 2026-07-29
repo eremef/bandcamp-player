@@ -75,6 +75,8 @@ export class AuthService {
         width: 500,
         height: 700,
         title: "Login to Bandcamp",
+        backgroundColor: "#ffffff",
+        hasShadow: process.platform !== "darwin",
         webPreferences: {
           nodeIntegration: false,
           contextIsolation: true,
