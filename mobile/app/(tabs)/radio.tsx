@@ -8,7 +8,7 @@ import { InputModal } from '../../components/InputModal';
 import { SearchBar } from '../../components/SearchBar';
 import { useTheme } from '../../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ListEnd, ListPlus, ListMusic, Play, MoreHorizontal } from 'lucide-react-native';
 
 export default function RadioScreen() {
@@ -43,6 +43,15 @@ export default function RadioScreen() {
     const [bulkActionSheetVisible, setBulkActionSheetVisible] = useState(false);
     const [bulkPlaylistModalVisible, setBulkPlaylistModalVisible] = useState(false);
     const [bulkExtractPlaylistModalVisible, setBulkExtractPlaylistModalVisible] = useState(false);
+
+    // Fetch radio stations on focus if list is empty or fallback show
+    useFocusEffect(
+        React.useCallback(() => {
+            if (radioStations.length === 0 || (radioStations.length === 1 && radioStations[0].id === 'weekly')) {
+                refreshRadio();
+            }
+        }, [radioStations, refreshRadio])
+    );
 
     const filteredStations = React.useMemo(() => {
         if (!radioSearchQuery.trim()) return radioStations;

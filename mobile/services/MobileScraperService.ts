@@ -404,6 +404,10 @@ export class MobileScraperService {
         }
 
         const endpoint = apiUrl || config.endpoints.collectionItemsApi;
+        if (!endpoint) {
+            throw new Error('[MobileScraper] collectionItemsApi endpoint is missing in remote config');
+        }
+
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -820,6 +824,11 @@ export class MobileScraperService {
      */
     async getRadioStations(): Promise<RadioStation[]> {
         const config = remoteConfigService.get();
+        if (!config.endpoints.radioListApi) {
+            console.warn('[MobileScraper] radioListApi endpoint is missing in remote config');
+            return [];
+        }
+        
         try {
             const response = await fetch(config.endpoints.radioListApi, {
                 headers: {
@@ -882,14 +891,7 @@ export class MobileScraperService {
             return stations;
         } catch (error) {
             console.error('[MobileScraper] Error fetching radio stations:', error);
-            return [
-                {
-                    id: 'weekly',
-                    name: 'Bandcamp Weekly',
-                    description: 'The best new music on Bandcamp',
-                    streamUrl: config.endpoints.radioFallbackStream,
-                },
-            ];
+            return [];
         }
     }
 
@@ -898,6 +900,11 @@ export class MobileScraperService {
      */
     async getStationStreamUrl(showId: string): Promise<{ streamUrl: string; duration: number }> {
         const config = remoteConfigService.get();
+        if (!config.endpoints.radioPlayerDataApi) {
+            console.warn('[MobileScraper] radioPlayerDataApi endpoint is missing in remote config');
+            return { streamUrl: '', duration: 0 };
+        }
+
         try {
             console.log(`[MobileScraper] Fetching stream URL for show: ${showId}`);
 
@@ -953,6 +960,11 @@ export class MobileScraperService {
     public async getStationTracks(showId: string): Promise<Track[]> {
         console.log(`[MobileScraper] fetching tracks for radio show ${showId}`);
         const config = remoteConfigService.get();
+        if (!config.endpoints.radioPlayerDataApi) {
+            console.warn('[MobileScraper] radioPlayerDataApi endpoint is missing in remote config');
+            return [];
+        }
+
         try {
             const response = await fetch(config.endpoints.radioPlayerDataApi, {
                 method: "POST",
@@ -1020,6 +1032,11 @@ export class MobileScraperService {
         }
 
         const config = remoteConfigService.get();
+        if (!config.endpoints.bandcampPlaylistsApi) {
+            console.warn('[MobileScraper] bandcampPlaylistsApi endpoint is missing in remote config');
+            return [];
+        }
+
         const cookies = await mobileAuthService.getCookies();
 
         try {

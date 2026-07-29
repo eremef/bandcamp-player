@@ -2,15 +2,44 @@ import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileAuthService } from '../services/MobileAuthService';
 import { mobileDatabase } from '../services/MobileDatabase';
 import { mobileSimulationService } from '../services/MobileSimulationService';
+import { remoteConfigService } from '@shared/remote-config.service';
 
 jest.mock('../services/MobileAuthService');
 jest.mock('../services/MobileDatabase');
 jest.mock('../services/MobileSimulationService');
+jest.mock('@shared/remote-config.service');
 
 describe('MobileScraperService', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         global.fetch = jest.fn();
+
+        (remoteConfigService.get as jest.Mock).mockReturnValue({
+            endpoints: {
+                radioListApi: 'mock_radio_list',
+                radioPlayerDataApi: 'mock_radio_player',
+                bandcampPlaylistsApi: 'mock_playlists',
+                collectionItemsApi: 'mock_collection',
+                mobileTralbumDetailsApi: 'mock_mobile_api?band_id={band_id}&track_id={track_id}',
+                artworkFormat: 'mock_art',
+                radioImageFormat: 'mock_img'
+            },
+            selectors: {
+                collection: { itemContainer: '.collection-item-container', artist: '.collection-item-artist', title: '.collection-item-title', link: 'a.item-link', artwork: 'img.collection-item-art', fallbackArtist: 'Unknown Artist', fallbackTitle: 'Untitled' },
+                album: { artistDOM: [] },
+                radio: {}
+            },
+            scriptKeys: { collection: ['collection_data'], album: ['TralbumData'], wishlist: ['wishlist_data'] },
+            userAgents: { desktop: '', mobile: '', mobileApi: '' },
+            cleaning: { 
+                artistCleanRegex: '\\s*by\\s+.+$', 
+                artistPrefixCleanRegex: '^by\\s+', 
+                titleCleanRegex: '\\s*\\(gift given\\)\\s*', 
+                dedupeRegex: '^(.*?)\\s*\\(gift given\\)\\s*\\1$' 
+            },
+            scraping: { batchSize: 10, maxBatches: 1, rateLimitDelay: 0, rateLimitJitter: 0 },
+            radioData: { showIdKeys: ['showId'], trackIdKeys: ['trackId'], fallbackTitle: '', fallbackArtist: '', fallbackAlbum: '', fallbackUrl: '' }
+        });
 
         // Default settings mock
         (mobileDatabase.getSettings as jest.Mock).mockResolvedValue({
@@ -66,7 +95,7 @@ describe('MobileScraperService', () => {
                         <script>
                             var collection_data = {
                                 items: [
-                                    { item_id: 1, item_type: "album", band_name: "Artist", item_title: "Title by Artist" }
+                                    { item_id: 1, item_type: "album", band_name: "Artist", item_title: "Title by Artist", token: "tok1" }
                                 ]
                             };
                         </script>
@@ -95,7 +124,7 @@ describe('MobileScraperService', () => {
                  <html>
                      <body>
                          <div id="collection-grid">
-                             <div class="collection-item-container" data-itemtype="track" data-tralbumid="123" data-bandid="456">
+                             <div class="collection-item-container" data-itemtype="track" data-tralbumid="123" data-bandid="456" data-token="tok1">
                                  <div class="collection-item-artist">by Artist</div>
                                  <div class="collection-item-title">Track Title</div>
                              </div>
@@ -104,7 +133,9 @@ describe('MobileScraperService', () => {
                  </html>
              `;
 
-            (global.fetch as jest.Mock).mockResolvedValueOnce({ text: jest.fn().mockResolvedValue(mockHtml) });
+            (global.fetch as jest.Mock)
+                .mockResolvedValueOnce({ text: jest.fn().mockResolvedValue(mockHtml) })
+                .mockResolvedValueOnce({ json: jest.fn().mockResolvedValue({ items: [] }) });
 
             const result = await mobileScraperService.fetchCollection(true);
 
@@ -119,7 +150,7 @@ describe('MobileScraperService', () => {
             
             const mockData = {
                 items: [
-                    { item_id: 1, item_type: "album", band_name: "Artist", item_title: "Title", purchased: "invalid-date-string" }
+                    { item_type: "album", purchased: "invalid date", token: "tok1" }
                 ]
             };
 
@@ -213,12 +244,11 @@ describe('MobileScraperService', () => {
             expect(stations[0].date).toBeDefined();
         });
 
-        it('should return fallback on error', async () => {
+        it('should return empty array on error instead of dummy fallback', async () => {
             (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('fail'));
 
             const stations = await mobileScraperService.getRadioStations();
-            expect(stations.length).toBe(1);
-            expect(stations[0].id).toBe('weekly');
+            expect(stations.length).toBe(0);
         });
     });
 

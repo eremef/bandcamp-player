@@ -76,15 +76,14 @@ export interface RemoteConfig {
 // Fallback baked-in config
 let DefaultConfig: any;
 try {
-  // 1. Try mobile-specific path first if likely in React Native
-  // Metro will resolve this relative to the shared file
+  // 1. Desktop production (app root) and Desktop dev (project root)
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  DefaultConfig = require("../../mobile/assets/remote-config.json");
+  DefaultConfig = require("../../remote-config.json");
 } catch {
   try {
-    // 2. Desktop production (app root) and Desktop/Mobile dev (project root)
+    // 2. Mobile (resolved via the mobile/src/shared junction)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    DefaultConfig = require("../../remote-config.json");
+    DefaultConfig = require("../../assets/remote-config.json");
   } catch (e) {
     console.error(
       "[RemoteConfig] Failed to load bundled config from all locations:",
@@ -98,7 +97,11 @@ try {
         album: { artistDOM: [] },
         radio: { dataBlobElements: [], scriptRegexes: [] },
       },
-      endpoints: { collectionItemsApi: "" },
+      endpoints: { 
+        collectionItemsApi: "https://bandcamp.com/api/fancollection/1/collection_items",
+        bandcampPlaylistsApi: "https://bandcamp.com/api/fan_collection/1/playlists",
+        radioListApi: "https://bandcamp.com/api/bcweekly/3/list"
+      },
       userAgents: { desktop: "", mobile: "", mobileApi: "" },
       cleaning: { artistCleanRegex: "" },
       scraping: { batchSize: 100 },
