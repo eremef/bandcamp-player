@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useCallback, useMemo, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, RefreshControl } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { useStore } from '../../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Play, Trash2, GripVertical, ChevronLeft } from 'lucide-react-native';
 import { Track } from '@shared/types';
 import { useTheme } from '../../../theme';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import React from 'react';
 
 export default function PlaylistDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -111,6 +112,17 @@ export default function PlaylistDetailScreen() {
 
     const keyExtractor = useCallback((item: Track) => item.playlistEntryId || item.id, []);
 
+    const refreshPlaylists = useStore((state) => state.refreshPlaylists);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = React.useCallback(() => {
+        setRefreshing(true);
+        refreshPlaylists();
+        setTimeout(() => {
+            setRefreshing(false);
+        }, 1500);
+    }, [refreshPlaylists]);
+
     const renderEmptyComponent = useCallback(() => (
         <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.text }]}>Playlist is empty</Text>
@@ -167,6 +179,7 @@ export default function PlaylistDetailScreen() {
                     activationDistance={10}
                     windowSize={10}
                     removeClippedSubviews={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
                 />
             )}
         </View>

@@ -272,7 +272,7 @@ mobile/
 
 ## Roadmap
 
-| What                                          | Size | Description                                                                             | Status |
+| What | Size | Description | Status |
 | :-------------------------------------------- | ---- | --------------------------------------------------------------------------------------- | :----: |
 | Stability and other bugs | XXL | | 🟡 |
 

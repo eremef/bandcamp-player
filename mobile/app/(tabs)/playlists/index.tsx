@@ -14,7 +14,6 @@ export default function PlaylistsScreen() {
     const colors = useTheme();
     const playlists = useStore((state) => state.playlists);
     const bandcampPlaylists = useStore((state) => state.bandcampPlaylists);
-    const mode = useStore((state) => state.mode);
     const playPlaylist = useStore((state) => state.playPlaylist);
     const createPlaylist = useStore((state) => state.createPlaylist);
     const renamePlaylist = useStore((state) => state.renamePlaylist);
@@ -178,9 +177,7 @@ export default function PlaylistsScreen() {
                 renderSectionHeader={renderSectionHeader}
                 keyExtractor={(item) => item.id}
                 contentContainerStyle={[styles.listContent, sections.length === 0 && { flex: 1 }]}
-                refreshControl={mode === 'standalone' ? undefined :
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
-                }
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
             />
 
             <InputModal
