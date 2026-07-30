@@ -179,7 +179,7 @@ export function FloatingPlayer() {
         };
     });
 
-    const ALLOWED_PATHS = ['/collection', '/artists', '/playlists', '/radio', '/queue'];
+    const ALLOWED_PATHS = ['/collection', '/artists', '/playlists', '/radio', '/queue', '/radio_detail'];
 
     if (!floatingPlayerEnabled || !isLoaded || (!ALLOWED_PATHS.includes(pathname) && !pathname.startsWith('/playlists/'))) {
         return null;
