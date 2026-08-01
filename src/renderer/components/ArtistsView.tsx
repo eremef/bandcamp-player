@@ -257,7 +257,6 @@ export const ArtistsView: React.FC = () => {
   if (selectedArtistId) {
     const targetId = selectedArtistId.startsWith('name-') ? selectedArtistId : `name-${selectedArtistId.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
     const artist = derivedArtists.find((a) => a.id === selectedArtistId || a.id === targetId || a.name.toLowerCase() === selectedArtistId.trim().toLowerCase());
-    console.log("ArtistsView debug:", { selectedArtistId, targetId, found: !!artist, derivedCount: derivedArtists.length, derivedSample: derivedArtists.slice(0, 3).map(a => a.name) });
     const artistItems = artist?.items ?? [];
 
     if (!artist) {

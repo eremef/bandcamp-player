@@ -60,12 +60,6 @@ export function AlbumCard({
     (album.tracks.length > 0 &&
       album.tracks.some((t) => downloadingTracks.has(t.id)));
 
-  // DEBUG — remove once indicator is confirmed working
-  console.debug(
-    `[AlbumCard] id="${album.id}" title="${album.title}" trackCount=${album.trackCount}` +
-    ` isCached=${isCached} cachedAlbumIds=[${[...cachedAlbumIds].join(",")}]`,
-  );
-
   const ensureAlbumTracks = async () => {
     const isAlbumFullyCached = cachedAlbumIds.has(album.id);
 
