@@ -11,7 +11,7 @@
 
 # [Bandcamp Experimental Transport Assistant](https://github.com/eremef/bandcamp-player#also-known-as)
 
-The Unofficial multi-platform Bandcamp desktop player with mobile remote controller & standalone app
+The Unofficial multi-platform Bandcamp desktop player with mobile remote control/companion & standalone app
 
 ![Presentation of both desktop and mobile apps](https://github.com/user-attachments/assets/b4d81bdb-f105-40d4-be8e-866e92477e50 "Beta Player (desktop and mobile apps)")
 
