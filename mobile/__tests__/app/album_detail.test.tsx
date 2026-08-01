@@ -36,13 +36,12 @@ jest.mock('../../components/PlaylistSelectionModal', () => ({
     PlaylistSelectionModal: ({ visible }: any) => visible ? <></> : null,
 }));
 
-const mockPlayTrack = jest.fn();
-const mockPlayAlbum = jest.fn();
-
 jest.mock('../../store', () => {
+    const mockPlayTrackFn = jest.fn();
+    const mockPlayAlbumFn = jest.fn();
     const mockStoreState = {
-        playTrack: mockPlayTrack,
-        playAlbum: mockPlayAlbum,
+        playTrack: mockPlayTrackFn,
+        playAlbum: mockPlayAlbumFn,
         mode: 'remote',
         addAlbumToQueue: jest.fn(),
         addTrackToQueue: jest.fn(),
@@ -58,7 +57,7 @@ jest.mock('../../store', () => {
         return mockStoreState;
     };
     useStoreMock.getState = () => mockStoreState;
-    return { useStore: useStoreMock };
+    return { useStore: useStoreMock, mockPlayTrackFn, mockPlayAlbumFn };
 });
 
 describe('AlbumDetailScreen', () => {
@@ -68,8 +67,8 @@ describe('AlbumDetailScreen', () => {
         artworkUrl: 'http://art.com/1.jpg',
         bandcampUrl: 'http://bc.com/album/1',
         tracks: [
-            { id: 't1', title: 'Track 1', duration: 120 },
-            { id: 't2', title: 'Track 2', duration: 180 },
+            { id: 't1', title: 'Track 1', duration: 120, streamUrl: 'http://bc.com/stream1.mp3', hasStream: true },
+            { id: 't2', title: 'Track 2', duration: 180, streamUrl: 'http://bc.com/stream2.mp3', hasStream: true },
         ],
     };
 
@@ -132,7 +131,7 @@ describe('AlbumDetailScreen', () => {
         });
 
         fireEvent.press(getByText('Play Album'));
-        expect(mockPlayAlbum).toHaveBeenCalledWith(
+        expect(useStore.getState().playAlbum).toHaveBeenCalledWith(
             'http://bc.com/album/1',
             expect.objectContaining({ title: 'Test Album', artist: 'Test Artist' })
         );
@@ -147,7 +146,7 @@ describe('AlbumDetailScreen', () => {
         });
 
         fireEvent.press(getByText('Track 1'));
-        expect(mockPlayTrack).toHaveBeenCalledWith(
+        expect(useStore.getState().playTrack).toHaveBeenCalledWith(
             expect.objectContaining({ id: 't1', title: 'Track 1', artist: 'Test Artist' })
         );
 

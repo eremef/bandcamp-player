@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'bandcamp-remote',
-    version: '1.8.26-beta',
+    version: '1.8.27-beta',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -10,8 +10,13 @@ module.exports = {
     newArchEnabled: true,
     splash: {
       image: './assets/splash-icon.png',
+      imageWidth: 200,
       resizeMode: 'contain',
-      backgroundColor: '#ffffff',
+      backgroundColor: '#121212',
+      dark: {
+        image: './assets/splash-icon.png',
+        backgroundColor: '#121212',
+      },
     },
     ios: {
       supportsTablet: true,
@@ -29,7 +34,7 @@ module.exports = {
       ],
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#121212',
       },
       predictiveBackGestureEnabled: false,
     },
@@ -62,7 +67,19 @@ module.exports = {
       'expo-web-browser',
       'expo-secure-store',
       'expo-status-bar',
-      'expo-splash-screen',
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/splash-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#121212',
+          dark: {
+            image: './assets/splash-icon.png',
+            backgroundColor: '#121212',
+          },
+        },
+      ],
       'expo-sharing',
     ],
     extra: {

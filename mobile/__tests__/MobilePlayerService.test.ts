@@ -399,7 +399,7 @@ describe('MobilePlayerService', () => {
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(false);
-            expect(useStore.setState).toHaveBeenCalledWith({ collectionError: 'Could not find stream URL for this track.' });
+            expect(useStore.setState).toHaveBeenCalledWith({ collectionError: '"Broken" is unreleased (pre-order track)' });
         });
 
         it('should fail and set error on exception', async () => {
