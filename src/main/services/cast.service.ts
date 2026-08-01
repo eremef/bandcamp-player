@@ -1,6 +1,3 @@
-import { app } from 'electron';
-import fs from 'fs';
-import path from 'path';
 import os from 'os';
 import { EventEmitter } from 'events';
 import { connect, PersistentClient, DefaultMediaApp, MediaController, createPlatform } from '@foxxmd/chromecast-client';
@@ -19,22 +16,13 @@ export class CastService extends EventEmitter {
     private isScanning: boolean = false;
     private hasActiveSession: boolean = false;
     private statusInterval: ReturnType<typeof setInterval> | null = null;
-    private logFilePath: string;
 
     private log(message: string, error?: any) {
-        const timestamp = new Date().toISOString();
-        const errorText = error ? ` - ${error instanceof Error ? error.stack || error.message : JSON.stringify(error)}` : '';
-        const logLine = `${timestamp} - ${message}${errorText}\n`;
-
         if (error) {
             console.error(message, error);
         } else {
             console.log(message);
         }
-
-        fs.appendFile(this.logFilePath, logLine, (err) => {
-            if (err) console.error('[CastService] Failed to write to log file:', err);
-        });
     }
 
     private handleDeviceError = (err: any) => {
@@ -61,7 +49,6 @@ export class CastService extends EventEmitter {
     constructor() {
         super();
         this.bonjour = new Bonjour();
-        this.logFilePath = path.join(app.getPath('userData'), 'chromecast.log');
         this.log('[CastService] Initialized');
     }
 

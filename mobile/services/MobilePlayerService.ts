@@ -269,15 +269,30 @@ class MobilePlayerService {
         }
 
         let nextIndex = queue.currentIndex + 1;
+        const totalItems = queue.items.length;
 
-        if (isShuffled) {
-            // Simple random next
-            nextIndex = Math.floor(Math.random() * queue.items.length);
+        // Skip unstreamable/unreleased tracks during queue playback
+        while (nextIndex < totalItems && queue.items[nextIndex].track.hasStream === false) {
+            console.log(`[MobilePlayer] Skipping unreleased track at index ${nextIndex}: ${queue.items[nextIndex].track.title}`);
+            nextIndex++;
         }
 
-        if (nextIndex >= queue.items.length) {
+        if (isShuffled) {
+            // Filter streamable indices for shuffle
+            const validIndices = queue.items
+                .map((item, i) => item.track.hasStream !== false ? i : -1)
+                .filter(i => i !== -1);
+            if (validIndices.length > 0) {
+                nextIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
+            }
+        }
+
+        if (nextIndex >= totalItems) {
             if (repeatMode === 'all') {
                 nextIndex = 0;
+                while (nextIndex < totalItems && queue.items[nextIndex].track.hasStream === false) {
+                    nextIndex++;
+                }
             } else {
                 // End of queue
                 await this.stop();
@@ -310,9 +325,17 @@ class MobilePlayerService {
         if (queue.items.length === 0) return;
 
         let prevIndex = queue.currentIndex - 1;
+        while (prevIndex >= 0 && queue.items[prevIndex].track.hasStream === false) {
+            console.log(`[MobilePlayer] Skipping unreleased track backward at index ${prevIndex}: ${queue.items[prevIndex].track.title}`);
+            prevIndex--;
+        }
+
         if (prevIndex < 0) {
             if (store.repeatMode === 'all') {
                 prevIndex = queue.items.length - 1;
+                while (prevIndex >= 0 && queue.items[prevIndex].track.hasStream === false) {
+                    prevIndex--;
+                }
             } else {
                 prevIndex = 0;
             }
@@ -460,8 +483,9 @@ class MobilePlayerService {
             }
 
             if (!streamUrl) {
-                console.error('[MobilePlayer] No stream URL found for playTrack');
-                useStore.setState({ collectionError: 'Could not find stream URL for this track.' });
+                console.warn(`[MobilePlayer] Track "${track.title}" is unreleased or missing stream URL.`);
+                this.isLoadingTrack = false;
+                useStore.setState({ collectionError: `"${track.title}" is unreleased (pre-order track)` });
                 return false;
             }
 

@@ -36,6 +36,7 @@ import { CastService } from "./services/cast.service";
 import { Database } from "./database/database";
 import { simulationService } from "./services/simulation.service";
 import { remoteConfigService } from "../shared/remote-config.service";
+import { loggerService } from "./services/logger";
 
 // ============================================================================
 // Connectivity Helper
@@ -523,6 +524,12 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     const isOnline = await checkInternetConnectivity();
     return { isOnline };
   });
+  ipcMain.handle(
+    SYSTEM_CHANNELS.WRITE_LOG,
+    (_, level: string, message: string) => {
+      loggerService.writeRendererLog(level, message);
+    },
+  );
 
   // ---- Updates ----
   ipcMain.handle(UPDATE_CHANNELS.CHECK, (_, isManual: boolean) =>

@@ -179,11 +179,25 @@
 .title {
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-medium);
-    color: var(--text-primary);
+    margin-bottom: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: var(--spacing-xs);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.preorderBadge {
+    background: rgba(230, 160, 40, 0.2);
+    color: #e6a028;
+    border: 1px solid rgba(230, 160, 40, 0.4);
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 3px 5px 1px 5px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    flex-shrink: 0;
 }
 
 .artist {

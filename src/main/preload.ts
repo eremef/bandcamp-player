@@ -334,6 +334,8 @@ const electronAPI = {
     onConnectivityChanged: createEventSubscriber<{ isOnline: boolean }>(
       SYSTEM_CHANNELS.ON_CONNECTIVITY_CHANGED,
     ),
+    writeLog: (level: string, message: string): Promise<void> =>
+      ipcRenderer.invoke(SYSTEM_CHANNELS.WRITE_LOG, level, message),
   },
 
   // ---- Updates ----

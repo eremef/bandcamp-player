@@ -228,7 +228,14 @@ export function AlbumCard({
 
       {/* Info */}
       <div className={styles.info}>
-        <h3 className={styles.title}>{album.title}</h3>
+        <h3 className={styles.title}>
+          {album.title}
+          {album.isPreorder && (
+            <span className={styles.preorderBadge} title="Pre-order Album">
+              Pre-order
+            </span>
+          )}
+        </h3>
         <p
           className={`${styles.artist} ${styles.link}`}
           onClick={(e) => {

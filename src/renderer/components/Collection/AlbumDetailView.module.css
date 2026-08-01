@@ -66,12 +66,53 @@
     justify-content: flex-end;
 }
 
+.labelRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
 .label {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: var(--spacing-sm);
+}
+
+.preorderBadge {
+    background: var(--accent-secondary, rgba(230, 160, 40, 0.2));
+    color: #e6a028;
+    border: 1px solid rgba(230, 160, 40, 0.4);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.unreleasedTrackRow {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.trackNumberMuted {
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+}
+
+.unreleasedTitle {
+    color: var(--text-secondary);
+}
+
+.unreleasedBadge {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
 }
 
 .title {

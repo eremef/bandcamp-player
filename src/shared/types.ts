@@ -22,6 +22,8 @@ export interface Track {
   cachedPath?: string;
   playlistEntryId?: string;
   radioStationId?: string; // For radio stations added to playlists - resolved lazily
+  hasStream?: boolean;
+  isPreorderTrack?: boolean;
 }
 
 export interface Album {
@@ -34,6 +36,7 @@ export interface Album {
   releaseDate?: string;
   tracks: Track[];
   trackCount: number;
+  isPreorder?: boolean;
 }
 
 export interface Artist {

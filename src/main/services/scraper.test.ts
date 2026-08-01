@@ -696,4 +696,33 @@ describe("ScraperService", () => {
       // let's just verify the code path in scraper.service.ts
     });
   });
+
+  describe("Pre-order Album Support", () => {
+    it("should correctly identify pre-order albums and flag unstreamable tracks", async () => {
+      const mockAlbumHtml = `
+        <html>
+          <head>
+            <script data-tralbum='{"id": 8888, "is_preorder": true, "has_audio": false, "artist": "The Odyssey Cult", "album_title": "Vol. 3", "art_id": 12345, "band_id": 99, "trackinfo": [{"track_id": 101, "title": "Track 1 Released", "duration": 180, "file": {"mp3-128": "https://audio.bc.com/stream1"}}, {"track_id": 102, "title": "Track 2 Unreleased", "duration": 0, "file": null}]}'></script>
+          </head>
+        </html>
+      `;
+
+      mockAxios.get.mockResolvedValueOnce({ data: mockAlbumHtml });
+
+      const album = await scraper.getAlbumDetails("https://theodysseycult.bandcamp.com/album/vol-3");
+
+      expect(album).not.toBeNull();
+      expect(album?.isPreorder).toBe(true);
+      expect(album?.tracks).toHaveLength(2);
+
+      // Streamable released track
+      expect(album?.tracks[0].hasStream).toBe(true);
+      expect(album?.tracks[0].isPreorderTrack).toBe(false);
+
+      // Unreleased track
+      expect(album?.tracks[1].hasStream).toBe(false);
+      expect(album?.tracks[1].isPreorderTrack).toBe(true);
+      expect(album?.tracks[1].streamUrl).toBe("");
+    });
+  });
 });

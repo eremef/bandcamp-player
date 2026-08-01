@@ -197,6 +197,7 @@ export const SYSTEM_CHANNELS = {
   REFRESH_REMOTE_CONFIG: "system:refresh-remote-config",
   CHECK_CONNECTIVITY: "system:check-connectivity",
   ON_CONNECTIVITY_CHANGED: "system:on-connectivity-changed",
+  WRITE_LOG: "system:write-log",
 } as const;
 
 // ============================================================================

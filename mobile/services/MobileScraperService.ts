@@ -769,8 +769,15 @@ export class MobileScraperService {
                         }
                     })(),
                     isCached: false,
+                    hasStream: !!streamUrl,
+                    isPreorderTrack: !streamUrl,
                 };
             }));
+
+            const isPreorder =
+                tralbumData.is_preorder === true ||
+                tralbumData.has_audio === false ||
+                (tracks.length > 0 && tracks.some((t) => !t.hasStream));
 
             return {
                 id: String(tralbumData.id),
@@ -782,6 +789,7 @@ export class MobileScraperService {
                 releaseDate: tralbumData.current?.release_date,
                 tracks,
                 trackCount: tracks.length,
+                isPreorder,
             };
         } catch (error) {
             console.error('[MobileScraper] Error fetching album details:', error);

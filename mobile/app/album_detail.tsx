@@ -278,30 +278,55 @@ export default function AlbumDetailScreen() {
         <View style={styles.albumHeader}>
             <Image source={{ uri: album.artworkUrl }} style={[styles.artwork, { backgroundColor: colors.card }]} />
             <Text style={[styles.title, { color: colors.text }]}>{album.title}</Text>
+            {album.isPreorder && (
+                <View style={styles.preorderBadge}>
+                    <Text style={styles.preorderBadgeText}>PRE-ORDER</Text>
+                </View>
+            )}
             <Text style={[styles.artist, { color: colors.accent }]}>
                 {album.artist}
             </Text>
-            <TouchableOpacity style={[styles.playButton, { backgroundColor: colors.accent }]} onPress={handlePlayAll}>
+            <TouchableOpacity
+                style={[
+                    styles.playButton,
+                    { backgroundColor: colors.accent },
+                    !album.tracks.some((t) => !!t.streamUrl) && { opacity: 0.5 }
+                ]}
+                onPress={handlePlayAll}
+                disabled={!album.tracks.some((t) => !!t.streamUrl)}
+            >
                 <Play size={20} color="#fff" fill="#fff" />
                 <Text style={[styles.playButtonText, { color: '#fff' }]}>Play Album</Text>
             </TouchableOpacity>
         </View>
     );
 
-    const renderTrack = ({ item, index }: { item: Track, index: number }) => (
-        <TouchableOpacity
-            style={[styles.trackItem, { borderBottomColor: colors.border }]}
-            onPress={() => handleTrackPress(item)}
-            onLongPress={() => handleTrackLongPress(item)}
-            delayLongPress={500}
-        >
-            <Text style={[styles.trackNumber, { color: colors.textSecondary }]}>{index + 1}</Text>
-            <View style={styles.trackInfo}>
-                <Text style={[styles.trackTitle, { color: colors.text }]}>{item.title}</Text>
-                <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>{Math.floor(item.duration / 60)}:{String(Math.floor(item.duration % 60)).padStart(2, '0')}</Text>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderTrack = ({ item, index }: { item: Track, index: number }) => {
+        const isUnreleased = !item.streamUrl;
+        return (
+            <TouchableOpacity
+                style={[
+                    styles.trackItem,
+                    { borderBottomColor: colors.border },
+                    isUnreleased && { opacity: 0.5 }
+                ]}
+                onPress={() => !isUnreleased && handleTrackPress(item)}
+                onLongPress={() => !isUnreleased && handleTrackLongPress(item)}
+                delayLongPress={500}
+                activeOpacity={isUnreleased ? 1 : 0.7}
+            >
+                <Text style={[styles.trackNumber, { color: colors.textSecondary }]}>{index + 1}</Text>
+                <View style={styles.trackInfo}>
+                    <Text style={[styles.trackTitle, { color: isUnreleased ? colors.textSecondary : colors.text }]}>
+                        {item.title}
+                    </Text>
+                    <Text style={[styles.trackDuration, { color: colors.textSecondary }]}>
+                        {isUnreleased ? 'Unreleased' : `${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, '0')}`}
+                    </Text>
+                </View>
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
@@ -403,11 +428,25 @@ const styles = StyleSheet.create({
         backgroundColor: '#333',
     },
     title: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: 'bold',
         color: '#fff',
         textAlign: 'center',
+        marginBottom: 6,
+    },
+    preorderBadge: {
+        backgroundColor: 'rgba(230, 160, 40, 0.2)',
+        borderColor: 'rgba(230, 160, 40, 0.4)',
+        borderWidth: 1,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 4,
         marginBottom: 8,
+    },
+    preorderBadgeText: {
+        color: '#e6a028',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     artist: {
         fontSize: 18,

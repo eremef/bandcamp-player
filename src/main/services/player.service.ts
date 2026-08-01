@@ -226,9 +226,15 @@ export class PlayerService extends EventEmitter {
                 return;
             }
 
-            // Play a specific track
-            if (!track.streamUrl) {
-                console.error('[PlayerService] CRITICAL: Track has no stream URL!');
+            // Pre-order / Unstreamable track check
+            if (!track.streamUrl && !isTrackCached) {
+                console.warn(`[PlayerService] Track "${track.title}" has no stream URL (unreleased / pre-order track).`);
+                this.error = `"${track.title}" is unreleased (pre-order track)`;
+                this.currentTrack = track;
+                this.isPlaying = false;
+                this.persistQueue();
+                this.emitStateChange();
+                return;
             }
 
             this.currentTrack = track;
@@ -446,38 +452,39 @@ export class PlayerService extends EventEmitter {
             }
         }
 
-        // In offline mode, skip non-cached tracks
-        if (this.isOfflineMode()) {
-            const startIndex = nextIndex;
-            while (!this.cacheService.isCached(this.queue[nextIndex].track.id)) {
-                if (this.isShuffled && this.shuffleOrder.length > 0) {
-                    shufflePos++;
-                    if (shufflePos >= this.shuffleOrder.length) {
-                        if (this.repeatMode === 'all') {
-                            shufflePos = 0;
-                        } else {
-                            this.finishQueue();
-                            return;
-                        }
-                    }
-                    nextIndex = this.shuffleOrder[shufflePos];
-                } else {
-                    nextIndex++;
-                    if (nextIndex >= this.queue.length) {
-                        if (this.repeatMode === 'all') {
-                            nextIndex = 0;
-                        } else {
-                            this.finishQueue();
-                            return;
-                        }
+        // Skip unstreamable (unreleased pre-order) or uncached (in offline mode) tracks
+        const startIndex = nextIndex;
+        while (
+            (this.isOfflineMode() && !this.cacheService.isCached(this.queue[nextIndex].track.id)) ||
+            (!this.queue[nextIndex].track.streamUrl && !this.cacheService.isCached(this.queue[nextIndex].track.id))
+        ) {
+            if (this.isShuffled && this.shuffleOrder.length > 0) {
+                shufflePos++;
+                if (shufflePos >= this.shuffleOrder.length) {
+                    if (this.repeatMode === 'all') {
+                        shufflePos = 0;
+                    } else {
+                        this.finishQueue();
+                        return;
                     }
                 }
-                
-                if (nextIndex === startIndex) {
-                    // Looped through all — none cached
-                    this.finishQueue();
-                    return;
+                nextIndex = this.shuffleOrder[shufflePos];
+            } else {
+                nextIndex++;
+                if (nextIndex >= this.queue.length) {
+                    if (this.repeatMode === 'all') {
+                        nextIndex = 0;
+                    } else {
+                        this.finishQueue();
+                        return;
+                    }
                 }
+            }
+            
+            if (nextIndex === startIndex) {
+                // Looped through all — none playable
+                this.finishQueue();
+                return;
             }
         }
 

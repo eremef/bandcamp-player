@@ -54,13 +54,13 @@ export function AlbumDetailView() {
     setAlbumDetails(selectedAlbum);
     setIsLoading(false);
 
+    // If album already has detailed tracks (including pre-order unstreamable tracks), don't re-fetch
+    if (selectedAlbum.tracks.length > 0 && selectedAlbum.tracks.length >= (selectedAlbum.trackCount || 0)) {
+      return;
+    }
+
     const fetchDetails = async () => {
       const isAlbumFullyCached = cachedAlbumIds.has(selectedAlbum.id);
-
-      // If album has loaded tracks with valid streamUrls, we're done
-      if (selectedAlbum.tracks.length > 0 && selectedAlbum.tracks.every((t) => !!t.streamUrl)) {
-        return;
-      }
 
       // In offline mode with fully cached album, get tracks from cache
       if (isOfflineMode && isAlbumFullyCached) {
@@ -91,7 +91,8 @@ export function AlbumDetailView() {
     };
 
     fetchDetails();
-  }, [selectedAlbum, getAlbumDetails, updateAlbumInCollection, cachedTrackIds, cachedAlbumIds, isOfflineMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlbum?.id, selectedAlbum?.tracks?.length, isOfflineMode]);
 
   if (!selectedAlbum) {
     return (
@@ -190,7 +191,14 @@ export function AlbumDetailView() {
             )}
           </div>
           <div className={styles.info}>
-            <span className={styles.label}>Album</span>
+            <div className={styles.labelRow}>
+              <span className={styles.label}>Album</span>
+              {albumDetails?.isPreorder && (
+                <span className={styles.preorderBadge} title="Pre-order Album">
+                  Pre-order
+                </span>
+              )}
+            </div>
             <h1 className={styles.title}>{albumDetails?.title}</h1>
             <h2 
               className={`${styles.artist} ${styles.link}`}
@@ -214,7 +222,7 @@ export function AlbumDetailView() {
               <button
                 className={styles.playBtn}
                 onClick={handlePlayAll}
-                disabled={isLoading || !albumDetails?.tracks.length}
+                disabled={isLoading || !albumDetails?.tracks.some((t) => !!t.streamUrl || cachedTrackIds.has(t.id))}
               >
                 <Play size={18} fill="currentColor" />
                 <span>Play</span>
@@ -292,48 +300,61 @@ export function AlbumDetailView() {
               </tr>
             </thead>
             <tbody>
-              {albumDetails.tracks.map((track, index) => (
-                <tr
-                  key={`${track.id}-${index}`}
-                  className={styles.trackRow}
-                  onMouseLeave={() => setActiveTrackMenu(null)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setActiveTrackMenu(track.id);
-                  }}
-                >
-                  <td className={styles.colNum}>
-                    <button
-                      data-testid="play-track-btn"
-                      className={styles.playTrackBtn}
-                      onClick={() => play(track)}
-                    >
-                      <span className={styles.trackNumber}>{index + 1}</span>
-                      <span className={styles.playIcon}>
-                        <Play size={14} fill="currentColor" />
-                      </span>
-                    </button>
-                  </td>
-                  <td className={styles.colTitle}>
-                    <div className={styles.trackTitle}>
-                      {downloadingTracks.has(track.id) ? (
-                        <span
-                          className={`${styles.cachedDot} ${styles.cachedDotDownloading}`}
-                          title="Downloading…"
-                        />
-                      ) : cachedTrackIds.has(track.id) ? (
-                        <span
-                          className={styles.cachedDot}
-                          title="Available offline"
-                        />
-                      ) : null}
-                      <span>{track.title}</span>
-                    </div>
-                  </td>
-                  <td className={styles.colDuration}>
-                    {Math.floor(track.duration / 60)}:
-                    {String(Math.floor(track.duration % 60)).padStart(2, "0")}
-                  </td>
+              {albumDetails.tracks.map((track, index) => {
+                const isUnreleased = !track.streamUrl && !cachedTrackIds.has(track.id);
+                return (
+                  <tr
+                    key={`${track.id}-${index}`}
+                    className={`${styles.trackRow} ${isUnreleased ? styles.unreleasedTrackRow : ""}`}
+                    onMouseLeave={() => setActiveTrackMenu(null)}
+                    onContextMenu={(e) => {
+                      if (isUnreleased) return;
+                      e.preventDefault();
+                      setActiveTrackMenu(track.id);
+                    }}
+                  >
+                    <td className={styles.colNum}>
+                      {isUnreleased ? (
+                        <span className={styles.trackNumberMuted}>{index + 1}</span>
+                      ) : (
+                        <button
+                          data-testid="play-track-btn"
+                          className={styles.playTrackBtn}
+                          onClick={() => play(track)}
+                        >
+                          <span className={styles.trackNumber}>{index + 1}</span>
+                          <span className={styles.playIcon}>
+                            <Play size={14} fill="currentColor" />
+                          </span>
+                        </button>
+                      )}
+                    </td>
+                    <td className={styles.colTitle}>
+                      <div className={styles.trackTitle}>
+                        {downloadingTracks.has(track.id) ? (
+                          <span
+                            className={`${styles.cachedDot} ${styles.cachedDotDownloading}`}
+                            title="Downloading…"
+                          />
+                        ) : cachedTrackIds.has(track.id) ? (
+                          <span
+                            className={styles.cachedDot}
+                            title="Available offline"
+                          />
+                        ) : null}
+                        <span className={isUnreleased ? styles.unreleasedTitle : ""}>
+                          {track.title}
+                        </span>
+                        {isUnreleased && (
+                          <span className={styles.unreleasedBadge}>Unreleased</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className={styles.colDuration}>
+                      {track.duration > 0
+                        ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
+                        : "—"}
+                    </td>
                   <td className={styles.colActions}>
                     <div className={styles.menuContainer}>
                       <button
@@ -390,7 +411,8 @@ export function AlbumDetailView() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
           </table>
         )}

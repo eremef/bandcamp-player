@@ -18,6 +18,10 @@ import { ThumbarService } from "./services/thumbar.service";
 import { DiscordService } from "./services/discord.service";
 import { Database } from "./database/database";
 import { registerIpcHandlers } from "./ipc-handlers";
+import { loggerService } from "./services/logger";
+
+// Initialize global file logger before any other service logs
+loggerService.init();
 
 // ============================================================================
 // App Configuration

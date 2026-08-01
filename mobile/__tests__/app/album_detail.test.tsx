@@ -36,13 +36,28 @@ jest.mock('../../components/PlaylistSelectionModal', () => ({
     PlaylistSelectionModal: ({ visible }: any) => visible ? <></> : null,
 }));
 
+const mockPlayTrack = jest.fn();
+const mockPlayAlbum = jest.fn();
+
 jest.mock('../../store', () => {
-    const mockStore = {
-        playTrack: jest.fn(),
-        playAlbum: jest.fn(),
+    const mockStoreState = {
+        playTrack: mockPlayTrack,
+        playAlbum: mockPlayAlbum,
+        mode: 'remote',
+        addAlbumToQueue: jest.fn(),
+        addTrackToQueue: jest.fn(),
+        playlists: [],
+        addTrackToPlaylist: jest.fn(),
+        addAlbumToPlaylist: jest.fn(),
+        createPlaylist: jest.fn(),
     };
-    const useStoreMock: any = (selector: any) => selector ? selector(mockStore) : mockStore;
-    useStoreMock.getState = () => mockStore;
+    const useStoreMock: any = (selector: any) => {
+        if (typeof selector === 'function') {
+            return selector(mockStoreState);
+        }
+        return mockStoreState;
+    };
+    useStoreMock.getState = () => mockStoreState;
     return { useStore: useStoreMock };
 });
 
@@ -116,10 +131,8 @@ describe('AlbumDetailScreen', () => {
             socketCallback(mockAlbum);
         });
 
-        const mockStore = useStore.getState();
-
         fireEvent.press(getByText('Play Album'));
-        expect(mockStore.playAlbum).toHaveBeenCalledWith(
+        expect(mockPlayAlbum).toHaveBeenCalledWith(
             'http://bc.com/album/1',
             expect.objectContaining({ title: 'Test Album', artist: 'Test Artist' })
         );
@@ -133,10 +146,8 @@ describe('AlbumDetailScreen', () => {
             socketCallback(mockAlbum);
         });
 
-        const mockStore = useStore.getState();
-
         fireEvent.press(getByText('Track 1'));
-        expect(mockStore.playTrack).toHaveBeenCalledWith(
+        expect(mockPlayTrack).toHaveBeenCalledWith(
             expect.objectContaining({ id: 't1', title: 'Track 1', artist: 'Test Artist' })
         );
 
