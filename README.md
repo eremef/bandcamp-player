@@ -52,6 +52,8 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
+- 📦 **Pre-order Album Support** - Properly distinguishes pre-order albums and pre-release tracks. Displays PRE-ORDER badges, dims unreleased tracks, and seamlessly plays available preview tracks without playback error loops
+- 📜 **Daily Logging & Retention** - Automatically logs main and renderer process outputs to daily log files (`main-YYYY-MM-DD.log`, `renderer-YYYY-MM-DD.log`) with automated 14-day retention cleanup
 - 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
@@ -127,6 +129,16 @@ Access the settings menu (gear icon) to configure:
   - Minimize to Tray: Keep the app running in the background when closed
   - Show Notifications: Desktop notifications on track change
 
+#### Log Files Location
+
+Daily application logs (`main-YYYY-MM-DD.log` and `renderer-YYYY-MM-DD.log`) are stored in the user data directory:
+
+- **Windows**: `%APPDATA%\Beta Player\logs\` (`C:\Users\<Username>\AppData\Roaming\Beta Player\logs\`)
+- **macOS**: `~/Library/Application Support/Beta Player/logs/`
+- **Linux**: `~/.config/Beta Player/logs/`
+
+Logs are automatically rotated daily and maintained with a 14-day maximum retention window.
+
 ### Project Structure
 
 ```text
@@ -200,7 +212,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection and connectivity-aware switching
 - 📥 **Music Caching & Downloads** - Download entire albums or individual tracks for offline listening with background download progress tracking
 - 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
-
+- 📦 **Pre-order Album Support** - Distinguishes pre-order albums with badges, dims unreleased tracks, and automatically skips unreleased tracks during standalone playback and queue navigation
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 
 ### Tech Stack
