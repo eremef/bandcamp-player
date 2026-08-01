@@ -52,7 +52,7 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 - 🖥️ **Mini Player** - Compact floating player window
 - 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
-- 📦 **Pre-order Album Support** - Properly distinguishes pre-order albums and pre-release tracks. Displays PRE-ORDER badges, dims unreleased tracks, and seamlessly plays available preview tracks without playback error loops
+- 📦 **Pre-order Album Support** - Properly distinguishes pre-order albums and pre-release tracks. Displays PRE-ORDER badges, dims unreleased tracks, and seamlessly plays available preview
 - 📜 **Daily Logging & Retention** - Automatically logs main and renderer process outputs to daily log files (`main-YYYY-MM-DD.log`, `renderer-YYYY-MM-DD.log`) with automated 14-day retention cleanup
 - 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
 
