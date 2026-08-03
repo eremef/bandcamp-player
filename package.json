@@ -180,6 +180,7 @@
       "artifactName": "beta-player-${version}-linux-${arch}.${ext}"
     },
     "mac": {
+      "identity": null,
       "target": [
         "dmg",
         "zip"

@@ -57,6 +57,12 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 - 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, macOS, and iOS builds are available but experimental.
+>
+> **macOS Note ("Damaged and can't be opened")**: Because the releases are not signed with a paid Apple Developer certificate, macOS Gatekeeper may mark downloaded arm64/Intel apps with quarantine flags (`"Beta Player" is damaged and can't be opened`). To install the app, remove the quarantine attribute via Terminal:
+>
+> ```bash
+> xattr -cr "beta-player-XX.YY.ZZ-beta-mac-arm64.dmg"
+> ```
 
 ### Tech Stack
 
