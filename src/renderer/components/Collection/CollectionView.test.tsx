@@ -46,7 +46,11 @@ vi.mock('lucide-react', () => ({
     ArrowDown: () => <span />,
     Disc3: () => <span />,
     LayoutGrid: () => <span data-testid="icon-grid" />,
-    Rows3: () => <span data-testid="icon-rows" />,
+    Rows3: () => <span data-testid="icon-rows3" />,
+    Rows2: () => <span data-testid="icon-rows2" />,
+    Grid3X3: () => <span data-testid="icon-grid3x3" />,
+    Grid2X2: () => <span data-testid="icon-grid2x2" />,
+    Square: () => <span data-testid="icon-square" />,
     Maximize2: () => <span />,
 }));
 
