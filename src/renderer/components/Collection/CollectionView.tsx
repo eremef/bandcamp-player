@@ -549,7 +549,7 @@ export function CollectionView() {
                 onClick={() => setViewOpen((o) => !o)}
                 title="Layout and cover size"
               >
-                {viewMode === "list" ? <List size={14} /> : <LayoutGrid size={14} />}
+                {viewMode === "list" ? <Rows3 size={14} /> : <LayoutGrid size={14} />}
               </button>
               {viewOpen && (
                 <div className={styles.viewDropdown}>
@@ -573,7 +573,7 @@ export function CollectionView() {
                     <span className={`${styles.dropdownCheck} ${viewMode === "list" ? styles.checked : ""}`}>
                       {viewMode === "list" && <Check size={10} strokeWidth={3} />}
                     </span>
-                    <List size={13} />
+                    <Rows3 size={13} />
                     <span>List</span>
                   </button>
 
