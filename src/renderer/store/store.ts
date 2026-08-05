@@ -19,6 +19,8 @@ import type {
   Artist,
   SortKey,
   SortDirection,
+  CollectionViewMode,
+  CoverSize,
 } from "../../shared/types";
 import { RemoteConfig } from "../../shared/remote-config.service";
 
@@ -73,12 +75,16 @@ interface CollectionSlice {
   collectionFilterTracks: boolean;
   collectionFilterWishlist: boolean;
   collectionFilterDownloaded: boolean;
+  collection_view_mode: CollectionViewMode;
+  collection_cover_size: CoverSize;
   setCollectionSortKey: (key: SortKey) => void;
   setCollectionSortDirection: (dir: "asc" | "desc") => void;
   setCollectionFilterAlbums: (show: boolean) => void;
   setCollectionFilterTracks: (show: boolean) => void;
   setCollectionFilterWishlist: (show: boolean) => void;
   setCollectionFilterDownloaded: (show: boolean) => void;
+  setCollectionViewMode: (mode: CollectionViewMode) => void;
+  setCollectionCoverSize: (size: CoverSize) => void;
   fetchCollection: (forceRefresh?: boolean) => Promise<void>;
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
@@ -483,6 +489,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   collectionFilterTracks: true,
   collectionFilterWishlist: true,
   collectionFilterDownloaded: false,
+  collection_view_mode: "grid",
+  collection_cover_size: "medium",
   setCollectionSortKey: (key: SortKey) => {
     set({ collection_sort_key: key });
     get().updateSettings({ collectionSortKey: key });
@@ -506,6 +514,14 @@ export const useStore = create<StoreState>()((set, get) => ({
   setCollectionFilterDownloaded: (show: boolean) => {
     set({ collectionFilterDownloaded: show });
     get().updateSettings({ collectionFilterDownloaded: show });
+  },
+  setCollectionViewMode: (mode: CollectionViewMode) => {
+    set({ collection_view_mode: mode });
+    get().updateSettings({ collectionViewMode: mode });
+  },
+  setCollectionCoverSize: (size: CoverSize) => {
+    set({ collection_cover_size: size });
+    get().updateSettings({ collectionCoverSize: size });
   },
   fetchCollection: async (forceRefresh = false) => {
     const { isOnline, settings } = useStore.getState();
@@ -994,6 +1010,8 @@ export const useStore = create<StoreState>()((set, get) => ({
           settings.collectionFilterDownloaded !== undefined
             ? settings.collectionFilterDownloaded
             : false,
+        collection_view_mode: settings.collectionViewMode || "grid",
+        collection_cover_size: settings.collectionCoverSize || "medium",
       });
     }
   },
@@ -1296,6 +1314,8 @@ export async function initializeStoreSubscriptions() {
         settings.collectionFilterDownloaded !== undefined
           ? settings.collectionFilterDownloaded
           : false,
+      collection_view_mode: settings.collectionViewMode || "grid",
+      collection_cover_size: settings.collectionCoverSize || "medium",
     });
   });
 

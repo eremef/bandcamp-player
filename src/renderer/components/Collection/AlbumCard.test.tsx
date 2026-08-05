@@ -276,4 +276,137 @@ describe("AlbumCard", () => {
 
     consoleSpy.mockRestore();
   });
+
+  describe("artwork sizing", () => {
+    const bcAlbum = {
+      ...mockAlbum,
+      artworkUrl: "https://f4.bcbits.com/img/a2793963001_10.jpg",
+    };
+
+    it("requests a smaller variant than the 1200px original", () => {
+      render(<AlbumCard album={bcAlbum} />);
+      const img = screen.getByAltText("Test Album") as HTMLImageElement;
+      expect(img.src).toBe("https://f4.bcbits.com/img/a2793963001_16.jpg");
+    });
+
+    it("scales the requested variant with cover size", () => {
+      const { rerender } = render(
+        <AlbumCard album={bcAlbum} coverSize="small" />,
+      );
+      expect(
+        (screen.getByAltText("Test Album") as HTMLImageElement).src,
+      ).toContain("_2.jpg");
+
+      rerender(<AlbumCard album={bcAlbum} coverSize="large" />);
+      expect(
+        (screen.getByAltText("Test Album") as HTMLImageElement).src,
+      ).toContain("_10.jpg");
+    });
+
+    it("requests a thumbnail variant in list mode", () => {
+      render(<AlbumCard album={bcAlbum} variant="list" />);
+      expect(
+        (screen.getByAltText("Test Album") as HTMLImageElement).src,
+      ).toContain("_7.jpg");
+    });
+
+    it("leaves non-Bandcamp artwork URLs untouched", () => {
+      render(<AlbumCard album={mockAlbum} />);
+      const img = screen.getByAltText("Test Album") as HTMLImageElement;
+      expect(img.getAttribute("src")).toBe("test.jpg");
+    });
+
+    it("lazy-loads artwork in both variants", () => {
+      const { rerender } = render(<AlbumCard album={mockAlbum} />);
+      expect(screen.getByAltText("Test Album")).toHaveAttribute(
+        "loading",
+        "lazy",
+      );
+
+      rerender(<AlbumCard album={mockAlbum} variant="list" />);
+      expect(screen.getByAltText("Test Album")).toHaveAttribute(
+        "loading",
+        "lazy",
+      );
+    });
+  });
+
+  describe("list variant", () => {
+    it("keeps the album-card test id so shared selectors still resolve", () => {
+      render(<AlbumCard album={mockAlbum} variant="list" />);
+      expect(screen.getByTestId("album-card")).toBeInTheDocument();
+      expect(screen.getByText("Test Album")).toBeInTheDocument();
+      expect(screen.getByText("Test Artist")).toBeInTheDocument();
+    });
+
+    it("renders as a row rather than a card", () => {
+      const { container } = render(
+        <AlbumCard album={mockAlbum} variant="list" />,
+      );
+      expect(container.querySelector('[class*="row"]')).toBeInTheDocument();
+      // The grid-only artwork overlay must not be present.
+      expect(container.querySelector('[class*="overlay"]')).toBeNull();
+    });
+
+    it("exposes play and menu actions", () => {
+      render(<AlbumCard album={mockAlbum} variant="list" />);
+      expect(screen.getByTitle("Play")).toBeInTheDocument();
+      expect(screen.getByTitle("More options")).toBeInTheDocument();
+    });
+
+    it("opens the context menu on right click", () => {
+      render(<AlbumCard album={mockAlbum} variant="list" />);
+      const row = screen.getByTestId("album-card");
+
+      fireEvent.contextMenu(row);
+      expect(screen.getByText("Play Now")).toBeInTheDocument();
+      expect(screen.getByText("Add to Queue")).toBeInTheDocument();
+
+      fireEvent.mouseLeave(row);
+      expect(screen.queryByText("Play Now")).not.toBeInTheDocument();
+    });
+
+    it("anchors the context menu below the row", () => {
+      const { container } = render(
+        <AlbumCard album={mockAlbum} variant="list" />,
+      );
+      fireEvent.contextMenu(screen.getByTestId("album-card"));
+      expect(
+        container.querySelector('[class*="menuList"]'),
+      ).toBeInTheDocument();
+    });
+
+    it("still renders the cached dot", () => {
+      storeMethods.cachedAlbumIds = new Set(["1"]);
+      const { container } = render(
+        <AlbumCard album={mockAlbum} variant="list" />,
+      );
+      expect(
+        container.querySelector('[class*="cachedDot"]'),
+      ).toBeInTheDocument();
+      expect(
+        document.querySelector("[title='Available offline']"),
+      ).toBeInTheDocument();
+    });
+
+    it("plays a single-track item when the row is clicked", async () => {
+      const singleTrackAlbum = {
+        ...mockAlbum,
+        trackCount: 1,
+        tracks: [{ id: "t1", streamUrl: "url" }],
+      } as any;
+      render(<AlbumCard album={singleTrackAlbum} variant="list" />);
+
+      fireEvent.click(screen.getByTestId("album-card"));
+
+      await waitFor(() => {
+        expect(mockPlay).toHaveBeenCalledWith(singleTrackAlbum.tracks[0]);
+      });
+    });
+
+    it("labels track items", () => {
+      render(<AlbumCard album={mockAlbum} variant="list" isTrackItem />);
+      expect(screen.getByText("Track")).toBeInTheDocument();
+    });
+  });
 });

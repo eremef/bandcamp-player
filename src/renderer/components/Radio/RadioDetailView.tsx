@@ -22,7 +22,6 @@ export function RadioDetailView() {
     playQueueIndex,
     addToQueue,
     addTracksToPlaylist,
-    playlists,
   } = useStore();
 
   const [isLoading, setIsLoading] = useState(false);

@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useStore } from "../../store/store";
-import type { Album } from "../../../shared/types";
+import type {
+  Album,
+  CollectionViewMode,
+  CoverSize,
+} from "../../../shared/types";
 import {
   MoreHorizontal,
   Play,
@@ -11,12 +15,15 @@ import {
   Heart,
 } from "lucide-react";
 import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
+import { getArtworkUrl, getCoverVariant } from "../../utils/artwork";
 import styles from "./AlbumCard.module.css";
 
 interface AlbumCardProps {
   album: Album;
   isTrackItem?: boolean;
   isWishlist?: boolean;
+  variant?: CollectionViewMode;
+  coverSize?: CoverSize;
   onClick?: () => void;
 }
 
@@ -24,12 +31,13 @@ export function AlbumCard({
   album,
   isTrackItem = false,
   isWishlist = false,
+  variant = "grid",
+  coverSize = "medium",
   onClick,
 }: AlbumCardProps) {
   const {
     getAlbumDetails,
     addAlbumToQueue,
-    playlists,
     addTracksToPlaylist,
     downloadAlbum,
     clearQueue,
@@ -46,7 +54,19 @@ export function AlbumCard({
   const isOfflineMode = settings?.offlineMode ?? false;
   const [isLoading, setIsLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<"left" | "right">("left");
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+
+  const toggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!showMenu) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const isRightSide = rect.right > window.innerWidth / 2;
+      setMenuPosition(isRightSide ? "right" : "left");
+    }
+    setShowMenu(!showMenu);
+  };
 
   // An album is fully cached if its ID appears in cachedAlbumIds (derived from
   // DB counts vs trackCount — works even when album.tracks is still empty).
@@ -59,6 +79,14 @@ export function AlbumCard({
     downloadingAlbumIds.has(album.id) ||
     (album.tracks.length > 0 &&
       album.tracks.some((t) => downloadingTracks.has(t.id)));
+
+  // Bandcamp serves the original 1200px upload by default; ask for a variant
+  // sized to how this card actually renders.
+  const artworkSrc = getArtworkUrl(
+    album.artworkUrl,
+    getCoverVariant(variant, coverSize),
+  );
+
 
   const ensureAlbumTracks = async () => {
     const isAlbumFullyCached = cachedAlbumIds.has(album.id);
@@ -161,15 +189,144 @@ export function AlbumCard({
     await downloadAlbum(albumWithTracks);
   };
 
+  // Shared by both variants — only the positioning class differs.
+  const contextMenu = (extraClass = "") => (
+    <div
+      className={`${styles.menu} ${menuPosition === "right" ? styles.menuRight : styles.menuLeft} ${extraClass}`.trim()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePlay();
+        }}
+      >
+        <Play size={16} /> Play Now
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handlePlayNext();
+        }}
+      >
+        <SkipForward size={16} /> Play Next
+      </button>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleAddToQueue();
+        }}
+      >
+        <List size={16} /> Add to Queue
+      </button>
+      <div className={styles.menuDivider} />
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowMenu(false);
+          setShowPlaylistModal(true);
+        }}
+      >
+        <Music size={14} /> Add to Playlist
+      </button>
+      {!isCached && !isOfflineMode && (
+        <>
+          <div className={styles.menuDivider} />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDownload();
+            }}
+          >
+            <Download size={16} /> Download for Offline
+          </button>
+        </>
+      )}
+    </div>
+  );
+
+  // Rendered by both variants so the modal survives either layout.
+  const playlistModal = (
+    <AddToPlaylistModal
+      isOpen={showPlaylistModal}
+      onClose={() => setShowPlaylistModal(false)}
+      onSelectPlaylist={(playlistId) => handleAddToPlaylist(playlistId)}
+    />
+  );
+
+  if (variant === "list") {
+    return (
+      <div
+        className={`${styles.card} ${styles.row} ${isTrackItem ? styles.trackCard : ""}`}
+        onClick={handleCardClick}
+        onMouseLeave={() => setShowMenu(false)}
+        onContextMenu={toggleMenu}
+        data-testid="album-card"
+      >
+        <div className={styles.rowArtwork}>
+          <img
+            src={artworkSrc}
+            alt={album.title}
+            className={styles.artwork}
+            loading="lazy"
+            decoding="async"
+          />
+          {(isCached || isDownloading) && (
+            <div
+              className={`${styles.cachedDot} ${isDownloading ? styles.cachedDotDownloading : ""}`}
+              title={isDownloading ? "Downloading…" : "Available offline"}
+            />
+          )}
+        </div>
+
+        <div className={styles.rowInfo}>
+          <h3 className={styles.title}>{album.title}</h3>
+          <p className={styles.artist}>{album.artist}</p>
+        </div>
+
+        {isTrackItem && <span className={styles.rowItemType}>Track</span>}
+        {isWishlist && (
+          <span className={styles.rowWishlistBadge} title="Wishlist">
+            <Heart size={14} fill="currentColor" />
+          </span>
+        )}
+
+        <div className={styles.rowActions}>
+          <button
+            className={styles.rowPlayButton}
+            onClick={handlePlay}
+            disabled={isLoading}
+            title="Play"
+          >
+            {isLoading ? (
+              <span className={styles.spinner} />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            )}
+          </button>
+          <button
+            className={styles.rowMenuButton}
+            onClick={toggleMenu}
+            title="More options"
+          >
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+
+        {showMenu && contextMenu(styles.menuList)}
+        {playlistModal}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`${styles.card} ${isTrackItem ? styles.trackCard : ""}`}
       onClick={handleCardClick}
       onMouseLeave={() => setShowMenu(false)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setShowMenu(true);
-      }}
+      onContextMenu={toggleMenu}
       data-testid="album-card"
     >
       {/* Artwork */}
@@ -177,9 +334,11 @@ export function AlbumCard({
         {isTrackItem && <span className={styles.itemType}>Track</span>}
         <div className={styles.artworkContainer}>
           <img
-            src={album.artworkUrl}
+            src={artworkSrc}
             alt={album.title}
             className={styles.artwork}
+            loading="lazy"
+            decoding="async"
           />
           {isWishlist && (
             <div className={styles.wishlistBadge} title="Wishlist">
@@ -208,10 +367,7 @@ export function AlbumCard({
             </button>
             <button
               className={styles.menuButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
+              onClick={toggleMenu}
               title="More options"
             >
               <MoreHorizontal size={20} />
@@ -249,64 +405,8 @@ export function AlbumCard({
       </div>
 
       {/* Context menu */}
-      {showMenu && (
-        <div className={styles.menu} onClick={(e) => e.stopPropagation()}>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePlay();
-            }}
-          >
-            <Play size={16} /> Play Now
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePlayNext();
-            }}
-          >
-            <SkipForward size={16} /> Play Next
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleAddToQueue();
-            }}
-          >
-            <List size={16} /> Add to Queue
-          </button>
-
-          <div className={styles.menuDivider} />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(false);
-              setShowPlaylistModal(true);
-            }}
-          >
-            <Music size={14} /> Add to Playlist
-          </button>
-          {!isCached && !isOfflineMode && (
-            <>
-              <div className={styles.menuDivider} />
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownload();
-                }}
-              >
-                <Download size={16} /> Download for Offline
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      <AddToPlaylistModal
-        isOpen={showPlaylistModal}
-        onClose={() => setShowPlaylistModal(false)}
-        onSelectPlaylist={(playlistId) => handleAddToPlaylist(playlistId)}
-      />
+      {showMenu && contextMenu()}
+      {playlistModal}
     </div>
   );
 }

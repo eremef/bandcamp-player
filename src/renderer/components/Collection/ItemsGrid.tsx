@@ -1,5 +1,9 @@
-import React, { useState, useCallback } from "react";
-import { CollectionItem } from "../../../shared/types";
+import React, { useState, useCallback, useMemo } from "react";
+import {
+  CollectionItem,
+  CollectionViewMode,
+  CoverSize,
+} from "../../../shared/types";
 import { useIntersectionObserver } from "../../hooks/useIntersectionObserver";
 import { AlbumCard } from "./AlbumCard";
 import styles from "./ItemsGrid.module.css";
@@ -11,7 +15,25 @@ interface ItemsGridProps {
   emptyHint?: string;
   emptyIcon?: React.ReactNode;
   onItemClick?: (item: CollectionItem) => void;
+  viewMode?: CollectionViewMode;
+  coverSize?: CoverSize;
 }
+
+/**
+ * How many items to render before the first scroll. Denser layouts fit more
+ * on screen, so a fixed count would leave small covers under a screenful and
+ * never trip the infinite-scroll sentinel.
+ */
+const INITIAL_COUNT: Record<CollectionViewMode, Record<CoverSize, number>> = {
+  grid: { small: 40, medium: 20, large: 12 },
+  list: { small: 30, medium: 30, large: 30 },
+};
+
+const SIZE_CLASS: Record<CoverSize, string> = {
+  small: styles.sizeSmall,
+  medium: styles.sizeMedium,
+  large: styles.sizeLarge,
+};
 
 export function ItemsGrid({
   items,
@@ -20,17 +42,39 @@ export function ItemsGrid({
   emptyHint,
   emptyIcon,
   onItemClick,
+  viewMode = "grid",
+  coverSize = "medium",
 }: ItemsGridProps) {
-  const [visibleCount, setVisibleCount] = useState(20);
+  const initialCount = INITIAL_COUNT[viewMode][coverSize];
+  const [visibleCount, setVisibleCount] = useState(initialCount);
+
+  // Searching or filtering swaps the item set out from under us; without this
+  // the grid keeps rendering however far the previous list had been scrolled.
+  // Keyed on length rather than the array identity so ordinary re-renders
+  // (and the sort pipeline's new-but-equivalent arrays) don't reset scroll.
+  // Adjusted during render rather than in an effect — see
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const resetKey = `${items.length}|${initialCount}`;
+  const [lastResetKey, setLastResetKey] = useState(resetKey);
+  if (resetKey !== lastResetKey) {
+    setLastResetKey(resetKey);
+    setVisibleCount(initialCount);
+  }
 
   const handleLoadMore = useCallback(() => {
-    setVisibleCount((prev) => prev + 20);
-  }, []);
+    setVisibleCount((prev) => prev + initialCount);
+  }, [initialCount]);
 
   const targetRef = useIntersectionObserver({
     onIntersect: handleLoadMore,
     enabled: items.length > visibleCount,
   });
+
+  const containerClass = useMemo(
+    () =>
+      `${viewMode === "list" ? styles.list : styles.grid} ${SIZE_CLASS[coverSize]}`,
+    [viewMode, coverSize],
+  );
 
   return (
     <div className={styles.gridContainer}>
@@ -41,7 +85,7 @@ export function ItemsGrid({
       )}
 
       {items.length > 0 ? (
-        <div className={styles.grid}>
+        <div className={containerClass}>
           {items.slice(0, visibleCount).map((item) =>
             item.type === "album" && item.album ? (
               <AlbumCard
@@ -49,6 +93,8 @@ export function ItemsGrid({
                 album={item.album}
                 isTrackItem={false}
                 isWishlist={item.isWishlist}
+                variant={viewMode}
+                coverSize={coverSize}
                 onClick={() => onItemClick?.(item)}
               />
             ) : item.type === "track" && item.track ? (
@@ -56,6 +102,8 @@ export function ItemsGrid({
                 key={item.id}
                 isTrackItem
                 isWishlist={item.isWishlist}
+                variant={viewMode}
+                coverSize={coverSize}
                 onClick={() => onItemClick?.(item)}
                 album={
                   {
