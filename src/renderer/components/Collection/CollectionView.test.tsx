@@ -155,13 +155,32 @@ describe('CollectionView', () => {
     });
 
     it('shows non-blocking loading state when refreshing', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, isLoadingCollection: true });
+        (useStore as any).mockReturnValue({ ...mockStore, isRefreshingCollection: true });
         render(<CollectionView />);
         expect(screen.queryByText('Loading your collection...')).not.toBeInTheDocument();
         const refreshBtn = screen.getByTitle('Refresh collection');
         expect(refreshBtn).toBeDisabled();
         const icon = screen.getByTestId('icon-refresh');
         expect(icon.className).toContain('spinning');
+        expect(screen.getByTestId('collection-updating')).toBeInTheDocument();
+    });
+
+    it('does not show the refreshing hint when idle', () => {
+        (useStore as any).mockReturnValue({ ...mockStore });
+        render(<CollectionView />);
+        expect(screen.queryByTestId('collection-updating')).not.toBeInTheDocument();
+    });
+
+    it('keeps the grid rendered while a refresh runs over cached data', () => {
+        // Stale-while-revalidate: cached items stay on screen during a refresh.
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            isLoadingCollection: true,
+            isRefreshingCollection: true,
+        });
+        render(<CollectionView />);
+        expect(screen.queryByText('Loading your collection...')).not.toBeInTheDocument();
+        expect(screen.getAllByTestId('album-card').length).toBeGreaterThan(0);
     });
 
     it('shows error state when collection is empty', () => {

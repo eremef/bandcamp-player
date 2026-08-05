@@ -107,8 +107,10 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(COLLECTION_CHANNELS.REFRESH, () =>
     scraperService.fetchCollection(true),
   );
-  ipcMain.handle(COLLECTION_CHANNELS.GET_ALBUM, async (_, albumUrl: string) =>
-    scraperService.getAlbumDetails(albumUrl),
+  ipcMain.handle(
+    COLLECTION_CHANNELS.GET_ALBUM,
+    async (_, albumUrl: string, albumId?: string) =>
+      scraperService.getAlbumDetails(albumUrl, albumId),
   );
   ipcMain.handle(COLLECTION_CHANNELS.SEARCH, (_, query: string) =>
     scraperService.searchCollection(query),
@@ -170,6 +172,16 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   // Collection events
   scraperService.on("collection-updated", (collection) => {
     broadcast(COLLECTION_CHANNELS.ON_UPDATED, collection);
+  });
+
+  // Lets the renderer show a "refreshing" hint even for background refreshes
+  // it never asked for (periodic timer, staleness check).
+  scraperService.on("collection-refresh-started", () => {
+    broadcast(COLLECTION_CHANNELS.ON_REFRESH_STARTED, undefined);
+  });
+
+  scraperService.on("collection-refresh-finished", () => {
+    broadcast(COLLECTION_CHANNELS.ON_REFRESH_FINISHED, undefined);
   });
 
   scraperService.on("radio-stations-updated", (stations) => {

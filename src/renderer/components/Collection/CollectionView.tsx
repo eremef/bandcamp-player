@@ -39,6 +39,7 @@ export function CollectionView() {
   const {
     collection,
     isLoadingCollection,
+    isRefreshingCollection,
     collectionError,
     fetchCollection,
     searchQuery,
@@ -210,7 +211,7 @@ export function CollectionView() {
       if (!albumWithTracks.tracks || albumWithTracks.tracks.length === 0) {
         if (albumWithTracks.bandcampUrl) {
           try {
-            const details = await getAlbumDetails(albumWithTracks.bandcampUrl);
+            const details = await getAlbumDetails(albumWithTracks.bandcampUrl, albumWithTracks.id);
             if (details) {
               albumWithTracks = details;
             }
@@ -346,7 +347,7 @@ export function CollectionView() {
     }
   };
 
-  if (isLoadingCollection && !collection?.items.length) {
+  if (isLoadingCollection && !collection) {
     return (
       <div className={styles.container}>
         <div className={styles.emptyState}>Loading your collection...</div>
@@ -354,7 +355,7 @@ export function CollectionView() {
     );
   }
 
-  if (collectionError && !collection?.items.length) {
+  if (collectionError && !collection) {
     return (
       <div className={styles.container}>
         <div className={styles.errorState}>
@@ -608,15 +609,24 @@ export function CollectionView() {
             <button
               className={styles.actionButton}
               onClick={() => fetchCollection(true)}
-              disabled={isLoadingCollection}
+              disabled={isRefreshingCollection}
               title="Refresh collection"
             >
               <RefreshCw
                 size={20}
-                className={isLoadingCollection ? styles.spinning : ""}
+                className={isRefreshingCollection ? styles.spinning : ""}
                 data-testid="icon-refresh"
               />
             </button>
+
+            {isRefreshingCollection && (
+              <span
+                className={styles.updatingLabel}
+                data-testid="collection-updating"
+              >
+                Updating…
+              </span>
+            )}
 
             {sortedItems.length > 0 && (
               <div className={styles.bulkMenuContainer} ref={bulkRef}>
@@ -678,7 +688,7 @@ export function CollectionView() {
           coverSize={coverSize}
           onItemClick={async (item) => {
             if (item.type === "album" && item.album) {
-              await getAlbumDetails(item.album.bandcampUrl);
+              await getAlbumDetails(item.album.bandcampUrl, item.album.id);
             }
           }}
           emptyMessage={
