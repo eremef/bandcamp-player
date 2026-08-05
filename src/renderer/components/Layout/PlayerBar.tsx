@@ -2,8 +2,9 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
-    VolumeX, Volume1, Volume2, List, Minimize2, Cast
+    VolumeX, Volume1, Volume2, List, Minimize2, Cast, ListPlus
 } from 'lucide-react';
+import { AddToPlaylistModal } from '../Playlist/AddToPlaylistModal';
 import styles from './PlayerBar.module.css';
 
 export function PlayerBar() {
@@ -31,6 +32,7 @@ export function PlayerBar() {
         navigateToAlbumFromTrack,
         knownArtists,
         knownAlbums,
+        addTrackToPlaylist,
     } = useStore();
 
     const audio1Ref = useRef<HTMLAudioElement>(null);
@@ -45,6 +47,7 @@ export function PlayerBar() {
     const [hoverVolume, setHoverVolume] = useState<number | null>(null);
     const [isDraggingVolume, setIsDraggingVolume] = useState(false);
     const [isCastMenuOpen, setIsCastMenuOpen] = useState(false);
+    const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
 
     const { isPlaying, currentTrack, currentTime, duration, volume, isMuted, isShuffled, repeatMode } = player;
 
@@ -346,6 +349,11 @@ export function PlayerBar() {
         return () => window.removeEventListener('mousedown', handleClickOutside);
     }, [isCastMenuOpen]);
 
+    // Never leave the playlist picker open for a track that is no longer loaded
+    useEffect(() => {
+        if (!currentTrack) setIsAddToPlaylistOpen(false);
+    }, [currentTrack]);
+
     const formatTime = (seconds: number) => {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
         const mins = Math.floor(seconds / 60);
@@ -573,6 +581,15 @@ export function PlayerBar() {
             </div>
             {/* extras */}
             <div className={styles.extras}>
+                <button
+                    className={styles.controlBtn}
+                    onClick={() => setIsAddToPlaylistOpen(true)}
+                    disabled={!currentTrack}
+                    title={currentTrack ? 'Add to Playlist' : 'No track playing'}
+                    data-testid="player-add-to-playlist-btn"
+                >
+                    <ListPlus size={20} />
+                </button>
 
                 <div className={styles.castContainer}>
                     <button
@@ -646,6 +663,16 @@ export function PlayerBar() {
                     <Minimize2 size={20} />
                 </button>
             </div>
+
+            <AddToPlaylistModal
+                isOpen={isAddToPlaylistOpen && !!currentTrack}
+                onClose={() => setIsAddToPlaylistOpen(false)}
+                onSelectPlaylist={async (playlistId) => {
+                    if (!currentTrack) return;
+                    await addTrackToPlaylist(playlistId, currentTrack);
+                    setIsAddToPlaylistOpen(false);
+                }}
+            />
         </div >
     );
 }

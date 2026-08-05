@@ -21,6 +21,11 @@ vi.mock('lucide-react', () => ({
     Minimize2: () => <div data-testid="minimize-icon" />,
     MoreVertical: () => <div data-testid="more-icon" />,
     List: () => <div data-testid="list-icon" />,
+    ListPlus: () => <div data-testid="list-plus-icon" />,
+    // Used by AddToPlaylistModal
+    X: () => <div data-testid="x-icon" />,
+    Music: () => <div data-testid="music-icon" />,
+    Plus: () => <div data-testid="plus-icon" />,
 }));
 
 // Mock Zustand store
@@ -63,6 +68,9 @@ describe('PlayerBar', () => {
             disconnectCast: vi.fn(),
             knownArtists: new Set(),
             knownAlbums: new Set(),
+            playlists: [{ id: 'p1', name: 'Favourites', trackCount: 3 }],
+            addTrackToPlaylist: vi.fn().mockResolvedValue(undefined),
+            createPlaylist: vi.fn().mockResolvedValue({ id: 'p2', name: 'New' }),
         };
         (useStore as any).mockImplementation((selector?: any) => selector ? selector(mockStore) : mockStore);
 
@@ -257,6 +265,35 @@ describe('PlayerBar', () => {
         // Simulate seek from main process
         seekCallback!(50);
         expect(renderedAudio.currentTime).toBe(50);
+    });
+
+    it('adds the current track to a playlist from the player bar', async () => {
+        render(<PlayerBar />);
+
+        // Modal is closed until the button is clicked
+        expect(screen.queryByText('Add to Playlist')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('player-add-to-playlist-btn'));
+        expect(await screen.findByText('Add to Playlist')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByText('Favourites'));
+        await waitFor(() =>
+            expect(mockStore.addTrackToPlaylist).toHaveBeenCalledWith('p1', mockStore.player.currentTrack)
+        );
+
+        // Picking a playlist closes the modal again
+        await waitFor(() => expect(screen.queryByText('Add to Playlist')).not.toBeInTheDocument());
+    });
+
+    it('disables the add-to-playlist button when nothing is playing', () => {
+        mockStore.player.currentTrack = null;
+        render(<PlayerBar />);
+
+        const addBtn = screen.getByTestId('player-add-to-playlist-btn');
+        expect(addBtn).toBeDisabled();
+
+        fireEvent.click(addBtn);
+        expect(screen.queryByText('Add to Playlist')).not.toBeInTheDocument();
     });
 
     it('registers/unregisters audio listeners on unmount', () => {
