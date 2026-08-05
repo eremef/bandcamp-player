@@ -55,7 +55,19 @@ export function AlbumCard({
   const isOfflineMode = settings?.offlineMode ?? false;
   const [isLoading, setIsLoading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<"left" | "right">("left");
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+
+  const toggleMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!showMenu) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const isRightSide = rect.right > window.innerWidth / 2;
+      setMenuPosition(isRightSide ? "right" : "left");
+    }
+    setShowMenu(!showMenu);
+  };
 
   // An album is fully cached if its ID appears in cachedAlbumIds (derived from
   // DB counts vs trackCount — works even when album.tracks is still empty).
@@ -181,7 +193,7 @@ export function AlbumCard({
   // Shared by both variants — only the positioning class differs.
   const contextMenu = (extraClass = "") => (
     <div
-      className={`${styles.menu} ${extraClass}`.trim()}
+      className={`${styles.menu} ${menuPosition === "right" ? styles.menuRight : styles.menuLeft} ${extraClass}`.trim()}
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -249,10 +261,7 @@ export function AlbumCard({
         className={`${styles.card} ${styles.row} ${isTrackItem ? styles.trackCard : ""}`}
         onClick={handleCardClick}
         onMouseLeave={() => setShowMenu(false)}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setShowMenu(true);
-        }}
+        onContextMenu={toggleMenu}
         data-testid="album-card"
       >
         <div className={styles.rowArtwork}>
@@ -300,10 +309,7 @@ export function AlbumCard({
           </button>
           <button
             className={styles.rowMenuButton}
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowMenu(!showMenu);
-            }}
+            onClick={toggleMenu}
             title="More options"
           >
             <MoreHorizontal size={18} />
@@ -321,10 +327,7 @@ export function AlbumCard({
       className={`${styles.card} ${isTrackItem ? styles.trackCard : ""}`}
       onClick={handleCardClick}
       onMouseLeave={() => setShowMenu(false)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        setShowMenu(true);
-      }}
+      onContextMenu={toggleMenu}
       data-testid="album-card"
     >
       {/* Artwork */}
@@ -365,10 +368,7 @@ export function AlbumCard({
             </button>
             <button
               className={styles.menuButton}
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
+              onClick={toggleMenu}
               title="More options"
             >
               <MoreHorizontal size={20} />

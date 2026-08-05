@@ -409,6 +409,7 @@ export function CollectionView() {
               </button>
               {filterOpen && (
                 <div className={styles.filterDropdown}>
+                  <p className={styles.filterSectionLabel}>Filters</p>
                   <button
                     data-testid="filter-albums-btn"
                     className={styles.filterRow}
