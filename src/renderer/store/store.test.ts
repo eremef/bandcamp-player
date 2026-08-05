@@ -54,6 +54,8 @@ const mockElectron = {
     addTracks: vi.fn(),
     removeTrack: vi.fn(),
     onUpdated: vi.fn(),
+    getBandcampPlaylists: vi.fn(),
+    getBandcampPlaylistTracks: vi.fn(),
   },
   settings: {
     get: vi.fn(),
@@ -154,6 +156,9 @@ describe("useStore", () => {
       castStatus: { status: "disconnected" },
       playlists: [],
       selectedPlaylist: null,
+      bandcampPlaylists: [],
+      isLoadingBandcampPlaylists: false,
+      loadingBandcampPlaylistId: null,
       selectedAlbum: null,
       settings: null,
       radioStations: [],
@@ -173,6 +178,7 @@ describe("useStore", () => {
       isConnected: false,
       user: null,
     });
+    mockElectron.playlist.getBandcampPlaylists.mockResolvedValue([]);
     mockElectron.player.getState.mockResolvedValue({
       isPlaying: false,
       currentTrack: null,
@@ -430,6 +436,120 @@ describe("useStore", () => {
     });
     expect(useStore.getState().selectedPlaylist).toEqual(mockPlaylists[0]);
     expect(useStore.getState().currentView).toBe("playlist-detail");
+  });
+
+  it("should navigate to a Bandcamp playlist before its tracks are scraped and expose a loading flag", async () => {
+    const bcPlaylist = {
+      id: "bc-1",
+      name: "BC List",
+      tracks: [],
+      trackCount: 2,
+      isBandcampPlaylist: true,
+      bandcampUrl: "https://bandcamp.com/list",
+    };
+    const tracks = [
+      { id: "t1", title: "One" },
+      { id: "t2", title: "Two" },
+    ];
+
+    let resolveTracks: (value: any) => void = () => {};
+    mockElectron.playlist.getBandcampPlaylistTracks.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTracks = resolve;
+      }),
+    );
+
+    useStore.setState({ bandcampPlaylists: [bcPlaylist] as any });
+
+    let selectPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      selectPromise = useStore.getState().selectPlaylist("bc-1");
+    });
+
+    // Navigation happens immediately, with the loading flag set for the UI
+    expect(useStore.getState().currentView).toBe("playlist-detail");
+    expect(useStore.getState().selectedPlaylistId).toBe("bc-1");
+    expect(useStore.getState().loadingBandcampPlaylistId).toBe("bc-1");
+    expect(useStore.getState().selectedPlaylist?.tracks).toEqual([]);
+
+    await act(async () => {
+      resolveTracks(tracks);
+      await selectPromise;
+    });
+
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
+    expect(useStore.getState().selectedPlaylist?.tracks).toEqual(tracks);
+    expect(useStore.getState().bandcampPlaylists[0].tracks).toEqual(tracks);
+  });
+
+  it("should clear the Bandcamp loading flag when track scraping fails", async () => {
+    mockElectron.playlist.getBandcampPlaylistTracks.mockRejectedValue(
+      new Error("boom"),
+    );
+
+    useStore.setState({
+      bandcampPlaylists: [
+        {
+          id: "bc-2",
+          name: "BC List",
+          tracks: [],
+          trackCount: 1,
+          isBandcampPlaylist: true,
+          bandcampUrl: "https://bandcamp.com/list",
+        },
+      ] as any,
+    });
+
+    await act(async () => {
+      await useStore.getState().selectPlaylist("bc-2");
+    });
+
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
+    expect(useStore.getState().currentView).toBe("playlist-detail");
+  });
+
+  it("should not overwrite the selected playlist if the user navigated away while scraping", async () => {
+    const tracks = [{ id: "t1", title: "One" }];
+    let resolveTracks: (value: any) => void = () => {};
+    mockElectron.playlist.getBandcampPlaylistTracks.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTracks = resolve;
+      }),
+    );
+
+    useStore.setState({
+      bandcampPlaylists: [
+        {
+          id: "bc-3",
+          name: "BC List",
+          tracks: [],
+          trackCount: 1,
+          isBandcampPlaylist: true,
+          bandcampUrl: "https://bandcamp.com/list",
+        },
+      ] as any,
+    });
+
+    let selectPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      selectPromise = useStore.getState().selectPlaylist("bc-3");
+    });
+
+    // User leaves the detail view before the scrape finishes
+    const otherPlaylist = { id: "other", name: "Other", tracks: [] } as any;
+    useStore.setState({
+      selectedPlaylist: otherPlaylist,
+      selectedPlaylistId: "other",
+    });
+
+    await act(async () => {
+      resolveTracks(tracks);
+      await selectPromise;
+    });
+
+    expect(useStore.getState().selectedPlaylist).toEqual(otherPlaylist);
+    expect(useStore.getState().bandcampPlaylists[0].tracks).toEqual(tracks);
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
   });
 
   it("should update and delete playlist", async () => {

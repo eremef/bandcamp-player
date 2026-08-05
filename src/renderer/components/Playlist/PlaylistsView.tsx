@@ -5,7 +5,7 @@ import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw, Uplo
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, importPlaylist, exportPlaylist } = useStore(useShallow(state => ({
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, isLoadingBandcampPlaylists, loadingBandcampPlaylistId, importPlaylist, exportPlaylist } = useStore(useShallow(state => ({
         playlists: state.playlists,
         selectPlaylist: state.selectPlaylist,
         createPlaylist: state.createPlaylist,
@@ -14,6 +14,8 @@ export function PlaylistsView() {
         updatePlaylist: state.updatePlaylist,
         bandcampPlaylists: state.bandcampPlaylists,
         fetchBandcampPlaylists: state.fetchBandcampPlaylists,
+        isLoadingBandcampPlaylists: state.isLoadingBandcampPlaylists,
+        loadingBandcampPlaylistId: state.loadingBandcampPlaylistId,
         importPlaylist: state.importPlaylist,
         exportPlaylist: state.exportPlaylist
     })));
@@ -26,6 +28,10 @@ export function PlaylistsView() {
     const editInputRef = useRef<HTMLInputElement>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [importConflictData, setImportConflictData] = useState<{data: any, existingId: string} | null>(null);
+
+    // The store also fetches Bandcamp playlists on startup, so the indicator has
+    // to follow the store flag as well as a manual refresh started here.
+    const isBandcampListLoading = isRefreshing || isLoadingBandcampPlaylists;
 
     const handleRefreshBandcamp = async () => {
         setIsRefreshing(true);
@@ -186,12 +192,12 @@ export function PlaylistsView() {
                     <button
                         className={styles.actionButton}
                         onClick={handleRefreshBandcamp}
-                        disabled={isRefreshing}
+                        disabled={isBandcampListLoading}
                         title="Refresh Bandcamp playlists"
                     >
                         <RefreshCw
                             size={20}
-                            className={isRefreshing ? styles.spinning : ""}
+                            className={isBandcampListLoading ? styles.spinning : ""}
                             data-testid="icon-refresh"
                         />
                     </button>
@@ -295,16 +301,28 @@ export function PlaylistsView() {
                 </div>
             )}
 
-            {bandcampPlaylists.length > 0 && (
+            {(bandcampPlaylists.length > 0 || isBandcampListLoading) && (
                 <>
                     <header className={styles.header} style={{ marginTop: '2rem' }}>
                         <div className={styles.headerContent}>
                             <h2>Bandcamp Playlists</h2>
-                            <p>{bandcampPlaylists.length} playlists</p>
+                            <p>
+                                {bandcampPlaylists.length === 0 && isBandcampListLoading
+                                    ? 'Loading…'
+                                    : `${bandcampPlaylists.length} playlists`}
+                            </p>
                         </div>
                     </header>
+                    {bandcampPlaylists.length === 0 ? (
+                        <div className={styles.loading} data-testid="bandcamp-playlists-loading">
+                            <div className={styles.spinner} />
+                            <p>Loading your Bandcamp playlists…</p>
+                        </div>
+                    ) : (
                     <div className={styles.grid}>
-                        {bandcampPlaylists.map((playlist) => (
+                        {bandcampPlaylists.map((playlist) => {
+                            const isLoadingTracks = loadingBandcampPlaylistId === playlist.id;
+                            return (
                             <div key={playlist.id} className={styles.card} onClick={() => selectPlaylist(playlist.id)}>
                                 <div className={styles.cardArtwork}>
                                     {playlist.artworkUrl ? (
@@ -312,29 +330,43 @@ export function PlaylistsView() {
                                     ) : (
                                         <div className={styles.placeholderArtwork}><Music size={48} /></div>
                                     )}
-                                    <div className={styles.cardOverlay}>
-                                        <button
-                                            className={styles.playBtn}
-                                            title="Play"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                playPlaylist(playlist.id);
-                                            }}
+                                    {isLoadingTracks ? (
+                                        <div
+                                            className={styles.loadingOverlay}
+                                            data-testid={`playlist-loading-${playlist.id}`}
+                                            title="Loading tracks…"
                                         >
-                                            <Play size={32} fill="currentColor" />
-                                        </button>
-                                    </div>
+                                            <div className={styles.spinner} />
+                                        </div>
+                                    ) : (
+                                        <div className={styles.cardOverlay}>
+                                            <button
+                                                className={styles.playBtn}
+                                                title="Play"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    playPlaylist(playlist.id);
+                                                }}
+                                            >
+                                                <Play size={32} fill="currentColor" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className={styles.cardInfo}>
                                     <h3 className={styles.cardTitle}>{playlist.name}</h3>
                                     <p className={styles.cardMeta}>
-                                        {playlist.trackCount} tracks
+                                        {isLoadingTracks
+                                            ? 'Loading tracks…'
+                                            : `${playlist.trackCount} tracks`}
                                         {playlist.description && ` • ${playlist.description}`}
                                     </p>
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
+                    )}
                 </>
             )}
             </div>

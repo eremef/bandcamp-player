@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../../store/store';
 import { useShallow } from 'zustand/react/shallow';
 import type { ViewType } from '../../../shared/types';
-import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X, Download } from 'lucide-react';
+import { Library, ListMusic, Radio, Music, User, Settings, Plus, Check, X, Download, Loader2 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 
 export function Sidebar() {
@@ -14,7 +14,8 @@ export function Sidebar() {
         auth,
         toggleSettings,
         createPlaylist,
-        bandcampPlaylists
+        bandcampPlaylists,
+        loadingBandcampPlaylistId
     } = useStore(useShallow(state => ({
         currentView: state.currentView,
         setView: state.setView,
@@ -23,7 +24,8 @@ export function Sidebar() {
         auth: state.auth,
         toggleSettings: state.toggleSettings,
         createPlaylist: state.createPlaylist,
-        bandcampPlaylists: state.bandcampPlaylists
+        bandcampPlaylists: state.bandcampPlaylists,
+        loadingBandcampPlaylistId: state.loadingBandcampPlaylistId
     })));
 
     const [isCreating, setIsCreating] = useState(false);
@@ -152,7 +154,17 @@ export function Sidebar() {
                                     >
                                         <span className={styles.playlistIcon}><Music size={16} /></span>
                                         <span className={styles.playlistName}>{playlist.name}</span>
-                                        <span className={styles.playlistCount}>{playlist.trackCount}</span>
+                                        <span className={styles.playlistCount}>
+                                            {loadingBandcampPlaylistId === playlist.id ? (
+                                                <Loader2
+                                                    size={14}
+                                                    className={styles.spinning}
+                                                    data-testid={`sidebar-playlist-loading-${playlist.id}`}
+                                                />
+                                            ) : (
+                                                playlist.trackCount
+                                            )}
+                                        </span>
                                     </button>
                                 </li>
                             ))}
