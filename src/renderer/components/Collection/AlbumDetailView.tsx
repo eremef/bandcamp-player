@@ -28,7 +28,6 @@ export function AlbumDetailView() {
     updateAlbumInCollection,
     addToQueue,
     addTracksToPlaylist,
-    playlists,
     downloadTrack,
     downloadAlbum,
     deleteAlbum,
@@ -200,7 +199,7 @@ export function AlbumDetailView() {
               )}
             </div>
             <h1 className={styles.title}>{albumDetails?.title}</h1>
-            <h2 
+            <h2
               className={`${styles.artist} ${styles.link}`}
               onClick={() => {
                 if (albumDetails) {
@@ -355,64 +354,64 @@ export function AlbumDetailView() {
                         ? `${Math.floor(track.duration / 60)}:${String(Math.floor(track.duration % 60)).padStart(2, "0")}`
                         : "—"}
                     </td>
-                  <td className={styles.colActions}>
-                    <div className={styles.menuContainer}>
-                      <button
-                        className={styles.menuBtn}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveTrackMenu(
-                            activeTrackMenu === track.id ? null : track.id,
-                          );
-                        }}
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-
-                      {activeTrackMenu === track.id && (
-                        <div
-                          className={styles.menu}
-                          onClick={(e) => e.stopPropagation()}
+                    <td className={styles.colActions}>
+                      <div className={styles.menuContainer}>
+                        <button
+                          className={styles.menuBtn}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveTrackMenu(
+                              activeTrackMenu === track.id ? null : track.id,
+                            );
+                          }}
                         >
-                          <button
-                            onClick={() => {
-                              setActiveTrackMenu(null);
-                              addToQueue(track, true);
-                            }}
+                          <MoreHorizontal size={16} />
+                        </button>
+
+                        {activeTrackMenu === track.id && (
+                          <div
+                            className={styles.menu}
+                            onClick={(e) => e.stopPropagation()}
                           >
-                            <Play size={14} /> Play Next
-                          </button>
-                          <button onClick={() => handleTrackAddToQueue(track)}>
-                            <List size={14} /> Add to Queue
-                          </button>
-
-                          <div className={styles.menuDivider} />
-                          <button onClick={() => {
-                            setActiveTrackMenu(null);
-                            setSelectedTrackForPlaylist(track);
-                          }}>
-                            <Music size={14} /> Add to Playlist
-                          </button>
-
-                          <div className={styles.menuDivider} />
-                          {!cachedTrackIds.has(track.id) ? (
-                            !isOfflineMode && (
-                              <button onClick={() => handleTrackDownload(track)}>
-                                <Download size={14} /> Download
-                              </button>
-                            )
-                          ) : (
-                            <button onClick={() => handleTrackRemoveFromCache(track)}>
-                              <Trash2 size={14} /> Remove from cache
+                            <button
+                              onClick={() => {
+                                setActiveTrackMenu(null);
+                                addToQueue(track, true);
+                              }}
+                            >
+                              <Play size={14} /> Play Next
                             </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+                            <button onClick={() => handleTrackAddToQueue(track)}>
+                              <List size={14} /> Add to Queue
+                            </button>
+
+                            <div className={styles.menuDivider} />
+                            <button onClick={() => {
+                              setActiveTrackMenu(null);
+                              setSelectedTrackForPlaylist(track);
+                            }}>
+                              <Music size={14} /> Add to Playlist
+                            </button>
+
+                            <div className={styles.menuDivider} />
+                            {!cachedTrackIds.has(track.id) ? (
+                              !isOfflineMode && (
+                                <button onClick={() => handleTrackDownload(track)}>
+                                  <Download size={14} /> Download
+                                </button>
+                              )
+                            ) : (
+                              <button onClick={() => handleTrackRemoveFromCache(track)}>
+                                <Trash2 size={14} /> Remove from cache
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

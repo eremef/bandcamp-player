@@ -23,7 +23,10 @@ import {
   Download,
   LayoutGrid,
   Rows3,
-  Maximize2,
+  Rows2,
+  Grid3X3,
+  Grid2X2,
+  Square,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
 import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
@@ -62,7 +65,6 @@ export function CollectionView() {
     addAlbumToQueue,
     addTracksToQueue,
     playQueueIndex,
-    playlists,
     addTracksToPlaylist,
     downloadAlbum,
     downloadTrack,
@@ -547,7 +549,7 @@ export function CollectionView() {
                 onClick={() => setViewOpen((o) => !o)}
                 title="Layout and cover size"
               >
-                {viewMode === "list" ? <Rows3 size={14} /> : <LayoutGrid size={14} />}
+                {viewMode === "list" ? <List size={14} /> : <LayoutGrid size={14} />}
               </button>
               {viewOpen && (
                 <div className={styles.viewDropdown}>
@@ -571,7 +573,7 @@ export function CollectionView() {
                     <span className={`${styles.dropdownCheck} ${viewMode === "list" ? styles.checked : ""}`}>
                       {viewMode === "list" && <Check size={10} strokeWidth={3} />}
                     </span>
-                    <Rows3 size={13} />
+                    <List size={13} />
                     <span>List</span>
                   </button>
 
@@ -579,7 +581,13 @@ export function CollectionView() {
                   <div className={styles.dropdownLabel}>
                     {viewMode === "list" ? "Thumbnail Size" : "Cover Size"}
                   </div>
-                  {(["small", "medium", "large"] as const).map((size) => (
+                  {(
+                    [
+                      { size: "small", icon: viewMode === "list" ? Rows3 : Grid3X3 },
+                      { size: "medium", icon: viewMode === "list" ? Rows2 : Grid2X2 },
+                      { size: "large", icon: Square },
+                    ] as const
+                  ).map(({ size, icon: Icon }) => (
                     <button
                       key={size}
                       data-testid={`cover-${size}-btn`}
@@ -589,7 +597,7 @@ export function CollectionView() {
                       <span className={`${styles.dropdownCheck} ${coverSize === size ? styles.checked : ""}`}>
                         {coverSize === size && <Check size={10} strokeWidth={3} />}
                       </span>
-                      <Maximize2 size={13} />
+                      <Icon size={13} />
                       <span>{size.charAt(0).toUpperCase() + size.slice(1)}</span>
                     </button>
                   ))}

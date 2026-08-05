@@ -35,7 +35,6 @@ export const ArtistsView: React.FC = () => {
     addTracksToQueue,
     playQueueIndex,
     addTracksToPlaylist,
-    playlists,
     downloadTrack,
     cachedTrackIds,
     cachedAlbumIds,
@@ -267,15 +266,15 @@ export const ArtistsView: React.FC = () => {
             <span>Back</span>
           </button>
           <div className={styles.emptyState}>
-              <h2>Artist not found</h2>
-              <div style={{ marginTop: '20px', textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-                  <p><strong>Debug Info:</strong></p>
-                  <p>selectedArtistId: &quot;{selectedArtistId}&quot;</p>
-                  <p>targetId: &quot;{targetId}&quot;</p>
-                  <p>derivedCount: {derivedArtists.length}</p>
-                  <p>Sample IDs: {derivedArtists.slice(0, 5).map(a => `"${a.id}"`).join(', ')}</p>
-                  <p>Sample Names: {derivedArtists.slice(0, 5).map(a => `"${a.name}"`).join(', ')}</p>
-              </div>
+            <h2>Artist not found</h2>
+            <div style={{ marginTop: '20px', textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px', fontSize: '12px', fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <p><strong>Debug Info:</strong></p>
+              <p>selectedArtistId: &quot;{selectedArtistId}&quot;</p>
+              <p>targetId: &quot;{targetId}&quot;</p>
+              <p>derivedCount: {derivedArtists.length}</p>
+              <p>Sample IDs: {derivedArtists.slice(0, 5).map(a => `"${a.id}"`).join(', ')}</p>
+              <p>Sample Names: {derivedArtists.slice(0, 5).map(a => `"${a.name}"`).join(', ')}</p>
+            </div>
           </div>
         </div>
       );

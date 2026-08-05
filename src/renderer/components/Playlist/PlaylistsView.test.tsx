@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { PlaylistsView } from './PlaylistsView';
 import { useStore } from '../../store/store';
 
@@ -68,7 +68,7 @@ describe('PlaylistsView', () => {
 
         const input = screen.getByPlaceholderText('Playlist Name');
         fireEvent.change(input, { target: { value: 'New List' } });
-        
+
         const saveBtn = screen.getByTitle('Save');
         await act(async () => {
             fireEvent.click(saveBtn);
@@ -80,7 +80,7 @@ describe('PlaylistsView', () => {
     it('cancels creation', () => {
         render(<PlaylistsView />);
         fireEvent.click(screen.getByText('Create Playlist'));
-        
+
         const cancelBtn = screen.getByTitle('Cancel');
         fireEvent.click(cancelBtn);
 
@@ -100,7 +100,7 @@ describe('PlaylistsView', () => {
 
         const input = screen.getByDisplayValue('Chill');
         fireEvent.change(input, { target: { value: 'Super Chill' } });
-        
+
         const saveBtn = screen.getByText('Save');
         await act(async () => {
             fireEvent.click(saveBtn);
@@ -112,7 +112,7 @@ describe('PlaylistsView', () => {
     it('deletes playlist after confirmation', async () => {
         render(<PlaylistsView />);
         const deleteBtns = screen.getAllByTitle('Delete playlist');
-        
+
         await act(async () => {
             fireEvent.click(deleteBtns[0]);
         });

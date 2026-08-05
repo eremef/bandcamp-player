@@ -38,7 +38,6 @@ export function AlbumCard({
   const {
     getAlbumDetails,
     addAlbumToQueue,
-    playlists,
     addTracksToPlaylist,
     downloadAlbum,
     clearQueue,
