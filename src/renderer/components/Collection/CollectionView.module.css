@@ -254,11 +254,13 @@
 }
 
 
-.sortDropdownWrapper {
+.sortDropdownWrapper,
+.viewDropdownWrapper {
     position: relative;
 }
 
-.sortToggleBtn {
+.sortToggleBtn,
+.viewToggleBtn {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -275,7 +277,8 @@
     white-space: nowrap;
 }
 
-.sortToggleBtn:hover {
+.sortToggleBtn:hover,
+.viewToggleBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
@@ -295,7 +298,8 @@
     line-height: 1;
 }
 
-.sortDropdown {
+.sortDropdown,
+.viewDropdown {
     position: absolute;
     top: calc(100% + 6px);
     right: 0;

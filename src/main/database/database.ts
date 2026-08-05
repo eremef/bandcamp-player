@@ -209,6 +209,8 @@ export class Database {
       collectionFilterTracks: true,
       collectionFilterWishlist: true,
       collectionFilterDownloaded: false,
+      collectionViewMode: "grid",
+      collectionCoverSize: "medium",
       offlineMode: false,
       includeWishlistInCollection: false,
       queueWidth: 300,

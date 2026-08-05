@@ -82,6 +82,8 @@ export class AppHelpers {
                 collectionFilterAlbums: true,
                 collectionFilterTracks: true,
                 collectionFilterWishlist: true,
+                collectionViewMode: 'grid',
+                collectionCoverSize: 'medium',
             });
         });
     }

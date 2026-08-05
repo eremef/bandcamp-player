@@ -15,7 +15,11 @@ vi.mock('../../hooks/useIntersectionObserver', () => ({
 
 // Mock components
 vi.mock('./AlbumCard', () => ({
-    AlbumCard: ({ album }: any) => <div data-testid="album-card">{album.title}</div>,
+    AlbumCard: ({ album, variant, coverSize }: any) => (
+        <div data-testid="album-card" data-variant={variant} data-cover-size={coverSize}>
+            {album.title}
+        </div>
+    ),
 }));
 
 // Mock Lucide icons
@@ -41,6 +45,9 @@ vi.mock('lucide-react', () => ({
     ArrowUp: () => <span />,
     ArrowDown: () => <span />,
     Disc3: () => <span />,
+    LayoutGrid: () => <span data-testid="icon-grid" />,
+    Rows3: () => <span data-testid="icon-rows" />,
+    Maximize2: () => <span />,
 }));
 
 describe('CollectionView', () => {
@@ -117,6 +124,10 @@ describe('CollectionView', () => {
         setCollectionFilterAlbums: vi.fn(),
         setCollectionFilterTracks: vi.fn(),
         setCollectionFilterWishlist: vi.fn(),
+        collection_view_mode: 'grid',
+        collection_cover_size: 'medium',
+        setCollectionViewMode: vi.fn(),
+        setCollectionCoverSize: vi.fn(),
     };
 
     beforeEach(() => {
@@ -372,5 +383,77 @@ describe('CollectionView', () => {
         expect(screen.getByText('1 item')).toBeInTheDocument();
         expect(screen.getAllByTestId('album-card')).toHaveLength(1);
         expect(screen.getByText('Disco Inferno')).toBeInTheDocument();
+    });
+
+    describe('view mode dropdown', () => {
+        it('is closed until the toggle is clicked', () => {
+            render(<CollectionView />);
+            expect(screen.queryByTestId('view-grid-btn')).not.toBeInTheDocument();
+
+            fireEvent.click(screen.getByTestId('view-toggle-btn'));
+
+            expect(screen.getByTestId('view-grid-btn')).toBeInTheDocument();
+            expect(screen.getByTestId('view-list-btn')).toBeInTheDocument();
+            expect(screen.getByTestId('cover-small-btn')).toBeInTheDocument();
+            expect(screen.getByTestId('cover-medium-btn')).toBeInTheDocument();
+            expect(screen.getByTestId('cover-large-btn')).toBeInTheDocument();
+        });
+
+        it('persists the layout choice through the store', () => {
+            render(<CollectionView />);
+            fireEvent.click(screen.getByTestId('view-toggle-btn'));
+            fireEvent.click(screen.getByTestId('view-list-btn'));
+
+            expect(mockStore.setCollectionViewMode).toHaveBeenCalledWith('list');
+            // Selecting an option closes the dropdown.
+            expect(screen.queryByTestId('view-list-btn')).not.toBeInTheDocument();
+        });
+
+        it('persists each cover size choice', () => {
+            for (const size of ['small', 'medium', 'large'] as const) {
+                vi.clearAllMocks();
+                const { unmount } = render(<CollectionView />);
+                fireEvent.click(screen.getByTestId('view-toggle-btn'));
+                fireEvent.click(screen.getByTestId(`cover-${size}-btn`));
+
+                expect(mockStore.setCollectionCoverSize).toHaveBeenCalledWith(size);
+                unmount();
+            }
+        });
+
+        it('labels the size section for the active layout', () => {
+            const { unmount } = render(<CollectionView />);
+            fireEvent.click(screen.getByTestId('view-toggle-btn'));
+            expect(screen.getByText('Cover Size')).toBeInTheDocument();
+            unmount();
+
+            (useStore as any).mockReturnValue({ ...mockStore, collection_view_mode: 'list' });
+            render(<CollectionView />);
+            fireEvent.click(screen.getByTestId('view-toggle-btn'));
+            expect(screen.getByText('Thumbnail Size')).toBeInTheDocument();
+        });
+
+        it('closes on an outside click', () => {
+            render(<CollectionView />);
+            fireEvent.click(screen.getByTestId('view-toggle-btn'));
+            expect(screen.getByTestId('view-grid-btn')).toBeInTheDocument();
+
+            fireEvent.mouseDown(document.body);
+            expect(screen.queryByTestId('view-grid-btn')).not.toBeInTheDocument();
+        });
+
+        it('forwards the stored layout to the cards', () => {
+            (useStore as any).mockReturnValue({
+                ...mockStore,
+                collection_view_mode: 'list',
+                collection_cover_size: 'small',
+            });
+            render(<CollectionView />);
+
+            for (const card of screen.getAllByTestId('album-card')) {
+                expect(card).toHaveAttribute('data-variant', 'list');
+                expect(card).toHaveAttribute('data-cover-size', 'small');
+            }
+        });
     });
 });
