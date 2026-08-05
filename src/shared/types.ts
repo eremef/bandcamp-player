@@ -209,6 +209,8 @@ export interface ScrobbleData {
 
 export type SortKey = "default" | "artist" | "album";
 export type SortDirection = "asc" | "desc";
+export type CollectionViewMode = "grid" | "list";
+export type CoverSize = "small" | "medium" | "large";
 
 export interface AppSettings {
   // Cache settings
@@ -239,6 +241,8 @@ export interface AppSettings {
   collectionFilterTracks: boolean;
   collectionFilterWishlist: boolean;
   collectionFilterDownloaded: boolean;
+  collectionViewMode: CollectionViewMode;
+  collectionCoverSize: CoverSize;
 
   // Offline mode
   offlineMode: boolean;
