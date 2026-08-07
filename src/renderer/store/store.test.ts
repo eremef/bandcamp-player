@@ -43,6 +43,7 @@ const mockElectron = {
     getAlbum: vi.fn(),
     onUpdated: vi.fn(),
     onRefreshStarted: vi.fn(),
+    onRefreshFinished: vi.fn(),
   },
   playlist: {
     getAll: vi.fn(),
@@ -54,6 +55,8 @@ const mockElectron = {
     addTracks: vi.fn(),
     removeTrack: vi.fn(),
     onUpdated: vi.fn(),
+    getBandcampPlaylists: vi.fn(),
+    getBandcampPlaylistTracks: vi.fn(),
   },
   settings: {
     get: vi.fn(),
@@ -154,6 +157,9 @@ describe("useStore", () => {
       castStatus: { status: "disconnected" },
       playlists: [],
       selectedPlaylist: null,
+      bandcampPlaylists: [],
+      isLoadingBandcampPlaylists: false,
+      loadingBandcampPlaylistId: null,
       selectedAlbum: null,
       settings: null,
       radioStations: [],
@@ -173,6 +179,7 @@ describe("useStore", () => {
       isConnected: false,
       user: null,
     });
+    mockElectron.playlist.getBandcampPlaylists.mockResolvedValue([]);
     mockElectron.player.getState.mockResolvedValue({
       isPlaying: false,
       currentTrack: null,
@@ -248,6 +255,27 @@ describe("useStore", () => {
     });
     expect(mockElectron.auth.checkSession).toHaveBeenCalled();
     expect(useStore.getState().auth).toEqual(mockAuthResult);
+  });
+
+  it("should load the collection cache-first on session check, never force refresh", async () => {
+    // Regression guard: forcing a refresh here bypasses all three cache layers
+    // in ScraperService, so every launch re-scrapes the whole collection.
+    mockElectron.auth.checkSession.mockResolvedValue({
+      isAuthenticated: true,
+      user: { id: "1", username: "test", profileUrl: "" },
+    });
+    mockElectron.collection.fetch.mockResolvedValue({
+      items: [],
+      totalCount: 0,
+    });
+    mockElectron.playlist.getAll.mockResolvedValue([]);
+
+    await act(async () => {
+      await useStore.getState().checkSession();
+    });
+
+    expect(mockElectron.collection.fetch).toHaveBeenCalled();
+    expect(mockElectron.collection.refresh).not.toHaveBeenCalled();
   });
 
   // --- Player Slice Tests ---
@@ -357,8 +385,9 @@ describe("useStore", () => {
   });
 
   it("should get album details", async () => {
-    await useStore.getState().getAlbumDetails("url");
-    expect(mockElectron.collection.getAlbum).toHaveBeenCalledWith("url");
+    await useStore.getState().getAlbumDetails("url", "a1");
+    // The album id lets the main process serve the album from its DB cache.
+    expect(mockElectron.collection.getAlbum).toHaveBeenCalledWith("url", "a1");
   });
 
   it("should select album and change view", () => {
@@ -430,6 +459,120 @@ describe("useStore", () => {
     });
     expect(useStore.getState().selectedPlaylist).toEqual(mockPlaylists[0]);
     expect(useStore.getState().currentView).toBe("playlist-detail");
+  });
+
+  it("should navigate to a Bandcamp playlist before its tracks are scraped and expose a loading flag", async () => {
+    const bcPlaylist = {
+      id: "bc-1",
+      name: "BC List",
+      tracks: [],
+      trackCount: 2,
+      isBandcampPlaylist: true,
+      bandcampUrl: "https://bandcamp.com/list",
+    };
+    const tracks = [
+      { id: "t1", title: "One" },
+      { id: "t2", title: "Two" },
+    ];
+
+    let resolveTracks: (value: any) => void = () => {};
+    mockElectron.playlist.getBandcampPlaylistTracks.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTracks = resolve;
+      }),
+    );
+
+    useStore.setState({ bandcampPlaylists: [bcPlaylist] as any });
+
+    let selectPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      selectPromise = useStore.getState().selectPlaylist("bc-1");
+    });
+
+    // Navigation happens immediately, with the loading flag set for the UI
+    expect(useStore.getState().currentView).toBe("playlist-detail");
+    expect(useStore.getState().selectedPlaylistId).toBe("bc-1");
+    expect(useStore.getState().loadingBandcampPlaylistId).toBe("bc-1");
+    expect(useStore.getState().selectedPlaylist?.tracks).toEqual([]);
+
+    await act(async () => {
+      resolveTracks(tracks);
+      await selectPromise;
+    });
+
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
+    expect(useStore.getState().selectedPlaylist?.tracks).toEqual(tracks);
+    expect(useStore.getState().bandcampPlaylists[0].tracks).toEqual(tracks);
+  });
+
+  it("should clear the Bandcamp loading flag when track scraping fails", async () => {
+    mockElectron.playlist.getBandcampPlaylistTracks.mockRejectedValue(
+      new Error("boom"),
+    );
+
+    useStore.setState({
+      bandcampPlaylists: [
+        {
+          id: "bc-2",
+          name: "BC List",
+          tracks: [],
+          trackCount: 1,
+          isBandcampPlaylist: true,
+          bandcampUrl: "https://bandcamp.com/list",
+        },
+      ] as any,
+    });
+
+    await act(async () => {
+      await useStore.getState().selectPlaylist("bc-2");
+    });
+
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
+    expect(useStore.getState().currentView).toBe("playlist-detail");
+  });
+
+  it("should not overwrite the selected playlist if the user navigated away while scraping", async () => {
+    const tracks = [{ id: "t1", title: "One" }];
+    let resolveTracks: (value: any) => void = () => {};
+    mockElectron.playlist.getBandcampPlaylistTracks.mockReturnValue(
+      new Promise((resolve) => {
+        resolveTracks = resolve;
+      }),
+    );
+
+    useStore.setState({
+      bandcampPlaylists: [
+        {
+          id: "bc-3",
+          name: "BC List",
+          tracks: [],
+          trackCount: 1,
+          isBandcampPlaylist: true,
+          bandcampUrl: "https://bandcamp.com/list",
+        },
+      ] as any,
+    });
+
+    let selectPromise: Promise<void> = Promise.resolve();
+    await act(async () => {
+      selectPromise = useStore.getState().selectPlaylist("bc-3");
+    });
+
+    // User leaves the detail view before the scrape finishes
+    const otherPlaylist = { id: "other", name: "Other", tracks: [] } as any;
+    useStore.setState({
+      selectedPlaylist: otherPlaylist,
+      selectedPlaylistId: "other",
+    });
+
+    await act(async () => {
+      resolveTracks(tracks);
+      await selectPromise;
+    });
+
+    expect(useStore.getState().selectedPlaylist).toEqual(otherPlaylist);
+    expect(useStore.getState().bandcampPlaylists[0].tracks).toEqual(tracks);
+    expect(useStore.getState().loadingBandcampPlaylistId).toBeNull();
   });
 
   it("should update and delete playlist", async () => {
@@ -650,6 +793,65 @@ describe("useStore", () => {
     expect(useStore.getState().cacheStats).toEqual(mockStats);
   });
 
+  it("should keep the existing collection when a refresh fails", async () => {
+    const existing = { items: [{ id: "i1" }], totalCount: 1 } as any;
+    useStore.setState({ collection: existing });
+    mockElectron.collection.refresh.mockRejectedValueOnce(new Error("offline"));
+
+    await act(async () => {
+      await useStore.getState().fetchCollection(true);
+    });
+
+    // A failed background refresh must not blank a good cached grid.
+    expect(useStore.getState().collection).toEqual(existing);
+    expect(useStore.getState().collectionError).toBeNull();
+    expect(useStore.getState().toast).toMatchObject({ type: "error" });
+    expect(useStore.getState().isRefreshingCollection).toBe(false);
+  });
+
+  it("should not enter the full-screen loading state when a collection is present", async () => {
+    useStore.setState({ collection: { items: [{ id: "i1" }] } as any });
+    let loadingDuringFetch: boolean | null = null;
+    mockElectron.collection.fetch.mockImplementationOnce(async () => {
+      loadingDuringFetch = useStore.getState().isLoadingCollection;
+      return { items: [{ id: "i2" }], totalCount: 1 };
+    });
+
+    await act(async () => {
+      await useStore.getState().fetchCollection();
+    });
+
+    expect(loadingDuringFetch).toBe(false);
+  });
+
+  it("should report a failed download via toast without rejecting", async () => {
+    // Bulk callers loop with `await downloadTrack(...)`, so a rejection here
+    // would abort the whole batch and show the user nothing.
+    const mockTrack = { id: "t1", title: "Broken Track" } as any;
+    mockElectron.cache.downloadTrack.mockRejectedValueOnce(new Error("boom"));
+
+    await act(async () => {
+      await expect(
+        useStore.getState().downloadTrack(mockTrack),
+      ).resolves.toBeUndefined();
+    });
+
+    expect(useStore.getState().toast).toMatchObject({ type: "error" });
+    expect(useStore.getState().toast?.message).toContain("Broken Track");
+    expect(useStore.getState().downloadingTracks.has("t1")).toBe(false);
+  });
+
+  it("should clear downloadingAlbumIds when a download fails", async () => {
+    const mockTrack = { id: "t1", title: "Broken", albumId: "a1" } as any;
+    mockElectron.cache.downloadTrack.mockRejectedValueOnce(new Error("boom"));
+
+    await act(async () => {
+      await useStore.getState().downloadTrack(mockTrack);
+    });
+
+    expect(useStore.getState().downloadingAlbumIds.size).toBe(0);
+  });
+
   // --- Scrobbler Slice Tests ---
   it("should manage scrobbler connection", async () => {
     const mockState = { isConnected: true, user: "test" };
@@ -775,6 +977,9 @@ describe("useStore", () => {
     mockElectron.collection.onRefreshStarted.mockImplementation(
       (cb) => (listeners["collectionRefreshStarted"] = cb),
     );
+    mockElectron.collection.onRefreshFinished.mockImplementation(
+      (cb) => (listeners["collectionRefreshFinished"] = cb),
+    );
     mockElectron.remote.onConnectionsChanged.mockImplementation(
       (cb) => (listeners["remoteConn"] = cb),
     );
@@ -814,6 +1019,13 @@ describe("useStore", () => {
     const mockCache = { size: 500 };
     act(() => listeners["cache"](mockCache));
     expect(useStore.getState().cacheStats).toEqual(mockCache);
+
+    // Test background-refresh indicator — driven by main-process events so it
+    // also reflects refreshes the renderer never asked for.
+    act(() => listeners["collectionRefreshStarted"]());
+    expect(useStore.getState().isRefreshingCollection).toBe(true);
+    act(() => listeners["collectionRefreshFinished"]());
+    expect(useStore.getState().isRefreshingCollection).toBe(false);
 
     // Test Remote Connections Update
     useStore.setState({ remoteStatus: { connections: 0 } as any });

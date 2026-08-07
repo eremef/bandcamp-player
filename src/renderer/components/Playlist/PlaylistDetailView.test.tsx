@@ -139,6 +139,45 @@ describe('PlaylistDetailView', () => {
         expect(updatePlaylist).toHaveBeenCalledWith('p1', 'New Name');
     });
 
+    it('shows a loading state while a Bandcamp playlist is still being scraped', () => {
+        mockUseStore.mockReturnValue({
+            ...mockUseStore(),
+            selectedPlaylist: { ...mockPlaylist, tracks: [], isBandcampPlaylist: true },
+            loadingBandcampPlaylistId: 'p1'
+        });
+
+        render(<PlaylistDetailView />);
+
+        expect(screen.getByTestId('playlist-tracks-loading')).toBeInTheDocument();
+        expect(screen.getByText('Loading tracks from Bandcamp…')).toBeInTheDocument();
+        expect(screen.queryByText('No tracks in this playlist')).not.toBeInTheDocument();
+    });
+
+    it('shows the empty state instead of the loader when nothing is loading', () => {
+        mockUseStore.mockReturnValue({
+            ...mockUseStore(),
+            selectedPlaylist: { ...mockPlaylist, tracks: [] },
+            loadingBandcampPlaylistId: null
+        });
+
+        render(<PlaylistDetailView />);
+
+        expect(screen.queryByTestId('playlist-tracks-loading')).not.toBeInTheDocument();
+        expect(screen.getByText('No tracks in this playlist')).toBeInTheDocument();
+    });
+
+    it('keeps showing already-loaded tracks while a different playlist loads', () => {
+        mockUseStore.mockReturnValue({
+            ...mockUseStore(),
+            loadingBandcampPlaylistId: 'other'
+        });
+
+        render(<PlaylistDetailView />);
+
+        expect(screen.queryByTestId('playlist-tracks-loading')).not.toBeInTheDocument();
+        expect(screen.getByText('Track 1')).toBeInTheDocument();
+    });
+
     it('shows empty state when no playlist is selected', () => {
         mockUseStore.mockReturnValue({
             selectedPlaylist: null,

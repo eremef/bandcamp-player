@@ -77,8 +77,8 @@ const electronAPI = {
       ipcRenderer.invoke(COLLECTION_CHANNELS.FETCH),
     refresh: (): Promise<Collection> =>
       ipcRenderer.invoke(COLLECTION_CHANNELS.REFRESH),
-    getAlbum: (id: string): Promise<Album> =>
-      ipcRenderer.invoke(COLLECTION_CHANNELS.GET_ALBUM, id),
+    getAlbum: (url: string, albumId?: string): Promise<Album> =>
+      ipcRenderer.invoke(COLLECTION_CHANNELS.GET_ALBUM, url, albumId),
     getTrack: (id: string): Promise<Track> =>
       ipcRenderer.invoke(COLLECTION_CHANNELS.GET_TRACK, id),
     getArtists: (): Promise<Artist[]> =>
@@ -87,6 +87,12 @@ const electronAPI = {
       ipcRenderer.invoke(COLLECTION_CHANNELS.SEARCH, query),
     onUpdated: createEventSubscriber<Collection>(
       COLLECTION_CHANNELS.ON_UPDATED,
+    ),
+    onRefreshStarted: createEventSubscriber<void>(
+      COLLECTION_CHANNELS.ON_REFRESH_STARTED,
+    ),
+    onRefreshFinished: createEventSubscriber<void>(
+      COLLECTION_CHANNELS.ON_REFRESH_FINISHED,
     ),
   },
 

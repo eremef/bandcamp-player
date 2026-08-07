@@ -29,6 +29,8 @@ export const COLLECTION_CHANNELS = {
   GET_ARTISTS: "collection:get-artists",
   CLEAR_SIMULATION: "collection:clear-simulation",
   ON_UPDATED: "collection:on-updated",
+  ON_REFRESH_STARTED: "collection:on-refresh-started",
+  ON_REFRESH_FINISHED: "collection:on-refresh-finished",
 } as const;
 
 // ============================================================================

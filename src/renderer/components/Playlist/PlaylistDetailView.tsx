@@ -108,7 +108,8 @@ export function PlaylistDetailView() {
         deletePlaylist,
         goBack,
         knownArtists,
-        knownAlbums
+        knownAlbums,
+        loadingBandcampPlaylistId
     } = useStore();
 
     const [activeTrackMenu, setActiveTrackMenu] = useState<string | null>(null);
@@ -160,6 +161,8 @@ export function PlaylistDetailView() {
             </div>
         );
     }
+
+    const isLoadingTracks = loadingBandcampPlaylistId === selectedPlaylist.id;
 
     const formatDuration = (seconds: number) => {
         const hours = Math.floor(seconds / 3600);
@@ -284,7 +287,12 @@ export function PlaylistDetailView() {
 
             {/* Track list */}
             <div className={styles.trackList}>
-                {selectedPlaylist.tracks.length === 0 ? (
+                {isLoadingTracks && selectedPlaylist.tracks.length === 0 ? (
+                    <div className={styles.loading} data-testid="playlist-tracks-loading">
+                        <div className={styles.spinner} />
+                        <p>Loading tracks from Bandcamp…</p>
+                    </div>
+                ) : selectedPlaylist.tracks.length === 0 ? (
                     <div className={styles.empty}>
                         <p>No tracks in this playlist</p>
                         <p className={styles.emptyHint}>Add tracks from your collection</p>

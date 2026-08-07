@@ -16,9 +16,11 @@ export function Toast() {
 
     if (!toast) return null;
 
+    const isError = toast.type === 'error';
+
     return (
-        <div className={styles.toast}>
-            <span className={styles.icon}>✅</span>
+        <div className={`${styles.toast} ${isError ? styles.error : ''}`} role="status">
+            <span className={styles.icon}>{isError ? '❌' : '✅'}</span>
             <span>{toast.message}</span>
         </div>
     );

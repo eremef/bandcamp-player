@@ -173,6 +173,35 @@ describe("AlbumDetailView", () => {
     expect(addToQueue).toHaveBeenCalledWith(mockAlbum.tracks[0], true);
   });
 
+  it("removes a track from the cache without downloading it first", async () => {
+    // Regression guard: this handler used to download the track before deleting it.
+    const downloadTrack = vi.fn();
+    const deleteFromCache = vi.fn();
+    mockUseStore.mockReturnValue({
+      ...mockUseStore(),
+      downloadTrack,
+      deleteFromCache,
+      cachedTrackIds: new Set<string>(["t1"]),
+    });
+
+    render(<AlbumDetailView />);
+
+    await waitFor(() =>
+      expect(screen.queryByText("Track 1")).toBeInTheDocument(),
+    );
+
+    const menuBtns = screen
+      .getAllByRole("button")
+      .filter((btn) => btn.className.includes("menuBtn"));
+    fireEvent.click(menuBtns[0]);
+
+    const removeBtn = await screen.findByText(/Remove from cache/);
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => expect(deleteFromCache).toHaveBeenCalledWith("t1"));
+    expect(downloadTrack).not.toHaveBeenCalled();
+  });
+
   it("shows empty state when no album is selected", () => {
     mockUseStore.mockReturnValue({
       selectedAlbum: null,
@@ -212,6 +241,7 @@ describe("AlbumDetailView", () => {
 
     expect(getAlbumDetails).toHaveBeenCalledWith(
       albumWithoutTracks.bandcampUrl,
+      albumWithoutTracks.id,
     );
     await waitFor(() => {
       expect(screen.getByText("Track 1")).toBeInTheDocument();

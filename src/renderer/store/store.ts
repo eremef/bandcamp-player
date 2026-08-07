@@ -66,6 +66,8 @@ interface CollectionSlice {
   collection: Collection | null;
   selectedAlbum: Album | null;
   isLoadingCollection: boolean;
+  /** A network scrape is in flight while cached data stays on screen. */
+  isRefreshingCollection: boolean;
   collectionError: string | null;
   knownArtists: Set<string>;
   knownAlbums: Set<string>;
@@ -89,7 +91,7 @@ interface CollectionSlice {
   selectAlbum: (album: Album) => void;
   updateAlbumInCollection: (album: Album) => void;
   searchCollection: (query: string) => Promise<Collection>;
-  getAlbumDetails: (url: string) => Promise<Album | null>;
+  getAlbumDetails: (url: string, albumId?: string) => Promise<Album | null>;
   navigateToAlbumFromTrack: (track: Track) => void;
 }
 
@@ -119,6 +121,8 @@ interface PlaylistSlice {
   playPlaylist: (id: string) => Promise<void>;
   bandcampPlaylists: Playlist[];
   isLoadingBandcampPlaylists: boolean;
+  /** Id of the Bandcamp playlist whose tracks are currently being scraped. */
+  loadingBandcampPlaylistId: string | null;
   fetchBandcampPlaylists: () => Promise<void>;
   getBandcampPlaylistTracks: (url: string) => Promise<Track[]>;
   exportPlaylist: (playlistId: string) => Promise<boolean>;
@@ -388,7 +392,10 @@ export const useStore = create<StoreState>()((set, get) => ({
     console.log("Store: session result", result);
     set({ auth: result });
     if (result.isAuthenticated) {
-      get().fetchCollection(true);
+      // Cache-first on purpose: the SQLite cache renders instantly and
+      // ScraperService kicks off a background refresh when it is stale.
+      // Never force here — that bypasses all three cache layers on every launch.
+      get().fetchCollection();
       get().fetchPlaylists();
     }
   },
@@ -480,6 +487,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   collection: null,
   selectedAlbum: null,
   isLoadingCollection: false,
+  isRefreshingCollection: false,
   collectionError: null,
   knownArtists: new Set(),
   knownAlbums: new Set(),
@@ -536,7 +544,15 @@ export const useStore = create<StoreState>()((set, get) => ({
       return;
     }
 
-    set({ isLoadingCollection: true, collectionError: null });
+    set({
+      // Only a cold start (nothing to show) gets the full-screen loading state;
+      // otherwise the grid stays rendered while data refreshes underneath it.
+      isLoadingCollection: !get().collection,
+      // Optimistic so the spinner reacts to the click without waiting for the
+      // main-process event to come back.
+      isRefreshingCollection: forceRefresh || get().isRefreshingCollection,
+      collectionError: null,
+    });
     try {
       const collection = forceRefresh
         ? await window.electron.collection.refresh()
@@ -558,11 +574,19 @@ export const useStore = create<StoreState>()((set, get) => ({
       get().fetchBandcampPlaylists();
       get().fetchRadioStations();
     } catch (error) {
-      set({
-        collectionError:
-          error instanceof Error ? error.message : "Failed to fetch collection",
-        isLoadingCollection: false,
-      });
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch collection";
+      // Never destroy a good cached grid because a background refresh failed —
+      // surface it as a toast and leave the existing collection in place.
+      if (get().collection) {
+        console.error("[Store] Collection refresh failed", error);
+        get().showToast("Could not refresh collection", "error");
+        set({ isLoadingCollection: false });
+      } else {
+        set({ collectionError: message, isLoadingCollection: false });
+      }
+    } finally {
+      set({ isRefreshingCollection: false });
     }
   },
   selectAlbum: (album) =>
@@ -597,8 +621,10 @@ export const useStore = create<StoreState>()((set, get) => ({
   searchCollection: async (query) => {
     return window.electron.collection.search(query);
   },
-  getAlbumDetails: async (url) => {
-    return window.electron.collection.getAlbum(url);
+  getAlbumDetails: async (url, albumId) => {
+    // Passing the id lets the main process serve the album from the DB cache
+    // instead of re-scraping the page on every open.
+    return window.electron.collection.getAlbum(url, albumId);
   },
   navigateToAlbumFromTrack: async (track) => {
     const s = get();
@@ -624,7 +650,10 @@ export const useStore = create<StoreState>()((set, get) => ({
 
     if (track.bandcampUrl) {
       try {
-        const fullAlbum = await s.getAlbumDetails(track.bandcampUrl);
+        const fullAlbum = await s.getAlbumDetails(
+          track.bandcampUrl,
+          track.albumId,
+        );
         // If we are still viewing this album, update the state with full details
         if (fullAlbum && get().selectedAlbum?.id === tempId) {
           set({ selectedAlbum: fullAlbum });
@@ -646,25 +675,43 @@ export const useStore = create<StoreState>()((set, get) => ({
     // Check if it's a Bandcamp playlist first
     const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
     if (bcPlaylist) {
-      let fullPlaylist = bcPlaylist;
-      if ((!bcPlaylist.tracks || bcPlaylist.tracks.length === 0) && bcPlaylist.bandcampUrl) {
-        try {
-          const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
-          fullPlaylist = { ...bcPlaylist, tracks, trackCount: tracks.length || bcPlaylist.trackCount };
-          // Update store's bandcampPlaylists array so it retains fetched tracks
-          set((s) => ({
-            bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? fullPlaylist : p)
-          }));
-        } catch (e) {
-          console.error("Failed to fetch Bandcamp playlist tracks", e);
-        }
-      }
+      const needsTracks =
+        (!bcPlaylist.tracks || bcPlaylist.tracks.length === 0) && !!bcPlaylist.bandcampUrl;
+
+      // Navigate immediately so the detail view can render its loading state
+      // instead of the click appearing to do nothing while we scrape.
       set((s) => ({
         viewHistory: pushViewState(s as StoreState),
-        selectedPlaylist: fullPlaylist,
+        selectedPlaylist: bcPlaylist,
         currentView: "playlist-detail",
         selectedPlaylistId: id,
+        loadingBandcampPlaylistId: needsTracks ? id : null,
       }));
+
+      if (!needsTracks) return;
+
+      try {
+        const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl!);
+        const fullPlaylist = {
+          ...bcPlaylist,
+          tracks,
+          trackCount: tracks.length || bcPlaylist.trackCount,
+        };
+        // Update store's bandcampPlaylists array so it retains fetched tracks
+        set((s) => ({
+          bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? fullPlaylist : p),
+          // Only refresh the detail view if the user hasn't navigated away
+          selectedPlaylist:
+            s.selectedPlaylistId === id ? fullPlaylist : s.selectedPlaylist,
+        }));
+      } catch (e) {
+        console.error("Failed to fetch Bandcamp playlist tracks", e);
+      } finally {
+        set((s) => ({
+          loadingBandcampPlaylistId:
+            s.loadingBandcampPlaylistId === id ? null : s.loadingBandcampPlaylistId,
+        }));
+      }
       return;
     }
 
@@ -742,8 +789,16 @@ export const useStore = create<StoreState>()((set, get) => ({
       const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
       if (bcPlaylist && bcPlaylist.bandcampUrl) {
         get().showToast("Loading Bandcamp playlist...", "success");
-        tracksToPlay = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
-        get().hideToast();
+        set({ loadingBandcampPlaylistId: id });
+        try {
+          tracksToPlay = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
+        } finally {
+          set((s) => ({
+            loadingBandcampPlaylistId:
+              s.loadingBandcampPlaylistId === id ? null : s.loadingBandcampPlaylistId,
+          }));
+          get().hideToast();
+        }
       }
     } else {
       const fullPlaylist = await window.electron.playlist.getById(id);
@@ -760,13 +815,14 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   bandcampPlaylists: [],
   isLoadingBandcampPlaylists: false,
+  loadingBandcampPlaylistId: null,
   fetchBandcampPlaylists: async () => {
     if (get().isLoadingBandcampPlaylists) return;
     set({ isLoadingBandcampPlaylists: true });
     try {
       const playlists = await window.electron.playlist.getBandcampPlaylists();
 
-      set({ bandcampPlaylists: playlists });
+      set({ bandcampPlaylists: playlists ?? [] });
     } catch (error) {
       console.error("Store: fetchBandcampPlaylists failed", error);
       get().showToast("Failed to fetch Bandcamp playlists", "error");
@@ -880,6 +936,14 @@ export const useStore = create<StoreState>()((set, get) => ({
       await window.electron.cache.downloadTrack(track);
       // Refresh cached IDs so the indicator flips from blinking → solid immediately
       get().fetchCachedTrackIds();
+    } catch (error) {
+      // Never reject: bulk callers loop with `await downloadTrack(...)` and one
+      // bad track must not abort the whole batch. Surface it instead.
+      console.error("[Store] downloadTrack failed", error);
+      get().showToast(
+        `Download failed: ${track.title || "track"}`,
+        "error",
+      );
     } finally {
       _downloadingTrackAlbums.delete(track.id);
       set((s) => {
@@ -956,6 +1020,12 @@ export const useStore = create<StoreState>()((set, get) => ({
       await window.electron.cache.downloadAlbum(album);
       // Refresh cached IDs so the indicator flips from blinking → solid immediately
       get().fetchCachedTrackIds();
+    } catch (error) {
+      console.error("[Store] downloadAlbum failed", error);
+      get().showToast(
+        `Download failed: ${album.title || "album"}`,
+        "error",
+      );
     } finally {
       set((s) => {
         const updatedAlbums = new Set(s.downloadingAlbumIds);
@@ -1045,7 +1115,10 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
 
     if (includeWishlistChanged) {
-      get().fetchCollection(true);
+      // Cache-first is safe here: the cacheId gains/loses a `_withWishlist`
+      // suffix and the memory guard compares lastCacheId, so this hits the
+      // other variant's cached row instead of re-scraping on every toggle.
+      get().fetchCollection();
     }
 
     // Auto-start/stop remote service based on setting
@@ -1246,6 +1319,16 @@ export async function initializeStoreSubscriptions() {
       collection,
       cachedAlbumIds: deriveCachedAlbumIds(collection),
     });
+  });
+
+  // Background refreshes start in the main process without any renderer call,
+  // so the indicator has to be driven by events rather than derived locally.
+  window.electron.collection.onRefreshStarted(() => {
+    useStore.setState({ isRefreshingCollection: true });
+  });
+
+  window.electron.collection.onRefreshFinished(() => {
+    useStore.setState({ isRefreshingCollection: false });
   });
 
   // Queue updates

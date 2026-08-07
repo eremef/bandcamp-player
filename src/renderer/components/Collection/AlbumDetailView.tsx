@@ -31,6 +31,7 @@ export function AlbumDetailView() {
     downloadTrack,
     downloadAlbum,
     deleteAlbum,
+    deleteFromCache,
     albumDetailSourceView,
     cachedTrackIds,
     cachedAlbumIds,
@@ -73,7 +74,7 @@ export function AlbumDetailView() {
       if (selectedAlbum.bandcampUrl) {
         setIsLoading(true);
         try {
-          const details = await getAlbumDetails(selectedAlbum.bandcampUrl);
+          const details = await getAlbumDetails(selectedAlbum.bandcampUrl, selectedAlbum.id);
           if (details) {
             setAlbumDetails(details);
             // Write full tracks back into the collection store so the next
@@ -145,8 +146,7 @@ export function AlbumDetailView() {
 
   const handleTrackRemoveFromCache = async (track: any) => {
     setActiveTrackMenu(null);
-    await downloadTrack(track);
-    await useStore.getState().deleteFromCache(track.id);
+    await deleteFromCache(track.id);
   };
 
   const handleAlbumDownload = async () => {
@@ -160,6 +160,12 @@ export function AlbumDetailView() {
       await deleteAlbum(albumDetails.id);
     }
   };
+
+  // A cached album may carry blank stream URLs when its saved URLs expired —
+  // those get resolved at play time, so `hasStream` is the source of truth for
+  // playability, not the presence of a streamUrl right now.
+  const isPlayable = (track: any) =>
+    track.hasStream ?? (!!track.streamUrl || cachedTrackIds.has(track.id));
 
   const isAlbumDownloaded = selectedAlbum
     ? cachedAlbumIds?.has(selectedAlbum.id)
@@ -221,7 +227,7 @@ export function AlbumDetailView() {
               <button
                 className={styles.playBtn}
                 onClick={handlePlayAll}
-                disabled={isLoading || !albumDetails?.tracks.some((t) => !!t.streamUrl || cachedTrackIds.has(t.id))}
+                disabled={isLoading || !albumDetails?.tracks.some(isPlayable)}
               >
                 <Play size={18} fill="currentColor" />
                 <span>Play</span>
@@ -300,7 +306,7 @@ export function AlbumDetailView() {
             </thead>
             <tbody>
               {albumDetails.tracks.map((track, index) => {
-                const isUnreleased = !track.streamUrl && !cachedTrackIds.has(track.id);
+                const isUnreleased = !isPlayable(track) && !cachedTrackIds.has(track.id);
                 return (
                   <tr
                     key={`${track.id}-${index}`}

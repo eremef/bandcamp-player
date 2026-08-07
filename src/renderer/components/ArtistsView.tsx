@@ -182,14 +182,14 @@ export const ArtistsView: React.FC = () => {
             }
           }
           if (item.album.bandcampUrl) {
-            const details = await getAlbumDetails(item.album.bandcampUrl);
+            const details = await getAlbumDetails(item.album.bandcampUrl, item.album.id);
             if (details) allTracks.push(...details.tracks);
           }
         } else if (item.type === "track" && item.track) {
           if (item.track.streamUrl || cachedTrackIds.has(item.track.id)) {
             allTracks.push(item.track);
           } else if (item.track.bandcampUrl) {
-            const details = await getAlbumDetails(item.track.bandcampUrl);
+            const details = await getAlbumDetails(item.track.bandcampUrl, item.track.albumId);
             if (details) allTracks.push(...details.tracks);
           }
         }

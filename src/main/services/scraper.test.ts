@@ -618,6 +618,7 @@ describe("ScraperService", () => {
         saveCollectionCache: vi.fn(),
         getRadioCache: vi.fn(),
         saveRadioCache: vi.fn(),
+        replaceArtists: vi.fn(),
         getSettings: vi.fn().mockReturnValue({ offlineMode: false }),
       };
       scraper = new ScraperService(mockAuthService, mockDatabase);
@@ -658,6 +659,7 @@ describe("ScraperService", () => {
         isAuthenticated: true,
         user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
       });
+      mockAuthService.getSessionCookies.mockResolvedValue("session=123");
       mockDatabase.getCollectionCache.mockReturnValue({
         data: mockCachedCollection,
         cachedAt: oldDate.toISOString(),
@@ -672,28 +674,345 @@ describe("ScraperService", () => {
       // Should return cached data instantly
       expect(result).toEqual(mockCachedCollection);
 
-      // Should eventually trigger axios (background refresh)
-      // Since it's fire-and-forget, we might need to wait or check if fetchPromise was created
-      // But wait, our implementation calls await this.fetchCollection(true) inside the async block.
+      // The background refresh is fire-and-forget, so let its microtasks run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockAxios.get).toHaveBeenCalled();
     });
 
-    it("should save to database if items count > 100", async () => {
+    it("should not background refresh when the cache is fresh", async () => {
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
+      });
+      mockDatabase.getCollectionCache.mockReturnValue({
+        data: { items: [{ id: "fresh" }], totalCount: 1, lastUpdated: "now" },
+        cachedAt: new Date().toISOString(),
+      });
+
+      await scraper.fetchCollection(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mockAxios.get).not.toHaveBeenCalled();
+    });
+
+    it("should run the staleness check on a warm memory cache", async () => {
+      // This is the path the periodic refresh in main.ts takes: once the
+      // in-memory cache is warm the DB is never consulted again, so the
+      // staleness check has to be reachable from the memory hit too.
+      const oldDate = new Date();
+      oldDate.setDate(oldDate.getDate() - 2);
+
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
+      });
+      mockAuthService.getSessionCookies.mockResolvedValue("session=123");
+      mockDatabase.getCollectionCache.mockReturnValue({
+        data: { items: [{ id: "old" }], totalCount: 1, lastUpdated: "old" },
+        cachedAt: oldDate.toISOString(),
+      });
+
+      // First call warms the memory cache from the DB.
+      await scraper.fetchCollection(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const callsAfterFirst = mockAxios.get.mock.calls.length;
+      expect(callsAfterFirst).toBeGreaterThan(0);
+
+      // Second call must be a memory hit (no further DB read) but still
+      // evaluate staleness rather than short-circuiting silently.
+      const dbCallsBefore = mockDatabase.getCollectionCache.mock.calls.length;
+      await scraper.fetchCollection(false);
+      expect(mockDatabase.getCollectionCache.mock.calls.length).toBe(
+        dbCallsBefore,
+      );
+    });
+
+    it("should fall back to the cookie fanId key when the userId key misses", async () => {
+      const mockCachedCollection = {
+        items: [{ id: "cached" }],
+        totalCount: 1,
+        lastUpdated: "now",
+      };
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { id: "band99", profileUrl: "https://bandcamp.com/testuser" },
+      });
+      mockAuthService.getFanIdFromCookie = vi.fn().mockReturnValue("fan42");
+      mockDatabase.getCollectionCache.mockImplementation((key: string) =>
+        key === "fan42"
+          ? { data: mockCachedCollection, cachedAt: new Date().toISOString() }
+          : null,
+      );
+
+      const result = await scraper.fetchCollection(false);
+
+      expect(result).toEqual(mockCachedCollection);
+      expect(mockAxios.get).not.toHaveBeenCalled();
+      // Self-heals so the next launch hits the primary key directly.
+      expect(mockDatabase.saveCollectionCache).toHaveBeenCalledWith(
+        "band99",
+        "collection",
+        mockCachedCollection,
+      );
+    });
+
+    it("should never build a null_withWishlist cache key", async () => {
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
+      });
+      mockAuthService.getFanIdFromCookie = vi.fn().mockReturnValue(null);
+      mockDatabase.getSettings.mockReturnValue({
+        offlineMode: false,
+        includeWishlistInCollection: true,
+      });
+      mockDatabase.getCollectionCache.mockReturnValue(null);
+      mockAuthService.getSessionCookies.mockResolvedValue("session=123");
+      mockAxios.get.mockResolvedValue({ data: "<html></html>" });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      await scraper.fetchCollection(false);
+
+      const allKeys = [
+        ...mockDatabase.getCollectionCache.mock.calls,
+        ...mockDatabase.saveCollectionCache.mock.calls,
+      ].map((call: any[]) => String(call[0]));
+      expect(allKeys.length).toBeGreaterThan(0);
+      for (const key of allKeys) {
+        expect(key).not.toContain("null");
+        expect(key).not.toContain("undefined");
+      }
+    });
+
+    it("should save the collection to the db cache after a network fetch", async () => {
       mockAuthService.getUser.mockReturnValue({
         isAuthenticated: true,
         user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
       });
       mockAuthService.getSessionCookies.mockResolvedValue("session=123");
 
-      // Mock HTML and API response to return many items
-      mockAxios.get.mockResolvedValue({ data: "<html></html>" });
-      // Mocking parseCollectionItem is hard, so let's mock the whole fetch loop
-      // or just inject the items before return.
-      // Actually, let's mock fetchCollection to return many items by mocking what it calls internally if possible
-      // or just test the logic around saving by mocking a smaller part.
+      const mockHtml = `<html><ol id="gallery">
+        <li class="collection-item-container">
+          <div class="collection-item-title">Cached Album</div>
+          <div class="collection-item-artist">by Cached Artist</div>
+          <a class="item-link" href="https://artist.bandcamp.com/album/cached"></a>
+          <img class="collection-item-art" src="https://f4.bcbits.com/img/a1_16.jpg" />
+        </li>
+      </ol></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
 
-      // Simpler: test that saveCollectionCache IS called when fetchCollection completes with >100 items.
-      // Since we can't easily mock the internal parseCollectionItem logic without much effort,
-      // let's just verify the code path in scraper.service.ts
+      await scraper.fetchCollection(true);
+
+      expect(mockDatabase.saveCollectionCache).toHaveBeenCalledWith(
+        "user1",
+        "collection",
+        expect.objectContaining({
+          items: expect.arrayContaining([expect.anything()]),
+        }),
+      );
+    });
+
+    it("should not start a second scrape while one is in flight", async () => {
+      mockAuthService.getUser.mockReturnValue({
+        isAuthenticated: true,
+        user: { id: "user1", profileUrl: "https://bandcamp.com/testuser" },
+      });
+      mockAuthService.getSessionCookies.mockResolvedValue("session=123");
+      mockDatabase.getCollectionCache.mockReturnValue(null);
+
+      let resolveGet: (v: any) => void = () => {};
+      mockAxios.get.mockReturnValue(
+        new Promise((resolve) => {
+          resolveGet = resolve;
+        }),
+      );
+      mockAxios.post.mockResolvedValue({ data: { items: [] } });
+
+      const first = scraper.fetchCollection(true);
+      const second = scraper.fetchCollection(true);
+      resolveGet({ data: "<html></html>" });
+      await Promise.all([first, second]);
+
+      // Count only profile-page requests — a successful fetch also kicks off a
+      // radio-station refresh through the same axios mock.
+      const profileCalls = mockAxios.get.mock.calls.filter((call: any[]) =>
+        String(call[0]).includes("bandcamp.com/testuser"),
+      );
+      expect(profileCalls).toHaveLength(1);
+    });
+  });
+
+  describe("Album Detail Cache", () => {
+    let mockDatabase: any;
+    const albumUrl = "https://artist.bandcamp.com/album/test";
+
+    const cachedAlbum = (overrides: any = {}) => ({
+      id: "a1",
+      title: "Cached Album",
+      artist: "Cached Artist",
+      artistId: "band1",
+      artworkUrl: "",
+      bandcampUrl: albumUrl,
+      trackCount: 2,
+      tracks: [
+        {
+          id: "t1",
+          title: "One",
+          streamUrl: "http://old/1.mp3",
+          hasStream: true,
+          albumId: "a1",
+        },
+        {
+          id: "t2",
+          title: "Two",
+          streamUrl: "http://old/2.mp3",
+          hasStream: true,
+          albumId: "a1",
+        },
+      ],
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      mockDatabase = {
+        getCollectionCache: vi.fn(),
+        saveCollectionCache: vi.fn(),
+        getAlbumCache: vi.fn().mockReturnValue(null),
+        saveAlbumCache: vi.fn(),
+        getRadioCache: vi.fn(),
+        saveRadioCache: vi.fn(),
+        replaceArtists: vi.fn(),
+        getSettings: vi.fn().mockReturnValue({ offlineMode: false }),
+      };
+      mockAuthService.getSessionCookies.mockResolvedValue("session=123");
+      scraper = new ScraperService(mockAuthService, mockDatabase);
+    });
+
+    it("returns album details from cache without fetching the album page", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: new Date().toISOString(),
+      });
+
+      const result = await scraper.getAlbumDetails(albumUrl, "a1");
+
+      expect(mockDatabase.getAlbumCache).toHaveBeenCalledWith("a1");
+      expect(result?.tracks).toHaveLength(2);
+      expect(mockAxios.get).not.toHaveBeenCalled();
+    });
+
+    it("ignores the cache when no album id is supplied", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: new Date().toISOString(),
+      });
+      mockAxios.get.mockResolvedValue({ data: "<html></html>" });
+
+      await scraper.getAlbumDetails(albumUrl);
+
+      expect(mockDatabase.getAlbumCache).not.toHaveBeenCalled();
+      expect(mockAxios.get).toHaveBeenCalled();
+    });
+
+    it("always re-scrapes a cached pre-order album", async () => {
+      // Pre-order tracks gain stream URLs at release, so a cached pre-order
+      // would otherwise stay unplayable forever.
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum({ isPreorder: true }),
+        cachedAt: new Date().toISOString(),
+      });
+      mockAxios.get.mockResolvedValue({ data: "<html></html>" });
+
+      await scraper.getAlbumDetails(albumUrl, "a1");
+
+      expect(mockAxios.get).toHaveBeenCalledWith(
+        albumUrl,
+        expect.anything(),
+      );
+    });
+
+    it("refreshes stream urls via one mobile api call past the stream TTL", async () => {
+      const stale = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: stale,
+      });
+      mockAxios.get.mockResolvedValue({
+        data: {
+          tracks: [
+            { track_id: "t1", streaming_url: { "mp3-128": "http://new/1.mp3" } },
+            { track_id: "t2", streaming_url: { "mp3-128": "http://new/2.mp3" } },
+          ],
+        },
+      });
+
+      const result = await scraper.getAlbumDetails(albumUrl, "a1");
+
+      // One mobile API request, and crucially NOT the album page.
+      expect(mockAxios.get).toHaveBeenCalledTimes(1);
+      expect(String(mockAxios.get.mock.calls[0][0])).not.toBe(albumUrl);
+      expect(result?.tracks[0].streamUrl).toBe("http://new/1.mp3");
+      expect(result?.tracks[1].streamUrl).toBe("http://new/2.mp3");
+      expect(mockDatabase.saveAlbumCache).toHaveBeenCalled();
+    });
+
+    it("blanks streamUrl but keeps hasStream when the bulk refresh fails", async () => {
+      const stale = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: stale,
+      });
+      mockAxios.get.mockRejectedValue(new Error("mobile api down"));
+
+      const result = await scraper.getAlbumDetails(albumUrl, "a1");
+
+      // Blank rather than stale: PlayerService resolves an empty streamUrl on
+      // demand, so the first play recovers instead of failing outright.
+      expect(result?.tracks.every((t) => t.streamUrl === "")).toBe(true);
+      expect(result?.tracks.every((t) => t.hasStream === true)).toBe(true);
+    });
+
+    it("ignores a cache entry older than the metadata TTL", async () => {
+      const ancient = new Date(
+        Date.now() - 40 * 24 * 60 * 60 * 1000,
+      ).toISOString();
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: ancient,
+      });
+      mockAxios.get.mockResolvedValue({ data: "<html></html>" });
+
+      await scraper.getAlbumDetails(albumUrl, "a1");
+
+      expect(mockAxios.get).toHaveBeenCalledWith(albumUrl, expect.anything());
+    });
+
+    it("writes the album to the cache after a successful scrape", async () => {
+      const mockHtml = `<html><script data-tralbum='${JSON.stringify({
+        id: 55,
+        item_type: "album",
+        band_id: 99,
+        album_title: "Scraped Album",
+        artist: "Scraped Artist",
+        url: albumUrl,
+        trackinfo: [
+          {
+            track_id: 1,
+            title: "First",
+            duration: 100,
+            track_num: 1,
+            file: { "mp3-128": "http://stream/1.mp3" },
+          },
+        ],
+      })}'></script></html>`;
+      mockAxios.get.mockResolvedValue({ data: mockHtml });
+
+      await scraper.getAlbumDetails(albumUrl, "55");
+
+      expect(mockDatabase.saveAlbumCache).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "55", title: "Scraped Album" }),
+      );
     });
   });
 

@@ -5,7 +5,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 ## Tech Stack
 
 - **Desktop**: Electron 40, React 19, TypeScript 5.9, Zustand 5, Vite 7
-- **Database**: better-sqlite3 (SQLite with FTS5 for full-text search)
+- **Database**: better-sqlite3 (SQLite). FTS5 full-text search is **mobile-only** (`mobile/services/MobileDatabase.ts`); desktop search filters in memory
 - **Scraping**: Cheerio (no official Bandcamp API exists)
 - **Testing**: Vitest + happy-dom (unit), Playwright (E2E)
 - **Mobile**: React Native via Expo (version in mobile/package.json), expo-router, react-native-track-player
@@ -117,13 +117,17 @@ Zustand store in `src/renderer/store/store.ts` with slices for: auth, player, qu
 - **Updates**: `UpdaterService` checks for updates 15 seconds after startup and every 24 hours thereafter using `electron-updater` + GitHub Releases.
 - **Web Remote**: Static files in `src/assets/remote/`. Icons are injected at runtime by `RemoteService`.
 - **Simulation Mode**: `npm run dev:large` simulates 5000 items with network errors to test scalability and resilience.
-- **Scalable Collection Caching**: Large collections are persisted in SQLite with FTS5 for instant full-text search. Cache refreshes daily in the background.
+- **Scalable Collection Caching**: Collections are persisted in `collection_cache` as one JSON blob per cache key and served **cache-first** on startup, so the grid renders without a network round-trip. `ScraperService.maybeBackgroundRefresh()` triggers a background refresh only when the cached row is >24h old, and it is reached from both the DB-hit and warm-memory paths (the latter is what makes the 4h timer in `main.ts` effective). Never call `fetchCollection(true)` on a launch path — `forceRefresh` skips all three cache layers.
 - **Chromecast Robustness**: `CastService` handles rapid reconnections and `INVALID_MEDIA_SESSION_ID` errors with automatic state recovery.
 - **Mobile Standalone Mode**: Mobile app has a native audio engine (react-native-track-player) for independent Bandcamp playback with background playback support.
 - **Hybrid Connectivity**: Mobile maintains a background WebSocket to the desktop server even in Standalone mode for seamless mode switching.
 - **Standalone Queue Persistence**: Mobile saves track/queue to `AsyncStorage` on modification and restores on relaunch.
 - **Persistent Remote Connection**: Mobile re-establishes its WebSocket connection even in Standalone mode.
 - **Theme Support**: System/Light/Dark themes with persistent settings.
+- **Two Distinct Caches**: `audio_cache` holds downloaded MP3s and is **manual-only** — nothing caches on play, and `downloadTrack` is reached solely from explicit UI actions. `collection_cache` holds scraped metadata (collection blobs, plus album details under `album:<id>` keys with `type='album'`). Users conflate them; keep the distinction clear when discussing "the cache".
+- **Album Detail Persistence**: `getAlbumDetails(url, albumId?)` serves from `collection_cache` when the id is supplied (the URL is not a usable key — trailing slashes, `?from=` params, and the track→album redirect all differ per album). Metadata TTL is 30 days, stream URLs 6h, and pre-orders are never served from cache since their tracks gain stream URLs at release. **Bandcamp stream URLs expire**, so an expired cache entry is repaired by one bulk `tralbum_type=a` mobile-API call; if that fails, `streamUrl` is blanked while `hasStream` is preserved so `PlayerService` resolves it at play time. Treat `hasStream` as the playability signal, never the presence of a `streamUrl`.
+- **Cache Key Fragility**: `userId` comes from the menubar API and is not stable across launches (it falls back to the cookie fan id on failure, and is the *band* id for artist accounts). `getCollectionCacheIds()` builds every candidate key and `readCollectionCache()` tries `cacheId` → `fanCacheId` → `anonymous`, self-healing to the primary key only on a fan-id hit — never from `anonymous`, which would stamp an anonymous collection onto a real user.
+- **Bandcamp Playlist Loading**: Bandcamp playlists arrive from `getBandcampPlaylists()` as stubs with `tracks: []`; the tracks are scraped lazily on first open. `selectPlaylist()` therefore **navigates to `playlist-detail` first**, sets `loadingBandcampPlaylistId`, and only then awaits the scrape — awaiting before navigating made the click look dead for seconds. The scrape result is applied to `selectedPlaylist` only while `selectedPlaylistId` still matches, so navigating away mid-scrape can't yank the user's view back. `loadingBandcampPlaylistId` drives all three indicators (PlaylistsView card overlay, Sidebar row spinner, PlaylistDetailView track-list spinner) and is also set by `playPlaylist()` for Bandcamp playlists.
 
 ## Testing
 
@@ -165,6 +169,8 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Strict mode**: `getByTitle`/`getByLabel` can match multiple elements on substring. Use `{ exact: true }` or scope to parent containers.
 - **Conditional toggling**: Check if a panel (Queue, Settings, Playlists) is already open before clicking to avoid accidentally closing it.
 - **Item counts**: Avoid hardcoding expected track counts — use `toBeGreaterThan(0)` unless mock data is fixed.
+- **Cache-first vs forced refresh is invisible in most specs**: every pre-existing spec stubs `collection:fetch` and `collection:refresh` with the *same* fixture, so a regression swapping one for the other passes. `e2e/collection-cache.spec.ts` deliberately stubs them with **different** fixtures (and a delayed refresh) to assert which path ran.
+- **Known-failing specs**: `artist-bulk-actions` (3), `collection-bulk-actions` (2), `player-controls` ("toggle queue panel"), `playlist`, and `radio-interaction` fail on a clean checkout. Specs that hit real Bandcamp (`radio-player`, `navigation`, `collection-search`) additionally flake in full-suite runs but pass in isolation — always compare against a baseline run before blaming a change.
 - **V8 Coverage Merging**: When merging coverage from multiple E2E runs, ensure hits from all runs are merged. Filtering by `scriptId` across JSON files can cause 0% reporting.
 
 ### Desktop Unit Test Conventions (Vitest)
@@ -173,7 +179,21 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Node environment**: Files requiring `http`, `dgram`, `os`, `ws` must declare `/** @vitest-environment node */` at the top.
 - **Mocking HTTP servers**: Capture the request handler passed to `http.createServer` by intercepting `listen`. Invoke it with mocked `req`/`res` objects to test route logic.
 - **Mocking WebSocketServer (`ws`)**: Use an `EventEmitter` for the server. Manage `wss.clients` Set manually — add on `connection`, remove on client `close`, clear on `wss.close()`. Prevents stale connections leaking between tests.
+- **A newly added `vi.fn()` on the `mockElectron` object is not inert**: in `store.test.ts` the missing `playlist.getBandcampPlaylists` used to throw (caught, state untouched). Adding the mock made it resolve `undefined`, which `set({ bandcampPlaylists: playlists })` wrote straight into state and broke an *unrelated* test with `Cannot read properties of undefined`. Give new mock methods a `mockResolvedValue` in `beforeEach`, and default IPC results in the store (`playlists ?? []`).
+- **`store.test.ts`'s `beforeEach` state reset is a hand-written allowlist**, not a full store reset — new slice fields leak across tests until they're added there.
+- **Testing "navigate first, load later"**: hold the IPC promise open with a captured `resolve`, `await act()` the un-awaited `selectPlaylist(...)` call to assert the intermediate loading state, then resolve inside a second `act()` and await the stored promise.
 - **`vi.mock('lucide-react')` is an explicit allowlist**: `PlayerBar.test.tsx` (and similar) enumerate every icon. Rendering a *child* component pulls in the child's icons too — `AddToPlaylistModal` needs `X`, `Music`, `Plus`. A missing entry is `undefined` at render time ("Element type is invalid") and only fails once the child actually renders, so a closed modal hides the problem. Likewise add the child's store fields (`playlists`, `createPlaylist`) to the parent's `mockStore`.
+
+### Desktop Unit Test Conventions (Vitest) — Async Rejection Traps
+
+- **`return promise` inside `try` does NOT hit the enclosing `catch`**: only `return await` does. This caused a real bug where `CacheService.downloadTrack` leaked `activeDownloads` entries on failure, making every retry a silent no-op. When a method registers cleanup state, use `await` + `finally`, and add an identity check (`if (map.get(k) === myController)`) so a dying attempt can't clear a newer one's entry.
+- **Never do file I/O or DB writes inside a stream's `finish` listener**: a throw there becomes an uncaught main-process exception instead of a rejection. Do it after `await`ing the stream promise.
+- **axios `responseType: "stream"` breaks `AbortController`**: axios resolves on headers and tears down its own abort plumbing before the stream-error hook exists, so `controller.abort()` silently does nothing. Register your own `signal.addEventListener("abort", ...)` inside the promise executor.
+- **Test doubles for streams are bare `EventEmitter`s** with no `destroy`. Guard teardown helpers with `typeof s?.destroy === "function"` or existing tests crash with a TypeError.
+- **Assert cleanup, not just rejection**: `expect(promise).rejects.toThrow()` passed happily while the leak persisted. The test that actually catches it retries the operation and asserts `expect(axios).toHaveBeenCalledTimes(2)`.
+- **Mocked databases need every method the code touches**: adding `clearAlbumCaches`/`getAlbumCache` to `CacheService` broke `cache.test.ts` until the mock object gained them. Same for `replaceArtists` in `scraper.test.ts`.
+- **Don't stub globals without restoring**: a `global.AbortController = vi.fn()` stub with no teardown poisons every later test in the file that needs a real one.
+- **Counting axios calls is ambiguous in `scraper.test.ts`**: a successful `fetchCollection` also fires a radio-station refresh through the same mock. Filter `mock.calls` by URL instead of asserting a total.
 
 ### Desktop Unit Test Conventions (Vitest) — Cache Indicators
 

@@ -330,10 +330,6 @@
     color: var(--text-primary);
 }
 
-.cardMenuButton {
-    color: var(--bg-secondary);
-}
-
 .cardMenuButton:hover {
     background: var(--accent-hover);
     color: var(--text-on-accent);
