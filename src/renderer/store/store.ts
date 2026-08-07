@@ -119,6 +119,8 @@ interface PlaylistSlice {
   playPlaylist: (id: string) => Promise<void>;
   bandcampPlaylists: Playlist[];
   isLoadingBandcampPlaylists: boolean;
+  /** Id of the Bandcamp playlist whose tracks are currently being scraped. */
+  loadingBandcampPlaylistId: string | null;
   fetchBandcampPlaylists: () => Promise<void>;
   getBandcampPlaylistTracks: (url: string) => Promise<Track[]>;
   exportPlaylist: (playlistId: string) => Promise<boolean>;
@@ -646,25 +648,43 @@ export const useStore = create<StoreState>()((set, get) => ({
     // Check if it's a Bandcamp playlist first
     const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
     if (bcPlaylist) {
-      let fullPlaylist = bcPlaylist;
-      if ((!bcPlaylist.tracks || bcPlaylist.tracks.length === 0) && bcPlaylist.bandcampUrl) {
-        try {
-          const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
-          fullPlaylist = { ...bcPlaylist, tracks, trackCount: tracks.length || bcPlaylist.trackCount };
-          // Update store's bandcampPlaylists array so it retains fetched tracks
-          set((s) => ({
-            bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? fullPlaylist : p)
-          }));
-        } catch (e) {
-          console.error("Failed to fetch Bandcamp playlist tracks", e);
-        }
-      }
+      const needsTracks =
+        (!bcPlaylist.tracks || bcPlaylist.tracks.length === 0) && !!bcPlaylist.bandcampUrl;
+
+      // Navigate immediately so the detail view can render its loading state
+      // instead of the click appearing to do nothing while we scrape.
       set((s) => ({
         viewHistory: pushViewState(s as StoreState),
-        selectedPlaylist: fullPlaylist,
+        selectedPlaylist: bcPlaylist,
         currentView: "playlist-detail",
         selectedPlaylistId: id,
+        loadingBandcampPlaylistId: needsTracks ? id : null,
       }));
+
+      if (!needsTracks) return;
+
+      try {
+        const tracks = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl!);
+        const fullPlaylist = {
+          ...bcPlaylist,
+          tracks,
+          trackCount: tracks.length || bcPlaylist.trackCount,
+        };
+        // Update store's bandcampPlaylists array so it retains fetched tracks
+        set((s) => ({
+          bandcampPlaylists: s.bandcampPlaylists.map(p => p.id === id ? fullPlaylist : p),
+          // Only refresh the detail view if the user hasn't navigated away
+          selectedPlaylist:
+            s.selectedPlaylistId === id ? fullPlaylist : s.selectedPlaylist,
+        }));
+      } catch (e) {
+        console.error("Failed to fetch Bandcamp playlist tracks", e);
+      } finally {
+        set((s) => ({
+          loadingBandcampPlaylistId:
+            s.loadingBandcampPlaylistId === id ? null : s.loadingBandcampPlaylistId,
+        }));
+      }
       return;
     }
 
@@ -742,8 +762,16 @@ export const useStore = create<StoreState>()((set, get) => ({
       const bcPlaylist = get().bandcampPlaylists.find(p => p.id === id);
       if (bcPlaylist && bcPlaylist.bandcampUrl) {
         get().showToast("Loading Bandcamp playlist...", "success");
-        tracksToPlay = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
-        get().hideToast();
+        set({ loadingBandcampPlaylistId: id });
+        try {
+          tracksToPlay = await get().getBandcampPlaylistTracks(bcPlaylist.bandcampUrl);
+        } finally {
+          set((s) => ({
+            loadingBandcampPlaylistId:
+              s.loadingBandcampPlaylistId === id ? null : s.loadingBandcampPlaylistId,
+          }));
+          get().hideToast();
+        }
       }
     } else {
       const fullPlaylist = await window.electron.playlist.getById(id);
@@ -760,13 +788,14 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   bandcampPlaylists: [],
   isLoadingBandcampPlaylists: false,
+  loadingBandcampPlaylistId: null,
   fetchBandcampPlaylists: async () => {
     if (get().isLoadingBandcampPlaylists) return;
     set({ isLoadingBandcampPlaylists: true });
     try {
       const playlists = await window.electron.playlist.getBandcampPlaylists();
 
-      set({ bandcampPlaylists: playlists });
+      set({ bandcampPlaylists: playlists ?? [] });
     } catch (error) {
       console.error("Store: fetchBandcampPlaylists failed", error);
       get().showToast("Failed to fetch Bandcamp playlists", "error");

@@ -201,6 +201,17 @@
     align-items: center;
 }
 
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.spinning {
+    animation: spin 1s linear infinite;
+    color: var(--accent-primary);
+}
+
 .emptyPlaylists {
     padding: var(--spacing-lg);
     text-align: center;
