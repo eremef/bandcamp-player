@@ -116,6 +116,7 @@ describe("AlbumCard", () => {
     await waitFor(() => {
       expect(storeMethods.getAlbumDetails).toHaveBeenCalledWith(
         mockAlbum.bandcampUrl,
+        mockAlbum.id,
       );
       expect(storeMethods.clearQueue).toHaveBeenCalledWith(false);
       expect(storeMethods.addAlbumToQueue).toHaveBeenCalledWith(fullAlbum);

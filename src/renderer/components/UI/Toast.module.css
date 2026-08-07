@@ -35,3 +35,7 @@
 .icon {
     font-size: 1.1rem;
 }
+
+.error {
+    border-color: rgba(255, 99, 99, 0.45);
+}

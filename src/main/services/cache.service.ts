@@ -9,6 +9,30 @@ import type { Track, Album, CacheStats } from "../../shared/types";
 // Cache Service
 // ============================================================================
 
+/** Hosts that must never be treated as a download source — they are us. */
+const LOOPBACK_HOSTS = new Set([
+  "127.0.0.1",
+  "localhost",
+  "::1",
+  "[::1]",
+  "0.0.0.0",
+]);
+
+/**
+ * Tear down a stream without caring whether it supports destroy().
+ * Test doubles are plain EventEmitters, so this must stay defensive.
+ */
+function destroyQuietly(stream: unknown): void {
+  const candidate = stream as { destroy?: () => void } | null | undefined;
+  if (candidate && typeof candidate.destroy === "function") {
+    try {
+      candidate.destroy();
+    } catch {
+      // Nothing useful to do — we are already on a failure path.
+    }
+  }
+}
+
 export class CacheService extends EventEmitter {
   private database: Database;
   private cacheDir: string;
@@ -43,33 +67,77 @@ export class CacheService extends EventEmitter {
       return;
     }
 
+    // Validate before registering the download, so a bad URL can never leave a
+    // stale entry behind in activeDownloads.
+    this.assertDownloadableStreamUrl(track);
+
     const controller = new AbortController();
     this.activeDownloads.set(track.id, controller);
 
     try {
       // Ensure we have space
       await this.ensureCacheSpace(track);
+      // NOTE: `await`, not `return`. Returning a promise from inside a try block
+      // does not route its rejection through the enclosing catch/finally, which
+      // used to leave failed downloads stuck in activeDownloads forever — every
+      // retry then hit the guard above and resolved without downloading.
+      await this.streamTrackToDisk(track, controller);
+    } finally {
+      // Identity check: never clear an entry belonging to a newer attempt
+      // (cancel-then-immediately-retry registers a fresh controller).
+      if (this.activeDownloads.get(track.id) === controller) {
+        this.activeDownloads.delete(track.id);
+      }
+    }
 
-      const filePath = this.getTrackFilePath(track.id);
-      const tempPath = `${filePath}.tmp`;
+    this.emitStatsUpdate();
+  }
 
-      const response = await axios({
-        method: "get",
-        url: track.streamUrl,
-        responseType: "stream",
-        signal: controller.signal,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        },
-      });
+  /**
+   * Stream a track's audio to the cache directory and record it in the database.
+   * Rejects on any failure; the caller owns activeDownloads bookkeeping.
+   */
+  private async streamTrackToDisk(
+    track: Track,
+    controller: AbortController,
+  ): Promise<void> {
+    const filePath = this.getTrackFilePath(track.id);
+    const tempPath = `${filePath}.tmp`;
 
-      const totalLength = parseInt(String(response.headers["content-length"] || "0"), 10);
-      let downloadedLength = 0;
+    const response = await axios({
+      method: "get",
+      url: track.streamUrl,
+      responseType: "stream",
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
 
-      const writer = fs.createWriteStream(tempPath);
+    this.assertAudioResponse(response, track);
 
-      return new Promise((resolve, reject) => {
+    const totalLength = parseInt(String(response.headers["content-length"] || "0"), 10);
+    let downloadedLength = 0;
+
+    const writer = fs.createWriteStream(tempPath);
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+
+        const fail = (error: Error) => {
+          if (settled) return;
+          settled = true;
+          controller.signal.removeEventListener("abort", onAbort);
+          destroyQuietly(response.data);
+          destroyQuietly(writer);
+          reject(error);
+        };
+
+        const onAbort = () =>
+          fail(new Error(`Download cancelled: ${track.title || track.id}`));
+
         response.data.on("data", (chunk: Buffer) => {
           downloadedLength += chunk.length;
           const progress =
@@ -77,53 +145,51 @@ export class CacheService extends EventEmitter {
           this.emit("download-progress", { trackId: track.id, progress });
         });
 
-        response.data.on("error", (error: Error) => {
-          fs.unlinkSync(tempPath);
-          reject(error);
-        });
+        response.data.on("error", fail);
+        writer.on("error", fail);
 
         writer.on("finish", () => {
-          // Rename temp file to final
-          fs.renameSync(tempPath, filePath);
-
-          // Get file size
-          const stats = fs.statSync(filePath);
-
-          // Save to database
-          const now = new Date().toISOString();
-          this.database.addCacheEntry({
-            trackId: track.id,
-            albumId: track.albumId,
-            filePath,
-            fileSize: stats.size,
-            cachedAt: now,
-            lastAccessedAt: now,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            duration: track.duration,
-            trackNumber: track.trackNumber,
-            artworkUrl: track.artworkUrl,
-          });
-
-          this.activeDownloads.delete(track.id);
-          this.emitStatsUpdate();
+          if (settled) return;
+          settled = true;
+          controller.signal.removeEventListener("abort", onAbort);
           resolve();
         });
 
-        writer.on("error", (error) => {
-          if (fs.existsSync(tempPath)) {
-            fs.unlinkSync(tempPath);
-          }
-          reject(error);
-        });
+        // axios tears down its own abort plumbing once response headers arrive,
+        // so cancellation only works if we listen for it ourselves.
+        if (controller.signal.aborted) {
+          onAbort();
+          return;
+        }
+        controller.signal.addEventListener("abort", onAbort, { once: true });
 
         response.data.pipe(writer);
       });
     } catch (error) {
-      this.activeDownloads.delete(track.id);
+      this.removeTempFile(tempPath);
       throw error;
     }
+
+    // Deliberately outside the writer's "finish" listener: a throw in here used
+    // to surface as an uncaught main-process exception instead of a rejection.
+    fs.renameSync(tempPath, filePath);
+    const stats = fs.statSync(filePath);
+
+    const now = new Date().toISOString();
+    this.database.addCacheEntry({
+      trackId: track.id,
+      albumId: track.albumId,
+      filePath,
+      fileSize: stats.size,
+      cachedAt: now,
+      lastAccessedAt: now,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      duration: track.duration,
+      trackNumber: track.trackNumber,
+      artworkUrl: track.artworkUrl,
+    });
   }
 
   /**
@@ -160,6 +226,8 @@ export class CacheService extends EventEmitter {
       }
     }
     this.database.clearCache();
+    // Album metadata rows are part of the cache the user just cleared.
+    this.database.clearAlbumCaches();
     this.emitStatsUpdate();
   }
 
@@ -285,7 +353,7 @@ export class CacheService extends EventEmitter {
       let trackFound = false;
 
       if (entry.albumId) {
-        const albumCache = this.database.getCollectionCache(entry.albumId);
+        const albumCache = this.database.getAlbumCache(entry.albumId);
         if (albumCache && albumCache.data && albumCache.data.tracks) {
           const trackData = albumCache.data.tracks.find(
             (t: Track) => t.id === entry.trackId,
@@ -327,7 +395,7 @@ export class CacheService extends EventEmitter {
     const tracks: Track[] = [];
 
     for (const entry of entries) {
-      const albumCache = this.database.getCollectionCache(albumId);
+      const albumCache = this.database.getAlbumCache(albumId);
       let trackData: Track | null = null;
 
       if (albumCache && albumCache.data && albumCache.data.tracks) {
@@ -369,6 +437,91 @@ export class CacheService extends EventEmitter {
     // Sanitize trackId for filename
     const safeId = trackId.replace(/[^a-zA-Z0-9-_]/g, "_");
     return path.join(this.cacheDir, `${safeId}.mp3`);
+  }
+
+  /**
+   * Remove a partial download. Guarded because a stream can fail before any
+   * bytes land, and an unlink that throws would mask the real error.
+   */
+  private removeTempFile(tempPath: string): void {
+    try {
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
+      }
+    } catch (error) {
+      console.error(
+        `[CacheService] Failed to remove temp file ${tempPath}:`,
+        error,
+      );
+    }
+  }
+
+  /**
+   * Reject stream URLs we must not download from.
+   *
+   * Empty URLs are reachable with real data: the cached-track stubs returned by
+   * getCachedTracks()/getCachedTracksWithDetails() synthesize `streamUrl: ""`
+   * and those objects round-trip through the renderer. Loopback URLs are
+   * reachable because PlayerService rewrites `streamUrl` in place to point at
+   * our own cache server — re-downloading such a track would have us fetch
+   * from ourselves.
+   */
+  private assertDownloadableStreamUrl(track: Track): void {
+    const raw = (track.streamUrl || "").trim();
+    if (!raw) {
+      throw new Error(
+        `Track has no stream URL: "${track.title || track.id}"`,
+      );
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      throw new Error(`Invalid stream URL for "${track.title || track.id}"`);
+    }
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error(
+        `Unsupported stream URL protocol "${parsed.protocol}" for "${track.title || track.id}"`,
+      );
+    }
+
+    if (LOOPBACK_HOSTS.has(parsed.hostname.toLowerCase())) {
+      throw new Error(
+        `Refusing to download "${track.title || track.id}" from the local cache server`,
+      );
+    }
+  }
+
+  /**
+   * Reject obviously-wrong response bodies. Kept permissive on content type —
+   * Bandcamp CDNs sometimes serve audio as application/octet-stream — so this
+   * only screens out bodies that are clearly not audio at all.
+   */
+  private assertAudioResponse(
+    response: { status?: number; headers?: Record<string, unknown> },
+    track: Track,
+  ): void {
+    const status = response.status;
+    if (typeof status === "number" && (status < 200 || status > 299)) {
+      throw new Error(
+        `Download failed with HTTP ${status} for "${track.title || track.id}"`,
+      );
+    }
+
+    const contentType = String(
+      response.headers?.["content-type"] ?? "",
+    ).toLowerCase();
+    const isNotAudio =
+      contentType.startsWith("text/") ||
+      contentType.startsWith("application/json") ||
+      contentType.startsWith("application/xml");
+    if (isNotAudio) {
+      throw new Error(
+        `Expected audio but received "${contentType}" for "${track.title || track.id}"`,
+      );
+    }
   }
 
   private async ensureCacheSpace(_track: Track): Promise<void> {

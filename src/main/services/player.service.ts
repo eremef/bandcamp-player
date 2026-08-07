@@ -228,8 +228,13 @@ export class PlayerService extends EventEmitter {
 
             // Pre-order / Unstreamable track check
             if (!track.streamUrl && !isTrackCached) {
-                console.warn(`[PlayerService] Track "${track.title}" has no stream URL (unreleased / pre-order track).`);
-                this.error = `"${track.title}" is unreleased (pre-order track)`;
+                // Only claim "pre-order" when the track really has no stream —
+                // a blank streamUrl also means we failed to resolve a fresh one.
+                const isPreorder = track.hasStream === false;
+                console.warn(`[PlayerService] Track "${track.title}" has no stream URL (preorder=${isPreorder}).`);
+                this.error = isPreorder
+                    ? `"${track.title}" is unreleased (pre-order track)`
+                    : `Could not load stream for "${track.title}"`;
                 this.currentTrack = track;
                 this.isPlaying = false;
                 this.persistQueue();
