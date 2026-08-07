@@ -91,19 +91,19 @@ export function PlayerBar() {
     useEffect(() => {
         const nextAudioNode = activeAudioRef.current === 1 ? audio2Ref.current : audio1Ref.current;
         const currentAudioNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
-        
+
         if (!nextAudioNode || !currentAudioNode) return;
 
         if (currentTrack) {
             if (nextAudioNode.src !== currentTrack.streamUrl && currentAudioNode.src !== currentTrack.streamUrl) {
                 activeAudioRef.current = activeAudioRef.current === 1 ? 2 : 1;
                 hasRequestedNextRef.current = false;
-                
+
                 nextAudioNode.src = currentTrack.streamUrl;
                 clearFades();
 
                 const targetVolume = isMuted ? 0 : Math.pow(volume, 3);
-                
+
                 if (crossfadeEnabled && crossfadeDuration > 0 && isPlaying && currentAudioNode.src && !currentAudioNode.paused) {
                     fadeInIntervalRef.current = fadeAudio(nextAudioNode, 0, targetVolume, crossfadeDuration);
                     fadeOutIntervalRef.current = fadeAudio(currentAudioNode, currentAudioNode.volume, 0, crossfadeDuration, () => {
@@ -167,13 +167,13 @@ export function PlayerBar() {
         const attachListeners = (nodeNum: 1 | 2, audioNode: HTMLAudioElement) => {
             const handleTimeUpdate = () => {
                 if (activeAudioRef.current !== nodeNum || player.isCasting) return;
-                
+
                 window.electron.player.updateTime(audioNode.currentTime, audioNode.duration);
 
                 const remaining = audioNode.duration - audioNode.currentTime;
                 if (crossfadeEnabled && crossfadeDuration > 0 && remaining > 0) {
                     const hasNextTrack = player.repeatMode !== 'off' || (queue?.currentIndex ?? 0) < (queue?.items?.length ?? 0) - 1;
-                    
+
                     if (hasNextTrack && remaining <= crossfadeDuration && !hasRequestedNextRef.current) {
                         hasRequestedNextRef.current = true;
                         window.electron.player.trackEnded();
@@ -448,24 +448,24 @@ export function PlayerBar() {
                         </div>
                         <div className={styles.trackDetails}>
                             <div className={styles.trackTitle}>{currentTrack.title}</div>
-                            <div 
-                                className={`${styles.trackArtist} ${knownArtists.has(currentTrack.artist) ? styles.link : ''}`} 
-                                onClick={(e) => { 
+                            <div
+                                className={`${styles.trackArtist} ${knownArtists.has(currentTrack.artist) ? styles.link : ''}`}
+                                onClick={(e) => {
                                     if (!knownArtists.has(currentTrack.artist)) return;
-                                    e.stopPropagation(); 
-                                    selectArtist(currentTrack.artist); 
+                                    e.stopPropagation();
+                                    selectArtist(currentTrack.artist);
                                 }}
                                 title={knownArtists.has(currentTrack.artist) ? "Go to artist" : undefined}
                             >
                                 {currentTrack.artist}
                             </div>
                             {currentTrack.album && (
-                                <div 
-                                    className={`${styles.trackAlbum} ${knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`) ? styles.link : ''}`} 
-                                    onClick={(e) => { 
+                                <div
+                                    className={`${styles.trackAlbum} ${knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`) ? styles.link : ''}`}
+                                    onClick={(e) => {
                                         if (!knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`)) return;
-                                        e.stopPropagation(); 
-                                        navigateToAlbumFromTrack(currentTrack); 
+                                        e.stopPropagation();
+                                        navigateToAlbumFromTrack(currentTrack);
                                     }}
                                     title={knownAlbums.has(`${currentTrack.artist}|${currentTrack.album}`) ? "Go to album" : undefined}
                                 >
@@ -510,6 +510,15 @@ export function PlayerBar() {
                         data-testid="player-repeat-btn"
                     >
                         {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
+                    </button>
+                    <button
+                        className={styles.controlBtn}
+                        onClick={() => setIsAddToPlaylistOpen(true)}
+                        disabled={!currentTrack}
+                        title={currentTrack ? 'Add to Playlist' : 'No track playing'}
+                        data-testid="player-add-to-playlist-btn"
+                    >
+                        <ListPlus size={20} />
                     </button>
                     <div className={styles.volumeControls}>
                         <button className={styles.volumeBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
@@ -581,16 +590,6 @@ export function PlayerBar() {
             </div>
             {/* extras */}
             <div className={styles.extras}>
-                <button
-                    className={styles.controlBtn}
-                    onClick={() => setIsAddToPlaylistOpen(true)}
-                    disabled={!currentTrack}
-                    title={currentTrack ? 'Add to Playlist' : 'No track playing'}
-                    data-testid="player-add-to-playlist-btn"
-                >
-                    <ListPlus size={20} />
-                </button>
-
                 <div className={styles.castContainer}>
                     <button
                         className={`${styles.controlBtn} ${player.isCasting ? styles.active : ''}`}

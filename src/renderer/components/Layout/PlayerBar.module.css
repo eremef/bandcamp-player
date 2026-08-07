@@ -236,7 +236,7 @@
     align-items: center;
     gap: var(--spacing-sm);
     justify-content: flex-end;
-    min-width: 152px;
+    min-width: 112px;
     position: relative;
 }
 
