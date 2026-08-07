@@ -446,7 +446,9 @@ export class CacheService extends EventEmitter {
   private removeTempFile(tempPath: string): void {
     try {
       if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
+        // Ensure path uses forward slashes for consistency in tests and cross‑platform environments
+        const normalizedPath = tempPath.replace(/\\/g, '/');
+        fs.unlinkSync(normalizedPath);
       }
     } catch (error) {
       console.error(
