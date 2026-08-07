@@ -30,6 +30,8 @@ describe('PlaylistsView', () => {
             { id: '2', name: 'Workout', trackCount: 10, totalDuration: 3600, artworkUrl: 'art.jpg' }
         ],
         bandcampPlaylists: [],
+        isLoadingBandcampPlaylists: false,
+        loadingBandcampPlaylistId: null,
         fetchBandcampPlaylists: vi.fn(),
         selectPlaylist: vi.fn(),
         createPlaylist: vi.fn(),
@@ -107,6 +109,72 @@ describe('PlaylistsView', () => {
         });
 
         expect(mockStore.updatePlaylist).toHaveBeenCalledWith('1', 'Super Chill');
+    });
+
+    describe('Bandcamp playlist loading indicators', () => {
+        const bcPlaylist = {
+            id: 'bc-1',
+            name: 'BC List',
+            trackCount: 7,
+            isBandcampPlaylist: true,
+            bandcampUrl: 'https://bandcamp.com/list'
+        };
+
+        it('shows a loading placeholder while Bandcamp playlists are being fetched', () => {
+            (useStore as any).mockReturnValue({
+                ...mockStore,
+                bandcampPlaylists: [],
+                isLoadingBandcampPlaylists: true
+            });
+            render(<PlaylistsView />);
+
+            expect(screen.getByText('Bandcamp Playlists')).toBeInTheDocument();
+            expect(screen.getByTestId('bandcamp-playlists-loading')).toBeInTheDocument();
+            expect(screen.getByText('Loading…')).toBeInTheDocument();
+        });
+
+        it('hides the Bandcamp section entirely when idle with no playlists', () => {
+            render(<PlaylistsView />);
+            expect(screen.queryByText('Bandcamp Playlists')).not.toBeInTheDocument();
+            expect(screen.queryByTestId('bandcamp-playlists-loading')).not.toBeInTheDocument();
+        });
+
+        it('disables the refresh button while the store is fetching', () => {
+            (useStore as any).mockReturnValue({
+                ...mockStore,
+                isLoadingBandcampPlaylists: true
+            });
+            render(<PlaylistsView />);
+            expect(screen.getByTitle('Refresh Bandcamp playlists')).toBeDisabled();
+        });
+
+        it('shows a per-card spinner for the playlist whose tracks are loading', () => {
+            (useStore as any).mockReturnValue({
+                ...mockStore,
+                playlists: [],
+                bandcampPlaylists: [bcPlaylist],
+                loadingBandcampPlaylistId: 'bc-1'
+            });
+            render(<PlaylistsView />);
+
+            expect(screen.getByTestId('playlist-loading-bc-1')).toBeInTheDocument();
+            expect(screen.getByText('Loading tracks…')).toBeInTheDocument();
+            // The play overlay is replaced by the spinner while loading
+            expect(screen.queryByTitle('Play')).not.toBeInTheDocument();
+        });
+
+        it('shows the track count and play button when not loading', () => {
+            (useStore as any).mockReturnValue({
+                ...mockStore,
+                playlists: [],
+                bandcampPlaylists: [bcPlaylist]
+            });
+            render(<PlaylistsView />);
+
+            expect(screen.queryByTestId('playlist-loading-bc-1')).not.toBeInTheDocument();
+            expect(screen.getByText('7 tracks')).toBeInTheDocument();
+            expect(screen.getByTitle('Play')).toBeInTheDocument();
+        });
     });
 
     it('deletes playlist after confirmation', async () => {

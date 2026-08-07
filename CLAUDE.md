@@ -124,6 +124,7 @@ Zustand store in `src/renderer/store/store.ts` with slices for: auth, player, qu
 - **Standalone Queue Persistence**: Mobile saves track/queue to `AsyncStorage` on modification and restores on relaunch.
 - **Persistent Remote Connection**: Mobile re-establishes its WebSocket connection even in Standalone mode.
 - **Theme Support**: System/Light/Dark themes with persistent settings.
+- **Bandcamp Playlist Loading**: Bandcamp playlists arrive from `getBandcampPlaylists()` as stubs with `tracks: []`; the tracks are scraped lazily on first open. `selectPlaylist()` therefore **navigates to `playlist-detail` first**, sets `loadingBandcampPlaylistId`, and only then awaits the scrape — awaiting before navigating made the click look dead for seconds. The scrape result is applied to `selectedPlaylist` only while `selectedPlaylistId` still matches, so navigating away mid-scrape can't yank the user's view back. `loadingBandcampPlaylistId` drives all three indicators (PlaylistsView card overlay, Sidebar row spinner, PlaylistDetailView track-list spinner) and is also set by `playPlaylist()` for Bandcamp playlists.
 
 ## Testing
 
@@ -173,6 +174,9 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Node environment**: Files requiring `http`, `dgram`, `os`, `ws` must declare `/** @vitest-environment node */` at the top.
 - **Mocking HTTP servers**: Capture the request handler passed to `http.createServer` by intercepting `listen`. Invoke it with mocked `req`/`res` objects to test route logic.
 - **Mocking WebSocketServer (`ws`)**: Use an `EventEmitter` for the server. Manage `wss.clients` Set manually — add on `connection`, remove on client `close`, clear on `wss.close()`. Prevents stale connections leaking between tests.
+- **A newly added `vi.fn()` on the `mockElectron` object is not inert**: in `store.test.ts` the missing `playlist.getBandcampPlaylists` used to throw (caught, state untouched). Adding the mock made it resolve `undefined`, which `set({ bandcampPlaylists: playlists })` wrote straight into state and broke an *unrelated* test with `Cannot read properties of undefined`. Give new mock methods a `mockResolvedValue` in `beforeEach`, and default IPC results in the store (`playlists ?? []`).
+- **`store.test.ts`'s `beforeEach` state reset is a hand-written allowlist**, not a full store reset — new slice fields leak across tests until they're added there.
+- **Testing "navigate first, load later"**: hold the IPC promise open with a captured `resolve`, `await act()` the un-awaited `selectPlaylist(...)` call to assert the intermediate loading state, then resolve inside a second `act()` and await the stored promise.
 - **`vi.mock('lucide-react')` is an explicit allowlist**: `PlayerBar.test.tsx` (and similar) enumerate every icon. Rendering a *child* component pulls in the child's icons too — `AddToPlaylistModal` needs `X`, `Music`, `Plus`. A missing entry is `undefined` at render time ("Element type is invalid") and only fails once the child actually renders, so a closed modal hides the problem. Likewise add the child's store fields (`playlists`, `createPlaylist`) to the parent's `mockStore`.
 
 ### Desktop Unit Test Conventions (Vitest) — Cache Indicators
