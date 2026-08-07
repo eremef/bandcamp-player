@@ -173,6 +173,7 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Node environment**: Files requiring `http`, `dgram`, `os`, `ws` must declare `/** @vitest-environment node */` at the top.
 - **Mocking HTTP servers**: Capture the request handler passed to `http.createServer` by intercepting `listen`. Invoke it with mocked `req`/`res` objects to test route logic.
 - **Mocking WebSocketServer (`ws`)**: Use an `EventEmitter` for the server. Manage `wss.clients` Set manually — add on `connection`, remove on client `close`, clear on `wss.close()`. Prevents stale connections leaking between tests.
+- **`vi.mock('lucide-react')` is an explicit allowlist**: `PlayerBar.test.tsx` (and similar) enumerate every icon. Rendering a *child* component pulls in the child's icons too — `AddToPlaylistModal` needs `X`, `Music`, `Plus`. A missing entry is `undefined` at render time ("Element type is invalid") and only fails once the child actually renders, so a closed modal hides the problem. Likewise add the child's store fields (`playlists`, `createPlaylist`) to the parent's `mockStore`.
 
 ### Desktop Unit Test Conventions (Vitest) — Cache Indicators
 

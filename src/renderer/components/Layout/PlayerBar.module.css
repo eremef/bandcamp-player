@@ -113,6 +113,16 @@
     color: var(--accent-primary);
 }
 
+.controlBtn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.controlBtn:disabled:hover {
+    color: var(--text-secondary);
+    transform: none;
+}
+
 .playBtn {
     width: 42px;
     height: 42px;
@@ -226,7 +236,7 @@
     align-items: center;
     gap: var(--spacing-sm);
     justify-content: flex-end;
-    min-width: 112px;
+    min-width: 152px;
     position: relative;
 }
 
