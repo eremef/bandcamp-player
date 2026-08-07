@@ -2,6 +2,7 @@ import BetterSqlite3 from "better-sqlite3";
 import * as path from "path";
 import * as fs from "fs";
 import type {
+  Album,
   AppSettings,
   Playlist,
   Track,
@@ -774,6 +775,31 @@ export class Database {
 
   clearCollectionCache(id: string): void {
     this.db.prepare("DELETE FROM collection_cache WHERE id = ?").run(id);
+  }
+
+  // ---- Album Detail Cache ----
+  // Shares the collection_cache table but lives in its own key namespace so
+  // album ids can never collide with user/fan ids.
+
+  private albumCacheKey(albumId: string): string {
+    return `album:${albumId}`;
+  }
+
+  getAlbumCache(
+    albumId: string,
+  ): { data: Album; cachedAt: string } | null {
+    return this.getCollectionCache(this.albumCacheKey(albumId)) as
+      | { data: Album; cachedAt: string }
+      | null;
+  }
+
+  saveAlbumCache(album: Album): void {
+    if (!album?.id) return;
+    this.saveCollectionCache(this.albumCacheKey(album.id), "album", album);
+  }
+
+  clearAlbumCaches(): void {
+    this.db.prepare("DELETE FROM collection_cache WHERE type = ?").run("album");
   }
 
   // ---- Radio Cache ----

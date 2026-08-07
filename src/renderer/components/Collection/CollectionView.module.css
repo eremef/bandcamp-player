@@ -701,3 +701,8 @@
 .scrollContainer::-webkit-scrollbar-thumb:hover {
     background: var(--bg-active);
 }
+.updatingLabel {
+    font-size: 0.8rem;
+    color: var(--text-secondary, rgba(255, 255, 255, 0.6));
+    white-space: nowrap;
+}

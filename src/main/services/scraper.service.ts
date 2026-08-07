@@ -23,6 +23,20 @@ export class ScraperService extends EventEmitter {
   private http: AxiosInstance;
   private cachedCollection: Collection | null = null;
   private lastCacheId: string | null = null;
+  /** Epoch ms the in-memory collection was cached at, so staleness can be
+   *  evaluated on a warm hit without re-parsing the multi-MB JSON blob. */
+  private cachedCollectionAt: number | null = null;
+  private lastBackgroundRefreshAt = 0;
+
+  private static readonly COLLECTION_STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+  /** A failed refresh never advances cachedAt, so without a backoff a stale
+   *  cache plus a flaky network would re-scrape on every single call. */
+  private static readonly BACKGROUND_REFRESH_BACKOFF_MS = 15 * 60 * 1000;
+
+  /** Album titles/durations/artwork are immutable in practice. */
+  private static readonly ALBUM_METADATA_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  /** Bandcamp stream URLs expire, so they are refreshed far more often. */
+  private static readonly ALBUM_STREAM_TTL_MS = 6 * 60 * 60 * 1000;
 
   constructor(authService: AuthService, database?: Database) {
     super();
@@ -207,6 +221,111 @@ export class ScraperService extends EventEmitter {
   private fetchPromise: Promise<Collection> | null = null;
 
   /**
+   * Build every cache key the collection may be stored under.
+   *
+   * `userId` comes from the menubar API and is not stable across launches: it
+   * falls back to the cookie fan id when that API fails, and it is the *band*
+   * id for artist accounts. The write path therefore saves under both keys and
+   * the read path has to try both.
+   */
+  private getCollectionCacheIds(includeWishlist: boolean): {
+    userId: string | undefined;
+    fanId: string | undefined;
+    isSimulating: boolean;
+    cacheId: string;
+    fanCacheId: string | null;
+    anonymousCacheId: string;
+  } {
+    const userId = this.authService.getUser().user?.id;
+    const fanId = (this.authService as any).getFanIdFromCookie?.() || undefined;
+    const isSimulating = simulationService.shouldSimulate();
+    const suffix = includeWishlist ? "_withWishlist" : "";
+
+    // Guard before interpolating: `${undefined}_withWishlist` would otherwise
+    // write the literal junk key "undefined_withWishlist".
+    const base = isSimulating
+      ? `${userId || "anonymous"}_sim`
+      : userId || "anonymous";
+
+    return {
+      userId,
+      fanId,
+      isSimulating,
+      cacheId: `${base}${suffix}`,
+      fanCacheId: fanId ? `${fanId}${suffix}` : null,
+      anonymousCacheId: `anonymous${suffix}`,
+    };
+  }
+
+  /**
+   * Read the collection cache, falling back through the alternative keys.
+   * Returns the row plus the key it was found under so callers can re-save
+   * under the primary key and self-heal.
+   */
+  private readCollectionCache(
+    ids: ReturnType<ScraperService["getCollectionCacheIds"]>,
+    context: string,
+  ): { cached: { data: any; cachedAt: string }; hitId: string } | null {
+    if (!this.database) return null;
+
+    const candidates = [ids.cacheId, ids.fanCacheId, ids.anonymousCacheId];
+    const tried = new Set<string>();
+
+    for (const key of candidates) {
+      if (!key || tried.has(key)) continue;
+      tried.add(key);
+      const cached = this.database.getCollectionCache(key);
+      console.log(
+        `[Scraper] ${context}: cache key "${key}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+      );
+      if (cached) return { cached, hitId: key };
+    }
+    return null;
+  }
+
+  /** Adopt a collection into the in-memory cache along with its age. */
+  private setCachedCollection(
+    collection: Collection,
+    cachedAtMs: number,
+  ): Collection {
+    this.cachedCollection = collection;
+    this.cachedCollectionAt = cachedAtMs;
+    return collection;
+  }
+
+  /**
+   * Kick off a background refresh when the cached collection is stale.
+   * Called from both the memory-hit and DB-hit paths — the memory path is what
+   * makes the periodic timer in main.ts effective once the cache is warm.
+   */
+  private maybeBackgroundRefresh(isSimulating: boolean): void {
+    if (isSimulating) return;
+    if (this.database?.getSettings()?.offlineMode) return;
+    if (this.fetchPromise) return; // a scrape is already running
+    if (this.cachedCollectionAt === null) return;
+
+    const now = Date.now();
+    if (now - this.cachedCollectionAt <= ScraperService.COLLECTION_STALE_AFTER_MS) {
+      return;
+    }
+    if (
+      now - this.lastBackgroundRefreshAt <
+      ScraperService.BACKGROUND_REFRESH_BACKOFF_MS
+    ) {
+      return;
+    }
+
+    this.lastBackgroundRefreshAt = now;
+    console.log("[Scraper] Cache is stale, refreshing in background...");
+    this.fetchCollection(true).catch((e) =>
+      console.error("[Scraper] Background collection refresh failed:", e),
+    );
+    this.getRadioStations(true).catch((e) =>
+      console.error("[Scraper] Background radio refresh failed:", e),
+    );
+  }
+
+  /**
    * Fetch user's collection (purchased music)
    */
   async fetchCollection(
@@ -225,99 +344,57 @@ export class ScraperService extends EventEmitter {
         }
 
         // 2. Try database cache
-        const user = this.authService.getUser();
-        const userId = user.user?.id;
-        const isSimulating = simulationService.shouldSimulate();
         const includeWishlistInCollection =
           includeWishlistOverride ??
           this.database?.getSettings()?.includeWishlistInCollection ??
           false;
-        const cacheBaseId = isSimulating ? `${userId}_sim` : userId || "anonymous";
-        const cacheId = includeWishlistInCollection
-          ? `${cacheBaseId}_withWishlist`
-          : cacheBaseId;
-
-        // Also try to get fan_id directly from cookie (more reliable in some cases)
-        const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
+        const ids = this.getCollectionCacheIds(includeWishlistInCollection);
 
         console.log(
-          `[Scraper] Offline mode: trying cache with userId=${userId}, cacheId=${cacheId}, fanIdFromCookie=${fanIdFromCookie}, isSimulating=${isSimulating}`,
+          `[Scraper] Offline mode: trying cache with userId=${ids.userId}, cacheId=${ids.cacheId}, fanIdFromCookie=${ids.fanId}, isSimulating=${ids.isSimulating}`,
         );
 
-        if (this.database) {
-          let cached = this.database.getCollectionCache(cacheId);
-          console.log(
-            `[Scraper] Offline mode: first try cacheId="${cacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
+        const hit = this.readCollectionCache(ids, "Offline mode");
+        if (hit) {
+          console.log("[Scraper] Offline mode: loaded collection from cache");
+          this.setCachedCollection(
+            hit.cached.data,
+            new Date(hit.cached.cachedAt).getTime(),
           );
-
-          // If user-specific cache not found, try fanId from cookie as fallback
-          // (handles case where menubar API returned different ID than cookie)
-          const fanCacheId = includeWishlistInCollection
-            ? `${fanIdFromCookie}_withWishlist`
-            : fanIdFromCookie;
-          if (!cached && fanCacheId && fanIdFromCookie !== userId) {
-            cached = this.database.getCollectionCache(fanCacheId);
-            console.log(
-              `[Scraper] Offline mode: fallback to fanIdFromCookie="${fanCacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
-            );
-          }
-
-          // If still not found, try anonymous fallback
-          if (!cached) {
-            const anonymousCacheId = includeWishlistInCollection
-              ? "anonymous_withWishlist"
-              : "anonymous";
-            cached = this.database.getCollectionCache(anonymousCacheId);
-            console.log(
-              `[Scraper] Offline mode: fallback to "${anonymousCacheId}" -> ${cached ? "FOUND" : "NOT FOUND"}`,
-            );
-          }
-
-          if (cached) {
-            console.log(
-              `[Scraper] Offline mode: loaded collection from cache`,
-            );
-            this.cachedCollection = cached.data;
-            this.consolidateArtistIds(this.cachedCollection!.items);
-            this.extractAndSaveArtists(cached.data.items, isSimulating);
-            return this.cachedCollection!;
-          }
+          this.consolidateArtistIds(this.cachedCollection!.items);
+          this.extractAndSaveArtists(hit.cached.data.items, ids.isSimulating);
+          return this.cachedCollection!;
         }
 
         // 3. Nothing cached — return empty collection, do NOT hit the network
         console.log(
           "[Scraper] Offline mode: no cached collection found, returning empty collection",
         );
-        this.cachedCollection = {
-          items: [],
-          totalCount: 0,
-          lastUpdated: new Date().toISOString(),
-        };
+        this.setCachedCollection(
+          {
+            items: [],
+            totalCount: 0,
+            lastUpdated: new Date().toISOString(),
+          },
+          Date.now(),
+        );
         return this.cachedCollection!;
       }
     }
     // ── End offline-first guard ──────────────────────────────────────────────
 
-    if (this.fetchPromise) {
-      return this.fetchPromise;
-    }
-
     const includeWishlistInCollection =
       includeWishlistOverride ??
       this.database?.getSettings()?.includeWishlistInCollection ??
       false;
-    const user = this.authService.getUser();
-    const userId = user.user?.id;
-    const isSimulating = simulationService.shouldSimulate();
-
-    // Use a different cache ID for simulation to avoid clobbering real data
-    const cacheBaseId = isSimulating ? `${userId}_sim` : userId || "anonymous";
-    const cacheId = includeWishlistInCollection
-      ? `${cacheBaseId}_withWishlist`
-      : cacheBaseId;
+    const ids = this.getCollectionCacheIds(includeWishlistInCollection);
+    const { userId, isSimulating, cacheId } = ids;
 
     if (this.cachedCollection && !forceRefresh && this.lastCacheId === cacheId) {
       console.log(`[Scraper] Returning memory-cached collection for cacheId: ${cacheId}`);
+      // Evaluate staleness here too, otherwise the periodic refresh in main.ts
+      // can never reach the check once the in-memory cache is warm.
+      this.maybeBackgroundRefresh(isSimulating);
       return this.cachedCollection;
     }
 
@@ -326,7 +403,8 @@ export class ScraperService extends EventEmitter {
     // Try to load from database first if not forcing refresh.
     // cacheId already falls back to 'anonymous' when userId is null, so no userId guard needed.
     if (!forceRefresh && this.database) {
-      const cached = this.database.getCollectionCache(cacheId);
+      const hit = this.readCollectionCache(ids, "Collection");
+      const cached = hit?.cached;
 
       if (cached) {
         const hasMissingArtwork =
@@ -345,34 +423,49 @@ export class ScraperService extends EventEmitter {
           console.log(
             `[Scraper] Loaded ${isSimulating ? "simulated " : ""}collection from cache for ${userId || "anonymous"}`,
           );
-          this.cachedCollection = cached.data;
+          this.setCachedCollection(
+            cached.data,
+            new Date(cached.cachedAt).getTime(),
+          );
 
           // Consolidate IDs even from cache to fix existing data
           this.consolidateArtistIds(this.cachedCollection!.items);
 
           this.extractAndSaveArtists(cached.data.items, isSimulating);
 
-          // Background refresh for real collections if stale — skip when offline mode is on
-          if (!isSimulating) {
-            const lastUpdated = new Date(cached.cachedAt).getTime();
-            const now = Date.now();
-            if (now - lastUpdated > 24 * 60 * 60 * 1000) {
-              console.log(
-                "[Scraper] Real cache is stale, refreshing in background...",
-              );
-              this.fetchCollection(true).catch((e) =>
-                console.error("[Scraper] Background collection refresh failed:", e),
-              );
-              this.getRadioStations(true).catch((e) =>
-                console.error("[Scraper] Background radio refresh failed:", e),
-              );
-            }
+          // Self-heal: the row was found under the cookie fan-id key, which is
+          // the same identity under a different name, so copy it to the primary
+          // key and the next launch hits on the first try. Deliberately NOT done
+          // for the anonymous key — that would stamp an anonymous collection
+          // onto a real user's key.
+          if (hit && hit.hitId === ids.fanCacheId && hit.hitId !== cacheId) {
+            console.log(
+              `[Scraper] Re-saving cache under primary key "${cacheId}" (was found under "${hit.hitId}")`,
+            );
+            this.database.saveCollectionCache(
+              cacheId,
+              "collection",
+              cached.data,
+            );
           }
+
+          this.maybeBackgroundRefresh(isSimulating);
 
           return this.cachedCollection!;
         }
       }
     }
+
+    // Single-flight guard sits BELOW the cache reads on purpose: a renderer
+    // fetch that lands while a background scrape is running must return cached
+    // data immediately rather than awaiting the whole scrape.
+    if (this.fetchPromise) {
+      return this.fetchPromise;
+    }
+
+    // Only the network path signals this, so a cache hit never flashes the
+    // "Updating…" indicator in the renderer.
+    this.emit("collection-refresh-started");
 
     this.fetchPromise = (async () => {
       try {
@@ -650,38 +743,38 @@ export class ScraperService extends EventEmitter {
 
         this.consolidateArtistIds(items);
 
-        this.cachedCollection = {
-          items,
-          totalCount: items.length,
-          lastUpdated: new Date().toISOString(),
-          isSimulated: isSimulating,
-        };
+        const collection = this.setCachedCollection(
+          {
+            items,
+            totalCount: items.length,
+            lastUpdated: new Date().toISOString(),
+            isSimulated: isSimulating,
+          },
+          Date.now(),
+        );
 
-        this.emit("collection-updated", this.cachedCollection);
+        this.emit("collection-updated", collection);
 
         if (this.database && items.length > 0) {
-          const fanIdFromCookie = (this.authService as any).getFanIdFromCookie?.();
-          const fanCacheId = includeWishlistInCollection
-            ? `${fanIdFromCookie}_withWishlist`
-            : fanIdFromCookie;
+          const { fanId, fanCacheId } = ids;
           console.log(
-            `[Scraper] Saving collection to cache with userId=${userId}, fanIdFromCookie=${fanIdFromCookie}, cacheId=${cacheId}, items=${items.length}`,
+            `[Scraper] Saving collection to cache with userId=${userId}, fanIdFromCookie=${fanId}, cacheId=${cacheId}, items=${items.length}`,
           );
           // Save with primary cacheId
           this.database.saveCollectionCache(
             cacheId,
             "collection",
-            this.cachedCollection,
+            collection,
           );
           // Also save with fanIdFromCookie if different (handles cookie format changes)
           if (fanCacheId && fanCacheId !== cacheId) {
             this.database.saveCollectionCache(
               fanCacheId,
               "collection",
-              this.cachedCollection,
+              collection,
             );
             console.log(
-              `[Scraper] Also saved collection to cache with fanIdFromCookie=${fanIdFromCookie}`,
+              `[Scraper] Also saved collection to cache with fanIdFromCookie=${fanId}`,
             );
           }
           console.log(
@@ -697,24 +790,20 @@ export class ScraperService extends EventEmitter {
           );
         }
 
-        return this.cachedCollection;
+        return collection;
       } catch (error: any) {
         console.error("[Scraper] Collection fetch failed:", error.message);
         // On network failure, try to fall back to any available DB cache before throwing
         if (this.database) {
-          const anonymousCacheId = includeWishlistInCollection
-            ? "anonymous_withWishlist"
-            : "anonymous";
-          const fallback =
-            this.database.getCollectionCache(cacheId) ||
-            (cacheId !== anonymousCacheId
-              ? this.database.getCollectionCache(anonymousCacheId)
-              : null);
+          const fallback = this.readCollectionCache(ids, "Network fallback");
           if (fallback) {
             console.log(
               "[Scraper] Network failed, using cached collection as fallback",
             );
-            this.cachedCollection = fallback.data;
+            this.setCachedCollection(
+              fallback.cached.data,
+              new Date(fallback.cached.cachedAt).getTime(),
+            );
             return this.cachedCollection!;
           }
         }
@@ -723,16 +812,20 @@ export class ScraperService extends EventEmitter {
           console.log(
             "[Scraper] Offline mode: network failed, no cache — returning empty collection",
           );
-          this.cachedCollection = {
-            items: [],
-            totalCount: 0,
-            lastUpdated: new Date().toISOString(),
-          };
+          this.setCachedCollection(
+            {
+              items: [],
+              totalCount: 0,
+              lastUpdated: new Date().toISOString(),
+            },
+            Date.now(),
+          );
           return this.cachedCollection!;
         }
         throw error;
       } finally {
         this.fetchPromise = null;
+        this.emit("collection-refresh-finished");
       }
     })();
 
@@ -1073,9 +1166,135 @@ export class ScraperService extends EventEmitter {
   }
 
   /**
+   * Fetch a tralbum from Bandcamp's mobile API. Returns the raw `tracks` array,
+   * which for `tralbum_type=a` covers every track on the album in one request.
+   */
+  private async fetchMobileTralbumTracks(
+    bandId: string,
+    id: string,
+    type: "a" | "t",
+  ): Promise<any[]> {
+    const config = remoteConfigService.get();
+    const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+      .replace("{band_id}", String(bandId))
+      .replace("tralbum_type=t", `tralbum_type=${type}`)
+      .replace("{track_id}", String(id));
+    const cookies = await this.authService.getSessionCookies();
+    const response = await this.http.get(mobileUrl, {
+      headers: { Cookie: cookies },
+    });
+    return response.data?.tracks ?? [];
+  }
+
+  /**
+   * Refill expired stream URLs on a cached album using a single mobile-API
+   * request. Returns false when the refresh could not be completed, in which
+   * case the caller blanks the URLs so they get resolved lazily at play time.
+   */
+  private async refreshAlbumStreamUrls(album: Album): Promise<boolean> {
+    if (!album.artistId || !album.id) return false;
+    try {
+      const mobileTracks = await this.fetchMobileTralbumTracks(
+        album.artistId,
+        album.id,
+        "a",
+      );
+      if (mobileTracks.length === 0) return false;
+
+      const byId = new Map<string, any>(
+        mobileTracks.map((t: any) => [String(t.track_id), t]),
+      );
+
+      let refreshed = 0;
+      for (const track of album.tracks) {
+        const mobileTrack = byId.get(String(track.id));
+        const freshUrl =
+          mobileTrack?.streaming_url?.["mp3-128"] ||
+          mobileTrack?.streaming_url?.["mp3-v0"];
+        if (freshUrl) {
+          track.streamUrl = await this.resolveRedirect(freshUrl);
+          track.hasStream = true;
+          refreshed++;
+        }
+      }
+
+      console.log(
+        `[ScraperService] Refreshed ${refreshed}/${album.tracks.length} cached stream URLs for "${album.title}"`,
+      );
+      return refreshed > 0;
+    } catch (error: any) {
+      console.error(
+        "[ScraperService] Bulk stream URL refresh failed:",
+        error.message,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Serve album details from the DB cache when possible.
+   *
+   * Metadata is effectively immutable, so it is cached for a long time, but
+   * Bandcamp stream URLs expire — hence the shorter stream TTL and the
+   * refresh/blank fallback. Pre-orders are never served from cache because
+   * their tracks gain stream URLs at release.
+   */
+  private async readAlbumCache(albumId: string): Promise<Album | null> {
+    if (!this.database) return null;
+
+    const cached = this.database.getAlbumCache(albumId);
+    if (!cached?.data?.tracks?.length) return null;
+
+    const album = cached.data;
+    const age = Date.now() - new Date(cached.cachedAt).getTime();
+
+    if (age > ScraperService.ALBUM_METADATA_TTL_MS) return null;
+    if (album.isPreorder) {
+      console.log(
+        `[ScraperService] Cached album "${album.title}" is a pre-order, re-scraping`,
+      );
+      return null;
+    }
+
+    if (age > ScraperService.ALBUM_STREAM_TTL_MS) {
+      const refreshed = await this.refreshAlbumStreamUrls(album);
+      if (!refreshed) {
+        // Blank the URLs but keep hasStream: PlayerService resolves an empty
+        // streamUrl on demand, so the first play recovers instead of failing.
+        console.log(
+          `[ScraperService] Serving "${album.title}" from cache with stream URLs to be resolved on play`,
+        );
+        for (const track of album.tracks) {
+          if (track.hasStream !== false) {
+            track.streamUrl = "";
+          }
+        }
+      }
+      // Persist whatever we refreshed so the next open is fast again.
+      this.database.saveAlbumCache(album);
+    }
+
+    console.log(
+      `[ScraperService] Loaded album "${album.title}" from cache (${album.tracks.length} tracks)`,
+    );
+    return album;
+  }
+
+  /**
    * Get full album details including tracks and stream URLs
    */
-  async getAlbumDetails(albumUrl: string): Promise<Album | null> {
+  async getAlbumDetails(
+    albumUrl: string,
+    albumId?: string,
+  ): Promise<Album | null> {
+    // Callers that already know the album id can skip the network entirely.
+    // The URL alone is not a usable key: trailing slashes, ?from= params and
+    // the track→album redirect below all produce different strings per album.
+    if (albumId) {
+      const cached = await this.readAlbumCache(albumId);
+      if (cached) return cached;
+    }
+
     try {
       const config = remoteConfigService.get();
       const cookies = await this.authService.getSessionCookies();
@@ -1184,7 +1403,7 @@ export class ScraperService extends EventEmitter {
         tralbumData.has_audio === false ||
         (tracks.length > 0 && tracks.some((t) => !t.hasStream));
 
-      return {
+      const album: Album = {
         id: String(tralbumData.id),
         title: tralbumData.current?.title || tralbumData.album_title,
         artist: this.cleanArtistName(tralbumData.artist),
@@ -1201,6 +1420,18 @@ export class ScraperService extends EventEmitter {
         trackCount: tracks.length,
         isPreorder,
       };
+
+      // Persist so reopening the album after a restart doesn't re-scrape.
+      // Simulated data is kept out of the cache, matching the _sim convention.
+      if (
+        this.database &&
+        tracks.length > 0 &&
+        !simulationService.shouldSimulate()
+      ) {
+        this.database.saveAlbumCache(album);
+      }
+
+      return album;
     } catch (error) {
       console.error("Error fetching album details:", error);
       return null;

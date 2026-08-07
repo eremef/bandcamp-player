@@ -298,6 +298,41 @@ describe('Database', () => {
         });
     });
 
+    describe('Album Detail Cache', () => {
+        it('should read album cache under the album: prefix', () => {
+            // The prefix keeps album ids out of the user/fan id namespace.
+            mockGet.mockReturnValue({ data: '{"id":"a1","tracks":[]}', cached_at: '2024-01-01' });
+            const result = database.getAlbumCache('a1');
+            expect(mockGet).toHaveBeenCalledWith('album:a1');
+            expect(result?.data.id).toBe('a1');
+
+            mockGet.mockReturnValue(undefined);
+            expect(database.getAlbumCache('missing')).toBeNull();
+        });
+
+        it('should save album cache with type "album"', () => {
+            database.saveAlbumCache({ id: 'a1', title: 'A', tracks: [] } as any);
+            expect(mockRun).toHaveBeenCalledWith(
+                'album:a1',
+                'album',
+                expect.stringContaining('"id":"a1"'),
+                expect.any(String),
+            );
+        });
+
+        it('should ignore an album without an id', () => {
+            mockRun.mockClear();
+            database.saveAlbumCache({ title: 'No id' } as any);
+            expect(mockRun).not.toHaveBeenCalled();
+        });
+
+        it('should clear only album rows', () => {
+            database.clearAlbumCaches();
+            expect(mockPrepare).toHaveBeenCalledWith(expect.stringContaining('type = ?'));
+            expect(mockRun).toHaveBeenCalledWith('album');
+        });
+    });
+
     describe('Artists', () => {
         const mockArtists = [
             { id: '1', name: 'Artist 1', url: 'url1', imageUrl: 'img1' }

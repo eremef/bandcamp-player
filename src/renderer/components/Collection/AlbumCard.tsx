@@ -110,7 +110,7 @@ export function AlbumCard({
     if (album.bandcampUrl) {
       setIsLoading(true);
       try {
-        const details = await getAlbumDetails(album.bandcampUrl);
+        const details = await getAlbumDetails(album.bandcampUrl, album.id);
         if (details) {
           return details;
         }
