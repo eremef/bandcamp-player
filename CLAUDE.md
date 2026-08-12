@@ -216,6 +216,8 @@ npx jest --coverage --coverageReporters="json-summary"
 - **Mock modifiers**: Use `mockReturnValue()`/`mockResolvedValue()` by default. Only use `*Once` variants when testing sequential behavior differences — `*Once` causes subsequent internal calls to return `undefined`.
 - **Mock cleanup**: Use both `jest.clearAllMocks()` and `jest.restoreAllMocks()` in `beforeEach`.
 - **Partial type mocks**: Cast partial objects with `as unknown as Track` when the logic only uses specific fields.
+- **`jest.mock('lucide-react-native')` is an explicit allowlist**, exactly like the desktop `lucide-react` mocks: every screen test enumerates the icons it expects (`player.test.tsx`, `collection.test.tsx`, …). Adding an icon to a screen without adding it to that mock makes it `undefined` at render, which fails *every* test in the file, not just the new one.
+- **Run mobile tests with the local jest** (`npm run test:mobile`, or `npx jest` from `mobile/`). Running `npx jest --config mobile/jest.config.js` from the repo root pulls a different jest version and every suite dies with `this._moduleMocker.clearMocksOnScope is not a function`.
 
 ## Code Conventions
 
