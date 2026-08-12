@@ -18,6 +18,7 @@
 }
 
 .artwork {
+    position: relative;
     width: 56px;
     height: 56px;
     border-radius: var(--radius-md);
@@ -30,6 +31,30 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.artworkOverlayBtn {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.artwork:hover .artworkOverlayBtn,
+.artworkOverlayBtn:focus-visible {
+    opacity: 1;
+}
+
+.artworkOverlayBtn:hover:not(:disabled) {
+    background-color: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.artworkOverlayBtn:disabled {
+    cursor: default;
 }
 
 .trackDetails {

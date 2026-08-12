@@ -2,7 +2,9 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { useStore } from '../../store/store';
 import {
     Shuffle, SkipBack, Play, Pause, SkipForward, Repeat, Repeat1,
-    VolumeX, Volume1, Volume2, List, Minimize2, Cast, ListPlus
+    VolumeX, Volume1, Volume2, List, Minimize2, Cast,
+    Music,
+    ListPlus
 } from 'lucide-react';
 import { AddToPlaylistModal } from '../Playlist/AddToPlaylistModal';
 import styles from './PlayerBar.module.css';
@@ -445,7 +447,16 @@ export function PlayerBar() {
                     <>
                         <div className={styles.artwork}>
                             <img src={currentTrack.artworkUrl} alt="" />
+                            <button
+                                className={styles.artworkOverlayBtn}
+                                onClick={() => setIsAddToPlaylistOpen(true)}
+                                title="Add to Playlist"
+                                data-testid="player-add-to-playlist-btn"
+                            >
+                                <ListPlus size={20} />
+                            </button>
                         </div>
+
                         <div className={styles.trackDetails}>
                             <div className={styles.trackTitle}>{currentTrack.title}</div>
                             <div
@@ -475,7 +486,20 @@ export function PlayerBar() {
                         </div>
                     </>
                 ) : (
-                    <div className={styles.noTrack}>No track playing</div>
+                    <>
+                        <div className={styles.artwork}>
+                            <button
+                                className={styles.artworkOverlayBtn}
+                                onClick={() => setIsAddToPlaylistOpen(true)}
+                                disabled
+                                title="No track playing"
+                                data-testid="player-add-to-playlist-btn"
+                            >
+                                <Music size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.noTrack}>No track playing</div>
+                    </>
                 )}
             </div>
 
@@ -510,15 +534,6 @@ export function PlayerBar() {
                         data-testid="player-repeat-btn"
                     >
                         {repeatMode === 'one' ? <Repeat1 size={18} /> : <Repeat size={18} />}
-                    </button>
-                    <button
-                        className={styles.controlBtn}
-                        onClick={() => setIsAddToPlaylistOpen(true)}
-                        disabled={!currentTrack}
-                        title={currentTrack ? 'Add to Playlist' : 'No track playing'}
-                        data-testid="player-add-to-playlist-btn"
-                    >
-                        <ListPlus size={20} />
                     </button>
                     <div className={styles.volumeControls}>
                         <button className={styles.volumeBtn} onClick={toggleMute} title={isMuted ? 'Unmute' : 'Mute'}>
