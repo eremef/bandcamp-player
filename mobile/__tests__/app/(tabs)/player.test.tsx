@@ -34,6 +34,7 @@ jest.mock('lucide-react-native', () => {
         LogOut: createIcon('LogOutIcon'),
         X: createIcon('XIcon'),
         Coffee: createIcon('CoffeeIcon'),
+        ListPlus: createIcon('ListPlusIcon'),
     };
 });
 
@@ -202,6 +203,35 @@ describe('PlayerScreen', () => {
     });
 
 
+
+    it('opens the playlist modal from the artwork button', () => {
+        mockStore.playlists = [{ id: 'p1', name: 'Late Drives', tracks: [] }];
+        const { getByTestId, getByText, queryByText, unmount } = render(<PlayerScreen />);
+
+        expect(queryByText('PlaylistSelectionModal')).toBeNull();
+        fireEvent.press(getByTestId('player-add-to-playlist-btn'));
+        expect(getByText('PlaylistSelectionModal')).toBeTruthy();
+
+        fireEvent.press(getByText('Late Drives'));
+        expect(mockStore.addTrackToPlaylist).toHaveBeenCalledWith('p1', mockStore.currentTrack);
+        unmount();
+    });
+
+    it('hides the artwork button when no track is playing', () => {
+        (useStore as unknown as jest.Mock).mockReturnValue({ ...mockStore, currentTrack: null });
+        const { queryByTestId, unmount } = render(<PlayerScreen />);
+        expect(queryByTestId('player-add-to-playlist-btn')).toBeNull();
+        unmount();
+    });
+
+    it('creates a playlist from the selection modal', () => {
+        const { getByTestId, getByText, unmount } = render(<PlayerScreen />);
+        fireEvent.press(getByTestId('player-add-to-playlist-btn'));
+        fireEvent.press(getByText('Create New'));
+        fireEvent.press(getByText('Create'));
+        expect(mockStore.createPlaylist).toHaveBeenCalledWith('New Playlist');
+        unmount();
+    });
 
     it('handles volume modal', () => {
         const { getByText, getAllByText, unmount } = render(<PlayerScreen />);

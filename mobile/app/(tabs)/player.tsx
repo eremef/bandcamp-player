@@ -3,7 +3,7 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X, Coffee } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X, Coffee, ListPlus } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
@@ -130,6 +130,20 @@ export default function PlayerScreen() {
                                 {currentTrack ? 'No Art' : 'No Track'}
                             </Text>
                         </View>
+                    )}
+
+                    {currentTrack && (
+                        <TouchableOpacity
+                            style={styles.artworkOverlayBtn}
+                            onPress={() => setPlaylistModalVisible(true)}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Add to Playlist"
+                            testID="player-add-to-playlist-btn"
+                        >
+                            <ListPlus size={22} color="#fff" />
+                        </TouchableOpacity>
                     )}
                 </View>
 
@@ -440,6 +454,21 @@ const styles = StyleSheet.create({
     artwork: {
         width: '100%',
         height: '100%',
+    },
+    // Sits on the album art, so the scrim stays dark in every theme —
+    // theming it to colors.card would make it vanish on pale covers.
+    artworkOverlayBtn: {
+        position: 'absolute',
+        right: 10,
+        bottom: 10,
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.25)',
     },
     placeholderArtwork: {
         backgroundColor: '#1e1e1e',
