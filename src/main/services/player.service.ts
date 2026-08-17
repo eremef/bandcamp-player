@@ -461,7 +461,7 @@ export class PlayerService extends EventEmitter {
         const startIndex = nextIndex;
         while (
             (this.isOfflineMode() && !this.cacheService.isCached(this.queue[nextIndex].track.id)) ||
-            (!this.queue[nextIndex].track.streamUrl && !this.cacheService.isCached(this.queue[nextIndex].track.id))
+            (this.queue[nextIndex].track.hasStream === false && !this.cacheService.isCached(this.queue[nextIndex].track.id))
         ) {
             if (this.isShuffled && this.shuffleOrder.length > 0) {
                 shufflePos++;
@@ -532,37 +532,38 @@ export class PlayerService extends EventEmitter {
             }
         }
 
-        // In offline mode, skip non-cached tracks going backwards
-        if (this.isOfflineMode()) {
-            const startIndex = prevIndex;
-            while (!this.cacheService.isCached(this.queue[prevIndex].track.id)) {
-                if (this.isShuffled && this.shuffleOrder.length > 0) {
-                    shufflePos--;
-                    if (shufflePos < 0) {
-                        if (this.repeatMode === 'all') {
-                            shufflePos = this.shuffleOrder.length - 1;
-                        } else {
-                            this.seek(0);
-                            return;
-                        }
-                    }
-                    prevIndex = this.shuffleOrder[shufflePos];
-                } else {
-                    prevIndex--;
-                    if (prevIndex < 0) {
-                        if (this.repeatMode === 'all') {
-                            prevIndex = this.queue.length - 1;
-                        } else {
-                            this.seek(0);
-                            return;
-                        }
+        // Skip unstreamable (unreleased pre-order) or uncached (in offline mode) tracks going backwards
+        const startIndex = prevIndex;
+        while (
+            (this.isOfflineMode() && !this.cacheService.isCached(this.queue[prevIndex].track.id)) ||
+            (this.queue[prevIndex].track.hasStream === false && !this.cacheService.isCached(this.queue[prevIndex].track.id))
+        ) {
+            if (this.isShuffled && this.shuffleOrder.length > 0) {
+                shufflePos--;
+                if (shufflePos < 0) {
+                    if (this.repeatMode === 'all') {
+                        shufflePos = this.shuffleOrder.length - 1;
+                    } else {
+                        this.seek(0);
+                        return;
                     }
                 }
+                prevIndex = this.shuffleOrder[shufflePos];
+            } else {
+                prevIndex--;
+                if (prevIndex < 0) {
+                    if (this.repeatMode === 'all') {
+                        prevIndex = this.queue.length - 1;
+                    } else {
+                        this.seek(0);
+                        return;
+                    }
+                }
+            }
 
-                if (prevIndex === startIndex) {
-                    this.seek(0);
-                    return;
-                }
+            if (prevIndex === startIndex) {
+                this.seek(0);
+                return;
             }
         }
 
@@ -764,7 +765,7 @@ export class PlayerService extends EventEmitter {
             await this.resolveRadioStationTrack(queueItem);
         }
 
-        this.play(queueItem.track, false);
+        await this.play(queueItem.track, false);
         this.persistQueue();
         this.emitQueueUpdate();
     }

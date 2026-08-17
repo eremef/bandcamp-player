@@ -470,6 +470,56 @@ describe("PlayerService", () => {
     });
   });
 
+  describe("Queue Navigation (next / previous)", () => {
+    it("next() should advance to next track when streamUrl is empty (lazy resolution)", async () => {
+      const track1 = { ...mockTrack, id: "1", title: "Track 1", streamUrl: "http://stream.1" };
+      const track2 = { ...mockTrack, id: "2", title: "Track 2", streamUrl: "" };
+
+      playerService.addToQueue(track1);
+      playerService.addToQueue(track2);
+      await playerService.playIndex(0);
+
+      await playerService.next();
+
+      expect(playerService.getState().currentTrack?.id).toBe("2");
+      expect(playerService.getState().queue.currentIndex).toBe(1);
+    });
+
+    it("next() should skip tracks when hasStream is explicitly false", async () => {
+      const track1 = { ...mockTrack, id: "1", title: "Track 1", streamUrl: "http://stream.1" };
+      const track2 = { ...mockTrack, id: "2", title: "Track 2", streamUrl: "", hasStream: false };
+      const track3 = { ...mockTrack, id: "3", title: "Track 3", streamUrl: "" };
+
+      playerService.addToQueue(track1);
+      playerService.addToQueue(track2);
+      playerService.addToQueue(track3);
+      await playerService.playIndex(0);
+
+      await playerService.next();
+
+      // Track 2 was skipped because hasStream is false
+      expect(playerService.getState().currentTrack?.id).toBe("3");
+      expect(playerService.getState().queue.currentIndex).toBe(2);
+    });
+
+    it("previous() should advance to previous track with lazy streamUrl and skip hasStream: false", async () => {
+      const track1 = { ...mockTrack, id: "1", title: "Track 1", streamUrl: "" };
+      const track2 = { ...mockTrack, id: "2", title: "Track 2", streamUrl: "", hasStream: false };
+      const track3 = { ...mockTrack, id: "3", title: "Track 3", streamUrl: "http://stream.3" };
+
+      playerService.addToQueue(track1);
+      playerService.addToQueue(track2);
+      playerService.addToQueue(track3);
+      await playerService.playIndex(2);
+
+      await playerService.previous();
+
+      // Skipped track 2 (hasStream: false) and landed on track 1
+      expect(playerService.getState().currentTrack?.id).toBe("1");
+      expect(playerService.getState().queue.currentIndex).toBe(0);
+    });
+  });
+
   describe("Extras", () => {
     it("should set volume and toggle mute", async () => {
       vi.useFakeTimers();
