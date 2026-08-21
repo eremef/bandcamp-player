@@ -114,6 +114,18 @@ export const RADIO_CHANNELS = {
   EXTRACT_TRACKS: "radio:extract-tracks",
   EXTRACT_TO_PLAYLIST: "radio:extract-to-playlist",
   GET_STATION_TRACKS: "radio:get-station-tracks",
+  ADD_STATIONS_TO_QUEUE: "radio:add-stations-to-queue",
+} as const;
+
+// ============================================================================
+// Bulk Queue Job Channels
+// ============================================================================
+
+export const BULK_CHANNELS = {
+  START: "bulk:start",
+  CANCEL: "bulk:cancel",
+  GET_STATE: "bulk:get-state",
+  ON_PROGRESS: "bulk:on-progress",
 } as const;
 
 // ============================================================================
@@ -249,6 +261,7 @@ export const IPC_CHANNELS = {
   ...SYSTEM_CHANNELS,
   ...UPDATE_CHANNELS,
   ...CAST_CHANNELS,
+  ...BULK_CHANNELS,
 } as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS];

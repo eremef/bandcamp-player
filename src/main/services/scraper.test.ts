@@ -1014,6 +1014,124 @@ describe("ScraperService", () => {
         expect.objectContaining({ id: "55", title: "Scraped Album" }),
       );
     });
+    it("reports a cache hit as source 'cache' without any HTTP request", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: new Date().toISOString(),
+      });
+
+      const result = await scraper.getAlbumDetailsWithSource(albumUrl, "a1");
+
+      expect(result.source).toBe("cache");
+      expect(result.album).not.toBeNull();
+      // Filter by URL rather than asserting a total: other paths share this mock
+      const albumCalls = mockAxios.get.mock.calls.filter(
+        (c: any[]) => c[0] === albumUrl,
+      );
+      expect(albumCalls).toHaveLength(0);
+    });
+
+    it("reports a cache miss as source 'network'", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue(null);
+      mockAxios.get.mockResolvedValueOnce({
+        data: `<html><head><script data-tralbum='{"id": 77, "artist": "A", "album_title": "T", "band_id": 9, "trackinfo": [{"track_id": 1, "title": "One", "duration": 100, "file": {"mp3-128": "https://audio/1"}}]}'></script></head></html>`,
+      });
+
+      const result = await scraper.getAlbumDetailsWithSource(albumUrl, "a1");
+
+      expect(result.source).toBe("network");
+      expect(result.album?.tracks).toHaveLength(1);
+    });
+
+    it("does not call beforeNetwork on a pure cache hit", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: new Date().toISOString(),
+      });
+      const beforeNetwork = vi.fn().mockResolvedValue(undefined);
+
+      await scraper.getAlbumDetailsWithSource(albumUrl, "a1", { beforeNetwork });
+
+      // A warm cache hit must cost no rate-limit budget
+      expect(beforeNetwork).not.toHaveBeenCalled();
+    });
+
+    it("awaits beforeNetwork before fetching the album page", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue(null);
+      const callOrder: string[] = [];
+      const beforeNetwork = vi.fn(async () => {
+        callOrder.push("gate");
+      });
+      mockAxios.get.mockImplementation(async () => {
+        callOrder.push("http");
+        return {
+          data: `<html><head><script data-tralbum='{"id": 77, "artist": "A", "album_title": "T", "band_id": 9, "trackinfo": []}'></script></head></html>`,
+        };
+      });
+
+      await scraper.getAlbumDetailsWithSource(albumUrl, "a1", { beforeNetwork });
+
+      expect(beforeNetwork).toHaveBeenCalled();
+      expect(callOrder[0]).toBe("gate");
+      expect(callOrder).toContain("http");
+    });
+
+    it("calls beforeNetwork for the stream-URL refresh path too", async () => {
+      // Older than the 6h stream TTL but within the metadata TTL
+      const staleAt = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString();
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum({ artistId: "band1" }),
+        cachedAt: staleAt,
+      });
+      mockAxios.get.mockResolvedValue({ data: { tracks: [] } });
+      const beforeNetwork = vi.fn().mockResolvedValue(undefined);
+
+      await scraper.getAlbumDetailsWithSource(albumUrl, "a1", { beforeNetwork });
+
+      expect(beforeNetwork).toHaveBeenCalled();
+    });
+
+    it("passes the abort signal through to the HTTP client", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue(null);
+      const controller = new AbortController();
+      mockAxios.get.mockResolvedValueOnce({
+        data: `<html><head><script data-tralbum='{"id": 77, "artist": "A", "album_title": "T", "band_id": 9, "trackinfo": []}'></script></head></html>`,
+      });
+
+      await scraper.getAlbumDetailsWithSource(albumUrl, "a1", {
+        signal: controller.signal,
+      });
+
+      const call = mockAxios.get.mock.calls.find((c: any[]) => c[0] === albumUrl);
+      expect(call?.[1]?.signal).toBe(controller.signal);
+    });
+
+    it("returns a null album without throwing when the request is aborted", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue(null);
+      const controller = new AbortController();
+      controller.abort();
+      mockAxios.get.mockRejectedValueOnce(new Error("canceled"));
+
+      const result = await scraper.getAlbumDetailsWithSource(albumUrl, "a1", {
+        signal: controller.signal,
+      });
+
+      expect(result.album).toBeNull();
+      expect(result.source).toBe("none");
+    });
+
+    it("getAlbumDetails still returns a bare album (refactor guard)", async () => {
+      mockDatabase.getAlbumCache.mockReturnValue({
+        data: cachedAlbum(),
+        cachedAt: new Date().toISOString(),
+      });
+
+      const album = await scraper.getAlbumDetails(albumUrl, "a1");
+
+      expect(album).not.toBeNull();
+      expect(album).toHaveProperty("tracks");
+      expect(album).not.toHaveProperty("source");
+    });
   });
 
   describe("Pre-order Album Support", () => {

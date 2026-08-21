@@ -81,6 +81,80 @@ describe('Database', () => {
         });
     });
 
+    describe('Saved Queue', () => {
+        it('stores the queue in its own row, not the settings blob', () => {
+            const queue = {
+                items: [{ id: 'q1', track: { id: 't1' }, source: 'collection' }],
+                currentIndex: 0,
+                shuffleOrder: [0],
+            };
+
+            database.setSavedQueue(queue as any);
+
+            // run() args are (key, value) for this statement
+            const runArgs = mockRun.mock.calls.find((c) => c[0] === 'saved_queue');
+            expect(runArgs).toBeDefined();
+            expect(JSON.parse(runArgs![1] as string)).toEqual(queue);
+        });
+
+        it('reads the queue back from its own row', () => {
+            const queue = { items: [], currentIndex: -1, shuffleOrder: [] };
+            mockGet.mockReturnValue({ value: JSON.stringify(queue) });
+
+            const result = database.getSavedQueue();
+
+            expect(result).toEqual(queue);
+        });
+
+        it('returns null when no queue has been persisted', () => {
+            mockGet.mockReturnValue(undefined);
+            expect(database.getSavedQueue()).toBeNull();
+        });
+
+        it('setSettings never writes a savedQueue key', () => {
+            mockGet.mockReturnValue({ value: '{"scrobblingEnabled":true}' });
+
+            database.setSettings({ offlineMode: true });
+
+            const written = mockRun.mock.calls
+                .map((c) => c[0])
+                .filter((v): v is string => typeof v === 'string' && v.startsWith('{'));
+            for (const blob of written) {
+                expect(JSON.parse(blob)).not.toHaveProperty('savedQueue');
+            }
+        });
+
+        it('migrates an in-blob savedQueue into its own row and drops the old key', () => {
+            const legacyQueue = { items: [], currentIndex: 3, shuffleOrder: [1, 0] };
+            // The migration runs during construction, from initializeDefaultSettings
+            mockGet.mockReturnValue({
+                value: JSON.stringify({
+                    scrobblingEnabled: true,
+                    remoteEnabled: true,
+                    savedQueue: legacyQueue,
+                }),
+            });
+            vi.clearAllMocks();
+            mockGet.mockReturnValue({
+                value: JSON.stringify({
+                    scrobblingEnabled: true,
+                    remoteEnabled: true,
+                    savedQueue: legacyQueue,
+                }),
+            });
+
+            new Database('/mock/migrate.db');
+
+            const movedCall = mockRun.mock.calls.find((c) => c[0] === 'saved_queue');
+            expect(movedCall).toBeDefined();
+            expect(JSON.parse(movedCall![1] as string)).toEqual(legacyQueue);
+
+            const rewritten = mockRun.mock.calls.find((c) => c[1] === 'app_settings');
+            expect(rewritten).toBeDefined();
+            expect(JSON.parse(rewritten![0] as string)).not.toHaveProperty('savedQueue');
+        });
+    });
+
     describe('Playlists', () => {
         it('should get all playlists', () => {
             mockAll.mockReturnValue([

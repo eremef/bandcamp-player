@@ -8,6 +8,7 @@ import { TrayService } from "./services/tray.service";
 import { AuthService } from "./services/auth.service";
 import { ScraperService } from "./services/scraper.service";
 import { PlayerService } from "./services/player.service";
+import { QueueJobService } from "./services/queue-job.service";
 import { CacheService } from "./services/cache.service";
 import { PlaylistService } from "./services/playlist.service";
 import { ScrobblerService } from "./services/scrobbler.service";
@@ -59,6 +60,7 @@ let database: Database;
 let authService: AuthService;
 let scraperService: ScraperService;
 let playerService: PlayerService;
+let queueJobService: QueueJobService;
 let cacheService: CacheService;
 let playlistService: PlaylistService;
 let scrobblerService: ScrobblerService;
@@ -235,6 +237,13 @@ async function initializeServices() {
     database,
   );
 
+  queueJobService = new QueueJobService({
+    playerService,
+    scraperService,
+    cacheService,
+    playlistService,
+  });
+
   const remotePort = process.env.REMOTE_PORT
     ? parseInt(process.env.REMOTE_PORT, 10)
     : 9999;
@@ -295,6 +304,7 @@ async function initializeServices() {
     authService,
     scraperService,
     playerService,
+    queueJobService,
     cacheService,
     playlistService,
     scrobblerService,
@@ -546,6 +556,7 @@ if (!gotTheLock) {
     // This prevents the process from hanging and blocking uninstallation
     try {
       playerService?.destroy();
+      queueJobService?.destroy();
       remoteService?.stop();
       castService?.stop();
       updaterService?.stop();

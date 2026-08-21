@@ -86,6 +86,13 @@ const mockElectron = {
     extractToPlaylist: vi.fn(),
     onStateChanged: vi.fn(),
     onStationsUpdated: vi.fn(),
+    addStationsToQueue: vi.fn(),
+  },
+  bulk: {
+    start: vi.fn(),
+    cancel: vi.fn(),
+    getState: vi.fn(),
+    onProgress: vi.fn(),
   },
   remote: {
     getStatus: vi.fn(),
@@ -174,12 +181,17 @@ describe("useStore", () => {
       isMiniPlayer: false,
       isSettingsOpen: false,
       toast: null,
+      bulkJob: null,
     });
     mockElectron.scrobbler.getState.mockResolvedValue({
       isConnected: false,
       user: null,
     });
     mockElectron.playlist.getBandcampPlaylists.mockResolvedValue([]);
+    mockElectron.bulk.start.mockResolvedValue(null);
+    mockElectron.bulk.cancel.mockResolvedValue(undefined);
+    mockElectron.bulk.getState.mockResolvedValue(null);
+    mockElectron.radio.addStationsToQueue.mockResolvedValue(undefined);
     mockElectron.player.getState.mockResolvedValue({
       isPlaying: false,
       currentTrack: null,
@@ -1057,5 +1069,164 @@ describe("useStore", () => {
     act(() => listeners["queue"](syncMockQueue2));
     expect(useStore.getState().queue).toEqual(syncMockQueue2);
     expect(useStore.getState().player.queue).toEqual(syncMockQueue2);
+  });
+
+  describe("bulk queue jobs", () => {
+    it("forwards the request and seeds bulkJob from the returned state", async () => {
+      const seed = {
+        id: "bulk-1",
+        action: "addToQueue",
+        total: 5,
+        completed: 0,
+        failed: 0,
+        tracksQueued: 0,
+        status: "running",
+      };
+      mockElectron.bulk.start.mockResolvedValue(seed);
+
+      const request = { action: "addToQueue" as const, items: [] };
+      await act(async () => {
+        await useStore.getState().startBulkAction(request);
+      });
+
+      expect(mockElectron.bulk.start).toHaveBeenCalledWith(request);
+      expect(useStore.getState().bulkJob).toEqual(seed);
+    });
+
+    it("tolerates a null seed instead of writing undefined into state", async () => {
+      mockElectron.bulk.start.mockResolvedValue(undefined);
+
+      await act(async () => {
+        await useStore.getState().startBulkAction({
+          action: "addToQueue",
+          items: [],
+        });
+      });
+
+      expect(useStore.getState().bulkJob).toBeNull();
+    });
+
+    it("cancels using the active job id", async () => {
+      useStore.setState({ bulkJob: { id: "bulk-7" } as any });
+
+      await act(async () => {
+        await useStore.getState().cancelBulkAction();
+      });
+
+      expect(mockElectron.bulk.cancel).toHaveBeenCalledWith("bulk-7");
+    });
+
+    it("clears bulkJob and toasts on terminal progress events", async () => {
+      let onProgress: (p: any) => void = () => { };
+      mockElectron.bulk.onProgress.mockImplementation((cb: any) => {
+        onProgress = cb;
+      });
+
+      await act(async () => {
+        await initializeStoreSubscriptions();
+      });
+
+      // A running update is stored as-is
+      act(() =>
+        onProgress({
+          id: "b1",
+          action: "addToQueue",
+          total: 10,
+          completed: 3,
+          failed: 0,
+          tracksQueued: 6,
+          status: "running",
+        }),
+      );
+      expect(useStore.getState().bulkJob?.completed).toBe(3);
+
+      // Cancellation clears it and reports how far it got
+      act(() =>
+        onProgress({
+          id: "b1",
+          action: "addToQueue",
+          total: 10,
+          completed: 4,
+          failed: 0,
+          tracksQueued: 8,
+          status: "cancelled",
+          cancelReason: "user",
+        }),
+      );
+      expect(useStore.getState().bulkJob).toBeNull();
+      expect(useStore.getState().toast?.message).toContain("4 of 10");
+    });
+
+    it("re-attaches to a job already running in the main process", async () => {
+      const live = {
+        id: "bulk-live",
+        action: "play",
+        total: 100,
+        completed: 12,
+        failed: 0,
+        tracksQueued: 30,
+        status: "running",
+      };
+      mockElectron.bulk.getState.mockResolvedValue(live);
+
+      await act(async () => {
+        await initializeStoreSubscriptions();
+      });
+
+      expect(useStore.getState().bulkJob).toEqual(live);
+    });
+
+    it("reports failures once a job finishes with errors", async () => {
+      let onProgress: (p: any) => void = () => { };
+      mockElectron.bulk.onProgress.mockImplementation((cb: any) => {
+        onProgress = cb;
+      });
+
+      await act(async () => {
+        await initializeStoreSubscriptions();
+      });
+
+      act(() =>
+        onProgress({
+          id: "b2",
+          action: "addToQueue",
+          total: 10,
+          completed: 10,
+          failed: 2,
+          tracksQueued: 16,
+          status: "done",
+        }),
+      );
+
+      expect(useStore.getState().bulkJob).toBeNull();
+      expect(useStore.getState().toast?.type).toBe("error");
+      expect(useStore.getState().toast?.message).toContain("2 of 10");
+    });
+
+    it("batches radio stations into one call and one toast", async () => {
+      const stations = [
+        { id: "s1", name: "One" },
+        { id: "s2", name: "Two" },
+        { id: "s3", name: "Three" },
+      ];
+
+      await act(async () => {
+        await useStore.getState().addRadioStationsToQueue(stations as any);
+      });
+
+      expect(mockElectron.radio.addStationsToQueue).toHaveBeenCalledTimes(1);
+      expect(mockElectron.radio.addStationsToQueue).toHaveBeenCalledWith(
+        stations,
+        undefined,
+      );
+      expect(useStore.getState().toast?.message).toContain("3 stations");
+    });
+
+    it("does nothing for an empty station list", async () => {
+      await act(async () => {
+        await useStore.getState().addRadioStationsToQueue([]);
+      });
+      expect(mockElectron.radio.addStationsToQueue).not.toHaveBeenCalled();
+    });
   });
 });

@@ -14,6 +14,7 @@ import {
   SYSTEM_CHANNELS,
   UPDATE_CHANNELS,
   CAST_CHANNELS,
+  BULK_CHANNELS,
 } from "../shared/ipc-channels";
 import type {
   Track,
@@ -35,6 +36,8 @@ import type {
   CastDevice,
   CastStatus,
   Artist,
+  BulkQueueRequest,
+  BulkJobProgress,
 } from "../shared/types";
 
 // ============================================================================
@@ -226,6 +229,28 @@ const electronAPI = {
       ipcRenderer.invoke(RADIO_CHANNELS.ADD_TO_QUEUE, station, playNext),
     addToPlaylist: (playlistId: string, station: RadioStation): Promise<void> =>
       ipcRenderer.invoke(RADIO_CHANNELS.ADD_TO_PLAYLIST, playlistId, station),
+    addStationsToQueue: (
+      stations: RadioStation[],
+      playNext?: boolean,
+    ): Promise<void> =>
+      ipcRenderer.invoke(
+        RADIO_CHANNELS.ADD_STATIONS_TO_QUEUE,
+        stations,
+        playNext,
+      ),
+  },
+
+  // ---- Bulk Queue Jobs ----
+  bulk: {
+    start: (request: BulkQueueRequest): Promise<BulkJobProgress> =>
+      ipcRenderer.invoke(BULK_CHANNELS.START, request),
+    cancel: (jobId?: string): Promise<void> =>
+      ipcRenderer.invoke(BULK_CHANNELS.CANCEL, jobId),
+    getState: (): Promise<BulkJobProgress | null> =>
+      ipcRenderer.invoke(BULK_CHANNELS.GET_STATE),
+    onProgress: createEventSubscriber<BulkJobProgress>(
+      BULK_CHANNELS.ON_PROGRESS,
+    ),
   },
 
   // ---- Cache ----

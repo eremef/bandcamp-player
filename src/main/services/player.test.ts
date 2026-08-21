@@ -76,6 +76,8 @@ describe("PlayerService", () => {
     mockDatabase = {
       getSettings: vi.fn().mockReturnValue({ defaultVolume: 0.5 }),
       setSettings: vi.fn(),
+      getSavedQueue: vi.fn().mockReturnValue(null),
+      setSavedQueue: vi.fn(),
     };
 
     playerService = new PlayerService(
@@ -327,6 +329,147 @@ describe("PlayerService", () => {
       expect(q[3].track.id).toBe("3");
     });
 
+    it("should insert tracks in batch order without a reverse loop", () => {
+      const tracks = [
+        { ...mockTrack, id: "1" },
+        { ...mockTrack, id: "2" },
+        { ...mockTrack, id: "3" },
+      ];
+      playerService.addToQueue({ ...mockTrack, id: "0" });
+      playerService.addToQueue({ ...mockTrack, id: "9" });
+      playerService.playIndex(0);
+
+      playerService.addTracksToQueue(tracks, "collection", true);
+
+      const ids = playerService.getQueue().items.map((i) => i.track.id);
+      expect(ids).toEqual(["0", "1", "2", "3", "9"]);
+    });
+
+    it("insertTracksAt returns the index past the block and appends on -1", () => {
+      const end = playerService.insertTracksAt(-1, [
+        { ...mockTrack, id: "a" },
+        { ...mockTrack, id: "b" },
+      ]);
+      expect(end).toBe(2);
+      expect(playerService.getQueue().items).toHaveLength(2);
+    });
+
+    it("insertTracksAt keeps currentIndex pointed at the same track", () => {
+      playerService.addToQueue({ ...mockTrack, id: "x" });
+      playerService.addToQueue({ ...mockTrack, id: "y" });
+      playerService.playIndex(1);
+      expect(playerService.getQueue().currentIndex).toBe(1);
+
+      playerService.insertTracksAt(0, [{ ...mockTrack, id: "before" }]);
+
+      const q = playerService.getQueue();
+      expect(q.currentIndex).toBe(2);
+      expect(q.items[q.currentIndex].track.id).toBe("y");
+    });
+
+    it("regenerates the shuffle order once per batch add, not once per track", () => {
+      playerService.addToQueue({ ...mockTrack, id: "0" });
+      playerService.toggleShuffle();
+
+      const spy = vi.spyOn(
+        playerService as unknown as { generateShuffleOrder: () => void },
+        "generateShuffleOrder",
+      );
+
+      playerService.addTracksToQueue(
+        Array.from({ length: 20 }, (_, i) => ({ ...mockTrack, id: `t${i}` })),
+        "collection",
+      );
+
+      // extendShuffleOrder is used instead — a full regen must not happen at all
+      expect(spy).not.toHaveBeenCalled();
+      expect(playerService.getQueue().items).toHaveLength(21);
+    });
+
+    it("extending the shuffle order preserves the relative order of existing entries", () => {
+      playerService.addTracksToQueue(
+        Array.from({ length: 5 }, (_, i) => ({ ...mockTrack, id: `t${i}` })),
+        "collection",
+      );
+      playerService.playIndex(0);
+      playerService.toggleShuffle();
+
+      const before = [
+        ...(playerService as unknown as { shuffleOrder: number[] }).shuffleOrder,
+      ];
+
+      playerService.insertTracksAt(-1, [{ ...mockTrack, id: "new" }]);
+
+      const after = (playerService as unknown as { shuffleOrder: number[] })
+        .shuffleOrder;
+      expect(after).toHaveLength(6);
+      // The pre-existing indices keep their relative order (none were >= 5, so
+      // none were remapped) and the new index 5 has been spliced in.
+      expect(after.filter((i) => i !== 5)).toEqual(before);
+      expect(after).toContain(5);
+    });
+
+    it("coalesces queue broadcasts for bulk inserts and cancels a pending emit", () => {
+      vi.useFakeTimers();
+      const listener = vi.fn();
+      playerService.on("queue-updated", listener);
+
+      for (let i = 0; i < 5; i++) {
+        playerService.insertTracksAt(
+          -1,
+          [{ ...mockTrack, id: `c${i}` }],
+          "collection",
+          { coalesce: true },
+        );
+      }
+      expect(listener).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(200);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      // A synchronous emit must swallow any pending coalesced emit
+      listener.mockClear();
+      playerService.insertTracksAt(-1, [{ ...mockTrack, id: "c9" }], "collection", {
+        coalesce: true,
+      });
+      playerService.addToQueue({ ...mockTrack, id: "sync" });
+      expect(listener).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(200);
+      expect(listener).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+
+    it("bumps the queue epoch when the queue is replaced", async () => {
+      const start = playerService.getQueueEpoch();
+
+      playerService.addToQueue(mockTrack);
+      expect(playerService.getQueueEpoch()).toBe(start);
+
+      playerService.clearQueue(false);
+      expect(playerService.getQueueEpoch()).toBe(start + 1);
+
+      await playerService.play(mockTrack);
+      expect(playerService.getQueueEpoch()).toBe(start + 2);
+    });
+
+    it("adds many radio stations in one batch with one broadcast", () => {
+      const listener = vi.fn();
+      playerService.on("queue-updated", listener);
+
+      playerService.addStationsToQueue([
+        { id: "s1", name: "One" } as never,
+        { id: "s2", name: "Two" } as never,
+      ]);
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      const items = playerService.getQueue().items;
+      expect(items).toHaveLength(2);
+      expect(items[0].source).toBe("radio");
+      expect(items[0].radioStation).toBeDefined();
+      expect(items[0].track.id).toBe("radio-s1");
+    });
+
     it("should remove currently playing track", async () => {
       playerService.addToQueue(mockTrack);
       playerService.playIndex(0);
@@ -422,10 +565,19 @@ describe("PlayerService", () => {
 
   describe("Offline Mode", () => {
     beforeEach(() => {
+      // offlineMode is cached at construction (it is read on every play()),
+      // so the service must be rebuilt after changing the settings mock.
       mockDatabase.getSettings.mockReturnValue({
         defaultVolume: 0.5,
         offlineMode: true,
       });
+      playerService = new PlayerService(
+        mockCacheService as unknown as CacheService,
+        mockScrobblerService as unknown as ScrobblerService,
+        mockScraperService as unknown as ScraperService,
+        mockCastService as unknown as CastService,
+        mockDatabase as unknown as Database,
+      );
     });
 
     it("play() in offline mode with non-cached track should set error and not start playing", async () => {
@@ -534,6 +686,64 @@ describe("PlayerService", () => {
         defaultVolume: 1,
       });
       vi.useRealTimers();
+    });
+
+    it("restores the persisted queue from its own row, not the settings blob", () => {
+      mockDatabase.getSavedQueue.mockReturnValue({
+        items: [{ id: "q1", track: mockTrack, source: "collection" }],
+        currentIndex: 0,
+        shuffleOrder: [0],
+      });
+
+      const svc = new PlayerService(
+        mockCacheService as unknown as CacheService,
+        mockScrobblerService as unknown as ScrobblerService,
+        mockScraperService as unknown as ScraperService,
+        mockCastService as unknown as CastService,
+        mockDatabase as unknown as Database,
+      );
+
+      const q = svc.getQueue();
+      expect(q.items).toHaveLength(1);
+      expect(q.currentIndex).toBe(0);
+      expect(svc.getState().isShuffled).toBe(true);
+    });
+
+    it("persists the queue via setSavedQueue and never through setSettings", () => {
+      vi.useFakeTimers();
+      playerService.addToQueue(mockTrack);
+
+      vi.advanceTimersByTime(1500);
+
+      expect(mockDatabase.setSavedQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ currentIndex: expect.any(Number) }),
+      );
+      expect(mockDatabase.setSettings).not.toHaveBeenCalledWith(
+        expect.objectContaining({ savedQueue: expect.anything() }),
+      );
+      vi.useRealTimers();
+    });
+
+    it("persists despite a continuously reset debounce once the max wait elapses", () => {
+      vi.useFakeTimers();
+      // Mutate faster than the 1000ms debounce for longer than the 10s deadline
+      for (let i = 0; i < 30; i++) {
+        playerService.addToQueue({ ...mockTrack, id: `d${i}` });
+        vi.advanceTimersByTime(500);
+      }
+      expect(mockDatabase.setSavedQueue).toHaveBeenCalled();
+      vi.useRealTimers();
+    });
+
+    it("reads offlineMode from cache, never from the DB, during play()", async () => {
+      playerService.applySettings({ offlineMode: true });
+      mockCacheService.isCached.mockReturnValue(false);
+      mockDatabase.getSettings.mockClear();
+
+      await playerService.play(mockTrack);
+
+      expect(playerService.getState().error).toContain("Offline mode");
+      expect(mockDatabase.getSettings).not.toHaveBeenCalled();
     });
 
     it("should get stream root based on cache", () => {

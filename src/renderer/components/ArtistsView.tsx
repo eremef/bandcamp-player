@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { useStore } from "../store/store";
-import type { CollectionItem, Track } from "../../shared/types";
+import type { BulkQueueAction, CollectionItem } from "../../shared/types";
 import { ItemsGrid } from "./Collection/ItemsGrid";
 import { AddToPlaylistModal } from "./Playlist/AddToPlaylistModal";
+import { BulkProgressButton } from "./Collection/BulkProgressButton";
 import {
   ArrowLeft,
   ExternalLink,
@@ -30,12 +31,8 @@ export const ArtistsView: React.FC = () => {
     collection,
     selectedArtistId,
     selectArtist,
-    getAlbumDetails,
-    clearQueue,
-    addTracksToQueue,
-    playQueueIndex,
-    addTracksToPlaylist,
-    downloadTrack,
+    startBulkAction,
+    bulkJob,
     cachedTrackIds,
     cachedAlbumIds,
     downloadingTracks,
@@ -44,9 +41,10 @@ export const ArtistsView: React.FC = () => {
     goBack,
   } = useStore();
 
+  const isBulkRunning = !!bulkJob;
+
   const isOfflineMode = settings?.offlineMode ?? false;
   const [filter, setFilter] = useState("");
-  const [isActionsLoading, setIsActionsLoading] = useState(false);
   const [showDetailMenu, setShowDetailMenu] = useState(false);
   const [cardMenuArtistId, setCardMenuArtistId] = useState<string | null>(null);
 
@@ -164,93 +162,37 @@ export const ArtistsView: React.FC = () => {
       .map((letter) => ({ letter, artists: groups[letter] }));
   }, [filteredArtists]);
 
-  const getArtistTracks = useCallback(
-    async (items: CollectionItem[]) => {
-      const allTracks: Track[] = [];
-      for (const item of items) {
-        if (item.type === "album" && item.album) {
-          const isAlbumFullyCached = cachedAlbumIds.has(item.album.id);
-          if (item.album.tracks.length > 0 && item.album.tracks.every((t) => !!t.streamUrl)) {
-            allTracks.push(...item.album.tracks);
-            continue;
-          }
-          if (isOfflineMode && isAlbumFullyCached) {
-            const cachedTracks = await window.electron.cache.getCachedTracksByAlbum(item.album.id);
-            if (cachedTracks.length > 0) {
-              allTracks.push(...cachedTracks);
-              continue;
-            }
-          }
-          if (item.album.bandcampUrl) {
-            const details = await getAlbumDetails(item.album.bandcampUrl, item.album.id);
-            if (details) allTracks.push(...details.tracks);
-          }
-        } else if (item.type === "track" && item.track) {
-          if (item.track.streamUrl || cachedTrackIds.has(item.track.id)) {
-            allTracks.push(item.track);
-          } else if (item.track.bandcampUrl) {
-            const details = await getAlbumDetails(item.track.bandcampUrl, item.track.albumId);
-            if (details) allTracks.push(...details.tracks);
-          }
-        }
-      }
-      return allTracks;
-    },
-    [getAlbumDetails, cachedTrackIds, cachedAlbumIds, isOfflineMode],
-  );
-
   const getItemsForArtist = useCallback(
     (artistId: string) => derivedArtists.find((a) => a.id === artistId)?.items ?? [],
     [derivedArtists],
   );
 
-  const handleCardAction = useCallback(
-    async (
+  const runArtistBulkAction = useCallback(
+    (
       artistId: string,
-      action: "play" | "playNext" | "addToQueue" | "addToPlaylist" | "download",
+      action: BulkQueueAction,
+      playlistId?: string,
+    ) => {
+      const items = getItemsForArtist(artistId);
+      if (items.length === 0) return;
+      const label = derivedArtists.find((a) => a.id === artistId)?.name;
+      // Fire and forget — the job runs in the main process and reports progress.
+      void startBulkAction({ action, items, playlistId, label });
+    },
+    [getItemsForArtist, derivedArtists, startBulkAction],
+  );
+
+  const handleCardAction = useCallback(
+    (
+      artistId: string,
+      action: BulkQueueAction,
       playlistId?: string,
     ) => {
       setCardMenuArtistId(null);
-      setIsActionsLoading(true);
-      try {
-        const items = getItemsForArtist(artistId);
-        const tracks = await getArtistTracks(items);
-        if (tracks.length === 0) return;
-        switch (action) {
-          case "play":
-            await clearQueue(false);
-            await addTracksToQueue(tracks);
-            await playQueueIndex(0);
-            break;
-          case "playNext":
-            await addTracksToQueue(tracks, true);
-            break;
-          case "addToQueue":
-            await addTracksToQueue(tracks);
-            break;
-          case "addToPlaylist":
-            if (playlistId) await addTracksToPlaylist(playlistId, tracks);
-            break;
-          case "download":
-            for (const track of tracks) await downloadTrack(track);
-            break;
-        }
-      } finally {
-        setIsActionsLoading(false);
-      }
+      runArtistBulkAction(artistId, action, playlistId);
     },
-    [
-      getItemsForArtist,
-      getArtistTracks,
-      clearQueue,
-      addTracksToQueue,
-      playQueueIndex,
-      addTracksToPlaylist,
-      downloadTrack,
-    ],
+    [runArtistBulkAction],
   );
-
-
 
   // Detail View
   if (selectedArtistId) {
@@ -328,20 +270,14 @@ export const ArtistsView: React.FC = () => {
             <div className={styles.detailActions}>
               <button
                 className={styles.playAllButton}
-                disabled={isActionsLoading}
-                onClick={async () => {
-                  setIsActionsLoading(true);
-                  try {
-                    const tracks = await getArtistTracks(artistItems);
-                    if (tracks.length > 0) {
-                      await clearQueue(false);
-                      await addTracksToQueue(tracks);
-                      await playQueueIndex(0);
-                    }
-                  } finally {
-                    setIsActionsLoading(false);
-                  }
-                }}
+                disabled={isBulkRunning}
+                onClick={() =>
+                  void startBulkAction({
+                    action: "play",
+                    items: artistItems,
+                    label: artist?.name,
+                  })
+                }
               >
                 <Play size={16} /> Play All
               </button>
@@ -349,42 +285,37 @@ export const ArtistsView: React.FC = () => {
                 className={styles.moreButtonContainer}
                 onMouseLeave={() => setShowDetailMenu(false)}
               >
-                <button
-                  className={styles.moreButton}
-                  onClick={() => setShowDetailMenu(!showDetailMenu)}
+                <BulkProgressButton
+                  onToggleMenu={() => setShowDetailMenu(!showDetailMenu)}
                   title="More options"
-                >
-                  <MoreHorizontal size={20} />
-                </button>
+                  className={styles.moreButton}
+                  iconSize={20}
+                />
                 {showDetailMenu && (
                   <div
                     className={styles.detailMenu}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         setShowDetailMenu(false);
-                        setIsActionsLoading(true);
-                        try {
-                          const tracks = await getArtistTracks(artistItems);
-                          if (tracks.length > 0) await addTracksToQueue(tracks, true);
-                        } finally {
-                          setIsActionsLoading(false);
-                        }
+                        void startBulkAction({
+                          action: "playNext",
+                          items: artistItems,
+                          label: artist?.name,
+                        });
                       }}
                     >
                       <SkipForward size={16} /> Play Next
                     </button>
                     <button
-                      onClick={async () => {
+                      onClick={() => {
                         setShowDetailMenu(false);
-                        setIsActionsLoading(true);
-                        try {
-                          const tracks = await getArtistTracks(artistItems);
-                          if (tracks.length > 0) await addTracksToQueue(tracks);
-                        } finally {
-                          setIsActionsLoading(false);
-                        }
+                        void startBulkAction({
+                          action: "addToQueue",
+                          items: artistItems,
+                          label: artist?.name,
+                        });
                       }}
                     >
                       <List size={16} /> Add to Queue
@@ -400,15 +331,13 @@ export const ArtistsView: React.FC = () => {
                       <>
                         <div className={styles.menuDivider} />
                         <button
-                          onClick={async () => {
+                          onClick={() => {
                             setShowDetailMenu(false);
-                            setIsActionsLoading(true);
-                            try {
-                              const tracks = await getArtistTracks(artistItems);
-                              for (const track of tracks) await downloadTrack(track);
-                            } finally {
-                              setIsActionsLoading(false);
-                            }
+                            void startBulkAction({
+                              action: "download",
+                              items: artistItems,
+                              label: artist?.name,
+                            });
                           }}
                         >
                           <Download size={16} /> Download for Offline
@@ -486,7 +415,7 @@ export const ArtistsView: React.FC = () => {
                       <div className={styles.cardOverlay}>
                         <button
                           className={styles.cardPlayButton}
-                          disabled={isActionsLoading}
+                          disabled={isBulkRunning}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCardAction(artist.id, "play");
@@ -576,19 +505,15 @@ export const ArtistsView: React.FC = () => {
       <AddToPlaylistModal
         isOpen={!!playlistTargetArtistItems}
         onClose={() => setPlaylistTargetArtistItems(null)}
-        onSelectPlaylist={async (playlistId) => {
+        onSelectPlaylist={(playlistId) => {
           if (playlistTargetArtistItems) {
-            setIsActionsLoading(true);
-            try {
-              const tracks = await getArtistTracks(playlistTargetArtistItems);
-              if (tracks.length > 0) {
-                await addTracksToPlaylist(playlistId, tracks);
-              }
-            } finally {
-              setIsActionsLoading(false);
-              setPlaylistTargetArtistItems(null);
-            }
+            void startBulkAction({
+              action: "addToPlaylist",
+              items: playlistTargetArtistItems,
+              playlistId,
+            });
           }
+          setPlaylistTargetArtistItems(null);
         }}
       />
     </div>

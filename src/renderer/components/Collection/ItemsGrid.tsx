@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, memo } from "react";
 import {
   CollectionItem,
   CollectionViewMode,
@@ -35,7 +35,12 @@ const SIZE_CLASS: Record<CoverSize, string> = {
   large: styles.sizeLarge,
 };
 
-export function ItemsGrid({
+/**
+ * Memoized: CollectionView subscribes to the whole store, so unrelated state
+ * changes (notably bulk-job progress ticks) re-render it several times a second.
+ * Without this the entire unvirtualized grid would re-render each time.
+ */
+export const ItemsGrid = memo(function ItemsGrid({
   items,
   isLoading = false,
   emptyMessage = "No items found",
@@ -139,4 +144,4 @@ export function ItemsGrid({
       )}
     </div>
   );
-}
+});

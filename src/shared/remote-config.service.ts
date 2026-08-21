@@ -56,6 +56,9 @@ export interface RemoteConfig {
     maxBatches: number;
     rateLimitDelay: number;
     rateLimitJitter: number;
+    /** Albums fetched in parallel by bulk queue jobs. Optional: the live config
+     *  is fetched from GitHub main, so an older remote copy must still load. */
+    albumDetailConcurrency?: number;
   };
   lastfm?: {
     apiKey: string;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "../../store/store";
 import {
   Search,
@@ -16,7 +16,6 @@ import {
   ArrowUp,
   ArrowDown,
   Quote,
-  MoreHorizontal,
   Play,
   SkipForward,
   List,
@@ -29,9 +28,11 @@ import {
   Square,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
+import { BulkProgressButton } from "./BulkProgressButton";
 import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./CollectionView.module.css";
 import { dedupeCollectionItems, sortCollectionItems } from "../../utils/collection-utils";
+import type { BulkQueueAction, CollectionItem } from "../../../shared/types";
 
 
 export function CollectionView() {
@@ -62,14 +63,7 @@ export function CollectionView() {
     collection_cover_size: coverSize,
     setCollectionViewMode: setViewMode,
     setCollectionCoverSize: setCoverSize,
-    clearQueue,
-    addAlbumToQueue,
-    addTracksToQueue,
-    playQueueIndex,
-    addTracksToPlaylist,
-    downloadAlbum,
-    downloadTrack,
-    showToast,
+    startBulkAction,
     cachedAlbumIds,
     cachedTrackIds,
   } = useStore();
@@ -166,9 +160,7 @@ export function CollectionView() {
   const sortRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
-  const [isBulkOperating, setIsBulkOperating] = useState(false);
   const isOfflineMode = settings?.offlineMode ?? false;
-  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
   const bulkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -199,152 +191,29 @@ export function CollectionView() {
     setSearchQuery("");
   };
 
-  const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue' | 'addToPlaylist' | 'download', playlistId?: string) => {
+  // Stable identity so ItemsGrid's memoization actually holds
+  const handleItemClick = useCallback(
+    async (item: CollectionItem) => {
+      if (item.type === "album" && item.album) {
+        await getAlbumDetails(item.album.bandcampUrl, item.album.id);
+      }
+    },
+    [getAlbumDetails],
+  );
+
+  const handleBulkAction = (action: BulkQueueAction, playlistId?: string) => {
     setShowBulkMenu(false);
-    if (sortedItems.length === 0 || isBulkOperating) return;
+    if (sortedItems.length === 0) return;
 
-    setBulkProgress({ current: 0, total: sortedItems.length });
-    setIsBulkOperating(true);
-
-    const ensureAlbumTracks = async (album: any) => {
-      let albumWithTracks = album;
-      if (!albumWithTracks.tracks || albumWithTracks.tracks.length === 0) {
-        if (albumWithTracks.bandcampUrl) {
-          try {
-            const details = await getAlbumDetails(albumWithTracks.bandcampUrl, albumWithTracks.id);
-            if (details) {
-              albumWithTracks = details;
-            }
-          } catch (err) {
-            console.error('Failed to fetch album tracks for bulk action:', albumWithTracks.title, err);
-          }
-        }
-      }
-      return albumWithTracks;
-    };
-
-    let itemsQueued = 0;
-
-    try {
-      switch (action) {
-        case 'play': {
-          await clearQueue(false);
-          let playIndex = 0;
-          let hasStartedPlaying = false;
-          for (const item of sortedItems) {
-            setBulkProgress(p => ({ ...p, current: playIndex + 1 }));
-            if (item.type === 'album' && item.album) {
-              const albumWithTracks = await ensureAlbumTracks(item.album);
-              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
-                await addAlbumToQueue(albumWithTracks, false);
-                itemsQueued++;
-                if (!hasStartedPlaying) {
-                  await playQueueIndex(0);
-                  hasStartedPlaying = true;
-                }
-              }
-            } else if (item.type === 'track' && item.track) {
-              await addTracksToQueue([item.track], false);
-              itemsQueued++;
-              if (!hasStartedPlaying) {
-                await playQueueIndex(0);
-                hasStartedPlaying = true;
-              }
-            }
-            playIndex++;
-          }
-          if (itemsQueued === 0) {
-            showToast("Failed to load any tracks to play", "error");
-          }
-          break;
-        }
-        case 'playNext': {
-          let nextIndex = 0;
-          const allTracks: Parameters<typeof addTracksToQueue>[0] = [];
-          for (const item of sortedItems) {
-            setBulkProgress(p => ({ ...p, current: nextIndex + 1 }));
-            if (item.type === 'album' && item.album) {
-              const albumWithTracks = await ensureAlbumTracks(item.album);
-              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
-                allTracks.push(...albumWithTracks.tracks);
-                itemsQueued++;
-              }
-            } else if (item.type === 'track' && item.track) {
-              allTracks.push(item.track);
-              itemsQueued++;
-            }
-            nextIndex++;
-          }
-          if (allTracks.length > 0) {
-            await addTracksToQueue(allTracks, true);
-          } else {
-            showToast("Failed to load any tracks to play next", "error");
-          }
-          break;
-        }
-        case 'addToQueue': {
-          let queueIndex = 0;
-          for (const item of sortedItems) {
-            setBulkProgress(p => ({ ...p, current: queueIndex + 1 }));
-            if (item.type === 'album' && item.album) {
-              const albumWithTracks = await ensureAlbumTracks(item.album);
-              if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
-                await addAlbumToQueue(albumWithTracks, false);
-                itemsQueued++;
-              }
-            } else if (item.type === 'track' && item.track) {
-              await addTracksToQueue([item.track], false);
-              itemsQueued++;
-            }
-            queueIndex++;
-          }
-          if (itemsQueued === 0) {
-            showToast("Failed to load any tracks to add to queue", "error");
-          }
-          break;
-        }
-        case 'addToPlaylist': {
-          if (playlistId) {
-            const allTracks: any[] = [];
-            let playlistIndex = 0;
-            for (const item of sortedItems) {
-              setBulkProgress(p => ({ ...p, current: playlistIndex + 1 }));
-              if (item.type === 'track' && item.track) {
-                allTracks.push(item.track);
-              } else if (item.type === 'album' && item.album) {
-                const albumWithTracks = await ensureAlbumTracks(item.album);
-                if (albumWithTracks.tracks && albumWithTracks.tracks.length > 0) {
-                  allTracks.push(...albumWithTracks.tracks);
-                }
-              }
-              playlistIndex++;
-            }
-            if (allTracks.length > 0) {
-              await addTracksToPlaylist(playlistId, allTracks);
-            }
-          }
-          break;
-        }
-        case 'download': {
-          let downloadIndex = 0;
-          for (const item of sortedItems) {
-            setBulkProgress(p => ({ ...p, current: downloadIndex + 1 }));
-            if (item.type === 'album' && item.album) {
-              await downloadAlbum(item.album);
-            } else if (item.type === 'track' && item.track) {
-              await downloadTrack(item.track);
-            }
-            downloadIndex++;
-          }
-          break;
-        }
-      }
-    } catch (err) {
-      console.error('Bulk action failed:', err);
-    } finally {
-      setIsBulkOperating(false);
-      setBulkProgress({ current: 0, total: 0 });
-    }
+    // Fire and forget: the main process owns the job from here, reports progress
+    // over IPC and can be cancelled. Deliberately not awaited so the click
+    // handler returns immediately.
+    void startBulkAction({
+      action,
+      items: sortedItems,
+      playlistId,
+      label: 'Collection',
+    });
   };
 
   if (isLoadingCollection && !collection) {
@@ -630,23 +499,9 @@ export function CollectionView() {
 
             {sortedItems.length > 0 && (
               <div className={styles.bulkMenuContainer} ref={bulkRef}>
-                <button
-                  className={`${styles.bulkMoreButton} ${isBulkOperating ? styles.isBulkOperating : ''}`}
-                  onClick={() => setShowBulkMenu(!showBulkMenu)}
-                  title={isBulkOperating ? `Processing ${bulkProgress.current} of ${bulkProgress.total}...` : "Bulk actions for current view"}
-                  disabled={isBulkOperating}
-                >
-                  {isBulkOperating ? (
-                    <div className={styles.bulkProgressContainer}>
-                      <RefreshCw size={14} className={styles.spinning} />
-                      <span className={styles.bulkProgressText}>
-                        {bulkProgress.current}/{bulkProgress.total}
-                      </span>
-                    </div>
-                  ) : (
-                    <MoreHorizontal size={18} />
-                  )}
-                </button>
+                <BulkProgressButton
+                  onToggleMenu={() => setShowBulkMenu(!showBulkMenu)}
+                />
                 {showBulkMenu && (
                   <div className={styles.bulkMenu} onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleBulkAction('play')}>
@@ -686,11 +541,7 @@ export function CollectionView() {
           items={sortedItems}
           viewMode={viewMode}
           coverSize={coverSize}
-          onItemClick={async (item) => {
-            if (item.type === "album" && item.album) {
-              await getAlbumDetails(item.album.bandcampUrl, item.album.id);
-            }
-          }}
+          onItemClick={handleItemClick}
           emptyMessage={
             hasSearchQuery
               ? `No results for "${searchQuery}"`

@@ -14,6 +14,7 @@ export function RadioView() {
         playRadioStation,
         radioState,
         addRadioToQueue,
+        addRadioStationsToQueue,
         addRadioToPlaylist,
         playlists,
         fetchPlaylists,
@@ -112,26 +113,22 @@ export function RadioView() {
     const handleBulkAction = async (action: 'play' | 'playNext' | 'addToQueue') => {
         setShowBulkMenu(false);
         const stations = filteredStations;
+        if (stations.length === 0) return;
 
+        // Radio stations queue as placeholder tracks (stream URLs resolve at
+        // play time), so there is nothing to scrape — this just needs to be one
+        // batch call rather than N round trips, broadcasts and toasts.
         switch (action) {
             case 'play':
-                if (stations.length > 0) {
-                    await clearQueue(false);
-                    for (const station of stations) {
-                        await addRadioToQueue(station, false);
-                    }
-                    await playQueueIndex(0);
-                }
+                await clearQueue(false);
+                await addRadioStationsToQueue(stations, false);
+                await playQueueIndex(0);
                 break;
             case 'playNext':
-                for (const station of stations) {
-                    await addRadioToQueue(station, true);
-                }
+                await addRadioStationsToQueue(stations, true);
                 break;
             case 'addToQueue':
-                for (const station of stations) {
-                    await addRadioToQueue(station, false);
-                }
+                await addRadioStationsToQueue(stations, false);
                 break;
         }
     };

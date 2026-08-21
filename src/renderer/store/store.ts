@@ -21,6 +21,8 @@ import type {
   SortDirection,
   CollectionViewMode,
   CoverSize,
+  BulkQueueRequest,
+  BulkJobProgress,
 } from "../../shared/types";
 import { RemoteConfig } from "../../shared/remote-config.service";
 
@@ -60,6 +62,13 @@ interface QueueSlice {
   reorderQueue: (from: number, to: number) => Promise<void>;
   playQueueIndex: (index: number) => Promise<void>;
   addTracksToQueue: (tracks: Track[], playNext?: boolean) => Promise<void>;
+}
+
+interface BulkJobSlice {
+  /** The in-flight bulk queue job, or null. Owned by the main process. */
+  bulkJob: BulkJobProgress | null;
+  startBulkAction: (request: BulkQueueRequest) => Promise<void>;
+  cancelBulkAction: () => Promise<void>;
 }
 
 interface CollectionSlice {
@@ -138,6 +147,10 @@ interface RadioSlice {
   playRadioStation: (station: RadioStation) => Promise<void>;
   stopRadio: () => Promise<void>;
   addRadioToQueue: (station: RadioStation, playNext?: boolean) => Promise<void>;
+  addRadioStationsToQueue: (
+    stations: RadioStation[],
+    playNext?: boolean,
+  ) => Promise<void>;
   addRadioToPlaylist: (
     playlistId: string,
     station: RadioStation,
@@ -269,6 +282,7 @@ interface ConnectivitySlice {
 type StoreState = AuthSlice &
   PlayerSlice &
   QueueSlice &
+  BulkJobSlice &
   CollectionSlice &
   PlaylistSlice &
   RadioSlice &
@@ -481,6 +495,18 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   addTracksToQueue: async (tracks, playNext) => {
     await window.electron.queue.addTracks(tracks, playNext);
+  },
+
+  // ---- Bulk Job Slice ----
+  bulkJob: null,
+  startBulkAction: async (request) => {
+    // The main process runs the job; this resolves as soon as it is accepted.
+    const seed = await window.electron.bulk.start(request);
+    set({ bulkJob: seed ?? null });
+  },
+  cancelBulkAction: async () => {
+    const job = get().bulkJob;
+    await window.electron.bulk.cancel(job?.id);
   },
 
   // ---- Collection Slice ----
@@ -889,6 +915,13 @@ export const useStore = create<StoreState>()((set, get) => ({
   addRadioToQueue: async (station, playNext) => {
     await window.electron.radio.addToQueue(station, playNext);
     get().showToast(`${station.name} added to queue`, "success");
+  },
+  addRadioStationsToQueue: async (stations, playNext) => {
+    if (stations.length === 0) return;
+    // One IPC call, one queue broadcast and one toast — the per-station loop
+    // this replaces produced all three N times over.
+    await window.electron.radio.addStationsToQueue(stations, playNext);
+    get().showToast(`${stations.length} stations added to queue`, "success");
   },
   addRadioToPlaylist: async (playlistId, station) => {
     await window.electron.radio.addToPlaylist(playlistId, station);
@@ -1408,6 +1441,38 @@ export async function initializeStoreSubscriptions() {
   });
   window.electron.radio.onStationsUpdated((stations) => {
     useStore.setState({ radioStations: stations });
+  });
+
+  // Bulk queue job progress. The job lives in the main process, so re-attach to
+  // whatever is already running (a renderer reload must not orphan the UI).
+  const initialBulkJob = await window.electron.bulk.getState();
+  if (initialBulkJob) {
+    useStore.setState({ bulkJob: initialBulkJob });
+  }
+  window.electron.bulk.onProgress((progress) => {
+    const isTerminal =
+      progress.status === "done" ||
+      progress.status === "cancelled" ||
+      progress.status === "error";
+
+    useStore.setState({ bulkJob: isTerminal ? null : progress });
+
+    if (!isTerminal) return;
+
+    const { showToast } = useStore.getState();
+    if (progress.status === "error") {
+      showToast(progress.error || "Bulk action failed", "error");
+    } else if (progress.status === "cancelled") {
+      showToast(
+        `Stopped adding to queue (${progress.completed} of ${progress.total} added)`,
+        "success",
+      );
+    } else if (progress.failed > 0) {
+      showToast(
+        `Finished with ${progress.failed} of ${progress.total} item(s) failing to load`,
+        "error",
+      );
+    }
   });
 
   // Remote updates

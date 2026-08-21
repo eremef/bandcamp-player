@@ -17,6 +17,18 @@ import { remoteConfigService } from "../../shared/remote-config.service";
 // Bandcamp Scraper Service
 // ============================================================================
 
+/** Lets a long-running caller pace and abort the HTTP requests it triggers. */
+export interface AlbumFetchOptions {
+  signal?: AbortSignal;
+  /** Awaited immediately before every HTTP request, so cache hits cost nothing. */
+  beforeNetwork?: () => Promise<void>;
+}
+
+export interface AlbumDetailsResult {
+  album: Album | null;
+  source: "cache" | "network" | "none";
+}
+
 export class ScraperService extends EventEmitter {
   private authService: AuthService;
   private database?: Database;
@@ -1173,6 +1185,7 @@ export class ScraperService extends EventEmitter {
     bandId: string,
     id: string,
     type: "a" | "t",
+    opts?: AlbumFetchOptions,
   ): Promise<any[]> {
     const config = remoteConfigService.get();
     const mobileUrl = config.endpoints.mobileTralbumDetailsApi
@@ -1180,8 +1193,10 @@ export class ScraperService extends EventEmitter {
       .replace("tralbum_type=t", `tralbum_type=${type}`)
       .replace("{track_id}", String(id));
     const cookies = await this.authService.getSessionCookies();
+    await opts?.beforeNetwork?.();
     const response = await this.http.get(mobileUrl, {
       headers: { Cookie: cookies },
+      signal: opts?.signal,
     });
     return response.data?.tracks ?? [];
   }
@@ -1191,13 +1206,17 @@ export class ScraperService extends EventEmitter {
    * request. Returns false when the refresh could not be completed, in which
    * case the caller blanks the URLs so they get resolved lazily at play time.
    */
-  private async refreshAlbumStreamUrls(album: Album): Promise<boolean> {
+  private async refreshAlbumStreamUrls(
+    album: Album,
+    opts?: AlbumFetchOptions,
+  ): Promise<boolean> {
     if (!album.artistId || !album.id) return false;
     try {
       const mobileTracks = await this.fetchMobileTralbumTracks(
         album.artistId,
         album.id,
         "a",
+        opts,
       );
       if (mobileTracks.length === 0) return false;
 
@@ -1212,7 +1231,7 @@ export class ScraperService extends EventEmitter {
           mobileTrack?.streaming_url?.["mp3-128"] ||
           mobileTrack?.streaming_url?.["mp3-v0"];
         if (freshUrl) {
-          track.streamUrl = await this.resolveRedirect(freshUrl);
+          track.streamUrl = await this.resolveRedirect(freshUrl, opts);
           track.hasStream = true;
           refreshed++;
         }
@@ -1239,7 +1258,10 @@ export class ScraperService extends EventEmitter {
    * refresh/blank fallback. Pre-orders are never served from cache because
    * their tracks gain stream URLs at release.
    */
-  private async readAlbumCache(albumId: string): Promise<Album | null> {
+  private async readAlbumCache(
+    albumId: string,
+    opts?: AlbumFetchOptions,
+  ): Promise<Album | null> {
     if (!this.database) return null;
 
     const cached = this.database.getAlbumCache(albumId);
@@ -1257,7 +1279,7 @@ export class ScraperService extends EventEmitter {
     }
 
     if (age > ScraperService.ALBUM_STREAM_TTL_MS) {
-      const refreshed = await this.refreshAlbumStreamUrls(album);
+      const refreshed = await this.refreshAlbumStreamUrls(album, opts);
       if (!refreshed) {
         // Blank the URLs but keep hasStream: PlayerService resolves an empty
         // streamUrl on demand, so the first play recovers instead of failing.
@@ -1287,19 +1309,38 @@ export class ScraperService extends EventEmitter {
     albumUrl: string,
     albumId?: string,
   ): Promise<Album | null> {
+    const { album } = await this.getAlbumDetailsWithSource(albumUrl, albumId);
+    return album;
+  }
+
+  /**
+   * As getAlbumDetails, but reports whether the result came from the cache or
+   * the network, and lets the caller pace and abort the underlying requests.
+   *
+   * `beforeNetwork` is awaited immediately before *every* HTTP request on this
+   * path, so a warm cache hit consumes no rate-limit budget — that is what lets
+   * a bulk job over thousands of albums run at full speed once warmed.
+   */
+  async getAlbumDetailsWithSource(
+    albumUrl: string,
+    albumId?: string,
+    opts?: AlbumFetchOptions,
+  ): Promise<AlbumDetailsResult> {
     // Callers that already know the album id can skip the network entirely.
     // The URL alone is not a usable key: trailing slashes, ?from= params and
     // the track→album redirect below all produce different strings per album.
     if (albumId) {
-      const cached = await this.readAlbumCache(albumId);
-      if (cached) return cached;
+      const cached = await this.readAlbumCache(albumId, opts);
+      if (cached) return { album: cached, source: "cache" };
     }
 
     try {
       const config = remoteConfigService.get();
       const cookies = await this.authService.getSessionCookies();
+      await opts?.beforeNetwork?.();
       const response = await this.http.get(albumUrl, {
         headers: { Cookie: cookies },
+        signal: opts?.signal,
       });
 
       const $ = cheerio.load(response.data);
@@ -1308,7 +1349,7 @@ export class ScraperService extends EventEmitter {
       const tralbumData = this.extractTralbumData($);
       if (!tralbumData) {
         console.error("Could not find album data in page");
-        return null;
+        return { album: null, source: "none" };
       }
 
       // If we accidentally scraped a track page instead of an album, redirect to the album page
@@ -1316,7 +1357,7 @@ export class ScraperService extends EventEmitter {
         console.log(`[ScraperService] Track URL provided, redirecting to album: ${tralbumData.album_url}`);
         const baseUrl = tralbumData.url ? new URL(tralbumData.url).origin : new URL(albumUrl).origin;
         const fullAlbumUrl = new URL(tralbumData.album_url, baseUrl).toString();
-        return this.getAlbumDetails(fullAlbumUrl);
+        return this.getAlbumDetailsWithSource(fullAlbumUrl, undefined, opts);
       }
 
       const tracks: Track[] = await Promise.all(
@@ -1431,10 +1472,15 @@ export class ScraperService extends EventEmitter {
         this.database.saveAlbumCache(album);
       }
 
-      return album;
-    } catch (error) {
+      return { album, source: "network" };
+    } catch (error: any) {
+      // An aborted request is a cancellation, not a failure — the caller
+      // distinguishes them by checking its own signal.
+      if (opts?.signal?.aborted) {
+        return { album: null, source: "none" };
+      }
       console.error("Error fetching album details:", error);
-      return null;
+      return { album: null, source: "none" };
     }
   }
 
@@ -1811,12 +1857,17 @@ export class ScraperService extends EventEmitter {
   /**
    * Resolve Bandcamp stream redirects to get direct media URLs
    */
-  private async resolveRedirect(url: string): Promise<string> {
+  private async resolveRedirect(
+    url: string,
+    opts?: AlbumFetchOptions,
+  ): Promise<string> {
     if (!url || !url.includes("stream_redirect")) return url;
     try {
+      await opts?.beforeNetwork?.();
       const response = await this.http.get(url, {
         maxRedirects: 0,
         validateStatus: (status) => status >= 300 && status < 400,
+        signal: opts?.signal,
       });
       return response.headers.location || url;
     } catch (e) {

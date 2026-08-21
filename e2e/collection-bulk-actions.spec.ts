@@ -171,8 +171,11 @@ test.describe('Collection Bulk Actions', () => {
         await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
         expect(await queueItems.count()).toBeGreaterThan(0);
 
-        // Wait for the bulk operation to fully finish before proceeding
-        await expect(window.locator('text=/Processing \\d+/')).not.toBeVisible({ timeout: 10000 });
+        // Wait for the bulk operation to fully finish before proceeding.
+        // Progress is a visible completed/total label on the bulk button now —
+        // the old assertion targeted a string that only ever lived in a title
+        // attribute, so it passed vacuously.
+        await expect(window.getByTestId('bulk-progress')).not.toBeVisible({ timeout: 15000 });
 
         // Close queue panel to avoid obscuring elements in the next test
         const closeBtnAfter = window.getByTitle('Close');

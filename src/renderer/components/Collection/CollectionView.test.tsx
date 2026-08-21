@@ -132,10 +132,21 @@ describe('CollectionView', () => {
         collection_cover_size: 'medium',
         setCollectionViewMode: vi.fn(),
         setCollectionCoverSize: vi.fn(),
+        bulkJob: null,
+        startBulkAction: vi.fn(),
+        cancelBulkAction: vi.fn(),
+    };
+
+    // The real useStore supports selectors; a plain mockReturnValue would hand
+    // the whole store back to `useStore(s => s.bulkJob)`, making it truthy.
+    const setMockStore = (state: any) => {
+        (useStore as any).mockImplementation((selector?: (s: any) => unknown) =>
+            selector ? selector(state) : state,
+        );
     };
 
     beforeEach(() => {
-        (useStore as any).mockReturnValue(mockStore);
+        setMockStore(mockStore);
         vi.clearAllMocks();
     });
 
@@ -149,13 +160,13 @@ describe('CollectionView', () => {
     });
 
     it('shows loading state when collection is empty', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, collection: null, isLoadingCollection: true });
+        setMockStore({ ...mockStore, collection: null, isLoadingCollection: true });
         render(<CollectionView />);
         expect(screen.getByText('Loading your collection...')).toBeInTheDocument();
     });
 
     it('shows non-blocking loading state when refreshing', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, isRefreshingCollection: true });
+        setMockStore({ ...mockStore, isRefreshingCollection: true });
         render(<CollectionView />);
         expect(screen.queryByText('Loading your collection...')).not.toBeInTheDocument();
         const refreshBtn = screen.getByTitle('Refresh collection');
@@ -166,14 +177,14 @@ describe('CollectionView', () => {
     });
 
     it('does not show the refreshing hint when idle', () => {
-        (useStore as any).mockReturnValue({ ...mockStore });
+        setMockStore({ ...mockStore });
         render(<CollectionView />);
         expect(screen.queryByTestId('collection-updating')).not.toBeInTheDocument();
     });
 
     it('keeps the grid rendered while a refresh runs over cached data', () => {
         // Stale-while-revalidate: cached items stay on screen during a refresh.
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...mockStore,
             isLoadingCollection: true,
             isRefreshingCollection: true,
@@ -184,7 +195,7 @@ describe('CollectionView', () => {
     });
 
     it('shows error state when collection is empty', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, collection: null, collectionError: 'Network Error' });
+        setMockStore({ ...mockStore, collection: null, collectionError: 'Network Error' });
         render(<CollectionView />);
         expect(screen.getByText('Failed to load collection')).toBeInTheDocument();
         expect(screen.getByText('Network Error')).toBeInTheDocument();
@@ -195,7 +206,7 @@ describe('CollectionView', () => {
     });
 
     it('calls fetchCollection on mount if collection is missing', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, collection: null });
+        setMockStore({ ...mockStore, collection: null });
         render(<CollectionView />);
         expect(mockStore.fetchCollection).toHaveBeenCalled();
     });
@@ -208,7 +219,7 @@ describe('CollectionView', () => {
     });
 
     it('clears search when X is clicked', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, searchQuery: 'test' });
+        setMockStore({ ...mockStore, searchQuery: 'test' });
         render(<CollectionView />);
         const clearBtn = screen.getByTestId('icon-x').parentElement;
         fireEvent.click(clearBtn!);
@@ -223,13 +234,13 @@ describe('CollectionView', () => {
     });
 
     it('shows empty state when no items match search', () => {
-        (useStore as any).mockReturnValue({ ...mockStore, searchQuery: 'nothing' });
+        setMockStore({ ...mockStore, searchQuery: 'nothing' });
         render(<CollectionView />);
         expect(screen.getByText(/No results for "nothing"/)).toBeInTheDocument();
     });
 
     it('sorts mixed items by artist ascending', () => {
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...mockStore,
             collection_sort_key: 'artist',
             collection_sort_direction: 'asc',
@@ -244,7 +255,7 @@ describe('CollectionView', () => {
 
 
     it('sorts by purchase date newest first (default)', () => {
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...mockStore,
             collection_sort_key: 'default',
             collection_sort_direction: 'desc',
@@ -259,7 +270,7 @@ describe('CollectionView', () => {
     });
 
     it('sorts by purchase date oldest first when direction is ascending', () => {
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...mockStore,
             collection_sort_key: 'default',
             collection_sort_direction: 'asc',
@@ -283,7 +294,7 @@ describe('CollectionView', () => {
     });
 
     it('toggles sort direction when a direction option is selected in the dropdown', () => {
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...mockStore,
             collection_sort_key: 'artist',
             collection_sort_direction: 'asc',
@@ -347,7 +358,7 @@ describe('CollectionView', () => {
             },
         };
 
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...duplicatedStore,
             settings: { ...mockStore.settings, deduplicateCollection: true },
         });
@@ -397,7 +408,7 @@ describe('CollectionView', () => {
             },
         };
 
-        (useStore as any).mockReturnValue({
+        setMockStore({
             ...duplicatedMetaStore,
             settings: { ...mockStore.settings, deduplicateCollection: true },
         });
@@ -450,7 +461,7 @@ describe('CollectionView', () => {
             expect(screen.getByText('Cover Size')).toBeInTheDocument();
             unmount();
 
-            (useStore as any).mockReturnValue({ ...mockStore, collection_view_mode: 'list' });
+            setMockStore({ ...mockStore, collection_view_mode: 'list' });
             render(<CollectionView />);
             fireEvent.click(screen.getByTestId('view-toggle-btn'));
             expect(screen.getByText('Thumbnail Size')).toBeInTheDocument();
@@ -466,7 +477,7 @@ describe('CollectionView', () => {
         });
 
         it('forwards the stored layout to the cards', () => {
-            (useStore as any).mockReturnValue({
+            setMockStore({
                 ...mockStore,
                 collection_view_mode: 'list',
                 collection_cover_size: 'small',

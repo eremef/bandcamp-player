@@ -7,6 +7,7 @@ import type {
   Playlist,
   Track,
   CacheEntry,
+  Queue,
   RadioStation,
 } from "../../shared/types";
 
@@ -244,6 +245,21 @@ export class Database {
         needsUpdate = true;
       }
 
+      // Migration: move savedQueue out of the app_settings blob into its own row.
+      // Keeping it inline made every queue mutation rewrite (and every settings
+      // read re-parse) the entire queue, which put queue size on the play hot path.
+      if ("savedQueue" in current) {
+        if (current.savedQueue) {
+          this.db
+            .prepare(
+              "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            )
+            .run("saved_queue", JSON.stringify(current.savedQueue));
+        }
+        delete current.savedQueue;
+        needsUpdate = true;
+      }
+
       if (needsUpdate) {
         this.db
           .prepare("UPDATE settings SET value = ? WHERE key = ?")
@@ -283,6 +299,43 @@ export class Database {
     } catch (err) {
       console.warn("[Database] Failed to setSettings:", err);
       return settings as AppSettings;
+    }
+  }
+
+  // ---- Saved Queue ----
+  // Stored in its own settings row rather than inside the app_settings blob:
+  // the queue can hold thousands of tracks, and PlayerService.play() reads
+  // settings on every playback start.
+
+  getSavedQueue(): Queue | null {
+    if (!this.db || this.db.open === false) {
+      return null;
+    }
+    try {
+      const row = this.db
+        .prepare("SELECT value FROM settings WHERE key = ?")
+        .get("saved_queue") as { value: string } | undefined;
+      return row ? JSON.parse(row.value) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  setSavedQueue(queue: Queue): void {
+    if (!this.db || this.db.open === false) {
+      console.warn(
+        "[Database] Attempted to setSavedQueue on closed database connection.",
+      );
+      return;
+    }
+    try {
+      this.db
+        .prepare(
+          "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        )
+        .run("saved_queue", JSON.stringify(queue));
+    } catch (err) {
+      console.warn("[Database] Failed to setSavedQueue:", err);
     }
   }
 

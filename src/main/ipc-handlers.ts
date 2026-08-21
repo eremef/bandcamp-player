@@ -16,6 +16,7 @@ import {
   SYSTEM_CHANNELS,
   UPDATE_CHANNELS,
   CAST_CHANNELS,
+  BULK_CHANNELS,
 } from "../shared/ipc-channels";
 import type {
   Track,
@@ -23,10 +24,12 @@ import type {
   Playlist,
   RepeatMode,
   RadioStation,
+  BulkQueueRequest,
 } from "../shared/types";
 import { AuthService } from "./services/auth.service";
 import { ScraperService } from "./services/scraper.service";
 import { PlayerService } from "./services/player.service";
+import { QueueJobService } from "./services/queue-job.service";
 import { CacheService } from "./services/cache.service";
 import { PlaylistService } from "./services/playlist.service";
 import { ScrobblerService } from "./services/scrobbler.service";
@@ -58,6 +61,7 @@ interface Services {
   authService: AuthService;
   scraperService: ScraperService;
   playerService: PlayerService;
+  queueJobService: QueueJobService;
   cacheService: CacheService;
   playlistService: PlaylistService;
   scrobblerService: ScrobblerService;
@@ -75,6 +79,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     authService,
     scraperService,
     playerService,
+    queueJobService,
     cacheService,
     playlistService,
     scrobblerService,
@@ -355,6 +360,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
       playerService.addStationToQueue(station, playNext),
   );
   ipcMain.handle(
+    RADIO_CHANNELS.ADD_STATIONS_TO_QUEUE,
+    (_, stations: RadioStation[], playNext?: boolean) =>
+      playerService.addStationsToQueue(stations, playNext),
+  );
+  ipcMain.handle(
     RADIO_CHANNELS.ADD_TO_PLAYLIST,
     async (_, playlistId: string, station: RadioStation) => {
       const placeholderTrack: Track = {
@@ -428,6 +438,21 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     broadcast(SCROBBLER_CHANNELS.ON_STATE_CHANGED, state);
   });
 
+  // ---- Bulk Queue Jobs ----
+  // start() is synchronous by contract so this handler returns immediately;
+  // the work continues in the background and reports over ON_PROGRESS.
+  ipcMain.handle(BULK_CHANNELS.START, (_, request: BulkQueueRequest) =>
+    queueJobService.start(request),
+  );
+  ipcMain.handle(BULK_CHANNELS.CANCEL, (_, jobId?: string) =>
+    queueJobService.cancel(jobId),
+  );
+  ipcMain.handle(BULK_CHANNELS.GET_STATE, () => queueJobService.getState());
+
+  queueJobService.on("progress", (progress) => {
+    broadcast(BULK_CHANNELS.ON_PROGRESS, progress);
+  });
+
   // ---- Settings ----
   ipcMain.handle(SETTINGS_CHANNELS.GET, () => database.getSettings());
   ipcMain.handle(SETTINGS_CHANNELS.SET, (_, settings) => {
@@ -437,6 +462,10 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     if (settings.theme) {
       nativeTheme.themeSource = settings.theme === 'high-contrast' ? 'dark' : settings.theme;
     }
+
+    // Keep PlayerService's cached hot-path settings (offlineMode) in sync.
+    // This handler is the only writer of them.
+    playerService.applySettings(updated);
 
     // Emit event so main-process services (like DiscordService) can react
     playerService.emit("settings-changed", updated);

@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { powerSaveBlocker } from 'electron';
 
-import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState } from '../../shared/types';
+import type { Track, QueueItem, RepeatMode, PlayerState, RadioStation, RadioState, AppSettings } from '../../shared/types';
 import { CacheService } from './cache.service';
 import { ScrobblerService } from './scrobbler.service';
 import { ScraperService } from './scraper.service';
@@ -49,6 +49,18 @@ export class PlayerService extends EventEmitter {
     // Persistence
     private saveVolumeTimeout: ReturnType<typeof setTimeout> | null = null;
     private persistQueueTimeout: ReturnType<typeof setTimeout> | null = null;
+    private persistQueueDeadline: number | null = null;
+
+    // Coalesced queue broadcasts (see scheduleQueueUpdate)
+    private queueUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Cached settings — read on every play(), so never hit the DB for these
+    private offlineMode = false;
+
+    // Bumped whenever the queue is wholesale replaced. Long-running bulk jobs
+    // capture this and self-cancel when it changes, so a user starting a track
+    // mid-job can't leave a loop appending into a queue they just replaced.
+    private queueEpoch = 0;
 
     // Power save
     private powerSaveBlockerId: number | null = null;
@@ -61,22 +73,26 @@ export class PlayerService extends EventEmitter {
         this.castService = castService;
         this.database = database;
 
-        // Initialize volume and queue from settings
+        // Initialize volume and cached settings
         const settings = this.database.getSettings();
         if (settings) {
             this.volume = settings.defaultVolume;
-            if (settings.savedQueue) {
-                this.queue = settings.savedQueue.items || [];
-                this.currentIndex = settings.savedQueue.currentIndex ?? -1;
-                this.shuffleOrder = settings.savedQueue.shuffleOrder || [];
-                if (this.shuffleOrder.length > 0) {
-                    this.isShuffled = true;
-                }
-                
-                // Restore current track if valid
-                if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
-                    this.currentTrack = this.queue[this.currentIndex].track;
-                }
+            this.offlineMode = settings.offlineMode ?? false;
+        }
+
+        // Restore the persisted queue from its own row (not the settings blob)
+        const savedQueue = this.database.getSavedQueue();
+        if (savedQueue) {
+            this.queue = savedQueue.items || [];
+            this.currentIndex = savedQueue.currentIndex ?? -1;
+            this.shuffleOrder = savedQueue.shuffleOrder || [];
+            if (this.shuffleOrder.length > 0) {
+                this.isShuffled = true;
+            }
+
+            // Restore current track if valid
+            if (this.currentIndex >= 0 && this.currentIndex < this.queue.length) {
+                this.currentTrack = this.queue[this.currentIndex].track;
             }
         }
 
@@ -148,7 +164,25 @@ export class PlayerService extends EventEmitter {
     // ---- Offline Mode ----
 
     private isOfflineMode(): boolean {
-        return this.database.getSettings()?.offlineMode ?? false;
+        return this.offlineMode;
+    }
+
+    /**
+     * Mirror settings that are read on hot paths into memory. Called from the
+     * settings:set IPC handler, which is the only writer of these fields.
+     */
+    applySettings(settings: Partial<AppSettings>): void {
+        if (typeof settings.offlineMode === 'boolean') {
+            this.offlineMode = settings.offlineMode;
+        }
+    }
+
+    getQueueEpoch(): number {
+        return this.queueEpoch;
+    }
+
+    isOffline(): boolean {
+        return this.offlineMode;
     }
 
     async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
@@ -163,6 +197,7 @@ export class PlayerService extends EventEmitter {
                     source: 'collection',
                 }];
                 this.currentIndex = 0;
+                this.queueEpoch++;
                 this.emitQueueUpdate();
             } else {
                 // Ensure track is in the queue without clearing
@@ -215,8 +250,10 @@ export class PlayerService extends EventEmitter {
                 }
             }
 
-            // Offline mode check: block playback of non-cached tracks
-            if (this.isOfflineMode() && !this.cacheService.isCached(track.id)) {
+            // Offline mode check: block playback of non-cached tracks.
+            // Reuses isTrackCached from above — isCached() is a sync sqlite read
+            // plus an fs.existsSync, so it must not run twice per play().
+            if (this.isOfflineMode() && !isTrackCached) {
                 console.warn(`[PlayerService] Offline mode: track ${track.title} is not cached, blocking playback.`);
                 this.error = `Offline mode: "${track.title}" is not available offline`;
                 this.currentTrack = null;
@@ -390,8 +427,12 @@ export class PlayerService extends EventEmitter {
      * Add a radio station to the queue - stores station for lazy stream URL fetching
      */
     addStationToQueue(station: RadioStation, playNext = false): void {
-        // Create a placeholder track - stream URL will be resolved when playing
-        const placeholderTrack: Track = {
+        this.addToQueue(this.createStationPlaceholderTrack(station), 'radio', playNext, station);
+    }
+
+    /** Stream URL is resolved lazily when the item actually plays. */
+    private createStationPlaceholderTrack(station: RadioStation): Track {
+        return {
             id: `radio-${station.id}`,
             title: station.name,
             artist: station.description || 'Bandcamp Radio',
@@ -402,8 +443,6 @@ export class PlayerService extends EventEmitter {
             bandcampUrl: '',
             isCached: false
         };
-
-        this.addToQueue(placeholderTrack, 'radio', playNext, station);
     }
 
     stopRadio(): void {
@@ -641,46 +680,83 @@ export class PlayerService extends EventEmitter {
             }
         }
 
-        const queueItem: QueueItem = {
+        const queueItem = this.createQueueItem(track, source, radioStation);
+        const at = playNext && this.currentIndex >= 0 ? this.currentIndex + 1 : -1;
+
+        this.insertItems([queueItem], at, { emitUpdate });
+    }
+
+    private createQueueItem(track: Track, source: QueueItem['source'], radioStation?: RadioStation): QueueItem {
+        return {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             track,
             source,
             radioStation,
         };
+    }
 
-        if (playNext && this.currentIndex >= 0) {
-            this.queue.splice(this.currentIndex + 1, 0, queueItem);
-        } else {
-            this.queue.push(queueItem);
+    /**
+     * The single queue-insertion primitive. One splice, one shuffle extension and
+     * (at most) one broadcast per call, regardless of how many items are added —
+     * inserting track-by-track made bulk adds quadratic.
+     *
+     * @param index -1 or >= queue.length appends.
+     * @returns the index just past the inserted block (a cursor for sequential inserts).
+     */
+    private insertItems(items: QueueItem[], index: number, opts?: { emitUpdate?: boolean; coalesce?: boolean }): number {
+        const emitUpdate = opts?.emitUpdate ?? true;
+
+        if (items.length === 0) {
+            return index < 0 || index > this.queue.length ? this.queue.length : index;
+        }
+
+        const at = index < 0 || index > this.queue.length ? this.queue.length : index;
+        this.queue.splice(at, 0, ...items);
+
+        // Keep the playing item pointed at the same track
+        if (at <= this.currentIndex) {
+            this.currentIndex += items.length;
         }
 
         if (this.isShuffled) {
-            this.generateShuffleOrder();
+            this.extendShuffleOrder(at, items.length);
         }
 
         if (emitUpdate) {
-            this.emitQueueUpdate();
+            if (opts?.coalesce) {
+                this.scheduleQueueUpdate();
+            } else {
+                this.emitQueueUpdate();
+            }
         }
         this.persistQueue();
+
+        return at + items.length;
+    }
+
+    /**
+     * Insert tracks at an arbitrary position.
+     * @param index -1 or >= queue.length appends.
+     * @returns the index just past the inserted block.
+     */
+    insertTracksAt(index: number, tracks: Track[], source: QueueItem['source'] = 'collection', opts?: { coalesce?: boolean }): number {
+        const items = tracks.map(track => this.createQueueItem(track, source));
+        return this.insertItems(items, index, { coalesce: opts?.coalesce });
     }
 
     addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection', playNext = false): void {
-        const tracksToAdd = playNext ? [...tracks].reverse() : tracks;
+        // A single forward splice at currentIndex + 1 yields the same order the
+        // old reverse-then-insert-repeatedly loop produced, in one operation.
+        const at = playNext && this.currentIndex >= 0 ? this.currentIndex + 1 : -1;
+        this.insertTracksAt(at, tracks, source);
+    }
 
-        for (let i = 0; i < tracksToAdd.length; i++) {
-            // For playNext, we want to maintain the order of the added batch, 
-            // so we add them in reverse order, each one "playing next" after the current track.
-            // But Wait! If we use addToQueue with playNext=true repeatedly:
-            // Q: [C]
-            // Add 3 (next): [C, 3]
-            // Add 2 (next): [C, 2, 3]
-            // Add 1 (next): [C, 1, 2, 3] -> Result is 1, 2, 3. Correct.
-
-            // We pass emitUpdate=false to all calls to prevent flooding
-            this.addToQueue(tracksToAdd[i], source, playNext, false);
-        }
-        this.emitQueueUpdate();
-        this.persistQueue();
+    addStationsToQueue(stations: RadioStation[], playNext = false): void {
+        const items = stations.map(station =>
+            this.createQueueItem(this.createStationPlaceholderTrack(station), 'radio', station),
+        );
+        const at = playNext && this.currentIndex >= 0 ? this.currentIndex + 1 : -1;
+        this.insertItems(items, at);
     }
 
     removeFromQueue(queueItemId: string): void {
@@ -726,6 +802,7 @@ export class PlayerService extends EventEmitter {
         }
 
         this.shuffleOrder = [];
+        this.queueEpoch++;
         this.emitQueueUpdate();
         this.persistQueue();
     }
@@ -928,18 +1005,37 @@ export class PlayerService extends EventEmitter {
         return track.streamUrl;
     }
 
+    private writeSavedQueue(): void {
+        this.persistQueueDeadline = null;
+        this.database.setSavedQueue({
+            items: this.queue,
+            currentIndex: this.currentIndex,
+            shuffleOrder: this.shuffleOrder
+        });
+    }
+
     private persistQueue() {
+        // Debounced, but with a hard max-wait: a long bulk job mutates the queue
+        // continuously, and without the deadline the debounce would be reset
+        // forever and nothing would ever be persisted.
+        const now = Date.now();
+        if (this.persistQueueDeadline === null) {
+            this.persistQueueDeadline = now + 10000;
+        } else if (now >= this.persistQueueDeadline) {
+            if (this.persistQueueTimeout) {
+                clearTimeout(this.persistQueueTimeout);
+                this.persistQueueTimeout = null;
+            }
+            this.writeSavedQueue();
+            return;
+        }
+
         if (this.persistQueueTimeout) {
             clearTimeout(this.persistQueueTimeout);
         }
         this.persistQueueTimeout = setTimeout(() => {
-            this.database.setSettings({
-                savedQueue: {
-                    items: this.queue,
-                    currentIndex: this.currentIndex,
-                    shuffleOrder: this.shuffleOrder
-                }
-            });
+            this.persistQueueTimeout = null;
+            this.writeSavedQueue();
         }, 1000);
     }
 
@@ -987,7 +1083,51 @@ export class PlayerService extends EventEmitter {
         this.emit('time-update', { currentTime: this.currentTime, duration: this.duration });
     }
 
+    /**
+     * Extend an existing shuffle order for `count` items inserted at `insertedAt`,
+     * instead of regenerating the whole order. Regenerating on every insert made
+     * bulk adds quadratic *and* re-randomized tracks the listener hadn't reached yet.
+     */
+    private extendShuffleOrder(insertedAt: number, count: number): void {
+        // Existing positions at or after the insertion point shift right
+        const remapped = this.shuffleOrder.map(i => (i >= insertedAt ? i + count : i));
+
+        // Shuffle the new indices among themselves
+        const inserted = Array.from({ length: count }, (_, i) => insertedAt + i);
+        for (let i = inserted.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [inserted[i], inserted[j]] = [inserted[j], inserted[i]];
+        }
+
+        // Splice them in after the current playback position so the listener's
+        // upcoming order is preserved and the new items land ahead of them.
+        const currentPos = this.currentIndex >= 0
+            ? remapped.indexOf(this.currentIndex)
+            : -1;
+        const insertPos = currentPos >= 0 ? currentPos + 1 : remapped.length;
+        remapped.splice(insertPos, 0, ...inserted);
+
+        this.shuffleOrder = remapped;
+    }
+
+    /**
+     * Coalesced queue broadcast. getQueue() structured-clones the whole queue to
+     * every window, so a bulk job must not emit once per album.
+     */
+    private scheduleQueueUpdate(): void {
+        if (this.queueUpdateTimeout) return;
+        this.queueUpdateTimeout = setTimeout(() => {
+            this.queueUpdateTimeout = null;
+            this.emit('queue-updated', this.getQueue());
+        }, 150);
+    }
+
     private emitQueueUpdate(): void {
+        // Drop any pending coalesced emit so it can't land as a duplicate later
+        if (this.queueUpdateTimeout) {
+            clearTimeout(this.queueUpdateTimeout);
+            this.queueUpdateTimeout = null;
+        }
         this.emit('queue-updated', this.getQueue());
     }
 
@@ -1011,6 +1151,10 @@ export class PlayerService extends EventEmitter {
         if (this.persistQueueTimeout) {
             clearTimeout(this.persistQueueTimeout);
             this.persistQueueTimeout = null;
+        }
+        if (this.queueUpdateTimeout) {
+            clearTimeout(this.queueUpdateTimeout);
+            this.queueUpdateTimeout = null;
         }
     }
 }

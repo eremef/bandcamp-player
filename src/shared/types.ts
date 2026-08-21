@@ -141,6 +141,39 @@ export interface PlayerState {
 }
 
 // ============================================================================
+// Bulk Queue Job Types
+// ============================================================================
+
+export type BulkQueueAction =
+  | "play"
+  | "playNext"
+  | "addToQueue"
+  | "addToPlaylist"
+  | "download";
+
+export interface BulkQueueRequest {
+  action: BulkQueueAction;
+  /** Already filtered/sorted by the renderer — this order is authoritative. */
+  items: CollectionItem[];
+  playlistId?: string;
+  /** Human-readable source of the job, e.g. "Collection" or an artist name. */
+  label?: string;
+}
+
+export interface BulkJobProgress {
+  id: string;
+  action: BulkQueueAction;
+  label?: string;
+  total: number;
+  completed: number;
+  failed: number;
+  tracksQueued: number;
+  status: "running" | "cancelling" | "cancelled" | "done" | "error";
+  error?: string;
+  cancelReason?: "user" | "queue-replaced";
+}
+
+// ============================================================================
 // Radio Types
 // ============================================================================
 
@@ -258,6 +291,8 @@ export interface AppSettings {
   lastfmApiSecret?: string;
 
   // Saved queue state
+  /** @deprecated Migrated to its own `saved_queue` settings row — see Database.getSavedQueue.
+   * Retained only so the one-time migration stays type-clean. */
   savedQueue?: Queue;
   queueWidth?: number;
 }
