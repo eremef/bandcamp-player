@@ -343,63 +343,40 @@ describe('MobilePlayerService', () => {
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(50);
         });
 
-        it('should fetch stream url for radio show', async () => {
-            const track = { id: 'r1', title: 'Radio', bandcampUrl: 'https://bandcamp.com?show=50' };
-            (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(), queue: { items: [{ id: 'r1', track: track as any, source: 'radio' }], currentIndex: 0 } });
-
-            (mobileScraperService.getStationStreamUrl as jest.Mock).mockResolvedValueOnce({ streamUrl: 'radio_url', duration: 7200 });
-
-            const success = await mobilePlayerService.loadTrack(track as any);
-
-            expect(success).toBe(true);
-            expect(mobileScraperService.getStationStreamUrl).toHaveBeenCalledWith('50');
-            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'radio_url' })]),
-                0
-            );
-        });
-
-        it('should fetch album details to find stream url', async () => {
+        it('should fetch stream url for track', async () => {
             const track = { id: 't1', title: 'Song 1', bandcampUrl: 'https://album' };
             (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(), queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
 
-            (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
-                tracks: [{ title: 'Song 1', streamUrl: 'album_stream' }]
-            });
+            (mobileScraperService.getTrackStreamUrl as jest.Mock).mockResolvedValueOnce('album_stream');
 
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(true);
+            expect(mobileScraperService.getTrackStreamUrl).toHaveBeenCalledWith(track);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
                 expect.arrayContaining([expect.objectContaining({ url: 'album_stream' })]),
                 0
             );
         });
 
-        it('should fall back to single track if name mismatch but only 1 track', async () => {
-            const track = { id: 't1', title: 'Unknown', bandcampUrl: 'https://album' };
-            (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(), queue: { items: [{ id: 't1', track: track as any, source: 'album' }], currentIndex: 0 } });
-
-            (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
-                tracks: [{ title: 'Actual Name', streamUrl: 'fallback_stream' }]
-            });
-
-            const success = await mobilePlayerService.loadTrack(track as any);
-
-            expect(success).toBe(true);
-            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'fallback_stream' })]),
-                0
-            );
-        });
-
-        it('should fail and set error if stream not found', async () => {
-            const track = { id: 't1', title: 'Broken' };
+        it('should fail and set preorder error if track has hasStream: false', async () => {
+            const track = { id: 't1', title: 'Broken', hasStream: false };
+            (mobileScraperService.getTrackStreamUrl as jest.Mock).mockResolvedValueOnce('');
 
             const success = await mobilePlayerService.loadTrack(track as any);
 
             expect(success).toBe(false);
             expect(useStore.setState).toHaveBeenCalledWith({ collectionError: '"Broken" is unreleased (pre-order track)' });
+        });
+
+        it('should fail and set load stream error if released track fails stream fetch', async () => {
+            const track = { id: 't1', title: 'Song 1', hasStream: true };
+            (mobileScraperService.getTrackStreamUrl as jest.Mock).mockResolvedValueOnce('');
+
+            const success = await mobilePlayerService.loadTrack(track as any);
+
+            expect(success).toBe(false);
+            expect(useStore.setState).toHaveBeenCalledWith({ collectionError: 'Could not load stream for "Song 1"' });
         });
 
         it('should fail and set error on exception', async () => {

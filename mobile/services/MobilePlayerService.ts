@@ -92,23 +92,8 @@ class MobilePlayerService {
                 }
             }
 
-            if (!streamUrl && nextTrack.bandcampUrl) {
-                const { mobileScraperService } = require('./MobileScraperService');
-                const urlToFetch = nextTrack.bandcampUrl;
-                if (urlToFetch?.includes?.('show=')) {
-                    const showId = urlToFetch?.split?.('show=')?.pop()?.split?.('&')?.[0];
-                    if (showId) {
-                        const result = await mobileScraperService?.getStationStreamUrl?.(showId);
-                        if (result?.streamUrl) streamUrl = result.streamUrl;
-                    }
-                } else {
-                    const albumDetails = await mobileScraperService?.getAlbumDetails?.(urlToFetch);
-                    if (albumDetails) {
-                        const foundTrack = albumDetails.tracks?.find?.((t: any) => t.title?.toLowerCase?.() === nextTrack.title?.toLowerCase?.() || t.id === nextTrack.id);
-                        if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
-                        else if (albumDetails.tracks?.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
-                    }
-                }
+            if (!streamUrl) {
+                streamUrl = await mobileScraperService.getTrackStreamUrl(nextTrack);
             }
 
             if (streamUrl) {
@@ -427,65 +412,18 @@ class MobilePlayerService {
 
             if (!streamUrl) {
                 console.log(`[MobilePlayer] fetching stream URL for ${track.title} (forceRefresh=${forceRefreshUrl})`);
-                // Try to get album details using bandcampUrl
-                // If bandcampUrl is missing, try to construct it or fail
-
-                const urlToFetch = track.bandcampUrl;
-                if (urlToFetch) {
-                    if (urlToFetch.includes('show=')) {
-                        // Radio show branch
-                        const showId = urlToFetch.split('show=').pop()?.split('&')[0];
-                        if (showId) {
-                            console.log(`[MobilePlayer] fetching radio stream URL for show ${showId}`);
-                            const result = await mobileScraperService.getStationStreamUrl(showId);
-                            if (result && result.streamUrl) {
-                                streamUrl = result.streamUrl;
-                                if (result.duration) {
-                                    track.duration = result.duration;
-                                }
-                            }
-                        }
-                    } else {
-                        // Album/Track branch
-                        let finalUrlToFetch = urlToFetch;
-                        // Self-healing: fix mangled URLs (e.g. /album/.../track/...) from older versions
-                        if (finalUrlToFetch.includes('/album/') && finalUrlToFetch.includes('/track/')) {
-                            try {
-                                const urlObj = new URL(finalUrlToFetch);
-                                const trackIdx = urlObj.pathname.indexOf('/track/');
-                                if (trackIdx > 0) {
-                                    urlObj.pathname = urlObj.pathname.substring(trackIdx);
-                                    finalUrlToFetch = urlObj.href;
-                                    console.log(`[MobilePlayer] Un-mangled track URL to: ${finalUrlToFetch}`);
-                                }
-                            } catch {
-                                // Ignore invalid URL errors
-                            }
-                        }
-                        const albumDetails = await mobileScraperService.getAlbumDetails(finalUrlToFetch);
-                        if (albumDetails) {
-                            // Find matching track
-                            const foundTrack = albumDetails.tracks.find(t =>
-                                t.title.toLowerCase() === track.title.toLowerCase() ||
-                                t.id === track.id
-                            );
-
-                            if (foundTrack && foundTrack.streamUrl) {
-                                streamUrl = foundTrack.streamUrl;
-                                console.log(`[MobilePlayer] Found stream URL: ${streamUrl}`);
-                            } else if (albumDetails.tracks.length === 1) {
-                                // Single track fallback
-                                streamUrl = albumDetails.tracks[0].streamUrl;
-                            }
-                        }
-                    }
-                }
+                streamUrl = await mobileScraperService.getTrackStreamUrl(track);
             }
 
             if (!streamUrl) {
-                console.warn(`[MobilePlayer] Track "${track.title}" is unreleased or missing stream URL.`);
+                const isPreorder = track.hasStream === false || track.isPreorderTrack === true;
+                console.warn(`[MobilePlayer] Track "${track.title}" has no stream URL (preorder=${isPreorder}).`);
                 this.isLoadingTrack = false;
-                useStore.setState({ collectionError: `"${track.title}" is unreleased (pre-order track)` });
+                useStore.setState({
+                    collectionError: isPreorder
+                        ? `"${track.title}" is unreleased (pre-order track)`
+                        : `Could not load stream for "${track.title}"`
+                });
                 return false;
             }
 

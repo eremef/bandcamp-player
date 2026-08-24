@@ -769,15 +769,14 @@ export class MobileScraperService {
                         }
                     })(),
                     isCached: false,
-                    hasStream: !!streamUrl,
-                    isPreorderTrack: !streamUrl,
+                    hasStream: tralbumData.is_preorder === true ? !!streamUrl : true,
+                    isPreorderTrack: tralbumData.is_preorder === true ? !streamUrl : false,
                 };
             }));
 
             const isPreorder =
                 tralbumData.is_preorder === true ||
-                tralbumData.has_audio === false ||
-                (tracks.length > 0 && tracks.some((t) => !t.hasStream));
+                tralbumData.has_audio === false;
 
             return {
                 id: String(tralbumData.id),
@@ -1219,6 +1218,105 @@ export class MobileScraperService {
             console.error('[MobileScraper] Error fetching Bandcamp playlist tracks:', error);
             return [];
         }
+    }
+
+    /**
+     * Get fresh stream URL for a track on-demand
+     */
+    async getTrackStreamUrl(track: Track): Promise<string> {
+        const config = remoteConfigService.get();
+
+        // Radio tracks
+        if (track.id.startsWith('radio-') || track.radioStationId) {
+            const showId = track.radioStationId || track.id.replace('radio-', '');
+            const { streamUrl } = await this.getStationStreamUrl(showId);
+            return streamUrl || track.streamUrl;
+        }
+
+        const cookies = await mobileAuthService.getCookies();
+
+        // 1. Try Mobile Tralbum Details API
+        if (track.artistId && track.id) {
+            try {
+                console.log(`[MobileScraper] Refreshing stream URL for ${track.title} (ID: ${track.id})...`);
+                const type = track.albumId ? 'a' : 't';
+                const id = track.albumId || track.id;
+                const mobileUrl = config.endpoints.mobileTralbumDetailsApi
+                    .replace('{band_id}', track.artistId)
+                    .replace('tralbum_type=t', `tralbum_type=${type}`)
+                    .replace('{track_id}', id);
+
+                const response = await fetch(mobileUrl, {
+                    headers: {
+                        'Cookie': cookies,
+                        'User-Agent': config.userAgents.mobile
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.tracks && data.tracks.length > 0) {
+                        const mobileTrack = data.tracks.find((t: any) => t.track_id?.toString() === track.id) || data.tracks[0];
+                        const freshUrl = mobileTrack.streaming_url?.['mp3-128'] || mobileTrack.streaming_url?.['mp3-v0'];
+                        if (freshUrl) {
+                            console.log('[MobileScraper] Successfully refreshed stream URL via mobile API');
+                            return freshUrl;
+                        }
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[MobileScraper] Mobile API track stream fetch failed:', e?.message || e);
+            }
+        }
+
+        // 2. Fallback: fetch track.bandcampUrl and scrape data-tralbum
+        if (track.bandcampUrl) {
+            try {
+                let urlToScrape = track.bandcampUrl;
+                if (urlToScrape.includes('/album/') && urlToScrape.includes('/track/')) {
+                    try {
+                        const urlObj = new URL(urlToScrape);
+                        const trackIdx = urlObj.pathname.indexOf('/track/');
+                        if (trackIdx > 0) {
+                            urlObj.pathname = urlObj.pathname.substring(trackIdx);
+                            urlToScrape = urlObj.href;
+                        }
+                    } catch {
+                        // ignore
+                    }
+                }
+
+                const response = await fetch(urlToScrape, {
+                    headers: {
+                        'Cookie': cookies,
+                        'User-Agent': config.userAgents.mobile
+                    }
+                });
+
+                if (response.ok) {
+                    const html = await response.text();
+                    const $ = cheerio.load(html);
+                    const tralbumData = this.extractTralbumData($);
+                    if (tralbumData && tralbumData.trackinfo) {
+                        const found = tralbumData.trackinfo.find((t: any) =>
+                            String(t.track_id) === track.id ||
+                            t.title?.toLowerCase() === track.title?.toLowerCase()
+                        );
+                        if (found) {
+                            const freshUrl = found.file?.['mp3-128'] || found.file?.['mp3-v0'];
+                            if (freshUrl) {
+                                console.log('[MobileScraper] Successfully scraped fresh stream URL from track page');
+                                return freshUrl;
+                            }
+                        }
+                    }
+                }
+            } catch (e: any) {
+                console.warn('[MobileScraper] Scraping track page stream URL failed:', e?.message || e);
+            }
+        }
+
+        return track.streamUrl || '';
     }
 }
 
