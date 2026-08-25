@@ -1,11 +1,20 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
+import { FlatList } from 'react-native-gesture-handler';
+import { useFocusEffect } from 'expo-router';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Play, Trash2, GripVertical, ListX } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
+
+// Row geometry, shared between the StyleSheet below and getItemLayout so the two cannot drift.
+const ARTWORK_SIZE = 44;
+const ROW_PADDING_V = 10;
+const ROW_BORDER = 1;
+const ACCENT_BAR_WIDTH = 3;
+const ITEM_HEIGHT = ARTWORK_SIZE + ROW_PADDING_V * 2 + ROW_BORDER;
 
 export default function QueueScreen() {
     const colors = useTheme();
@@ -18,6 +27,57 @@ export default function QueueScreen() {
     const clearQueue = useStore((state) => state.clearQueue);
 
     const insets = useSafeAreaInsets();
+
+    const listRef = useRef<FlatList<QueueItem>>(null);
+    // null = not reported yet (unknown), which must read as "allow".
+    const viewableRangeRef = useRef<{ min: number; max: number } | null>(null);
+    const isDraggingRef = useRef(false);
+    const currentIndexRef = useRef(queue.currentIndex);
+    const prevIndexRef = useRef(queue.currentIndex);
+    const itemCountRef = useRef(queue.items.length);
+
+    // Mirrored in an effect (never during render) so the stable callbacks below can read the
+    // latest values. Declared first, so it has run by the time the effects below fire.
+    useEffect(() => {
+        currentIndexRef.current = queue.currentIndex;
+        itemCountRef.current = queue.items.length;
+    });
+
+    // Stable identity (no deps) so the focus effect below does not re-fire on every track change.
+    const scrollToIndexSafe = useCallback((index: number, animated: boolean) => {
+        if (index < 0 || index >= itemCountRef.current) return;
+        try {
+            listRef.current?.scrollToIndex({ index, animated, viewPosition: 0.5 });
+        } catch {
+            // List not measured yet — nothing to scroll.
+        }
+    }, []);
+
+    // Tab screens stay mounted, so focus is what covers "opening the queue". This path
+    // deliberately ignores the scrolled-away guard: re-centring is the whole point of it.
+    useFocusEffect(useCallback(() => {
+        scrollToIndexSafe(currentIndexRef.current, false);
+        return () => { viewableRangeRef.current = null; };
+    }, [scrollToIndexSafe]));
+
+    // DFL wraps its own viewability handler and forwards to ours (DraggableFlatList.tsx:366).
+    const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+        const indices = viewableItems.map((v) => v.index).filter((i): i is number => i !== null);
+        if (!indices.length) return;
+        viewableRangeRef.current = { min: Math.min(...indices), max: Math.max(...indices) };
+    }, []);
+
+    // Follow the playing track, unless the user is dragging or has scrolled away from it.
+    useEffect(() => {
+        const index = queue.currentIndex;
+        const prev = prevIndexRef.current;
+        if (prev === index) return;
+        prevIndexRef.current = index;
+        if (index < 0 || isDraggingRef.current) return;
+        const range = viewableRangeRef.current;
+        if (range && prev >= 0 && (prev < range.min || prev > range.max)) return;
+        scrollToIndexSafe(index, true);
+    }, [queue.currentIndex, scrollToIndexSafe]);
 
     const handleClearQueue = useCallback(() => {
         if (queue.items.length === 0) return;
@@ -40,6 +100,7 @@ export default function QueueScreen() {
     }, [removeFromQueue]);
 
     const handleDragEnd = useCallback(({ data, from, to }: { data: QueueItem[]; from: number; to: number }) => {
+        isDraggingRef.current = false;
         if (from !== to) {
             reorderQueue(from, to, data);
         }
@@ -57,10 +118,11 @@ export default function QueueScreen() {
         return (
             <ScaleDecorator>
                 <TouchableOpacity
+                    testID={`queue-item-${index}`}
                     style={[
                         styles.item,
                         { borderBottomColor: colors.border },
-                        isCurrent && { backgroundColor: colors.input },
+                        isCurrent && { backgroundColor: colors.highlight, borderLeftColor: colors.accent },
                         isPlayed && styles.playedItem,
                         isActive && styles.activeItem,
                     ]}
@@ -85,7 +147,7 @@ export default function QueueScreen() {
                     />
                     <View style={[styles.info]}>
                         <Text
-                            style={[styles.title, { color: colors.text }, isCurrent && { color: colors.accent }]}
+                            style={[styles.title, { color: colors.text }, isCurrent && { color: colors.accent, fontWeight: '700' }]}
                             numberOfLines={1}
                         >
                             {item.track.title}
@@ -152,9 +214,13 @@ export default function QueueScreen() {
                 </View>
             )}
             <DraggableFlatList
+                ref={listRef}
                 data={queue.items}
                 renderItem={renderItem}
                 keyExtractor={keyExtractor}
+                getItemLayout={(_, index) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * index, index })}
+                onViewableItemsChanged={onViewableItemsChanged}
+                onDragBegin={() => { isDraggingRef.current = true; }}
                 onDragEnd={handleDragEnd}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyComponent}
@@ -196,11 +262,16 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
-        paddingLeft: 4,
+        // Pinned so getItemLayout stays exact even if OS font scaling grows the text column.
+        height: ITEM_HEIGHT,
+        paddingVertical: ROW_PADDING_V,
+        paddingLeft: 4 - ACCENT_BAR_WIDTH,
         paddingRight: 16,
-        borderBottomWidth: 1,
+        borderBottomWidth: ROW_BORDER,
         borderBottomColor: '#1a1a1a',
+        // Always reserved, so marking the current row only changes its colour — never the layout.
+        borderLeftWidth: ACCENT_BAR_WIDTH,
+        borderLeftColor: 'transparent',
     },
     activeItem: {
         opacity: 0.9,
@@ -229,8 +300,8 @@ const styles = StyleSheet.create({
         color: '#888',
     },
     artwork: {
-        width: 44,
-        height: 44,
+        width: ARTWORK_SIZE,
+        height: ARTWORK_SIZE,
         borderRadius: 4,
         marginHorizontal: 5,
         backgroundColor: '#333',
