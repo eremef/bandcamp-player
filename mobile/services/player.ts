@@ -6,7 +6,10 @@ export async function setupPlayer() {
     let isSetup = false;
     try {
         TrackPlayer.setupPlayer({
+            handleAudioBecomingNoisy: true,
+            audioMixing: 'exclusive',
             android: {
+                wakeMode: 'network',
                 taskRemovedBehavior: 'stop',
             }
         });

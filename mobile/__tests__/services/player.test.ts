@@ -13,7 +13,14 @@ describe('player.ts', () => {
         it('should setup player if not already set up', async () => {
             const result = await setupPlayer();
 
-            expect(TrackPlayer.setupPlayer).toHaveBeenCalled();
+            expect(TrackPlayer.setupPlayer).toHaveBeenCalledWith(expect.objectContaining({
+                handleAudioBecomingNoisy: true,
+                audioMixing: 'exclusive',
+                android: expect.objectContaining({
+                    wakeMode: 'network',
+                    taskRemovedBehavior: 'stop',
+                }),
+            }));
             expect(result).toBe(true);
         });
 

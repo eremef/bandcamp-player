@@ -511,17 +511,33 @@ class MobilePlayerService {
 
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
 
-            // To support native Next/Previous buttons and correct lock screen metadata,
-            // we feed the entire queue to the native player. We only provide the real URL
-            // for the current track. The others get dummy URLs and will be resolved when skipped to.
-            const nativeQueue = queueItems.map((qTrack, idx) => ({
-                mediaId: qTrack.id,
-                url: idx === currentIndex ? streamUrl : 'http://localhost/dummy.mp3',
-                title: qTrack.track.title || 'Untitled',
-                artist: qTrack.track.artist || 'Unknown Artist',
-                albumTitle: qTrack.track.album,
-                artworkUrl: qTrack.track.artworkUrl,
-                duration: qTrack.track.duration,
+            const nativeQueue = await Promise.all(queueItems.map(async (qTrack, idx) => {
+                let itemUrl = 'http://localhost/dummy.mp3';
+                if (idx === currentIndex) {
+                    itemUrl = streamUrl;
+                } else if (qTrack.track.streamUrl) {
+                    itemUrl = qTrack.track.streamUrl;
+                } else if (cachedTrackIds?.has?.(qTrack.track.id)) {
+                    try {
+                        const { mobileCacheService } = require('./MobileCacheService');
+                        const cachedUri = await mobileCacheService?.getCachedUri?.(qTrack.track.id);
+                        if (cachedUri) {
+                            itemUrl = cachedUri;
+                        }
+                    } catch {
+                        // Keep dummy fallback
+                    }
+                }
+
+                return {
+                    mediaId: qTrack.id,
+                    url: itemUrl,
+                    title: qTrack.track.title || 'Untitled',
+                    artist: qTrack.track.artist || 'Unknown Artist',
+                    albumTitle: qTrack.track.album,
+                    artworkUrl: qTrack.track.artworkUrl,
+                    duration: qTrack.track.duration,
+                };
             }));
 
             let finalQueue = [...nativeQueue];
