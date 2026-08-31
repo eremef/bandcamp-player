@@ -54,15 +54,29 @@ jest.mock('expo-sqlite', () => ({
     })),
 }));
 
-jest.mock('expo-file-system', () => ({
+const mockFileSystem = {
     documentDirectory: 'file:///mock/',
     cacheDirectory: 'file:///mock-cache/',
-    makeDirectoryAsync: jest.fn(),
-    readDirectoryAsync: jest.fn(),
-    deleteAsync: jest.fn(),
-    downloadAsync: jest.fn(),
-    readAsStringAsync: jest.fn(),
-    writeAsStringAsync: jest.fn(),
+    makeDirectoryAsync: jest.fn().mockResolvedValue(undefined),
+    readDirectoryAsync: jest.fn().mockResolvedValue([]),
+    deleteAsync: jest.fn().mockResolvedValue(undefined),
+    downloadAsync: jest.fn().mockResolvedValue({ uri: 'file:///mock/download' }),
+    readAsStringAsync: jest.fn().mockResolvedValue(''),
+    writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+    getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 100 }),
+};
+
+jest.mock('expo-file-system', () => mockFileSystem);
+jest.mock('expo-file-system/legacy', () => mockFileSystem);
+
+jest.mock('expo-sharing', () => ({
+    isAvailableAsync: jest.fn().mockResolvedValue(true),
+    shareAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('expo-clipboard', () => ({
+    setStringAsync: jest.fn().mockResolvedValue(true),
+    getStringAsync: jest.fn().mockResolvedValue(''),
 }));
 
 jest.mock('expo-constants', () => ({
