@@ -89,7 +89,7 @@
     "cross-env": "^10.1.0",
     "jest": "~29.7.0",
     "jest-expo": "~56.0.5",
-    "metro-config": "^0.83.3",
+    "metro-config": "^0.83.8",
     "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
