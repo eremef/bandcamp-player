@@ -35,8 +35,21 @@ jest.mock('lucide-react-native', () => {
         X: createIcon('XIcon'),
         Coffee: createIcon('CoffeeIcon'),
         ListPlus: createIcon('ListPlusIcon'),
+        FileText: createIcon('FileTextIcon'),
     };
 });
+
+// Mock LogsModal
+jest.mock('../../../components/LogsModal', () => ({
+    LogsModal: ({ visible }: any) => {
+        const { View, Text } = jest.requireActual('react-native');
+        return visible ? (
+            <View>
+                <Text>LogsModal</Text>
+            </View>
+        ) : null;
+    },
+}));
 
 // Mock PlaylistSelectionModal
 jest.mock('../../../components/PlaylistSelectionModal', () => ({
@@ -297,6 +310,14 @@ describe('PlayerScreen', () => {
         fireEvent.press(getByText('MoreVerticalIcon'));
         fireEvent.press(getByText('About'));
         expect(router.push).toHaveBeenCalledWith('/about');
+        unmount();
+    });
+
+    it('opens logs modal from 3-dots menu', () => {
+        const { getByText, unmount } = render(<PlayerScreen />);
+        fireEvent.press(getByText('MoreVerticalIcon'));
+        fireEvent.press(getByText('Logs'));
+        expect(getByText('LogsModal')).toBeTruthy();
         unmount();
     });
 });

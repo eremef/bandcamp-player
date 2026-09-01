@@ -3,12 +3,13 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, Pressabl
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useStore } from '../../store';
 import Slider from '@react-native-community/slider';
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X, Coffee, ListPlus } from 'lucide-react-native';
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, MoreVertical, Volume2, Globe, Wifi, ArrowLeftRight, Settings, Info, LogOut, X, Coffee, ListPlus, FileText } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { useTheme } from '../../theme';
 import { StandardHeader } from '../../components/StandardHeader';
 import { PlaylistSelectionModal } from '../../components/PlaylistSelectionModal';
 import { InputModal } from '../../components/InputModal';
+import { LogsModal } from '../../components/LogsModal';
 
 let VolumeManager: typeof import('react-native-volume-manager').VolumeManager | null = null;
 if (Platform.OS === 'android') {
@@ -20,6 +21,7 @@ export default function PlayerScreen() {
     const [isVolumeVisible, setIsVolumeVisible] = useState(false);
     const [localVolume, setLocalVolume] = useState<number | null>(null);
     const [isMenuVisible, setIsMenuVisible] = useState(false);
+    const [isLogsVisible, setIsLogsVisible] = useState(false);
     const [playlistModalVisible, setPlaylistModalVisible] = useState(false);
     const [createPlaylistModalVisible, setCreatePlaylistModalVisible] = useState(false);
     const insets = useSafeAreaInsets();
@@ -297,6 +299,19 @@ export default function PlayerScreen() {
                                 </View>
                             </TouchableOpacity>
 
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setIsMenuVisible(false);
+                                    setIsLogsVisible(true);
+                                }}
+                            >
+                                <View style={styles.menuItemWithIcon}>
+                                    <FileText size={18} color={colors.text} style={{ marginRight: 12 }} />
+                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Logs</Text>
+                                </View>
+                            </TouchableOpacity>
+
                             {mode === 'standalone' && (
                                 <TouchableOpacity
                                     style={styles.menuItem}
@@ -399,6 +414,11 @@ export default function PlayerScreen() {
                 onClose={() => setCreatePlaylistModalVisible(false)}
                 onSubmit={handleCreatePlaylist}
                 submitLabel="Create"
+            />
+
+            <LogsModal
+                visible={isLogsVisible}
+                onClose={() => setIsLogsVisible(false)}
             />
         </View >
     );

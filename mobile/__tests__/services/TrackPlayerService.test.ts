@@ -131,6 +131,8 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 syncNativeTransitionMock = jest.fn();
                 useStore.setState({
                     mode: 'standalone',
+                    isPlaying: true,
+                    userIntendedPause: false,
                     currentTrack: { id: '1' } as any,
                     queue: { items: [{ id: '1' }, { id: '2' }], currentIndex: 0 },
                     syncNativeTransition: syncNativeTransitionMock,
@@ -159,7 +161,8 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
             });
 
-            it('calls playQueueIndex if not prefetched and index changed', async () => {
+            it('calls playQueueIndex if not prefetched, index changed, and playing with no userIntendedPause', async () => {
+                useStore.setState({ isPlaying: true, userIntendedPause: false });
                 jest.useFakeTimers();
                 await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
                 jest.runAllTimers();
@@ -167,16 +170,69 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 expect(mobilePlayerService.playQueueIndex).toHaveBeenCalledWith(1);
                 jest.useRealTimers();
             });
+
+            it('does not call playQueueIndex if userIntendedPause is true during MediaItemTransition', async () => {
+                useStore.setState({ isPlaying: false, userIntendedPause: true });
+                jest.useFakeTimers();
+                await PlaybackService({ type: Event.MediaItemTransition, index: 1 });
+                jest.runAllTimers();
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+                expect(useStore.getState().queue.currentIndex).toBe(1);
+                expect(useStore.getState().isPlaying).toBe(false);
+                jest.useRealTimers();
+            });
+        });
+
+        describe('PlaybackError handling', () => {
+            beforeEach(() => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.loadTrack = jest.fn().mockResolvedValue(true);
+                mobilePlayerService.next = jest.fn().mockResolvedValue(undefined);
+                mobilePlayerService.stop = jest.fn().mockResolvedValue(undefined);
+            });
+
+            it('ignores PlaybackError when isPlaying is false or userIntendedPause is true', async () => {
+                useStore.setState({ isPlaying: false, userIntendedPause: true, currentTrack: { id: 't1', title: 'Test' } as any });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+
+                expect(mobilePlayerService.loadTrack).not.toHaveBeenCalled();
+                expect(mobilePlayerService.next).not.toHaveBeenCalled();
+            });
+
+            it('attempts loadTrack and plays when playing and error occurs', async () => {
+                useStore.setState({ isPlaying: true, userIntendedPause: false, currentTrack: { id: 't1', title: 'Test' } as any });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+
+                expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 0, true);
+                expect(TrackPlayer.play).toHaveBeenCalled();
+            });
+
+            it('halts playback if 3 consecutive errors occur rapidly', async () => {
+                useStore.setState({ isPlaying: true, userIntendedPause: false, currentTrack: { id: 't1', title: 'Test' } as any });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.loadTrack = jest.fn().mockResolvedValue(false);
+
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+
+                expect(mobilePlayerService.stop).toHaveBeenCalled();
+                expect(useStore.getState().collectionError).toContain('Playback stopped');
+            });
         });
     });
 
     describe('Event listeners via Foreground AddEventListener', () => {
-        // Just spot check one to ensure it was registered since it points to the same logic
         it('calls seek on RemoteSeek', async () => {
             await triggerForegroundEvent(Event.RemoteSeek, { position: 50 });
             expect(mockSeek).toHaveBeenCalledWith(50);
         });
-        
+
         it('updates isPlaying on IsPlayingChanged', async () => {
             useStore.setState({ userIntendedPause: false });
             await triggerForegroundEvent(Event.IsPlayingChanged, { playing: true });
