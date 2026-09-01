@@ -220,6 +220,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
 - 📦 **Pre-order Album Support** - Distinguishes pre-order albums with badges, dims unreleased tracks, and automatically skips unreleased tracks during standalone playback and queue navigation
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
+- 📜 **Logs** - Logs available in the Player's menu
 
 ### Tech Stack
 
