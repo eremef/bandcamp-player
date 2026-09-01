@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, FlatList, Platform, Alert, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Share2, Copy, Trash2, RefreshCw, Search } from 'lucide-react-native';
+import { X, Share2, Copy, Trash2, RefreshCw, Search, ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { mobileLoggerService } from '../services/MobileLoggerService';
 
@@ -63,6 +63,14 @@ export function LogsModal({ visible, onClose }: LogsModalProps) {
         }
     };
 
+    const handleRefresh = async () => {
+        await loadLogs();
+    };
+
+    const scrollToBottom = () => {
+        flatListRef.current?.scrollToEnd?.({ animated: true });
+    };
+
     const handleClear = () => {
         Alert.alert(
             'Clear Logs',
@@ -121,7 +129,7 @@ export function LogsModal({ visible, onClose }: LogsModalProps) {
                 <View style={[styles.modalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
                     <View style={[styles.header, { borderBottomColor: colors.border }]}>
                         <View style={styles.headerLeft}>
-                            <Text style={[styles.title, { color: colors.text }]}>App Logs</Text>
+                            <Text style={[styles.title, { color: colors.text }]}>Logs</Text>
                             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                                 {filteredLines.length} {filteredLines.length === 1 ? 'line' : 'lines'}
                                 {filterQuery.trim() ? ` (filtered from ${lines.length})` : ''}
@@ -196,7 +204,7 @@ export function LogsModal({ visible, onClose }: LogsModalProps) {
                             accessibilityRole="button"
                             accessibilityLabel="Share logs"
                         >
-                            <Share2 size={18} color={colors.text} style={{ marginRight: 6 }} />
+                            <Share2 size={16} color={colors.text} style={{ marginRight: 4 }} />
                             <Text style={[styles.actionBtnText, { color: colors.text }]}>Share</Text>
                         </TouchableOpacity>
 
@@ -206,18 +214,28 @@ export function LogsModal({ visible, onClose }: LogsModalProps) {
                             accessibilityRole="button"
                             accessibilityLabel="Copy logs"
                         >
-                            <Copy size={18} color={colors.text} style={{ marginRight: 6 }} />
+                            <Copy size={16} color={colors.text} style={{ marginRight: 4 }} />
                             <Text style={[styles.actionBtnText, { color: colors.text }]}>Copy</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
                             style={[styles.actionBtn, { backgroundColor: colors.input }]}
-                            onPress={loadLogs}
+                            onPress={handleRefresh}
                             accessibilityRole="button"
                             accessibilityLabel="Refresh logs"
                         >
-                            <RefreshCw size={18} color={colors.text} style={{ marginRight: 6 }} />
+                            <RefreshCw size={16} color={colors.text} style={{ marginRight: 4 }} />
                             <Text style={[styles.actionBtnText, { color: colors.text }]}>Refresh</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.actionBtn, { backgroundColor: colors.input }]}
+                            onPress={scrollToBottom}
+                            accessibilityRole="button"
+                            accessibilityLabel="Scroll to bottom"
+                        >
+                            <ChevronDown size={16} color={colors.text} style={{ marginRight: 4 }} />
+                            <Text style={[styles.actionBtnText, { color: colors.text }]}>Bottom</Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity
@@ -226,7 +244,7 @@ export function LogsModal({ visible, onClose }: LogsModalProps) {
                             accessibilityRole="button"
                             accessibilityLabel="Clear logs"
                         >
-                            <Trash2 size={18} color="#ef4444" style={{ marginRight: 6 }} />
+                            <Trash2 size={16} color="#ef4444" style={{ marginRight: 4 }} />
                             <Text style={[styles.actionBtnText, { color: '#ef4444' }]}>Clear</Text>
                         </TouchableOpacity>
                     </View>
@@ -347,11 +365,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
         flex: 1,
-        marginHorizontal: 4,
     },
     actionBtnText: {
         fontSize: 12,

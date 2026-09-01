@@ -308,7 +308,7 @@ export default function PlayerScreen() {
                             >
                                 <View style={styles.menuItemWithIcon}>
                                     <FileText size={18} color={colors.text} style={{ marginRight: 12 }} />
-                                    <Text style={[styles.menuItemText, { color: colors.text }]}>App Logs</Text>
+                                    <Text style={[styles.menuItemText, { color: colors.text }]}>Logs</Text>
                                 </View>
                             </TouchableOpacity>
 

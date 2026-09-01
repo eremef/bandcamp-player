@@ -316,7 +316,7 @@ describe('PlayerScreen', () => {
     it('opens logs modal from 3-dots menu', () => {
         const { getByText, unmount } = render(<PlayerScreen />);
         fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('App Logs'));
+        fireEvent.press(getByText('Logs'));
         expect(getByText('LogsModal')).toBeTruthy();
         unmount();
     });
