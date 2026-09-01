@@ -238,12 +238,6 @@ export class Database {
         }
       }
 
-      // Force enable remote for debugging/setup if it was disabled
-      if (!current.remoteEnabled) {
-        current.remoteEnabled = true;
-        needsUpdate = true;
-      }
-
       if (needsUpdate) {
         this.db
           .prepare("UPDATE settings SET value = ? WHERE key = ?")
