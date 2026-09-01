@@ -1,6 +1,6 @@
 import { useState, forwardRef, useRef, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Play, Trash2 } from 'lucide-react';
+import { X, Play, Trash2, ChevronsDownIcon } from 'lucide-react';
 import { Virtuoso, VirtuosoHandle, ListRange } from 'react-virtuoso';
 import styles from './QueuePanel.module.css';
 
@@ -136,6 +136,11 @@ export function QueuePanel() {
         virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
     }, [queue.currentIndex, dragIndex]);
 
+    const scrollToCurrentTrack = () => {
+        const index = queue.currentIndex;
+        virtuosoRef.current?.scrollToIndex({ index, align: 'start', behavior: 'smooth' });
+    }
+
     const [width, setWidth] = useState(settings?.queueWidth ?? 300);
     const isResizing = useRef(false);
     const currentWidth = useRef(width);
@@ -151,14 +156,14 @@ export function QueuePanel() {
         e.preventDefault();
         isResizing.current = true;
         document.body.style.cursor = 'col-resize';
-        
+
         const handleMouseMove = (e: MouseEvent) => {
             if (!isResizing.current) return;
             const newWidth = Math.max(250, Math.min(800, window.innerWidth - e.clientX));
             setWidth(newWidth);
             currentWidth.current = newWidth;
         };
-        
+
         const handleMouseUp = () => {
             isResizing.current = false;
             document.body.style.cursor = '';
@@ -166,7 +171,7 @@ export function QueuePanel() {
             document.removeEventListener('mouseup', handleMouseUp);
             updateSettings({ queueWidth: currentWidth.current });
         };
-        
+
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
     };
@@ -211,11 +216,14 @@ export function QueuePanel() {
             <header className={styles.header}>
                 <h2>Queue</h2>
                 <div className={styles.headerActions}>
-                    <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
-                        Clear
+                    <button className={styles.headerBtn} onClick={() => scrollToCurrentTrack()} title="Scroll to current track">
+                        <ChevronsDownIcon size={16} />
                     </button>
-                    <button className={styles.closeBtn} onClick={toggleQueue} title="Close">
-                        <X size={18} />
+                    <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
+                        <Trash2 size={16} />
+                    </button>
+                    <button className={styles.headerBtn} onClick={toggleQueue} title="Close">
+                        <X size={16} />
                     </button>
                 </div>
             </header>
@@ -272,10 +280,10 @@ export function QueuePanel() {
                                         <span className={styles.title}>{item.track.title}</span>
                                         <span
                                             className={`${styles.artist} ${knownArtists.has(item.track.artist) ? styles.link : ''}`}
-                                            onClick={(e) => { 
+                                            onClick={(e) => {
                                                 if (!knownArtists.has(item.track.artist)) return;
-                                                e.stopPropagation(); 
-                                                selectArtist(item.track.artist); 
+                                                e.stopPropagation();
+                                                selectArtist(item.track.artist);
                                             }}
                                         >
                                             {item.track.artist}
@@ -283,10 +291,10 @@ export function QueuePanel() {
                                         {item.track.album && (
                                             <span
                                                 className={`${styles.album} ${knownAlbums.has(`${item.track.artist}|${item.track.album}`) ? styles.link : ''}`}
-                                                onClick={(e) => { 
+                                                onClick={(e) => {
                                                     if (!knownAlbums.has(`${item.track.artist}|${item.track.album}`)) return;
-                                                    e.stopPropagation(); 
-                                                    navigateToAlbumFromTrack(item.track); 
+                                                    e.stopPropagation();
+                                                    navigateToAlbumFromTrack(item.track);
                                                 }}
                                             >
                                                 {item.track.album}

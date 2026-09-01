@@ -52,11 +52,11 @@
 }
 
 .clearBtn:hover {
-    background: var(--bg-hover);
+    background: var(--color-error);
     color: var(--text-primary);
 }
 
-.closeBtn {
+.headerBtn {
     width: 28px;
     height: 28px;
     display: flex;
@@ -68,7 +68,7 @@
     transition: all var(--transition-fast);
 }
 
-.closeBtn:hover {
+.headerBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
