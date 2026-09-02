@@ -1,6 +1,6 @@
 import { useState, forwardRef, useRef, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Play, Trash2, ChevronsDownIcon } from 'lucide-react';
+import { X, Play, Trash2, ChevronsDownIcon, ListX } from 'lucide-react';
 import { Virtuoso, VirtuosoHandle, ListRange } from 'react-virtuoso';
 import styles from './QueuePanel.module.css';
 
@@ -220,7 +220,7 @@ export function QueuePanel() {
                         <ChevronsDownIcon size={16} />
                     </button>
                     <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
-                        <Trash2 size={16} />
+                        <ListX size={16} />
                     </button>
                     <button className={styles.headerBtn} onClick={toggleQueue} title="Close">
                         <X size={16} />
