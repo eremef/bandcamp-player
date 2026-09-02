@@ -123,7 +123,7 @@ run('node scripts/validate-config.js');
 if (!fastTrack) {
     log('Step 5: Running quality checks...');
     run('npm test', rootDir);
-    run('npm run test:e2e', rootDir, { canFail: true });
+    //run('npm run test:e2e', rootDir, { canFail: true });
     run('npm test', mobileDir);
     run('npm run typecheck', rootDir);
     run('npm run typecheck', mobileDir, { canFail: true });

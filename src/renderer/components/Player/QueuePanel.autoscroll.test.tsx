@@ -36,6 +36,8 @@ vi.mock('lucide-react', () => ({
     X: () => <span data-testid="icon-x" />,
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
+    ChevronsDownIcon: () => <span data-testid="icon-chevrons-down" />,
+    ListX: () => <span data-testid="icon-list-x" />,
 }));
 
 const items = Array.from({ length: 8 }, (_, i) => ({

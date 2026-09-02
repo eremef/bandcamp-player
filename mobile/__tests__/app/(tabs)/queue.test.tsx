@@ -12,6 +12,7 @@ jest.mock('lucide-react-native', () => {
         Play: () => <Text>PlayIcon</Text>,
         Trash2: () => <Text>TrashIcon</Text>,
         GripVertical: () => <Text>GripIcon</Text>,
+        ChevronsDown: () => <Text>ChevronsDownIcon</Text>,
         ListX: () => <Text>ListXIcon</Text>,
     };
 });
@@ -245,7 +246,7 @@ describe('QueueScreen', () => {
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 1,
                 animated: false,
-                viewPosition: 0.5,
+                viewPosition: 0,
             });
         });
 
@@ -258,7 +259,7 @@ describe('QueueScreen', () => {
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 2,
                 animated: true,
-                viewPosition: 0.5,
+                viewPosition: 0,
             });
         });
 
@@ -298,7 +299,7 @@ describe('QueueScreen', () => {
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 2,
                 animated: true,
-                viewPosition: 0.5,
+                viewPosition: 0,
             });
         });
 

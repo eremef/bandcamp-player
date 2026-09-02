@@ -13,6 +13,8 @@ vi.mock('lucide-react', () => ({
     X: () => <span data-testid="icon-x" />,
     Play: () => <span data-testid="icon-play" />,
     Trash2: () => <span data-testid="icon-trash" />,
+    ChevronsDownIcon: () => <span data-testid="icon-chevrons-down" />,
+    ListX: () => <span data-testid="icon-list-x" />,
 }));
 
 describe('QueuePanel', () => {
@@ -69,7 +71,7 @@ describe('QueuePanel', () => {
 
     it('calls clearQueue on Clear button click', () => {
         render(<QueuePanel />);
-        const clearBtn = screen.getByText('Clear');
+        const clearBtn = screen.getByTitle('Clear queue');
         fireEvent.click(clearBtn);
         expect(mockStore.clearQueue).toHaveBeenCalled();
     });
