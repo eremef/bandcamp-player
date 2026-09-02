@@ -5,7 +5,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical, ListX } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ListX, ChevronsDown } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
 
@@ -47,7 +47,7 @@ export default function QueueScreen() {
     const scrollToIndexSafe = useCallback((index: number, animated: boolean) => {
         if (index < 0 || index >= itemCountRef.current) return;
         try {
-            listRef.current?.scrollToIndex({ index, animated, viewPosition: 0.5 });
+            listRef.current?.scrollToIndex({ index, animated, viewPosition: 0 });
         } catch {
             // List not measured yet — nothing to scroll.
         }
@@ -110,7 +110,7 @@ export default function QueueScreen() {
         const dynamicIndex = getIndex();
         const fallbackIndex = queue.items.findIndex(qi => qi.id === item.id);
         const index = dynamicIndex !== undefined ? dynamicIndex : (fallbackIndex !== -1 ? fallbackIndex : 0);
-        
+
         const currentPlayingId = queue.items[queue.currentIndex]?.id;
         const isCurrent = item.id === currentPlayingId;
         const isPlayed = index >= 0 && index < queue.currentIndex;
@@ -204,13 +204,22 @@ export default function QueueScreen() {
                     <Text style={[styles.headerText, { color: colors.textSecondary }]}>
                         {queue.items.length} {queue.items.length === 1 ? 'track' : 'tracks'}
                     </Text>
-                    <TouchableOpacity
-                        onPress={handleClearQueue}
-                        style={styles.clearBtn}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <ListX size={20} color={colors.textSecondary} />
-                    </TouchableOpacity>
+                    <View style={styles.clearBtnContainer}>
+                        <TouchableOpacity
+                            onPress={() => scrollToIndexSafe(currentIndexRef.current, false)}
+                            style={styles.clearBtn}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <ChevronsDown size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleClearQueue}
+                            style={styles.clearBtn}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                            <ListX size={20} color={colors.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
             )}
             <DraggableFlatList
@@ -241,6 +250,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0a0a0a',
+    },
+    clearBtnContainer: {
+        flexDirection: 'row',
+        gap: 4,
     },
     header: {
         flexDirection: 'row',
