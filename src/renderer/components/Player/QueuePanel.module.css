@@ -52,11 +52,11 @@
 }
 
 .clearBtn:hover {
-    background: var(--bg-hover);
+    background: var(--color-error);
     color: var(--text-primary);
 }
 
-.closeBtn {
+.headerBtn {
     width: 28px;
     height: 28px;
     display: flex;
@@ -68,7 +68,7 @@
     transition: all var(--transition-fast);
 }
 
-.closeBtn:hover {
+.headerBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
@@ -115,6 +115,7 @@
 
 .item.current {
     background: var(--accent-muted);
+    box-shadow: inset 3px 0 0 var(--accent-primary);
 }
 
 .item.played {
@@ -174,6 +175,7 @@
 
 .item.current .title {
     color: var(--accent-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .artist {

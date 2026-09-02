@@ -1,7 +1,7 @@
 import { useState, forwardRef, useRef, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Play, Trash2 } from 'lucide-react';
-import { Virtuoso } from 'react-virtuoso';
+import { X, Play, Trash2, ChevronsDownIcon, ListX } from 'lucide-react';
+import { Virtuoso, VirtuosoHandle, ListRange } from 'react-virtuoso';
 import styles from './QueuePanel.module.css';
 
 interface DraggableQueueItemProps extends React.HTMLAttributes<HTMLLIElement> {
@@ -106,6 +106,41 @@ export function QueuePanel() {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
+    // null = not reported yet (unknown), which must read as "allow" — seeding {0,0} would mean
+    // "only row 0 is visible" and would silently suppress legitimate follows before the first
+    // rangeChanged fires.
+    const visibleRange = useRef<ListRange | null>(null);
+    const prevIndexRef = useRef(queue.currentIndex);
+
+    // Virtuoso renders `initialItemCount` rows starting AT `initialTopMostItemIndex` and does not
+    // clamp that window against the data length, so the count has to be trimmed to what is left
+    // below the starting row — otherwise a queue shorter than the count renders past the end and
+    // `itemContent` is handed an undefined item.
+    const initialTopMostIndex = Math.max(0, Math.min(queue.currentIndex, queue.items.length - 1));
+    const initialItemCount = Math.min(50, Math.max(1, queue.items.length - initialTopMostIndex));
+
+    // Follow the playing track, unless the user is dragging or has scrolled away from it.
+    // Keyed on queue.currentIndex (a number) and never on `queue` — the whole queue object is
+    // replaced on every IPC state push, so its identity churns constantly.
+    // `dragIndex` is a dep only to satisfy exhaustive-deps; a re-run it causes always hits the
+    // `prev === index` guard below, so ending a drag never triggers a scroll of its own.
+    useEffect(() => {
+        const index = queue.currentIndex;
+        const prev = prevIndexRef.current;
+        if (prev === index) return;
+        prevIndexRef.current = index;
+        if (index < 0 || dragIndex !== null) return;
+        const range = visibleRange.current;
+        if (range && prev >= 0 && (prev < range.startIndex || prev > range.endIndex)) return;
+        virtuosoRef.current?.scrollToIndex({ index, align: 'center', behavior: 'smooth' });
+    }, [queue.currentIndex, dragIndex]);
+
+    const scrollToCurrentTrack = () => {
+        const index = queue.currentIndex;
+        virtuosoRef.current?.scrollToIndex({ index, align: 'start', behavior: 'smooth' });
+    }
+
     const [width, setWidth] = useState(settings?.queueWidth ?? 300);
     const isResizing = useRef(false);
     const currentWidth = useRef(width);
@@ -121,14 +156,14 @@ export function QueuePanel() {
         e.preventDefault();
         isResizing.current = true;
         document.body.style.cursor = 'col-resize';
-        
+
         const handleMouseMove = (e: MouseEvent) => {
             if (!isResizing.current) return;
             const newWidth = Math.max(250, Math.min(800, window.innerWidth - e.clientX));
             setWidth(newWidth);
             currentWidth.current = newWidth;
         };
-        
+
         const handleMouseUp = () => {
             isResizing.current = false;
             document.body.style.cursor = '';
@@ -136,7 +171,7 @@ export function QueuePanel() {
             document.removeEventListener('mouseup', handleMouseUp);
             updateSettings({ queueWidth: currentWidth.current });
         };
-        
+
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
     };
@@ -181,11 +216,14 @@ export function QueuePanel() {
             <header className={styles.header}>
                 <h2>Queue</h2>
                 <div className={styles.headerActions}>
-                    <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
-                        Clear
+                    <button className={styles.headerBtn} onClick={() => scrollToCurrentTrack()} title="Scroll to current track">
+                        <ChevronsDownIcon size={16} />
                     </button>
-                    <button className={styles.closeBtn} onClick={toggleQueue} title="Close">
-                        <X size={18} />
+                    <button className={styles.clearBtn} onClick={() => clearQueue(false)} title="Clear queue">
+                        <ListX size={16} />
+                    </button>
+                    <button className={styles.headerBtn} onClick={toggleQueue} title="Close">
+                        <X size={16} />
                     </button>
                 </div>
             </header>
@@ -198,9 +236,12 @@ export function QueuePanel() {
                     </div>
                 ) : (
                     <Virtuoso
+                        ref={virtuosoRef}
                         data={queue.items}
                         style={{ height: '100%' }}
-                        initialItemCount={Math.min(queue.items.length, 50)}
+                        initialItemCount={initialItemCount}
+                        initialTopMostItemIndex={initialTopMostIndex}
+                        rangeChanged={(range) => { visibleRange.current = range; }}
                         context={{
                             queueItems: queue.items,
                             currentIndex: queue.currentIndex,
@@ -220,7 +261,7 @@ export function QueuePanel() {
                             Item: VirtuosoItem as any,
                             Footer: VirtuosoQueueFooter
                         }}
-                        itemContent={(index, item) => (
+                        itemContent={(index, item) => !item ? null : (
                             <>
                                 <button
                                     className={styles.playBtn}
@@ -239,10 +280,10 @@ export function QueuePanel() {
                                         <span className={styles.title}>{item.track.title}</span>
                                         <span
                                             className={`${styles.artist} ${knownArtists.has(item.track.artist) ? styles.link : ''}`}
-                                            onClick={(e) => { 
+                                            onClick={(e) => {
                                                 if (!knownArtists.has(item.track.artist)) return;
-                                                e.stopPropagation(); 
-                                                selectArtist(item.track.artist); 
+                                                e.stopPropagation();
+                                                selectArtist(item.track.artist);
                                             }}
                                         >
                                             {item.track.artist}
@@ -250,10 +291,10 @@ export function QueuePanel() {
                                         {item.track.album && (
                                             <span
                                                 className={`${styles.album} ${knownAlbums.has(`${item.track.artist}|${item.track.album}`) ? styles.link : ''}`}
-                                                onClick={(e) => { 
+                                                onClick={(e) => {
                                                     if (!knownAlbums.has(`${item.track.artist}|${item.track.album}`)) return;
-                                                    e.stopPropagation(); 
-                                                    navigateToAlbumFromTrack(item.track); 
+                                                    e.stopPropagation();
+                                                    navigateToAlbumFromTrack(item.track);
                                                 }}
                                             >
                                                 {item.track.album}
