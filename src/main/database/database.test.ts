@@ -177,6 +177,56 @@ describe('Database', () => {
         });
     });
 
+    describe('Playlist sync support', () => {
+        // Replaying a flushed batch from the mobile outbox re-sends ids that already exist;
+        // a plain INSERT would throw SQLITE_CONSTRAINT_PRIMARYKEY and abort the flush.
+        it('inserts playlists and entries idempotently', () => {
+            mockGet.mockReturnValue({ max: 0 });
+            database.createPlaylist('p1', 'Name');
+            database.addTrackToPlaylist('p1', 'e1', { id: 't1', duration: 1 } as any);
+
+            const insertSql = mockPrepare.mock.calls
+                .map((c) => String(c[0]))
+                .filter((sql) => sql.includes('INSERT INTO playlist'));
+
+            expect(insertSql).toHaveLength(2);
+            for (const sql of insertSql) {
+                expect(sql).toContain('ON CONFLICT(id) DO NOTHING');
+            }
+        });
+
+        // H5: a stale order list from a second client must never truncate the playlist.
+        it('setPlaylistTrackOrder keeps entries missing from the list', () => {
+            mockAll.mockReturnValue([{ id: 'e1' }, { id: 'e2' }, { id: 'e3' }]);
+
+            database.setPlaylistTrackOrder('p1', ['e3', 'e1']);
+
+            const positions = mockRun.mock.calls.filter((c) => typeof c[0] === 'number');
+            // e3, e1 as named; e2 unnamed, so it keeps its relative order and is appended.
+            expect(positions).toEqual([[0, 'e3'], [1, 'e1'], [2, 'e2']]);
+        });
+
+        it('setPlaylistTrackOrder ignores ids that are not in the playlist', () => {
+            mockAll.mockReturnValue([{ id: 'e1' }, { id: 'e2' }]);
+
+            database.setPlaylistTrackOrder('p1', ['ghost', 'e2']);
+
+            const positions = mockRun.mock.calls.filter((c) => typeof c[0] === 'number');
+            expect(positions).toEqual([[0, 'e2'], [1, 'e1']]);
+        });
+
+        // The phone's pull diffs on updatedAt, so without this bump a desktop reorder is
+        // invisible to it forever.
+        it('reorderPlaylistTracks bumps the playlist updated_at', () => {
+            mockAll.mockReturnValue([{ id: 'e1' }, { id: 'e2' }]);
+
+            database.reorderPlaylistTracks('p1', 0, 1);
+
+            expect(mockPrepare).toHaveBeenCalledWith('UPDATE playlists SET updated_at = ? WHERE id = ?');
+            expect(mockRun).toHaveBeenCalledWith(expect.any(String), 'p1');
+        });
+    });
+
     describe('Cache', () => {
         it('should add cache entry', () => {
             database.addCacheEntry({

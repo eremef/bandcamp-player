@@ -90,6 +90,8 @@ export interface Playlist {
 }
 
 export interface PlaylistCreateInput {
+  /** Optional caller-supplied id — used by the mobile sync flush so both devices share one id. */
+  id?: string;
   name: string;
   description?: string;
 }

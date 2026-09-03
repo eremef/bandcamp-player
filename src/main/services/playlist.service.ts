@@ -33,7 +33,7 @@ export class PlaylistService extends EventEmitter {
      * Create a new playlist
      */
     create(input: PlaylistCreateInput): Playlist {
-        const id = uuidv4();
+        const id = input.id ?? uuidv4();
         const playlist = this.database.createPlaylist(id, input.name, input.description);
         this.emit('playlists-changed');
         return playlist;
@@ -68,9 +68,8 @@ export class PlaylistService extends EventEmitter {
     /**
      * Add track to playlist
      */
-    addTrack(playlistId: string, track: Track): void {
-        const trackId = `${playlistId}-${track.id}-${Date.now()}`;
-        this.database.addTrackToPlaylist(playlistId, trackId, track);
+    addTrack(playlistId: string, track: Track, entryId?: string): void {
+        this.database.addTrackToPlaylist(playlistId, entryId ?? uuidv4(), track);
         this.emit('playlists-changed');
     }
 
@@ -87,6 +86,15 @@ export class PlaylistService extends EventEmitter {
      */
     reorderTracks(playlistId: string, fromIndex: number, toIndex: number): void {
         this.database.reorderPlaylistTracks(playlistId, fromIndex, toIndex);
+        this.emit('playlists-changed');
+    }
+
+    /**
+     * Reorder by absolute entry-id order (used by the mobile sync flush, where index
+     * pairs from an offline edit would be meaningless against the current host order).
+     */
+    setTrackOrder(playlistId: string, orderedEntryIds: string[]): void {
+        this.database.setPlaylistTrackOrder(playlistId, orderedEntryIds);
         this.emit('playlists-changed');
     }
 }

@@ -35,6 +35,9 @@ describe('MobileDatabase', () => {
 
             expect(SQLite.openDatabaseAsync).toHaveBeenCalledWith('bandcamp_mobile.db');
             expect(mockDb.execAsync).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS collection_items'));
+            expect(mockDb.execAsync).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS playlist_ops'));
+            // Without the pragma ON DELETE CASCADE is inert on this connection.
+            expect(mockDb.execAsync).toHaveBeenCalledWith(expect.stringContaining('PRAGMA foreign_keys = ON'));
         });
 
         it('should migrate adding position column if missing', async () => {
@@ -214,6 +217,9 @@ describe('MobileDatabase', () => {
         it('should delete and rename playlist', async () => {
             await dbInstance.deletePlaylist('pid');
             expect(mockDb.runAsync).toHaveBeenCalledWith('DELETE FROM playlists WHERE id = ?', ['pid']);
+            // Not left to ON DELETE CASCADE: the foreign_keys pragma is per-connection, and
+            // orphan rows resurrect if the same id later comes back from the desktop.
+            expect(mockDb.runAsync).toHaveBeenCalledWith('DELETE FROM playlist_tracks WHERE playlist_id = ?', ['pid']);
 
             await dbInstance.renamePlaylist('pid', 'New PL');
             expect(mockDb.runAsync).toHaveBeenCalledWith(expect.stringContaining('UPDATE playlists SET name = ?'), ['New PL', expect.any(String), 'pid']);
@@ -237,6 +243,96 @@ describe('MobileDatabase', () => {
                 expect.stringContaining('INSERT INTO playlist_tracks'),
                 [expect.any(String), 'p1', JSON.stringify({ id: 't1' }), 3, expect.any(String)]
             );
+        });
+
+        describe('sync support', () => {
+            it('uses a caller-supplied playlist id and entry id', async () => {
+                await dbInstance.createPlaylist('Mirrored', 'desktop-id');
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlists'),
+                    ['desktop-id', 'Mirrored', expect.any(String), expect.any(String)]
+                );
+
+                mockDb.getFirstAsync.mockResolvedValueOnce({ max_pos: 0 });
+                const entryId = await dbInstance.addTrackToPlaylist('p1', { id: 't1' }, 'desktop-entry');
+                expect(entryId).toBe('desktop-entry');
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlist_tracks'),
+                    ['desktop-entry', 'p1', JSON.stringify({ id: 't1' }), 1, expect.any(String)]
+                );
+            });
+
+            // Replaying a flushed batch re-sends ids that already exist; a plain INSERT
+            // would throw and abort the flush.
+            it('inserts idempotently', async () => {
+                await dbInstance.createPlaylist('P', 'p1');
+                mockDb.getFirstAsync.mockResolvedValueOnce({ max_pos: 0 });
+                await dbInstance.addTrackToPlaylist('p1', { id: 't1' }, 'e1');
+
+                const inserts = mockDb.runAsync.mock.calls
+                    .map((c: any[]) => String(c[0]))
+                    .filter((sql: string) => sql.startsWith('INSERT INTO playlist'));
+                expect(inserts).toHaveLength(2);
+                for (const sql of inserts) expect(sql).toContain('ON CONFLICT(id) DO NOTHING');
+            });
+
+            // H7: the old `OR json_extract(track_data, "$.id")` clause removed *every* copy
+            // of a duplicated track, so a replayed removal flapped against the desktop's
+            // single-entry delete forever.
+            it('removeTrackFromPlaylist deletes exactly one entry', async () => {
+                await dbInstance.removeTrackFromPlaylist('p1', 'e1');
+
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    'DELETE FROM playlist_tracks WHERE playlist_id = ? AND id = ?',
+                    ['p1', 'e1']
+                );
+                const sql = mockDb.runAsync.mock.calls.map((c: any[]) => String(c[0])).join(' ');
+                expect(sql).not.toContain('json_extract');
+            });
+
+            it('importPlaylist keeps the given ids when asked, and returns the playlist id', async () => {
+                const playlist = {
+                    id: 'desktop-p',
+                    name: 'Mirrored',
+                    tracks: [{ id: 't1', playlistEntryId: 'desktop-e1' }],
+                } as any;
+
+                const id = await dbInstance.importPlaylist(playlist, true);
+
+                expect(id).toBe('desktop-p');
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlist_tracks'),
+                    expect.arrayContaining(['desktop-e1', 'desktop-p'])
+                );
+            });
+
+            it('importPlaylist regenerates ids for a file import', async () => {
+                const playlist = { id: 'desktop-p', name: 'From file', tracks: [] } as any;
+
+                const id = await dbInstance.importPlaylist(playlist);
+
+                expect(id).not.toBe('desktop-p');
+            });
+
+            it('deletes only the flushed ops', async () => {
+                await dbInstance.deletePlaylistOpsUpTo(7);
+                expect(mockDb.runAsync).toHaveBeenCalledWith('DELETE FROM playlist_ops WHERE id <= ?', [7]);
+            });
+
+            it('round-trips an op payload as JSON', async () => {
+                await dbInstance.enqueuePlaylistOp('delete-playlist', 'p1');
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlist_ops'),
+                    ['delete-playlist', '"p1"', expect.any(String)]
+                );
+
+                mockDb.getAllAsync.mockResolvedValueOnce([
+                    { id: 1, type: 'create-playlist', payload: '{"id":"p1","name":"N"}' },
+                ]);
+                await expect(dbInstance.getPlaylistOps()).resolves.toEqual([
+                    { id: 1, type: 'create-playlist', payload: { id: 'p1', name: 'N' } },
+                ]);
+            });
         });
     });
 
@@ -269,7 +365,7 @@ describe('MobileDatabase', () => {
             logSpy.mockRestore();
         });
 
-        it('removeTrackFromPlaylist stub resolves empty', async () => {
+        it('removeTrackFromPlaylist resolves empty', async () => {
             await expect(dbInstance.removeTrackFromPlaylist('a', 'b')).resolves.toBeUndefined();
         });
     });

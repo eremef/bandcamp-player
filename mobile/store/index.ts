@@ -124,6 +124,9 @@ interface AppState extends PlayerState {
     refreshCollection: (reset?: boolean, query?: string, forceServerRefresh?: boolean) => void;
     loadMoreCollection: () => void;
     refreshPlaylists: () => void;
+    /** Record a playlist edit for replay on the desktop, and flush it now if connected. */
+    queuePlaylistOp: (type: string, payload: any) => void;
+    syncPlaylists: () => Promise<void>;
     refreshRadio: () => void;
     refreshQueue: () => void;
     refreshArtists: () => void;
@@ -599,7 +602,8 @@ export const useStore = create<AppState>((set, get) => ({
             set({
                 mode: 'remote',
                 collection: null,
-                playlists: [],
+                // playlists deliberately NOT cleared: the mirror is the read source in
+                // both modes, so there is no per-mode playlist dataset any more.
                 radioStations: [],
                 artists: [],
                 collectionOffset: 0,
@@ -1237,7 +1241,11 @@ export const useStore = create<AppState>((set, get) => ({
                 album: 'Bandcamp Radio',
                 isCached: false
             };
-            await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
+            const entryId = await mobileDatabase.addTrackToPlaylist(playlistId, stationTrack);
+            get().queuePlaylistOp('add-track-to-playlist', {
+                playlistId,
+                tracks: [{ entryId, track: stationTrack }]
+            });
             get().refreshPlaylists();
         }
     },
@@ -1251,9 +1259,13 @@ export const useStore = create<AppState>((set, get) => ({
             try {
                 const tracks = await mobileScraperService.getStationTracks(station.id);
                 if (tracks && tracks.length > 0) {
+                    const entries = [];
                     for (const track of tracks) {
-                        await mobileDatabase.addTrackToPlaylist(playlistId, track);
+                        entries.push({ entryId: await mobileDatabase.addTrackToPlaylist(playlistId, track), track });
                     }
+                    // One bulk op: the tracks are already resolved here, so replaying it never
+                    // makes the desktop scrape on the flush path.
+                    get().queuePlaylistOp('add-track-to-playlist', { playlistId, tracks: entries });
                     get().refreshPlaylists();
                 }
             } catch (error) {
@@ -1448,7 +1460,11 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
 
-            await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave);
+            const entryId = await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave);
+            get().queuePlaylistOp('add-track-to-playlist', {
+                playlistId,
+                tracks: [{ entryId, track: trackToSave }]
+            });
             get().refreshPlaylists();
         }
     },
@@ -1457,7 +1473,10 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('remove-track-from-playlist', { playlistId, trackId });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.removeTrackFromPlaylist(playlistId, trackId).then(() => get().refreshPlaylists());
+            mobileDatabase.removeTrackFromPlaylist(playlistId, trackId).then(() => {
+                get().queuePlaylistOp('remove-track-from-playlist', { playlistId, trackId });
+                get().refreshPlaylists();
+            });
         }
     },
     reorderPlaylistTracks: (playlistId, fromIndex, toIndex) => {
@@ -1477,7 +1496,14 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('reorder-playlist-tracks', { playlistId, from: fromIndex, to: toIndex });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.reorderPlaylistTracks(playlistId, fromIndex, toIndex).then(() => get().refreshPlaylists());
+            mobileDatabase.reorderPlaylistTracks(playlistId, fromIndex, toIndex)
+                .then(() => mobileDatabase.getPlaylistEntryIds(playlistId))
+                .then((orderedEntryIds: string[]) => {
+                    // Absolute order, not the index pair: by the time an offline reorder is
+                    // replayed the desktop's indices may mean something else entirely.
+                    get().queuePlaylistOp('reorder-playlist-tracks', { playlistId, orderedEntryIds });
+                    get().refreshPlaylists();
+                });
         }
     },
     fetchPlaylistDetails: async (id) => {
@@ -1562,13 +1588,18 @@ export const useStore = create<AppState>((set, get) => ({
                 if (albumData && albumData.tracks) {
                     const albumArtist = (albumData.artist && albumData.artist !== 'Unknown Artist') ? albumData.artist : 'Unknown Artist';
 
+                    const entries = [];
                     for (const track of albumData.tracks) {
                         const trackToSave = {
                             ...track,
                             artist: (track.artist && track.artist !== 'Unknown Artist') ? track.artist : albumArtist
                         };
-                        await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave);
+                        entries.push({
+                            entryId: await mobileDatabase.addTrackToPlaylist(playlistId, trackToSave),
+                            track: trackToSave
+                        });
                     }
+                    get().queuePlaylistOp('add-track-to-playlist', { playlistId, tracks: entries });
                     get().refreshPlaylists();
                 }
             } catch (e) {
@@ -1755,7 +1786,10 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('create-playlist', { name, description });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.createPlaylist(name).then(() => get().refreshPlaylists());
+            mobileDatabase.createPlaylist(name).then((playlist: Playlist) => {
+                get().queuePlaylistOp('create-playlist', { id: playlist.id, name });
+                get().refreshPlaylists();
+            });
         }
     },
     renamePlaylist: (id, name, description) => {
@@ -1763,7 +1797,10 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('update-playlist', { id, name, description });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.renamePlaylist(id, name).then(() => get().refreshPlaylists());
+            mobileDatabase.renamePlaylist(id, name).then(() => {
+                get().queuePlaylistOp('update-playlist', { id, name });
+                get().refreshPlaylists();
+            });
         }
     },
     deletePlaylist: (id) => {
@@ -1771,7 +1808,10 @@ export const useStore = create<AppState>((set, get) => ({
             webSocketService.send('delete-playlist', id);
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.deletePlaylist(id).then(() => get().refreshPlaylists());
+            mobileDatabase.deletePlaylist(id).then(() => {
+                get().queuePlaylistOp('delete-playlist', id);
+                get().refreshPlaylists();
+            });
         }
     },
 
@@ -1802,7 +1842,15 @@ export const useStore = create<AppState>((set, get) => ({
                 webSocketService.send('import-playlist', playlist);
             } else {
                 const { mobileDatabase } = require('../services/MobileDatabase');
-                await mobileDatabase.importPlaylist(playlist);
+                const newId: string = await mobileDatabase.importPlaylist(playlist);
+                get().queuePlaylistOp('create-playlist', { id: newId, name: playlist.name });
+                const entryIds: string[] = await mobileDatabase.getPlaylistEntryIds(newId);
+                if (entryIds.length > 0) {
+                    get().queuePlaylistOp('add-track-to-playlist', {
+                        playlistId: newId,
+                        tracks: playlist.tracks.map((track: Track, i: number) => ({ entryId: entryIds[i], track }))
+                    });
+                }
                 get().refreshPlaylists();
             }
         } catch (error) {
@@ -2088,14 +2136,45 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     refreshPlaylists: () => {
+        // The mirror is the read source in both modes, so the list renders offline and
+        // without waiting on the socket.
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-playlists');
             webSocketService.send('get-bandcamp-playlists');
             set({ isLoadingBandcampPlaylists: true });
+            get().syncPlaylists();
         } else {
-            const { mobileDatabase } = require('../services/MobileDatabase');
-            mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
             get().fetchBandcampPlaylists();
+        }
+    },
+
+    queuePlaylistOp: (type, payload) => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        mobileDatabase.enqueuePlaylistOp(type, payload)
+            .then(() => {
+                // Flush immediately when the desktop is reachable; otherwise it waits for
+                // the next connect. Never triggered by an inbound broadcast (that would
+                // amplify: every host mutation broadcasts to every client).
+                if (webSocketService.isConnected()) return get().syncPlaylists();
+            })
+            .catch((e: any) => console.error('[MobileStore] Failed to queue playlist op:', e));
+    },
+
+    syncPlaylists: async () => {
+        const { playlistSyncService } = require('../services/PlaylistSyncService');
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await playlistSyncService.sync();
+        set({ playlists: await mobileDatabase.getAllPlaylists() });
+
+        const dropped = playlistSyncService.getDroppedCount();
+        if (dropped > 0) {
+            const { Alert } = require('react-native');
+            Alert.alert(
+                'Playlist sync',
+                `${dropped} offline change${dropped === 1 ? '' : 's'} could not be applied — the playlist no longer exists on the desktop.`
+            );
         }
     },
 
@@ -2342,7 +2421,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
     if (status === 'connected' && useStore.getState().mode === 'remote') {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
-        webSocketService.send('get-playlists');
+        useStore.getState().refreshPlaylists();
         webSocketService.send('get-bandcamp-playlists');
         webSocketService.send('get-radio-stations');
         webSocketService.send('get-artists');
@@ -2462,18 +2541,12 @@ webSocketService.on('collection-data', (collectionData) => {
 });
 
 
-webSocketService.on('playlists-data', (newPlaylists: Playlist[]) => {
+// A pull hint, not data: the payload has no tracks, and PlaylistSyncService drops the
+// hint outright while a cycle is in flight (that cycle ends with a pull anyway). Never
+// used to trigger a flush — the host broadcasts this to every client on every mutation.
+webSocketService.on('playlists-data', () => {
     if (useStore.getState().mode !== 'remote') return;
-    useStore.setState((state) => {
-        const mergedPlaylists = newPlaylists.map(newP => {
-            const existingP = state.playlists.find(p => p.id === newP.id);
-            if (existingP && existingP.tracks) {
-                return { ...newP, tracks: existingP.tracks };
-            }
-            return newP;
-        });
-        return { playlists: mergedPlaylists };
-    });
+    useStore.getState().syncPlaylists();
 });
 
 webSocketService.on('bandcamp-playlists-data', (bandcampPlaylists) => {

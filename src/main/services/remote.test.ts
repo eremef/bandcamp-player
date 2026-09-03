@@ -120,6 +120,8 @@ describe('RemoteControlService', () => {
             delete: vi.fn(),
             addTrack: vi.fn(),
             addTracks: vi.fn(),
+            setTrackOrder: vi.fn(),
+            reorderTracks: vi.fn(),
         });
 
         mockAuthService = {
@@ -213,6 +215,55 @@ describe('RemoteControlService', () => {
             await sendMessage('get-playlists');
             expect(mockPlaylistService.getAll).toHaveBeenCalled();
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('playlists-data'));
+        });
+
+        // Sync-support: the mobile flush replays edits with the ids they were given while
+        // offline, so both devices end up keyed on the same identity.
+        describe('playlist sync passthrough', () => {
+            // A file import must stay a copy: an exported file carries its original ids.
+            it('ignores ids in an imported playlist file', async () => {
+                await sendMessage('import-playlist', { id: 'exported-id', name: 'Imported', tracks: [] });
+                expect(mockPlaylistService.create).toHaveBeenCalledWith(
+                    expect.not.objectContaining({ id: 'exported-id' })
+                );
+            });
+
+            it('honours a caller-supplied playlist id on create', async () => {
+                await sendMessage('create-playlist', { id: 'X', name: 'P1' });
+                expect(mockPlaylistService.create).toHaveBeenCalledWith(
+                    expect.objectContaining({ id: 'X', name: 'P1' })
+                );
+            });
+
+            it('honours a caller-supplied entry id on add-track-to-playlist', async () => {
+                await sendMessage('add-track-to-playlist', {
+                    playlistId: 'p1',
+                    entryId: 'e1',
+                    track: { id: 't1', streamUrl: 'url' },
+                });
+                expect(mockPlaylistService.addTrack).toHaveBeenCalledWith('p1', expect.anything(), 'e1');
+            });
+
+            it('adds a bulk tracks[] batch without resolving through the scraper', async () => {
+                await sendMessage('add-track-to-playlist', {
+                    playlistId: 'p1',
+                    tracks: [
+                        { entryId: 'e1', track: { id: 't1' } },
+                        { entryId: 'e2', track: { id: 't2' } },
+                    ],
+                });
+                expect(mockPlaylistService.addTrack).toHaveBeenCalledTimes(2);
+                // The flush path must never hit the network: interleaving is what breaks order.
+                expect(mockScraperService.getAlbumDetails).not.toHaveBeenCalled();
+            });
+
+            it('uses orderedEntryIds when present and the index pair otherwise', async () => {
+                await sendMessage('reorder-playlist-tracks', { playlistId: 'p1', orderedEntryIds: ['e2', 'e1'] });
+                expect(mockPlaylistService.setTrackOrder).toHaveBeenCalledWith('p1', ['e2', 'e1']);
+
+                await sendMessage('reorder-playlist-tracks', { playlistId: 'p1', from: 0, to: 1 });
+                expect(mockPlaylistService.reorderTracks).toHaveBeenCalledWith('p1', 0, 1);
+            });
         });
 
         it('should handle track/album queueing', async () => {
