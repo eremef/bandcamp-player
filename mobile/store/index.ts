@@ -1,4 +1,4 @@
-import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState, SortKey, SortDirection } from '@shared/types';
+import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState, SortKey, SortDirection, PlaylistSyncMode } from '@shared/types';
 import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
@@ -127,6 +127,14 @@ interface AppState extends PlayerState {
     /** Record a playlist edit for replay on the desktop, and flush it now if connected. */
     queuePlaylistOp: (type: string, payload: any) => void;
     syncPlaylists: () => Promise<void>;
+    /** Phone-side on/off switch; can only reduce what the desktop's mode allows. */
+    playlistSyncEnabled: boolean;
+    /** The desktop's mode, mirrored for display and for the edit gates while offline. */
+    playlistSyncMode: PlaylistSyncMode;
+    togglePlaylistSync: () => Promise<void>;
+    canPushPlaylists: () => boolean;
+    canEditPlaylists: () => boolean;
+    alertPlaylistsReadOnly: () => void;
     refreshRadio: () => void;
     refreshQueue: () => void;
     refreshArtists: () => void;
@@ -266,6 +274,8 @@ export const useStore = create<AppState>((set, get) => ({
     crossfadeDuration: 3,
     floatingPlayerEnabled: true,
     isFloatingPlayerLocked: false,
+    playlistSyncEnabled: true,
+    playlistSyncMode: 'two-way' as PlaylistSyncMode,
     setTheme: async (theme: Theme) => {
         await AsyncStorage.setItem('app_theme', theme);
         set({ theme });
@@ -287,6 +297,26 @@ export const useStore = create<AppState>((set, get) => ({
         set({ scrobblingEnabled: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('scrobblingEnabled', newValue);
+    },
+    togglePlaylistSync: async () => {
+        const newValue = !get().playlistSyncEnabled;
+        set({ playlistSyncEnabled: newValue });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('playlistSyncEnabled', newValue);
+    },
+    canPushPlaylists: () => {
+        const { playlistSyncEnabled, playlistSyncMode } = get();
+        return playlistSyncEnabled && (playlistSyncMode === 'two-way' || playlistSyncMode === 'mobile-to-desktop');
+    },
+    // The desktop owns the playlists in `desktop-to-mobile`; the phone's own switch being
+    // off makes them purely local again, so editing is allowed.
+    alertPlaylistsReadOnly: () => {
+        const { Alert } = require('react-native');
+        Alert.alert('Playlist sync', 'Playlists are managed on the desktop while sync mode is Desktop \u2192 Mobile.');
+    },
+    canEditPlaylists: () => {
+        const { playlistSyncEnabled, playlistSyncMode } = get();
+        return !playlistSyncEnabled || playlistSyncMode !== 'desktop-to-mobile';
     },
     toggleFloatingPlayer: async () => {
         const newValue = !get().floatingPlayerEnabled;
@@ -518,6 +548,8 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            playlistSyncEnabled: settings.playlistSyncEnabled !== false,
+            playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,
             cacheSizeLimit: typeof settings.cacheMaxSizeGb === 'number' ? settings.cacheMaxSizeGb : 2
         });
@@ -724,6 +756,8 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            playlistSyncEnabled: settings.playlistSyncEnabled !== false,
+            playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,
             cacheSizeLimit: typeof settings.cacheMaxSizeGb === 'number' ? settings.cacheMaxSizeGb : 2
         });
@@ -1224,7 +1258,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     addStationToPlaylist: async (playlistId, station) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('add-station-to-playlist', { playlistId, station });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1250,7 +1285,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     extractRadioToPlaylist: async (playlistId, station) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('extract-radio-to-playlist', { playlistId, station });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
@@ -1431,7 +1467,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     addTrackToPlaylist: async (playlistId, track) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('add-track-to-playlist', { playlistId, track });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1469,7 +1506,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     removeTrackFromPlaylist: (playlistId, trackId) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('remove-track-from-playlist', { playlistId, trackId });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1480,8 +1518,9 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     reorderPlaylistTracks: (playlistId, fromIndex, toIndex) => {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
         const state = get();
-        if (state.mode === 'remote' && state.connectionStatus === 'connected') {
+        if (state.mode === 'remote' && state.connectionStatus === 'connected' && state.canPushPlaylists()) {
             const playlist = state.playlists.find(p => p.id === playlistId);
             if (playlist && playlist.tracks) {
                 const newTracks = [...playlist.tracks];
@@ -1578,7 +1617,8 @@ export const useStore = create<AppState>((set, get) => ({
         return playlist;
     },
     addAlbumToPlaylist: async (playlistId, albumUrl, album) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('add-album-to-playlist', { playlistId, albumUrl });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
@@ -1782,7 +1822,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     createPlaylist: (name, description) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('create-playlist', { name, description });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1793,7 +1834,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     renamePlaylist: (id, name, description) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('update-playlist', { id, name, description });
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1804,7 +1846,8 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     deletePlaylist: (id) => {
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
+        if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
             webSocketService.send('delete-playlist', id);
         } else {
             const { mobileDatabase } = require('../services/MobileDatabase');
@@ -1816,6 +1859,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     importPlaylist: async () => {
+        if (!get().canEditPlaylists()) { get().alertPlaylistsReadOnly(); return; }
         try {
             const DocumentPicker = require('expo-document-picker');
             const { File } = require('expo-file-system');
@@ -1838,7 +1882,7 @@ export const useStore = create<AppState>((set, get) => ({
                 throw new Error('Invalid playlist format');
             }
 
-            if (get().mode === 'remote' && get().connectionStatus === 'connected') {
+            if (get().mode === 'remote' && get().connectionStatus === 'connected' && get().canPushPlaylists()) {
                 webSocketService.send('import-playlist', playlist);
             } else {
                 const { mobileDatabase } = require('../services/MobileDatabase');
@@ -2151,6 +2195,8 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     queuePlaylistOp: (type, payload) => {
+        // The single enqueue chokepoint: nothing accumulates in a mode that cannot push.
+        if (!get().canPushPlaylists()) return;
         const { mobileDatabase } = require('../services/MobileDatabase');
         mobileDatabase.enqueuePlaylistOp(type, payload)
             .then(() => {
@@ -2166,7 +2212,10 @@ export const useStore = create<AppState>((set, get) => ({
         const { playlistSyncService } = require('../services/PlaylistSyncService');
         const { mobileDatabase } = require('../services/MobileDatabase');
         await playlistSyncService.sync();
-        set({ playlists: await mobileDatabase.getAllPlaylists() });
+        set({
+            playlists: await mobileDatabase.getAllPlaylists(),
+            playlistSyncMode: playlistSyncService.getMode(),
+        });
 
         const dropped = playlistSyncService.getDroppedCount();
         if (dropped > 0) {

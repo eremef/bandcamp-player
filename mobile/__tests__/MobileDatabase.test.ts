@@ -40,6 +40,18 @@ describe('MobileDatabase', () => {
             expect(mockDb.execAsync).toHaveBeenCalledWith(expect.stringContaining('PRAGMA foreign_keys = ON'));
         });
 
+        // The mirror's delete-on-absence keys on this column, so an existing install that
+        // never had it must gain it rather than silently reading NULL.
+        it('should migrate adding from_desktop column if missing', async () => {
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]);
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]);
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'id' }]); // playlists without from_desktop
+
+            await dbInstance.init();
+
+            expect(mockDb.execAsync).toHaveBeenCalledWith('ALTER TABLE playlists ADD COLUMN from_desktop INTEGER DEFAULT 0');
+        });
+
         it('should migrate adding position column if missing', async () => {
             mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'id' }]); // Missing position
             mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]); // Has wishlist
@@ -53,6 +65,7 @@ describe('MobileDatabase', () => {
         it('should migrate FTS table if incorrectly created', async () => {
             mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'position' }]); // position check
             mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'is_wishlist' }]); // is_wishlist check
+            mockDb.getAllAsync.mockResolvedValueOnce([{ name: 'from_desktop' }]); // from_desktop check
             mockDb.getAllAsync.mockResolvedValueOnce([{ sql: "CREATE VIRTUAL TABLE collection_search_fts USING fts5(content='collection_items')" }]); // fts check
 
             await dbInstance.init();
@@ -69,6 +82,7 @@ describe('MobileDatabase', () => {
 
             expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed (position):', expect.any(Error));
             expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed (is_wishlist):', expect.any(Error));
+            expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] Migration failed (from_desktop):', expect.any(Error));
             expect(consoleSpy).toHaveBeenCalledWith('[MobileDatabase] FTS Migration failed:', expect.any(Error));
             consoleSpy.mockRestore();
         });
@@ -304,6 +318,41 @@ describe('MobileDatabase', () => {
                     expect.stringContaining('INSERT INTO playlist_tracks'),
                     expect.arrayContaining(['desktop-e1', 'desktop-p'])
                 );
+            });
+
+            // from_desktop is what limits delete-on-absence to mirrored playlists.
+            it('marks a mirrored playlist as coming from the desktop', async () => {
+                await dbInstance.importPlaylist({ id: 'desktop-p', name: 'Mirrored', tracks: [] } as any, true);
+
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlists'),
+                    expect.arrayContaining(['desktop-p', 'Mirrored', 1])
+                );
+            });
+
+            it('leaves a file import and a locally created playlist local', async () => {
+                await dbInstance.importPlaylist({ id: 'x', name: 'From file', tracks: [] } as any);
+                await dbInstance.createPlaylist('Mine', 'mine');
+
+                const insert = mockDb.runAsync.mock.calls
+                    .find((c: any[]) => String(c[0]).includes('INSERT INTO playlists') && String(c[0]).includes('from_desktop'));
+                expect(insert[1]).toContain(0);
+                // createPlaylist does not name the column at all, so it takes DEFAULT 0.
+                expect(mockDb.runAsync).toHaveBeenCalledWith(
+                    expect.stringContaining('INSERT INTO playlists (id, name, created_at, updated_at) VALUES'),
+                    ['mine', 'Mine', expect.any(String), expect.any(String)]
+                );
+            });
+
+            it('reports fromDesktop in the sync summaries', async () => {
+                mockDb.getAllAsync.mockResolvedValueOnce([
+                    { id: 'a', updated_at: 't', track_count: 1, from_desktop: 1 },
+                    { id: 'b', updated_at: 't', track_count: 0, from_desktop: 0 },
+                ]);
+
+                const summaries = await dbInstance.getPlaylistSummaries();
+
+                expect(summaries.map(s => s.fromDesktop)).toEqual([true, false]);
             });
 
             it('importPlaylist regenerates ids for a file import', async () => {

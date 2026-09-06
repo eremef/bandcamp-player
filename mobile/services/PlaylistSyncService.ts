@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Playlist } from '@shared/types';
+import { Playlist, PlaylistSyncMode } from '@shared/types';
 import { mobileDatabase } from './MobileDatabase';
 import { webSocketService } from './WebSocketService';
 
@@ -24,16 +24,42 @@ const RPC_TIMEOUT_MS = 5000;
 /** The outbox is re-checked after each cycle; cap the loop so constant editing can't spin. */
 const MAX_CYCLES = 3;
 
-type Summary = { id: string; updatedAt: string; trackCount: number };
+type Summary = { id: string; updatedAt: string; trackCount: number; fromDesktop: boolean };
 
 class PlaylistSyncService {
     private syncing = false;
     /** Playlists whose ops were flushed but that the desktop did not end up having. */
     private lastDroppedCount = 0;
+    /** Desktop-reported sync mode; null until read from settings or the desktop. */
+    private mode: PlaylistSyncMode | null = null;
 
     /** Number of offline changes dropped by the most recent sync (see `sync`). */
     getDroppedCount(): number {
         return this.lastDroppedCount;
+    }
+
+    /** The desktop's sync mode as of the last sync — for display, not gating. */
+    getMode(): PlaylistSyncMode {
+        return this.mode ?? 'two-way';
+    }
+
+    /**
+     * The mode is owned by the desktop and re-read every sync, so it is never stale and
+     * needs no push message. A timeout (old desktop, flaky socket) keeps the cached value.
+     * The phone's own switch can only *reduce* syncing, never enable a direction.
+     */
+    private async resolveMode(): Promise<PlaylistSyncMode> {
+        const settings = await mobileDatabase.getSettings();
+        if (this.mode === null) this.mode = (settings as any).playlistSyncMode ?? 'two-way';
+
+        const reported = await this.request<PlaylistSyncMode>(
+            'get-playlist-sync-mode', undefined, 'playlist-sync-mode');
+        if (reported) {
+            this.mode = reported;
+            await mobileDatabase.setSetting('playlistSyncMode', reported);
+        }
+
+        return (settings as any).playlistSyncEnabled === false ? 'disabled' : this.mode!;
     }
 
     /**
@@ -50,24 +76,35 @@ class PlaylistSyncService {
         this.syncing = true;
         this.lastDroppedCount = 0;
         try {
+            const mode = await this.resolveMode();
+            const pushAllowed = mode === 'two-way' || mode === 'mobile-to-desktop';
+            const pullAllowed = mode === 'two-way' || mode === 'desktop-to-mobile';
+
+            // Ops queued before the mode changed must not replay weeks later; the store
+            // stops enqueuing new ones, so this drains what is already there.
+            if (!pushAllowed) await mobileDatabase.deletePlaylistOpsUpTo(Number.MAX_SAFE_INTEGER);
+            if (!pushAllowed && !pullAllowed) return;
+
             // Captured *before* bootstrapping: the cycle that seeds the outbox must never
             // delete, because its own creates have not been confirmed by a pull yet.
             const allowDeletes = await this.hasBootstrapped();
-            await this.bootstrapIfNeeded();
+            // Deferred, not skipped, in a pull-only mode: it runs on the first later sync
+            // that is allowed to push.
+            if (pushAllowed) await this.bootstrapIfNeeded();
 
             for (let cycle = 0; cycle < MAX_CYCLES; cycle++) {
-                const flushed = await this.flush();
+                const flushed = pushAllowed ? await this.flush() : [];
 
                 // A flush that ran out of socket leaves the rest of the outbox queued; the
                 // pull would only serve a snapshot we cannot reconcile against.
                 if (!webSocketService.isConnected()) break;
 
-                const snapshot = await this.pull(allowDeletes);
+                const snapshot = pullAllowed ? await this.pull(allowDeletes) : null;
                 if (snapshot) this.countDropped(flushed, snapshot);
 
                 // An op appended while the flush was in flight was deliberately not deleted;
                 // run another cycle so it is not left sitting behind an already-applied pull.
-                if ((await mobileDatabase.countPlaylistOps()) === 0) break;
+                if (!pushAllowed || (await mobileDatabase.countPlaylistOps()) === 0) break;
             }
         } catch (e) {
             console.error('[PlaylistSync] Sync failed:', e);
@@ -136,11 +173,13 @@ class PlaylistSyncService {
 
         // Deleting on "absent from the snapshot" is only sound once every local playlist is
         // either known to the desktop or has a pending create op — i.e. after the bootstrap
-        // and with an empty outbox. Otherwise a phone-only playlist would be destroyed.
+        // and with an empty outbox. `fromDesktop` narrows it further: a playlist that never
+        // came from the desktop (created here, or imported from a file) is never destroyed
+        // by a pull, which is what makes the one-directional modes safe.
         if (allowDeletes && (await mobileDatabase.countPlaylistOps()) === 0) {
             const remoteIds = new Set(snapshot.map(p => p.id));
-            for (const id of local.keys()) {
-                if (!remoteIds.has(id)) await mobileDatabase.deletePlaylist(id);
+            for (const [id, summary] of local) {
+                if (!remoteIds.has(id) && summary.fromDesktop) await mobileDatabase.deletePlaylist(id);
             }
         }
 
@@ -172,7 +211,14 @@ class PlaylistSyncService {
     private async bootstrapIfNeeded(): Promise<void> {
         if (await this.hasBootstrapped()) return;
 
-        const playlists = await mobileDatabase.getAllPlaylists();
+        // Mirrored playlists are already on the desktop — seeding ops for them would be a
+        // pointless multi-MB flush (harmless, thanks to ON CONFLICT(id) DO NOTHING).
+        const localOnly = new Set(
+            (await mobileDatabase.getPlaylistSummaries())
+                .filter(s => !s.fromDesktop)
+                .map(s => s.id)
+        );
+        const playlists = (await mobileDatabase.getAllPlaylists()).filter(p => localOnly.has(p.id));
         for (const playlist of playlists) {
             await mobileDatabase.enqueuePlaylistOp('create-playlist', {
                 id: playlist.id,

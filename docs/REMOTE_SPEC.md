@@ -94,6 +94,12 @@ Result of a `get-playlists` request.
 
 - **Payload**: [`Playlist[]`](#playlist)
 
+### `playlist-sync-mode`
+
+Result of a `get-playlist-sync-mode` request: the desktop's playlist sync mode.
+
+- **Payload**: `'two-way' | 'desktop-to-mobile' | 'mobile-to-desktop' | 'disabled'`
+
 ### `export-playlist-data`
 
 Result of a `get-playlist-for-export` request: one playlist **with** its tracks. Each track
@@ -143,6 +149,14 @@ Clients send these messages to control the player.
 - `get-playlists`: Requests user playlists (tracks stripped). Result comes via `playlists-data`.
 - `get-playlist-for-export`: Requests one playlist with its tracks. Result comes via `export-playlist-data`.
   - **Payload**: `string` (playlist id)
+- `get-playlist-sync-mode`: Requests the desktop's playlist sync mode. Result comes via `playlist-sync-mode`.
+
+> [!IMPORTANT]
+> The sync mode is set on the desktop and is authoritative. In `desktop-to-mobile` and
+> `disabled` the host **silently drops** every playlist-mutating message from a client that
+> has sent `identify` (i.e. the mobile app); reads are never blocked. Clients that never
+> `identify` — the built-in web remote — are unaffected. There is no push notification when
+> the mode changes: re-request it whenever it matters.
 
 > [!NOTE]
 > There is no host-side collection sort/filter state, and no message to set one. Sorting and

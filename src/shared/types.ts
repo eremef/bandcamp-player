@@ -127,6 +127,13 @@ export interface Queue {
 export type RepeatMode = "off" | "one" | "all";
 export type Theme = "light" | "dark" | "system" | "high-contrast";
 
+/** Direction(s) in which playlists are synced with mobile clients. Desktop is authoritative. */
+export type PlaylistSyncMode =
+  | "two-way"
+  | "desktop-to-mobile"
+  | "mobile-to-desktop"
+  | "disabled";
+
 export interface PlayerState {
   isPlaying: boolean;
   currentTrack: Track | null;
@@ -231,6 +238,7 @@ export interface AppSettings {
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;
+  playlistSyncMode: PlaylistSyncMode;
   discordRpcEnabled: boolean;
   theme: Theme;
   allowBetaUpdates: boolean;

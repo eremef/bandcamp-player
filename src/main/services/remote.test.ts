@@ -130,6 +130,7 @@ describe('RemoteControlService', () => {
 
         mockDatabase = {
             getArtists: vi.fn().mockReturnValue([]),
+            getSettings: vi.fn().mockReturnValue({ playlistSyncMode: 'two-way' }),
         } as unknown as Database;
 
         // Get the mock WSS instance
@@ -215,6 +216,73 @@ describe('RemoteControlService', () => {
             await sendMessage('get-playlists');
             expect(mockPlaylistService.getAll).toHaveBeenCalled();
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('playlists-data'));
+        });
+
+        // The desktop owns the sync mode: an older mobile build pushes unconditionally, and
+        // the desktop auto-updates while the phone does not.
+        describe('playlist sync mode', () => {
+            const identify = () => sendMessage('identify', { platform: 'android', device: 'Pixel', appVersion: '1.0' });
+
+            it('reports the mode on request', async () => {
+                mockDatabase.getSettings.mockReturnValue({ playlistSyncMode: 'mobile-to-desktop' });
+                await sendMessage('get-playlist-sync-mode');
+                expect(mockWs.send).toHaveBeenCalledWith(
+                    JSON.stringify({ type: 'playlist-sync-mode', payload: 'mobile-to-desktop' })
+                );
+            });
+
+            it('defaults to two-way when the setting is absent', async () => {
+                mockDatabase.getSettings.mockReturnValue(null);
+                await sendMessage('get-playlist-sync-mode');
+                expect(mockWs.send).toHaveBeenCalledWith(
+                    JSON.stringify({ type: 'playlist-sync-mode', payload: 'two-way' })
+                );
+            });
+
+            it('drops a mutating message from an identified client in desktop-to-mobile', async () => {
+                mockDatabase.getSettings.mockReturnValue({ playlistSyncMode: 'desktop-to-mobile' });
+                await identify();
+
+                await sendMessage('create-playlist', { name: 'P1' });
+
+                expect(mockPlaylistService.create).not.toHaveBeenCalled();
+            });
+
+            it('drops a mutating message when sync is disabled', async () => {
+                mockDatabase.getSettings.mockReturnValue({ playlistSyncMode: 'disabled' });
+                await identify();
+
+                await sendMessage('delete-playlist', 'p1');
+
+                expect(mockPlaylistService.delete).not.toHaveBeenCalled();
+            });
+
+            // The guard keys on deviceInfo, which only `identify` sets — client.js never
+            // sends it, so the browser remote keeps full editing in every mode.
+            it('still applies the same message from the web remote', async () => {
+                mockDatabase.getSettings.mockReturnValue({ playlistSyncMode: 'desktop-to-mobile' });
+
+                await sendMessage('create-playlist', { name: 'P1' });
+
+                expect(mockPlaylistService.create).toHaveBeenCalled();
+            });
+
+            it('never blocks reads', async () => {
+                mockDatabase.getSettings.mockReturnValue({ playlistSyncMode: 'disabled' });
+                await identify();
+
+                await sendMessage('get-playlists');
+
+                expect(mockPlaylistService.getAll).toHaveBeenCalled();
+            });
+
+            it('lets a mobile client through in two-way mode', async () => {
+                await identify();
+
+                await sendMessage('create-playlist', { name: 'P1' });
+
+                expect(mockPlaylistService.create).toHaveBeenCalled();
+            });
         });
 
         // Sync-support: the mobile flush replays edits with the ids they were given while

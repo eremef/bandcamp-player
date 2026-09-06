@@ -200,6 +200,7 @@ export class Database {
       scrobblingEnabled: true,
       scrobbleThreshold: 50,
       remoteEnabled: true,
+      playlistSyncMode: "two-way",
       discordRpcEnabled: false,
       theme: "system",
       allowBetaUpdates: false,

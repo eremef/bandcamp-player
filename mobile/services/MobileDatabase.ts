@@ -104,7 +104,10 @@ export class MobileDatabase {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                -- 1 only for playlists mirrored from the desktop; the sync's
+                -- delete-on-absence is limited to those (see PlaylistSyncService.pull).
+                from_desktop INTEGER DEFAULT 0
             );
             
             -- ... rest of playlists and other tables ...
@@ -175,6 +178,18 @@ export class MobileDatabase {
             }
         } catch (e) {
             console.error('[MobileDatabase] Migration failed (is_wishlist):', e);
+        }
+
+        // Migration: add from_desktop column to playlists if missing
+        try {
+            const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(playlists)");
+            const hasFromDesktop = tableInfo.some(col => col.name === 'from_desktop');
+            if (!hasFromDesktop) {
+                console.log('[MobileDatabase] Migrating: Adding from_desktop column to playlists');
+                await this.db.execAsync("ALTER TABLE playlists ADD COLUMN from_desktop INTEGER DEFAULT 0");
+            }
+        } catch (e) {
+            console.error('[MobileDatabase] Migration failed (from_desktop):', e);
         }
 
         // Migration for FTS5: Drop and recreate if it was incorrectly created with external content
@@ -651,8 +666,8 @@ export class MobileDatabase {
                     await this.db!.runAsync('DELETE FROM playlists WHERE id = ?', [newId]);
                 }
                 await this.db!.runAsync(
-                    'INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
-                    [newId, playlist.name, playlist.createdAt || now, playlist.updatedAt || now]
+                    'INSERT INTO playlists (id, name, created_at, updated_at, from_desktop) VALUES (?, ?, ?, ?, ?)',
+                    [newId, playlist.name, playlist.createdAt || now, playlist.updatedAt || now, keepIds ? 1 : 0]
                 );
 
                 if (playlist.tracks && playlist.tracks.length > 0) {
@@ -792,14 +807,19 @@ export class MobileDatabase {
     }
 
     /** Cheap shape for the sync diff — no track_data parsing. */
-    async getPlaylistSummaries(): Promise<Array<{ id: string; updatedAt: string; trackCount: number }>> {
+    async getPlaylistSummaries(): Promise<Array<{ id: string; updatedAt: string; trackCount: number; fromDesktop: boolean }>> {
         if (!this.db) await this.init();
-        const rows = await this.db!.getAllAsync<{ id: string; updated_at: string; track_count: number }>(
-            `SELECT p.id, p.updated_at,
+        const rows = await this.db!.getAllAsync<{ id: string; updated_at: string; track_count: number; from_desktop: number }>(
+            `SELECT p.id, p.updated_at, p.from_desktop,
                 (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count
              FROM playlists p`
         );
-        return rows.map(r => ({ id: r.id, updatedAt: r.updated_at, trackCount: r.track_count }));
+        return rows.map(r => ({
+            id: r.id,
+            updatedAt: r.updated_at,
+            trackCount: r.track_count,
+            fromDesktop: !!r.from_desktop,
+        }));
     }
 
     // --- Playlist sync outbox ---

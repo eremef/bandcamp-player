@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer, RefreshCw } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
@@ -39,8 +39,18 @@ export default function SettingsScreen() {
         setCacheSizeLimit,
         clearCache,
         floatingPlayerEnabled,
-        toggleFloatingPlayer
+        toggleFloatingPlayer,
+        playlistSyncEnabled,
+        playlistSyncMode,
+        togglePlaylistSync
     } = useStore();
+
+    const SYNC_MODE_LABELS: Record<string, string> = {
+        'two-way': 'Two-way',
+        'desktop-to-mobile': 'Desktop \u2192 Mobile',
+        'mobile-to-desktop': 'Mobile \u2192 Desktop',
+        'disabled': 'Disabled',
+    };
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
     const handleRefreshConfig = async () => {
@@ -98,6 +108,26 @@ export default function SettingsScreen() {
                         <Switch
                             value={floatingPlayerEnabled}
                             onValueChange={toggleFloatingPlayer}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Playlists</Text>
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <RefreshCw color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Sync Playlists</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Desktop sync mode: {SYNC_MODE_LABELS[playlistSyncMode] || playlistSyncMode}
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={playlistSyncEnabled}
+                            onValueChange={togglePlaylistSync}
                             trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
                         />
                     </View>

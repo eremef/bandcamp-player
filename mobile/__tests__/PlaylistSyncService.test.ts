@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const mockOps: Array<{ id: number; type: string; payload: any }> = [];
 const mockMirror = new Map<string, any>();
 let mockNextOpId = 1;
+/** What the phone last persisted for the desktop's mode — the offline fallback. */
+let mockPersistedMode: string | undefined;
 /** Appended to the outbox the first time a flush sends anything (simulates H3). */
 let mockOpDuringFlush: { type: string; payload: any } | null = null;
 
@@ -14,7 +16,21 @@ const mockDefaultDeleteOps = async (maxId: number) => {
     }
 };
 
+/** Desktop-owned sync mode the fake host reports; per-test mutable. */
+let mockSyncMode = 'two-way';
+/** The phone's own switch, read out of the settings table. */
+let mockSyncEnabled = true;
+/** When true the fake host never answers the mode RPC (old desktop / dead socket). */
+let mockModeUnanswered = false;
+
 const mockDb = {
+    getSettings: jest.fn(async () => ({
+        playlistSyncEnabled: mockSyncEnabled,
+        playlistSyncMode: mockPersistedMode,
+    })),
+    setSetting: jest.fn(async (key: string, value: any) => {
+        if (key === 'playlistSyncMode') mockPersistedMode = value;
+    }),
     enqueuePlaylistOp: jest.fn(async (type: string, payload: any) => {
         mockOps.push({ id: mockNextOpId++, type, payload });
     }),
@@ -26,12 +42,14 @@ const mockDb = {
             id: p.id,
             updatedAt: p.updatedAt,
             trackCount: p.tracks?.length ?? 0,
+            // Set by importPlaylist(_, true) below, exactly as the real column is.
+            fromDesktop: !!p.fromDesktop,
         }))
     ),
     getAllPlaylists: jest.fn(async () => [...mockMirror.values()]),
     importPlaylist: jest.fn(async (playlist: any, keepIds = false) => {
         const id = keepIds ? playlist.id : 'generated';
-        mockMirror.set(id, { ...playlist, id });
+        mockMirror.set(id, { ...playlist, id, fromDesktop: keepIds });
         return id;
     }),
     deletePlaylist: jest.fn(async (id: string) => {
@@ -107,6 +125,12 @@ const mockHostApply = (type: string, payload: any) => {
 };
 
 const mockDefaultSend = (type: string, payload?: any) => {
+    // The mode RPC opens every sync; keeping it out of `mockSent` leaves that array
+    // meaning "sync traffic", which is what the assertions are about.
+    if (type === 'get-playlist-sync-mode') {
+        if (!mockModeUnanswered) mockEmit('playlist-sync-mode', mockSyncMode);
+        return;
+    }
     mockSent.push({ type, payload });
     if (mockOpDuringFlush) {
         const op = mockOpDuringFlush;
@@ -164,6 +188,11 @@ describe('PlaylistSyncService', () => {
         mockConnected = true;
         mockHost.clear();
         mockHostRev = 0;
+        mockSyncMode = 'two-way';
+        mockSyncEnabled = true;
+        mockModeUnanswered = false;
+        mockPersistedMode = undefined;
+        (playlistSyncService as any).mode = null;
         Object.keys(mockListeners).forEach(k => delete mockListeners[k]);
         // clearAllMocks does not undo a mockImplementation, so a test that swaps one of
         // these leaks into every later test in the file unless they are re-applied here.
@@ -282,13 +311,121 @@ describe('PlaylistSyncService', () => {
         expect(mockDb.enqueuePlaylistOp.mock.calls.length).toBe(afterFirst);
     });
 
-    it('deletes local playlists the desktop no longer has, once bootstrapped', async () => {
+    it('deletes mirrored playlists the desktop no longer has, once bootstrapped', async () => {
         await markBootstrapped();
-        mockMirror.set('gone', { id: 'gone', name: 'Deleted on PC', updatedAt: 't1', tracks: [] });
+        mockMirror.set('gone', { id: 'gone', name: 'Deleted on PC', updatedAt: 't1', tracks: [], fromDesktop: true });
 
         await playlistSyncService.sync();
 
         expect(mockDb.deletePlaylist).toHaveBeenCalledWith('gone');
+    });
+
+    // A playlist that never came from the desktop is stranded, never destroyed — this is
+    // what makes the one-directional modes safe.
+    it('never deletes a playlist that did not come from the desktop', async () => {
+        await markBootstrapped();
+        mockMirror.set('local-only', { id: 'local-only', name: 'Mine', updatedAt: 't1', tracks: [] });
+
+        await playlistSyncService.sync();
+
+        expect(mockDb.deletePlaylist).not.toHaveBeenCalled();
+    });
+
+    describe('sync modes', () => {
+        it('desktop-to-mobile: pulls, sends nothing, and drains the outbox', async () => {
+            await markBootstrapped();
+            mockSyncMode = 'desktop-to-mobile';
+            mockHost.set('p1', { id: 'p1', name: 'From PC', updatedAt: 'h1', tracks: [] });
+            await mockDb.enqueuePlaylistOp('update-playlist', { id: 'p1', name: 'Stale' });
+
+            await playlistSyncService.sync();
+
+            expect(mockSent.map(m => m.type)).toEqual(['get-playlists', 'get-playlist-for-export']);
+            expect(mockOps).toHaveLength(0);
+            expect(mockMirror.has('p1')).toBe(true);
+        });
+
+        it('mobile-to-desktop: flushes, never pulls', async () => {
+            await markBootstrapped();
+            mockSyncMode = 'mobile-to-desktop';
+            mockHost.set('p1', { id: 'p1', name: 'From PC', updatedAt: 'h1', tracks: [] });
+            await mockDb.enqueuePlaylistOp('update-playlist', { id: 'p1', name: 'From phone' });
+
+            await playlistSyncService.sync();
+
+            expect(mockSent.map(m => m.type)).toEqual(['update-playlist']);
+            expect(mockHost.get('p1').name).toBe('From phone');
+            expect(mockMirror.size).toBe(0);
+        });
+
+        it('disabled: neither direction moves', async () => {
+            await markBootstrapped();
+            mockSyncMode = 'disabled';
+            mockHost.set('p1', { id: 'p1', name: 'From PC', updatedAt: 'h1', tracks: [] });
+            await mockDb.enqueuePlaylistOp('update-playlist', { id: 'p1', name: 'Stale' });
+
+            await playlistSyncService.sync();
+
+            expect(mockSent).toHaveLength(0);
+            expect(mockOps).toHaveLength(0);
+            expect(mockMirror.size).toBe(0);
+        });
+
+        it('the phone switch can disable sync the desktop still allows', async () => {
+            await markBootstrapped();
+            mockSyncEnabled = false;
+            mockHost.set('p1', { id: 'p1', name: 'From PC', updatedAt: 'h1', tracks: [] });
+
+            await playlistSyncService.sync();
+
+            expect(mockSent).toHaveLength(0);
+        });
+
+        it('does not bootstrap in a mode that cannot push', async () => {
+            mockSyncMode = 'desktop-to-mobile';
+            mockMirror.set('local-1', { id: 'local-1', name: 'Phone only', updatedAt: 't1', tracks: [] });
+
+            await playlistSyncService.sync();
+
+            expect(mockDb.enqueuePlaylistOp).not.toHaveBeenCalled();
+            expect(mockDb.deletePlaylist).not.toHaveBeenCalled();
+        });
+
+        it('skips mirrored playlists when bootstrapping', async () => {
+            mockMirror.set('from-pc', { id: 'from-pc', name: 'Mirrored', updatedAt: 't1', tracks: [], fromDesktop: true });
+            mockMirror.set('mine', { id: 'mine', name: 'Phone only', updatedAt: 't1', tracks: [] });
+
+            await playlistSyncService.sync();
+
+            expect(mockDb.enqueuePlaylistOp).toHaveBeenCalledTimes(1);
+            expect(mockDb.enqueuePlaylistOp).toHaveBeenCalledWith('create-playlist', { id: 'mine', name: 'Phone only' });
+        });
+
+        it('falls back to the persisted mode when the desktop does not answer', async () => {
+            await markBootstrapped();
+            mockPersistedMode = 'desktop-to-mobile';
+            mockModeUnanswered = true;
+            await mockDb.enqueuePlaylistOp('update-playlist', { id: 'p1', name: 'Stale' });
+
+            jest.useFakeTimers();
+            const done = playlistSyncService.sync();
+            await jest.advanceTimersByTimeAsync(5000);
+            await done;
+            jest.useRealTimers();
+
+            expect(playlistSyncService.getMode()).toBe('desktop-to-mobile');
+            expect(mockSent.map(m => m.type)).toEqual(['get-playlists']);
+        });
+
+        it('persists the desktop-reported mode for the next offline launch', async () => {
+            await markBootstrapped();
+            mockSyncMode = 'mobile-to-desktop';
+
+            await playlistSyncService.sync();
+
+            expect(mockDb.setSetting).toHaveBeenCalledWith('playlistSyncMode', 'mobile-to-desktop');
+            expect(playlistSyncService.getMode()).toBe('mobile-to-desktop');
+        });
     });
 
     // Without this guard, a local playlist whose create op has not flushed yet would be
@@ -303,6 +440,7 @@ describe('PlaylistSyncService', () => {
         mockDb.deletePlaylistOpsUpTo.mockImplementation(async () => { /* op stays queued */ });
         (require('../services/WebSocketService').webSocketService.send as jest.Mock)
             .mockImplementation((type: string, payload: any) => {
+                if (type === 'get-playlist-sync-mode') return mockEmit('playlist-sync-mode', mockSyncMode);
                 mockSent.push({ type, payload });
                 if (type === 'get-playlists') mockEmit('playlists-data', []);
             });
@@ -347,9 +485,15 @@ describe('PlaylistSyncService', () => {
 
         mockConnected = true;
         const { webSocketService } = require('../services/WebSocketService');
-        (webSocketService.send as jest.Mock).mockImplementationOnce((type: string, payload: any) => {
-            mockSent.push({ type, payload });
-            mockConnected = false; // socket dies after the first op goes out
+        let died = false;
+        (webSocketService.send as jest.Mock).mockImplementation((type: string, payload: any) => {
+            if (type === 'update-playlist' && !died) {
+                died = true;
+                mockSent.push({ type, payload });
+                mockConnected = false; // socket dies after the first op goes out
+                return;
+            }
+            mockDefaultSend(type, payload);
         });
 
         await playlistSyncService.sync();

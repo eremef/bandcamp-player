@@ -34,6 +34,11 @@ const SERIALIZED_MESSAGE_TYPES = new Set([
     'get-playlist-for-export',
 ]);
 
+/** The mutating subset of the above — gated by the desktop's playlist sync mode. */
+const PLAYLIST_MUTATING_TYPES = new Set([...SERIALIZED_MESSAGE_TYPES].filter(
+    t => t !== 'get-playlists' && t !== 'get-playlist-for-export'
+));
+
 export class RemoteControlService extends EventEmitter {
     private server: any;
     private wss: WebSocketServer | null = null;
@@ -332,6 +337,18 @@ export class RemoteControlService extends EventEmitter {
     private async handleMessage(ws: WebSocket, message: { type: string; payload?: any }, clientId: string): Promise<void> {
         const { type, payload } = message;
 
+        // The mode is set on the desktop and is authoritative. Mobile builds predating it
+        // push unconditionally, and the desktop auto-updates while the phone does not.
+        // Keyed on deviceInfo, which only `identify` sets: the web remote (client.js) never
+        // sends it, so the browser keeps full editing regardless of the mode.
+        if (PLAYLIST_MUTATING_TYPES.has(type) && this.clients.get(clientId)?.deviceInfo) {
+            const mode = this.database.getSettings()?.playlistSyncMode ?? 'two-way';
+            if (mode === 'desktop-to-mobile' || mode === 'disabled') {
+                console.log(`[RemoteService] Dropped ${type} from mobile client (sync mode: ${mode})`);
+                return;
+            }
+        }
+
         switch (type) {
             case 'identify': {
                 const client = this.clients.get(clientId);
@@ -507,6 +524,10 @@ export class RemoteControlService extends EventEmitter {
                 }
                 break;
             }
+            case 'get-playlist-sync-mode':
+                this.sendToClient(ws, 'playlist-sync-mode',
+                    this.database.getSettings()?.playlistSyncMode ?? 'two-way');
+                break;
             case 'get-playlists': {
                 const playlists = this.playlistService.getAll();
                 this.sendToClient(ws, 'playlists-data', playlists);

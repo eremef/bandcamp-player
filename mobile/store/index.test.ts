@@ -129,6 +129,7 @@ jest.mock('../services/PlaylistSyncService', () => ({
     playlistSyncService: {
         sync: jest.fn().mockResolvedValue(undefined),
         getDroppedCount: jest.fn().mockReturnValue(0),
+        getMode: jest.fn().mockReturnValue('two-way'),
     },
 }));
 
@@ -171,6 +172,8 @@ describe('Mobile useStore', () => {
             queue: { items: [], currentIndex: -1 },
             auth: { isAuthenticated: false, user: null },
             collectionError: null,
+            playlistSyncEnabled: true,
+            playlistSyncMode: 'two-way',
         });
 
         jest.clearAllMocks();
@@ -1043,5 +1046,102 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().isShuffled).toBe(true);
             expect(useStore.getState().repeatMode).toBe('one');
         });
+    });
+});
+
+// The desktop owns the sync mode; the phone mirrors it and gates its own writes on it.
+describe('Playlist sync modes', () => {
+    const { mobileDatabase } = require('../services/MobileDatabase');
+    const { Alert } = require('react-native');
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        useStore.setState({
+            mode: 'remote',
+            connectionStatus: 'connected',
+            playlistSyncEnabled: true,
+            playlistSyncMode: 'two-way',
+        });
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('pushes edits straight to the desktop in two-way mode', async () => {
+        await act(async () => { useStore.getState().createPlaylist('P'); });
+
+        expect(webSocketService.send).toHaveBeenCalledWith('create-playlist', { name: 'P', description: undefined });
+        expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('blocks every playlist mutation in desktop-to-mobile', async () => {
+        useStore.setState({ playlistSyncMode: 'desktop-to-mobile' });
+        const s = useStore.getState();
+
+        await act(async () => {
+            s.createPlaylist('P');
+            s.renamePlaylist('p1', 'P2');
+            s.deletePlaylist('p1');
+            await s.addTrackToPlaylist('p1', { id: 't1' } as any);
+            s.removeTrackFromPlaylist('p1', 'e1');
+            s.reorderPlaylistTracks('p1', 0, 1);
+            await s.addAlbumToPlaylist('p1', 'url');
+            await s.addStationToPlaylist('p1', { id: 'st1' } as any);
+            await s.extractRadioToPlaylist('p1', { id: 'st1' } as any);
+            await s.importPlaylist();
+        });
+
+        expect(Alert.alert).toHaveBeenCalledTimes(10);
+        expect(webSocketService.send).not.toHaveBeenCalled();
+        expect(mobileDatabase.createPlaylist).not.toHaveBeenCalled();
+        expect(mobileDatabase.addTrackToPlaylist).not.toHaveBeenCalled();
+    });
+
+    /** `refreshPlaylists` legitimately sends `get-bandcamp-playlists`; ignore reads. */
+    const mutatingSends = () => (webSocketService.send as jest.Mock).mock.calls
+        .filter(([type]) => String(type).includes('playlist') && !String(type).startsWith('get-'));
+
+    it('stays editable but silent when sync is disabled', async () => {
+        useStore.setState({ playlistSyncMode: 'disabled' });
+
+        await act(async () => { useStore.getState().createPlaylist('Local only'); });
+
+        // Editable, written locally, but nothing is sent or queued for replay.
+        expect(mobileDatabase.createPlaylist).toHaveBeenCalledWith('Local only');
+        expect(mutatingSends()).toHaveLength(0);
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('queuePlaylistOp is inert when pushes are not allowed', async () => {
+        useStore.setState({ playlistSyncMode: 'desktop-to-mobile' });
+
+        await act(async () => { useStore.getState().queuePlaylistOp('delete-playlist', 'p1'); });
+
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('the phone switch alone stops pushes but keeps editing', async () => {
+        useStore.setState({ playlistSyncEnabled: false });
+
+        await act(async () => { useStore.getState().createPlaylist('P'); });
+
+        expect(mutatingSends()).toHaveLength(0);
+        expect(mobileDatabase.createPlaylist).toHaveBeenCalledWith('P');
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('persists the switch and mirrors the desktop mode after a sync', async () => {
+        const { playlistSyncService } = require('../services/PlaylistSyncService');
+        playlistSyncService.getMode.mockReturnValue('mobile-to-desktop');
+
+        await act(async () => { await useStore.getState().togglePlaylistSync(); });
+        await act(async () => { await useStore.getState().syncPlaylists(); });
+
+        expect(mobileDatabase.setSetting).toHaveBeenCalledWith('playlistSyncEnabled', false);
+        expect(useStore.getState().playlistSyncEnabled).toBe(false);
+        expect(useStore.getState().playlistSyncMode).toBe('mobile-to-desktop');
     });
 });

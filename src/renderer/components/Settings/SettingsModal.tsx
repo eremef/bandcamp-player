@@ -492,6 +492,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             </label>
                         </div>
 
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Playlist Sync</span>
+                                <span className={styles.settingHint}>Set here for all devices. Desktop &rarr; Mobile makes phones read-only.</span>
+                            </div>
+                            <select
+                                className={styles.selectInput}
+                                value={settings?.playlistSyncMode || 'two-way'}
+                                onChange={(e) => updateSettings({ playlistSyncMode: e.target.value as any })}
+                                data-testid="setting-playlist-sync-mode"
+                            >
+                                <option value="two-way">Two-way</option>
+                                <option value="desktop-to-mobile">Desktop &rarr; Mobile</option>
+                                <option value="mobile-to-desktop">Mobile &rarr; Desktop</option>
+                                <option value="disabled">Disabled</option>
+                            </select>
+                        </div>
+
                         {settings?.remoteEnabled && remoteStatus && (
                             <div className={styles.remoteInfo}>
                                 <div className={styles.remoteDetails}>

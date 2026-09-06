@@ -20,6 +20,7 @@ export default function PlaylistsScreen() {
     const deletePlaylist = useStore((state) => state.deletePlaylist);
     const importPlaylist = useStore((state) => state.importPlaylist);
     const exportPlaylist = useStore((state) => state.exportPlaylist);
+    const canEdit = useStore((state) => state.canEditPlaylists());
 
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -85,18 +86,22 @@ export default function PlaylistsScreen() {
             return (
                 <View style={[styles.center, { marginTop: 40, paddingBottom: 40 }]}>
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No playlists found</Text>
-                    <TouchableOpacity
-                        style={[styles.createButton, { backgroundColor: colors.accent }]}
-                        onPress={() => setCreateModalVisible(true)}
-                    >
-                        <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.createButton, { backgroundColor: colors.card, marginTop: 12, borderWidth: 1, borderColor: colors.border }]}
-                        onPress={importPlaylist}
-                    >
-                        <Text style={[styles.createButtonText, { color: colors.text }]}>Import Playlist</Text>
-                    </TouchableOpacity>
+                    {canEdit && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.createButton, { backgroundColor: colors.accent }]}
+                                onPress={() => setCreateModalVisible(true)}
+                            >
+                                <Text style={[styles.createButtonText, { color: '#fff' }]}>Create Playlist</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.createButton, { backgroundColor: colors.card, marginTop: 12, borderWidth: 1, borderColor: colors.border }]}
+                                onPress={importPlaylist}
+                            >
+                                <Text style={[styles.createButtonText, { color: colors.text }]}>Import Playlist</Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             );
         }
@@ -139,7 +144,7 @@ export default function PlaylistsScreen() {
     const renderSectionHeader = ({ section: { title } }: { section: { title: string } }) => (
         <View style={styles.sectionHeaderContainer}>
             <Text style={[styles.sectionHeader, { color: colors.text }]}>{title}</Text>
-            {title === 'Local Playlists' && (
+            {title === 'Local Playlists' && canEdit && (
                 <View style={styles.headerButtons}>
                     <TouchableOpacity
                         style={[styles.createSmallButton, { backgroundColor: colors.card, marginRight: 8, borderWidth: 1, borderColor: colors.border }]}
