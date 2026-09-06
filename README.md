@@ -47,6 +47,7 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching
 - 🔄 **Auto-Refresh** - Collection automatically updates in the background every 4 hours when idle
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
+- 🔁 **Playlist Sync** - Keep local playlists in step with the mobile app, with the direction set on the desktop (see [Playlist Sync](#playlist-sync))
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - Manage remote sessions with device identification
 - 🖥️ **Mini Player** - Compact floating player window
@@ -194,6 +195,35 @@ src/
 8. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 9. **Offline Mode** - Download tracks via the context menu for offline playback
 
+## Playlist Sync
+
+Your own (non-Bandcamp) playlists are shared between the desktop and the mobile app. The
+desktop is authoritative: its playlist ids are the shared identity, and **Settings → Remote
+Control → Playlist Sync** picks the direction for every connected phone.
+
+| Mode | Desktop → phone | Phone → desktop | Playlists editable on the phone |
+|---|---|---|---|
+| **Two-way** (default) | yes | yes | yes |
+| **Desktop → Mobile** | yes | no | no — read-only mirror |
+| **Mobile → Desktop** | no | yes | yes |
+| **Disabled** | no | no | yes, purely local |
+
+The phone has its own **Sync Playlists** switch in Settings, which can only turn syncing off —
+it can never enable a direction the desktop has disabled. The current desktop mode is shown
+underneath it.
+
+Notes:
+
+- Edits made while the desktop is unreachable are queued and replayed on the next connect, so
+  a playlist created on the plane arrives as the *same* playlist on both devices.
+- Conflicts resolve last-write-wins. This is a single-user feature; there is no merge UI.
+- Playlists created on the phone (or imported from a file) are **never deleted** by a sync,
+  even in `Desktop → Mobile`. They simply stay local until a mode that can push sends them up.
+- Playlists with the same name on both devices are two distinct playlists, never merged — you
+  will see both, and can delete the one you don't want.
+- Bandcamp's own playlists are read-only everywhere and are not part of this.
+- The browser remote is unaffected by the mode and can always edit playlists.
+
 ## Mobile App (Remote control & Standalone Player)
 
 The project includes a companion mobile application (Android/iOS) in the `mobile/` directory.
@@ -206,6 +236,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
 - 📋 **Queue Management** - View and manage the playback queue
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
+- 🔁 **Playlist Sync** - Local playlists mirror the desktop's, including edits made offline (see [Playlist Sync](#playlist-sync))
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
 - 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🔍 **Auto Discovery & Sync** - Automatic local network discovery with real-time sorting/filtering synchronization with Host

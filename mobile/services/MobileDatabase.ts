@@ -34,6 +34,9 @@ export class MobileDatabase {
         if (!this.db) return;
         await this.db.execAsync(`
             PRAGMA journal_mode = WAL;
+            -- Per-connection pragma: without it ON DELETE CASCADE is inert and a deleted
+            -- playlist leaves orphan playlist_tracks rows behind.
+            PRAGMA foreign_keys = ON;
             
             CREATE TABLE IF NOT EXISTS collection_cache (
                 id TEXT PRIMARY KEY,
@@ -101,7 +104,10 @@ export class MobileDatabase {
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                -- 1 only for playlists mirrored from the desktop; the sync's
+                -- delete-on-absence is limited to those (see PlaylistSyncService.pull).
+                from_desktop INTEGER DEFAULT 0
             );
             
             -- ... rest of playlists and other tables ...
@@ -112,6 +118,18 @@ export class MobileDatabase {
                 position INTEGER NOT NULL,
                 added_at TEXT NOT NULL,
                 FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist
+                ON playlist_tracks(playlist_id, position);
+
+            -- Outbox: playlist edits made while the desktop is unreachable, replayed FIFO
+            -- on the next connect. See PlaylistSyncService.
+            CREATE TABLE IF NOT EXISTS playlist_ops (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                type TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at TEXT NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS artists (
@@ -162,6 +180,18 @@ export class MobileDatabase {
             console.error('[MobileDatabase] Migration failed (is_wishlist):', e);
         }
 
+        // Migration: add from_desktop column to playlists if missing
+        try {
+            const tableInfo = await this.db.getAllAsync<any>("PRAGMA table_info(playlists)");
+            const hasFromDesktop = tableInfo.some(col => col.name === 'from_desktop');
+            if (!hasFromDesktop) {
+                console.log('[MobileDatabase] Migrating: Adding from_desktop column to playlists');
+                await this.db.execAsync("ALTER TABLE playlists ADD COLUMN from_desktop INTEGER DEFAULT 0");
+            }
+        } catch (e) {
+            console.error('[MobileDatabase] Migration failed (from_desktop):', e);
+        }
+
         // Migration for FTS5: Drop and recreate if it was incorrectly created with external content
         try {
             const ftsInfo = await this.db.getAllAsync<any>("SELECT sql FROM sqlite_master WHERE name='collection_search_fts'");
@@ -178,6 +208,16 @@ export class MobileDatabase {
             }
         } catch (e) {
             console.error('[MobileDatabase] FTS Migration failed:', e);
+        }
+
+        // Clear orphans left behind while the foreign_keys pragma was never enabled —
+        // otherwise they resurrect if the same playlist id later comes back from the desktop.
+        try {
+            await this.db.runAsync(
+                'DELETE FROM playlist_tracks WHERE playlist_id NOT IN (SELECT id FROM playlists)'
+            );
+        } catch (e) {
+            console.error('[MobileDatabase] Orphan playlist_tracks cleanup failed:', e);
         }
     }
 
@@ -585,13 +625,14 @@ export class MobileDatabase {
         return result;
     }
 
-    async createPlaylist(name: string): Promise<Playlist> {
+    /** `id` is supplied when mirroring a desktop playlist so both devices share one id. */
+    async createPlaylist(name: string, id?: string): Promise<Playlist> {
         if (!this.db) await this.init();
-        const id = this.generateUUID();
+        id = id ?? this.generateUUID();
         const now = new Date().toISOString();
 
         await this.db!.runAsync(
-            'INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            'INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
             [id, name, now, now]
         );
 
@@ -606,26 +647,39 @@ export class MobileDatabase {
         };
     }
 
-    async importPlaylist(playlist: Playlist): Promise<void> {
+    /**
+     * @param keepIds when true the playlist and entry ids from `playlist` are preserved —
+     * used by the sync path, where the desktop's ids are the shared identity. File imports
+     * leave it false so importing the same file twice yields two playlists.
+     */
+    async importPlaylist(playlist: Playlist, keepIds = false): Promise<string> {
         if (!this.db) await this.init();
 
+        const newId = keepIds && playlist.id ? playlist.id : this.generateUUID();
+        const entryIds: string[] = [];
         const release = await this.acquireLock();
         try {
             await this.db!.withTransactionAsync(async () => {
-                const newId = this.generateUUID();
                 const now = new Date().toISOString();
+                if (keepIds) {
+                    await this.db!.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ?', [newId]);
+                    await this.db!.runAsync('DELETE FROM playlists WHERE id = ?', [newId]);
+                }
                 await this.db!.runAsync(
-                    'INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
-                    [newId, playlist.name, playlist.createdAt || now, playlist.updatedAt || now]
+                    'INSERT INTO playlists (id, name, created_at, updated_at, from_desktop) VALUES (?, ?, ?, ?, ?)',
+                    [newId, playlist.name, playlist.createdAt || now, playlist.updatedAt || now, keepIds ? 1 : 0]
                 );
 
                 if (playlist.tracks && playlist.tracks.length > 0) {
+                    for (const t of playlist.tracks as any[]) {
+                        entryIds.push((keepIds && t.playlistEntryId) ? t.playlistEntryId : this.generateUUID());
+                    }
                     const BATCH_SIZE = 100;
                     for (let i = 0; i < playlist.tracks.length; i += BATCH_SIZE) {
                         const batch = playlist.tracks.slice(i, i + BATCH_SIZE);
                         const placeholders = batch.map(() => '(?, ?, ?, ?, ?)').join(', ');
-                        const params = batch.flatMap((t, idx) => [
-                            this.generateUUID(),
+                        const params = batch.flatMap((t: any, idx) => [
+                            entryIds[i + idx],
                             newId,
                             JSON.stringify(t),
                             i + idx,
@@ -641,10 +695,15 @@ export class MobileDatabase {
         } finally {
             release();
         }
+
+        return newId;
     }
 
     async deletePlaylist(id: string) {
         if (!this.db) await this.init();
+        // Explicit, not relying on the CASCADE: the foreign_keys pragma is per-connection
+        // and easy to lose, and orphan rows resurrect if the id later returns from the desktop.
+        await this.db!.runAsync('DELETE FROM playlist_tracks WHERE playlist_id = ?', [id]);
         await this.db!.runAsync('DELETE FROM playlists WHERE id = ?', [id]);
     }
 
@@ -657,7 +716,8 @@ export class MobileDatabase {
         );
     }
 
-    async addTrackToPlaylist(playlistId: string, track: any) {
+    /** Returns the playlist entry id — the sync outbox records it so the desktop reuses it. */
+    async addTrackToPlaylist(playlistId: string, track: any, entryId?: string): Promise<string> {
         if (!this.db) await this.init();
 
         // Get current max position
@@ -666,11 +726,11 @@ export class MobileDatabase {
             [playlistId]
         );
         const position = (result?.max_pos ?? -1) + 1;
-        const id = this.generateUUID();
+        const id = entryId ?? this.generateUUID();
         const now = new Date().toISOString();
 
         await this.db!.runAsync(
-            'INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING',
             [id, playlistId, JSON.stringify(track), position, now]
         );
 
@@ -679,15 +739,22 @@ export class MobileDatabase {
             'UPDATE playlists SET updated_at = ? WHERE id = ?',
             [now, playlistId]
         );
+
+        return id;
     }
 
+    /**
+     * Removes exactly one entry, matching the desktop. The old `OR json_extract(...$.id)`
+     * clause removed *every* copy of a duplicated track, which made a replayed removal
+     * flap forever against the desktop's single-entry delete.
+     */
     async removeTrackFromPlaylist(playlistId: string, trackId: string) {
         if (!this.db) await this.init();
         const now = new Date().toISOString();
-        
+
         await this.db!.runAsync(
-            'DELETE FROM playlist_tracks WHERE playlist_id = ? AND (id = ? OR json_extract(track_data, "$.id") = ?)',
-            [playlistId, trackId, trackId]
+            'DELETE FROM playlist_tracks WHERE playlist_id = ? AND id = ?',
+            [playlistId, trackId]
         );
         
         await this.db!.runAsync(
@@ -727,6 +794,62 @@ export class MobileDatabase {
         } finally {
             release();
         }
+    }
+
+    /** Entry ids in current order — the absolute order a reorder op ships to the desktop. */
+    async getPlaylistEntryIds(playlistId: string): Promise<string[]> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<{ id: string }>(
+            'SELECT id FROM playlist_tracks WHERE playlist_id = ? ORDER BY position ASC',
+            [playlistId]
+        );
+        return rows.map(r => r.id);
+    }
+
+    /** Cheap shape for the sync diff — no track_data parsing. */
+    async getPlaylistSummaries(): Promise<Array<{ id: string; updatedAt: string; trackCount: number; fromDesktop: boolean }>> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<{ id: string; updated_at: string; track_count: number; from_desktop: number }>(
+            `SELECT p.id, p.updated_at, p.from_desktop,
+                (SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = p.id) as track_count
+             FROM playlists p`
+        );
+        return rows.map(r => ({
+            id: r.id,
+            updatedAt: r.updated_at,
+            trackCount: r.track_count,
+            fromDesktop: !!r.from_desktop,
+        }));
+    }
+
+    // --- Playlist sync outbox ---
+
+    async enqueuePlaylistOp(type: string, payload: any): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync(
+            'INSERT INTO playlist_ops (type, payload, created_at) VALUES (?, ?, ?)',
+            [type, JSON.stringify(payload), new Date().toISOString()]
+        );
+    }
+
+    async getPlaylistOps(): Promise<Array<{ id: number; type: string; payload: any }>> {
+        if (!this.db) await this.init();
+        const rows = await this.db!.getAllAsync<{ id: number; type: string; payload: string }>(
+            'SELECT id, type, payload FROM playlist_ops ORDER BY id ASC'
+        );
+        return rows.map(r => ({ id: r.id, type: r.type, payload: JSON.parse(r.payload) }));
+    }
+
+    /** Only up to `maxId`: ops appended while a flush was in flight must survive it (H3). */
+    async deletePlaylistOpsUpTo(maxId: number): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM playlist_ops WHERE id <= ?', [maxId]);
+    }
+
+    async countPlaylistOps(): Promise<number> {
+        if (!this.db) await this.init();
+        const row = await this.db!.getFirstAsync<{ count: number }>('SELECT COUNT(*) as count FROM playlist_ops');
+        return row?.count ?? 0;
     }
 
     // --- Scrobble Queue ---

@@ -18,6 +18,27 @@ import {
 } from 'lucide';
 import { sortCollectionItems } from '../../shared/utils/collection-utils';
 
+/** Message types processed strictly in send order, per connection (see ws.on('message')). */
+const SERIALIZED_MESSAGE_TYPES = new Set([
+    'create-playlist',
+    'update-playlist',
+    'delete-playlist',
+    'import-playlist',
+    'add-track-to-playlist',
+    'add-album-to-playlist',
+    'remove-track-from-playlist',
+    'reorder-playlist-tracks',
+    'add-station-to-playlist',
+    'extract-radio-to-playlist',
+    'get-playlists',
+    'get-playlist-for-export',
+]);
+
+/** The mutating subset of the above — gated by the desktop's playlist sync mode. */
+const PLAYLIST_MUTATING_TYPES = new Set([...SERIALIZED_MESSAGE_TYPES].filter(
+    t => t !== 'get-playlists' && t !== 'get-playlist-for-export'
+));
+
 export class RemoteControlService extends EventEmitter {
     private server: any;
     private wss: WebSocketServer | null = null;
@@ -79,9 +100,17 @@ export class RemoteControlService extends EventEmitter {
     private handleStateChanged = (state: any) => this.broadcast('state-changed', state);
     private handleTrackChanged = (track: any) => this.broadcast('track-changed', track);
     private handleTimeUpdate = (data: any) => this.broadcast('time-update', data);
+    private playlistsBroadcastTimer: ReturnType<typeof setTimeout> | null = null;
+    /**
+     * Trailing-debounced: every playlist mutation emits 'playlists-changed', so a 20-track
+     * album add would otherwise spray 20 full-snapshot broadcasts at every connected client.
+     */
     private handlePlaylistsChanged = () => {
-        const playlists = this.playlistService.getAll();
-        this.broadcast('playlists-data', playlists);
+        if (this.playlistsBroadcastTimer) return;
+        this.playlistsBroadcastTimer = setTimeout(() => {
+            this.playlistsBroadcastTimer = null;
+            this.broadcast('playlists-data', this.playlistService.getAll());
+        }, 150);
     };
     private handleQueueUpdated = () => {
         this.broadcast('state-changed', this.playerService.getState());
@@ -127,6 +156,13 @@ export class RemoteControlService extends EventEmitter {
             // Send initial state
             this.sendToClient(ws, 'state-changed', this.playerService.getState());
 
+            // Playlist messages must be processed in send order: handleMessage is an
+            // un-awaited async handler, so without this a batch flushed by the mobile
+            // client interleaves at every await (e.g. a track resolve hitting the network)
+            // and lands out of order. Scoped to playlist traffic only — transport commands
+            // like `pause` must never queue behind a slow scrape.
+            let playlistChain: Promise<void> = Promise.resolve();
+
             ws.on('message', async (data: string) => {
                 try {
                     // Update activity
@@ -136,7 +172,16 @@ export class RemoteControlService extends EventEmitter {
                     }
 
                     const message = JSON.parse(data);
-                    await this.handleMessage(ws, message, clientId);
+                    if (SERIALIZED_MESSAGE_TYPES.has(message.type)) {
+                        playlistChain = playlistChain.then(() =>
+                            this.handleMessage(ws, message, clientId).catch((err) =>
+                                console.error('[RemoteService] Error handling message:', err)
+                            )
+                        );
+                        await playlistChain;
+                    } else {
+                        await this.handleMessage(ws, message, clientId);
+                    }
                 } catch (err) {
                     console.error('[RemoteService] Error handling message:', err);
                 }
@@ -178,6 +223,10 @@ export class RemoteControlService extends EventEmitter {
         this.playerService.off('time-update', this.handleTimeUpdate);
         this.playerService.off('queue-updated', this.handleQueueUpdated);
         this.playlistService.off('playlists-changed', this.handlePlaylistsChanged);
+        if (this.playlistsBroadcastTimer) {
+            clearTimeout(this.playlistsBroadcastTimer);
+            this.playlistsBroadcastTimer = null;
+        }
 
         // Explicitly close all connected clients
         this.clients.forEach((client) => {
@@ -287,6 +336,18 @@ export class RemoteControlService extends EventEmitter {
 
     private async handleMessage(ws: WebSocket, message: { type: string; payload?: any }, clientId: string): Promise<void> {
         const { type, payload } = message;
+
+        // The mode is set on the desktop and is authoritative. Mobile builds predating it
+        // push unconditionally, and the desktop auto-updates while the phone does not.
+        // Keyed on deviceInfo, which only `identify` sets: the web remote (client.js) never
+        // sends it, so the browser keeps full editing regardless of the mode.
+        if (PLAYLIST_MUTATING_TYPES.has(type) && this.clients.get(clientId)?.deviceInfo) {
+            const mode = this.database.getSettings()?.playlistSyncMode ?? 'two-way';
+            if (mode === 'desktop-to-mobile' || mode === 'disabled') {
+                console.log(`[RemoteService] Dropped ${type} from mobile client (sync mode: ${mode})`);
+                return;
+            }
+        }
 
         switch (type) {
             case 'identify': {
@@ -463,6 +524,10 @@ export class RemoteControlService extends EventEmitter {
                 }
                 break;
             }
+            case 'get-playlist-sync-mode':
+                this.sendToClient(ws, 'playlist-sync-mode',
+                    this.database.getSettings()?.playlistSyncMode ?? 'two-way');
+                break;
             case 'get-playlists': {
                 const playlists = this.playlistService.getAll();
                 this.sendToClient(ws, 'playlists-data', playlists);
@@ -501,8 +566,8 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'create-playlist': {
-                const { name, description } = payload;
-                this.playlistService.create({ name, description });
+                const { id, name, description } = payload;
+                this.playlistService.create({ id, name, description });
                 break;
             }
             case 'import-playlist': {
@@ -511,6 +576,10 @@ export class RemoteControlService extends EventEmitter {
                     console.error('[RemoteService] Invalid import-playlist payload');
                     break;
                 }
+                // Deliberately *not* honouring importedData.id / playlistEntryId: this is a
+                // file import, and an exported file carries the ids it was exported with —
+                // reusing them would silently merge into the existing playlist. The sync
+                // flush never comes through here; it decomposes into create + add-track ops.
                 const newPlaylist = this.playlistService.create({ name: importedData.name, description: importedData.description });
                 if (importedData.tracks && importedData.tracks.length > 0) {
                     this.playlistService.addTracks(newPlaylist.id, importedData.tracks);
@@ -557,8 +626,12 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'reorder-playlist-tracks': {
-                const { playlistId, from, to } = payload;
-                this.playlistService.reorderTracks(playlistId, from, to);
+                const { playlistId, from, to, orderedEntryIds } = payload;
+                if (Array.isArray(orderedEntryIds)) {
+                    this.playlistService.setTrackOrder(playlistId, orderedEntryIds);
+                } else {
+                    this.playlistService.reorderTracks(playlistId, from, to);
+                }
                 break;
             }
             case 'toggle-shuffle':
@@ -663,9 +736,18 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'add-track-to-playlist': {
+                // Bulk form: already-resolved entries, so nothing here hits the network.
+                if (Array.isArray(payload.tracks)) {
+                    for (const entry of payload.tracks) {
+                        if (entry?.track) {
+                            this.playlistService.addTrack(payload.playlistId, entry.track, entry.entryId);
+                        }
+                    }
+                    break;
+                }
                 const track = await this.resolveTrack(payload.track);
                 if (track) {
-                    this.playlistService.addTrack(payload.playlistId, track);
+                    this.playlistService.addTrack(payload.playlistId, track, payload.entryId);
                 }
                 break;
             }

@@ -44,6 +44,7 @@ describe('PlaylistService', () => {
             addTrackToPlaylist: vi.fn(),
             removeTrackFromPlaylist: vi.fn(),
             reorderPlaylistTracks: vi.fn(),
+            setPlaylistTrackOrder: vi.fn(),
         };
 
         playlistService = new PlaylistService(mockDatabase as unknown as Database);
@@ -105,11 +106,32 @@ describe('PlaylistService', () => {
             const emitSpy = vi.spyOn(playlistService, 'emit');
             playlistService.addTrack('1', mockTrack);
 
+            // A uuid, not `${playlistId}-${trackId}-${Date.now()}`: the old form collided
+            // when the same track was added twice inside one millisecond.
             expect(mockDatabase.addTrackToPlaylist).toHaveBeenCalledWith(
                 '1',
-                expect.stringContaining('1-track-1-'),
+                expect.any(String),
                 mockTrack
             );
+            expect(mockDatabase.addTrackToPlaylist.mock.calls[0][1]).not.toContain('track-1');
+            expect(emitSpy).toHaveBeenCalledWith('playlists-changed');
+        });
+
+        // The mobile sync replays edits with the ids they were given while offline, so both
+        // devices end up keyed on the same identity.
+        it('should honour caller-supplied ids', () => {
+            playlistService.create({ id: 'given-id', name: 'P' });
+            expect(mockDatabase.createPlaylist).toHaveBeenCalledWith('given-id', 'P', undefined);
+
+            playlistService.addTrack('1', mockTrack, 'given-entry');
+            expect(mockDatabase.addTrackToPlaylist).toHaveBeenCalledWith('1', 'given-entry', mockTrack);
+        });
+
+        it('should set an absolute track order', () => {
+            const emitSpy = vi.spyOn(playlistService, 'emit');
+            playlistService.setTrackOrder('1', ['e2', 'e1']);
+
+            expect(mockDatabase.setPlaylistTrackOrder).toHaveBeenCalledWith('1', ['e2', 'e1']);
             expect(emitSpy).toHaveBeenCalledWith('playlists-changed');
         });
 

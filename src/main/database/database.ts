@@ -200,6 +200,7 @@ export class Database {
       scrobblingEnabled: true,
       scrobbleThreshold: 50,
       remoteEnabled: true,
+      playlistSyncMode: "two-way",
       discordRpcEnabled: false,
       theme: "system",
       allowBetaUpdates: false,
@@ -370,6 +371,7 @@ export class Database {
         `
       INSERT INTO playlists (id, name, description, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO NOTHING
     `,
       )
       .run(id, name, description || null, now, now);
@@ -430,6 +432,7 @@ export class Database {
         `
       INSERT INTO playlist_tracks (id, playlist_id, track_data, position, added_at)
       VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO NOTHING
     `,
       )
       .run(trackId, playlistId, JSON.stringify(track), position, now);
@@ -516,13 +519,47 @@ export class Database {
     const [moved] = tracks.splice(fromIndex, 1);
     tracks.splice(toIndex, 0, moved);
 
+    this.writePositions(playlistId, tracks.map((t) => t.id));
+  }
+
+  /**
+   * Reorder by absolute entry-id list instead of a from/to index pair.
+   *
+   * Contract (a stale list from an offline client must never truncate a playlist):
+   * - entries named in `orderedEntryIds` are placed in that order, first;
+   * - entries present in the DB but absent from the list keep their relative order
+   *   and are appended after them;
+   * - ids in the list that are not in the DB are ignored.
+   */
+  setPlaylistTrackOrder(playlistId: string, orderedEntryIds: string[]): void {
+    const existing = this.db
+      .prepare(
+        "SELECT id FROM playlist_tracks WHERE playlist_id = ? ORDER BY position",
+      )
+      .all(playlistId) as Array<{ id: string }>;
+
+    const known = new Set(existing.map((r) => r.id));
+    const named = orderedEntryIds.filter((id) => known.has(id));
+    const namedSet = new Set(named);
+    const rest = existing.map((r) => r.id).filter((id) => !namedSet.has(id));
+
+    this.writePositions(playlistId, [...named, ...rest]);
+  }
+
+  private writePositions(playlistId: string, orderedEntryIds: string[]): void {
     const updateStmt = this.db.prepare(
       "UPDATE playlist_tracks SET position = ? WHERE id = ?",
     );
+    const touchStmt = this.db.prepare(
+      "UPDATE playlists SET updated_at = ? WHERE id = ?",
+    );
+    const now = new Date().toISOString();
     const transaction = this.db.transaction(() => {
-      tracks.forEach((track, index) => {
-        updateStmt.run(index, track.id);
+      orderedEntryIds.forEach((id, index) => {
+        updateStmt.run(index, id);
       });
+      // Without this the phone's timestamp-based pull never sees a desktop reorder.
+      touchStmt.run(now, playlistId);
     });
     transaction();
   }

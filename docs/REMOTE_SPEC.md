@@ -94,19 +94,25 @@ Result of a `get-playlists` request.
 
 - **Payload**: [`Playlist[]`](#playlist)
 
-### `collection-state-changed`
+### `playlist-sync-mode`
 
-Sent when the host's collection sorting or filtering state changes.
+Result of a `get-playlist-sync-mode` request: the desktop's playlist sync mode.
 
-- **Payload**:
+- **Payload**: `'two-way' | 'desktop-to-mobile' | 'mobile-to-desktop' | 'disabled'`
 
-  ```json
-  {
-    "sortKey": "string",
-    "sortDirection": "asc | desc",
-    "filters": { "albums": "boolean", "tracks": "boolean", "wishlist": "boolean" }
-  }
-  ```
+### `export-playlist-data`
+
+Result of a `get-playlist-for-export` request: one playlist **with** its tracks. Each track
+carries a `playlistEntryId` — the id of the playlist entry, distinct from the track id, and
+the handle used to remove or reorder that specific entry.
+
+- **Payload**: [`Playlist`](#playlist)
+
+> [!NOTE]
+> `playlists-data` is broadcast to **every** connected client whenever the host's playlists
+> change, trailing-debounced by ~150 ms. Its playlists have `tracks: []`; treat it as a
+> change notification plus a cheap `(id, updatedAt, trackCount)` diff key, and fetch the
+> playlists that actually changed with `get-playlist-for-export`.
 
 ---
 
@@ -140,17 +146,22 @@ Clients send these messages to control the player.
     > `forceRefresh` defaults to `false`. If `true`, it triggers a fresh scrape from Bandcamp. If `false`, it returns cached data (much faster), filtering by `query` if provided.
     > The host uses the provided `sortKey`, `sortDirection`, and `filters` to return paginated results correctly sorted on the server.
 - `get-radio-stations`: Requests available radio stations. Result comes via `radio-data`.
-- `get-playlists`: Requests user playlists. Result comes via `playlists-data`.
-- `set-collection-state`: Updates the host's collection sorting and filtering state.
-  - **Payload**:
- 
-    ```json
-    {
-      "sortKey": "string",
-      "sortDirection": "asc | desc",
-      "filters": { "albums": "boolean", "tracks": "boolean", "wishlist": "boolean" }
-    }
-    ```
+- `get-playlists`: Requests user playlists (tracks stripped). Result comes via `playlists-data`.
+- `get-playlist-for-export`: Requests one playlist with its tracks. Result comes via `export-playlist-data`.
+  - **Payload**: `string` (playlist id)
+- `get-playlist-sync-mode`: Requests the desktop's playlist sync mode. Result comes via `playlist-sync-mode`.
+
+> [!IMPORTANT]
+> The sync mode is set on the desktop and is authoritative. In `desktop-to-mobile` and
+> `disabled` the host **silently drops** every playlist-mutating message from a client that
+> has sent `identify` (i.e. the mobile app); reads are never blocked. Clients that never
+> `identify` — the built-in web remote — are unaffected. There is no push notification when
+> the mode changes: re-request it whenever it matters.
+
+> [!NOTE]
+> There is no host-side collection sort/filter state, and no message to set one. Sorting and
+> filtering are stateless query parameters on each `get-collection`; every client keeps its own
+> preference locally.
 
 ### Playback Initiation
 
@@ -177,6 +188,51 @@ Clients send these messages to control the player.
   - **Payload**: `{ albumUrl: string, tracks?: Track[], playNext?: boolean }`
 - `add-station-to-queue`: Adds a radio station to the queue.
   - **Payload**: `{ station: RadioStation, playNext?: boolean }`
+
+### Playlist Management
+
+The desktop is authoritative for playlists, and **its ids are the shared identity**. Every id
+field below is optional: omit it and the host mints one. The mobile app supplies them so that
+an edit made while the desktop was unreachable can be replayed later and end up as the same
+playlist on both devices (see the Playlist Sync section in `CLAUDE.md`).
+
+Replaying is safe: inserts are idempotent, so re-sending an op that already landed is a no-op
+rather than an error.
+
+- `create-playlist`: Creates a playlist.
+  - **Payload**: `{ name: string, description?: string, id?: string }`
+- `update-playlist`: Renames a playlist (fields left `undefined` are not written).
+  - **Payload**: `{ id: string, name?: string, description?: string }`
+- `delete-playlist`: Deletes a playlist and its entries.
+  - **Payload**: `string` (playlist id)
+- `import-playlist`: Creates a playlist from an exported file. Ids in the payload are
+  **ignored** — an import is always a copy.
+  - **Payload**: `{ name: string, description?: string, tracks: Track[] }`
+- `add-track-to-playlist`: Appends one track, or a batch.
+  - **Payload**: `{ playlistId: string, track: Track, entryId?: string }`
+  - **Bulk payload**: `{ playlistId: string, tracks: [{ track: Track, entryId?: string }] }`
+    > [!NOTE]
+    > Prefer the bulk form for anything album-sized: it is one frame and one broadcast instead
+    > of N, it makes the add atomic, and — because its tracks are already resolved — the host
+    > never has to scrape while applying it.
+- `add-album-to-playlist`: Appends every track of an album (the host scrapes it).
+  - **Payload**: `{ playlistId: string, albumUrl: string }`
+- `remove-track-from-playlist`: Removes exactly one entry.
+  - **Payload**: `{ playlistId: string, trackId: string }` — `trackId` is the
+    `playlistEntryId`, so duplicated tracks can be removed individually.
+- `reorder-playlist-tracks`: Reorders entries, by index pair or by absolute order.
+  - **Payload**: `{ playlistId: string, from: number, to: number }`
+  - **Absolute payload**: `{ playlistId: string, orderedEntryIds: string[] }`
+    > [!NOTE]
+    > Prefer `orderedEntryIds` whenever the order was decided against a possibly-stale view:
+    > index pairs mean nothing if the playlist changed in between. Entries the host holds but
+    > the list omits keep their relative order and are appended after the named ones, so a
+    > stale list can never truncate a playlist.
+
+> [!IMPORTANT]
+> Playlist messages are processed strictly in the order they were sent, per connection.
+> Other message types are not — they are handled concurrently so that a transport command
+> such as `pause` never queues behind a slow scrape.
 
 ---
 

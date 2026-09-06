@@ -105,14 +105,31 @@ jest.mock('../services/MobileDatabase', () => ({
         setSetting: jest.fn().mockResolvedValue(undefined),
         getArtists: jest.fn().mockResolvedValue([]),
         getAllPlaylists: jest.fn().mockResolvedValue([]),
-        addTrackToPlaylist: jest.fn().mockResolvedValue(undefined),
-        createPlaylist: jest.fn().mockResolvedValue(undefined),
+        addTrackToPlaylist: jest.fn().mockResolvedValue('e1'),
+        createPlaylist: jest.fn().mockResolvedValue({ id: 'p-new', name: 'New', tracks: [] }),
         renamePlaylist: jest.fn().mockResolvedValue(undefined),
         deletePlaylist: jest.fn().mockResolvedValue(undefined),
+        removeTrackFromPlaylist: jest.fn().mockResolvedValue(undefined),
+        reorderPlaylistTracks: jest.fn().mockResolvedValue(undefined),
+        importPlaylist: jest.fn().mockResolvedValue('p-new'),
+        getPlaylistEntryIds: jest.fn().mockResolvedValue([]),
+        getPlaylistSummaries: jest.fn().mockResolvedValue([]),
+        enqueuePlaylistOp: jest.fn().mockResolvedValue(undefined),
+        getPlaylistOps: jest.fn().mockResolvedValue([]),
+        deletePlaylistOpsUpTo: jest.fn().mockResolvedValue(undefined),
+        countPlaylistOps: jest.fn().mockResolvedValue(0),
         getCollectionGranular: jest.fn().mockResolvedValue([]),
         getCollectionTotalCount: jest.fn().mockResolvedValue(0),
         getCacheTotalSize: jest.fn().mockResolvedValue(0),
         getAllCacheEntries: jest.fn().mockResolvedValue([]),
+    },
+}));
+
+jest.mock('../services/PlaylistSyncService', () => ({
+    playlistSyncService: {
+        sync: jest.fn().mockResolvedValue(undefined),
+        getDroppedCount: jest.fn().mockReturnValue(0),
+        getMode: jest.fn().mockReturnValue('two-way'),
     },
 }));
 
@@ -155,6 +172,8 @@ describe('Mobile useStore', () => {
             queue: { items: [], currentIndex: -1 },
             auth: { isAuthenticated: false, user: null },
             collectionError: null,
+            playlistSyncEnabled: true,
+            playlistSyncMode: 'two-way',
         });
 
         jest.clearAllMocks();
@@ -427,14 +446,20 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().collection).toEqual(mockCollection);
         });
 
-        it('should handle playlists-data event', () => {
+        // The broadcast is a pull hint, not data: its payload carries no tracks, and the
+        // host sends it to every client on every mutation.
+        it('should treat playlists-data as a sync hint', async () => {
             const callback = socketListeners['playlists-data'];
             expect(callback).toBeDefined();
 
-            const mockPlaylists = [{ id: 'p1' }];
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { playlistSyncService } = require('../services/PlaylistSyncService');
+            mobileDatabase.getAllPlaylists.mockResolvedValue([{ id: 'p1' }]);
 
-            act(() => callback(mockPlaylists));
-            expect(useStore.getState().playlists).toEqual(mockPlaylists);
+            await act(async () => { callback([{ id: 'p1', trackCount: 3 }]); });
+
+            expect(playlistSyncService.sync).toHaveBeenCalled();
+            expect(useStore.getState().playlists).toEqual([{ id: 'p1' }]);
         });
 
         it('should handle radio-data event', () => {
@@ -480,7 +505,7 @@ describe('Mobile useStore', () => {
             act(() => callback('connected'));
             expect(useStore.getState().connectionStatus).toBe('connected');
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', expect.anything());
-            expect(webSocketService.send).toHaveBeenCalledWith('get-playlists');
+            expect(webSocketService.send).toHaveBeenCalledWith('get-bandcamp-playlists');
             expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
 
             jest.clearAllMocks();
@@ -750,20 +775,25 @@ describe('Mobile useStore', () => {
             });
         });
 
-        it('should refreshPlaylists remotely and locally', () => {
-            // Remote
+        it('should refreshPlaylists from the mirror in both modes', () => {
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const { playlistSyncService } = require('../services/PlaylistSyncService');
+
+            // Remote: the mirror is still the read source, and the desktop is synced into it
+            // rather than queried for a list to display.
             useStore.setState({ mode: 'remote' });
             act(() => useStore.getState().refreshPlaylists());
-            expect(webSocketService.send).toHaveBeenCalledWith('get-playlists');
+            expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
+            expect(playlistSyncService.sync).toHaveBeenCalled();
 
             jest.clearAllMocks();
 
             // Local
             useStore.setState({ mode: 'standalone' });
-            const { mobileDatabase } = require('../services/MobileDatabase');
             mobileDatabase.getAllPlaylists.mockResolvedValueOnce([{ id: 'p1' }]);
             act(() => useStore.getState().refreshPlaylists());
             expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
+            expect(playlistSyncService.sync).not.toHaveBeenCalled();
         });
 
         it('should refreshRadio remotely and locally', () => {
@@ -907,6 +937,11 @@ describe('Mobile useStore', () => {
                 artist: 'Real Artist',
                 duration: 120
             }));
+            // The entry id the mirror assigned travels with the op so the desktop reuses it.
+            expect(mobileDatabase.enqueuePlaylistOp).toHaveBeenCalledWith('add-track-to-playlist', {
+                playlistId: 'p1',
+                tracks: [{ entryId: 'e1', track: expect.objectContaining({ artist: 'Real Artist' }) }]
+            });
         });
 
         it('addAlbumToPlaylist should fetch and loop add tracks', async () => {
@@ -943,6 +978,11 @@ describe('Mobile useStore', () => {
                 useStore.getState().deletePlaylist('p1');
             });
             expect(mobileDatabase.deletePlaylist).toHaveBeenCalledWith('p1');
+
+            // Every offline edit is also queued for replay on the desktop.
+            expect(mobileDatabase.enqueuePlaylistOp).toHaveBeenCalledWith('create-playlist', { id: 'p-new', name: 'New' });
+            expect(mobileDatabase.enqueuePlaylistOp).toHaveBeenCalledWith('update-playlist', { id: 'p1', name: 'Renamed' });
+            expect(mobileDatabase.enqueuePlaylistOp).toHaveBeenCalledWith('delete-playlist', 'p1');
         });
 
         it('loadMoreCollection standalone', async () => {
@@ -1006,5 +1046,102 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().isShuffled).toBe(true);
             expect(useStore.getState().repeatMode).toBe('one');
         });
+    });
+});
+
+// The desktop owns the sync mode; the phone mirrors it and gates its own writes on it.
+describe('Playlist sync modes', () => {
+    const { mobileDatabase } = require('../services/MobileDatabase');
+    const { Alert } = require('react-native');
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        jest.spyOn(Alert, 'alert').mockImplementation(() => { });
+        useStore.setState({
+            mode: 'remote',
+            connectionStatus: 'connected',
+            playlistSyncEnabled: true,
+            playlistSyncMode: 'two-way',
+        });
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
+    it('pushes edits straight to the desktop in two-way mode', async () => {
+        await act(async () => { useStore.getState().createPlaylist('P'); });
+
+        expect(webSocketService.send).toHaveBeenCalledWith('create-playlist', { name: 'P', description: undefined });
+        expect(Alert.alert).not.toHaveBeenCalled();
+    });
+
+    it('blocks every playlist mutation in desktop-to-mobile', async () => {
+        useStore.setState({ playlistSyncMode: 'desktop-to-mobile' });
+        const s = useStore.getState();
+
+        await act(async () => {
+            s.createPlaylist('P');
+            s.renamePlaylist('p1', 'P2');
+            s.deletePlaylist('p1');
+            await s.addTrackToPlaylist('p1', { id: 't1' } as any);
+            s.removeTrackFromPlaylist('p1', 'e1');
+            s.reorderPlaylistTracks('p1', 0, 1);
+            await s.addAlbumToPlaylist('p1', 'url');
+            await s.addStationToPlaylist('p1', { id: 'st1' } as any);
+            await s.extractRadioToPlaylist('p1', { id: 'st1' } as any);
+            await s.importPlaylist();
+        });
+
+        expect(Alert.alert).toHaveBeenCalledTimes(10);
+        expect(webSocketService.send).not.toHaveBeenCalled();
+        expect(mobileDatabase.createPlaylist).not.toHaveBeenCalled();
+        expect(mobileDatabase.addTrackToPlaylist).not.toHaveBeenCalled();
+    });
+
+    /** `refreshPlaylists` legitimately sends `get-bandcamp-playlists`; ignore reads. */
+    const mutatingSends = () => (webSocketService.send as jest.Mock).mock.calls
+        .filter(([type]) => String(type).includes('playlist') && !String(type).startsWith('get-'));
+
+    it('stays editable but silent when sync is disabled', async () => {
+        useStore.setState({ playlistSyncMode: 'disabled' });
+
+        await act(async () => { useStore.getState().createPlaylist('Local only'); });
+
+        // Editable, written locally, but nothing is sent or queued for replay.
+        expect(mobileDatabase.createPlaylist).toHaveBeenCalledWith('Local only');
+        expect(mutatingSends()).toHaveLength(0);
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('queuePlaylistOp is inert when pushes are not allowed', async () => {
+        useStore.setState({ playlistSyncMode: 'desktop-to-mobile' });
+
+        await act(async () => { useStore.getState().queuePlaylistOp('delete-playlist', 'p1'); });
+
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('the phone switch alone stops pushes but keeps editing', async () => {
+        useStore.setState({ playlistSyncEnabled: false });
+
+        await act(async () => { useStore.getState().createPlaylist('P'); });
+
+        expect(mutatingSends()).toHaveLength(0);
+        expect(mobileDatabase.createPlaylist).toHaveBeenCalledWith('P');
+        expect(mobileDatabase.enqueuePlaylistOp).not.toHaveBeenCalled();
+    });
+
+    it('persists the switch and mirrors the desktop mode after a sync', async () => {
+        const { playlistSyncService } = require('../services/PlaylistSyncService');
+        playlistSyncService.getMode.mockReturnValue('mobile-to-desktop');
+
+        await act(async () => { await useStore.getState().togglePlaylistSync(); });
+        await act(async () => { await useStore.getState().syncPlaylists(); });
+
+        expect(mobileDatabase.setSetting).toHaveBeenCalledWith('playlistSyncEnabled', false);
+        expect(useStore.getState().playlistSyncEnabled).toBe(false);
+        expect(useStore.getState().playlistSyncMode).toBe('mobile-to-desktop');
     });
 });
