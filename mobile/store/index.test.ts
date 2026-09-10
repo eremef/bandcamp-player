@@ -462,6 +462,22 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().playlists).toEqual([{ id: 'p1' }]);
         });
 
+        // The pull half of sync used to be gated on `mode === 'remote'` at all three
+        // trigger sites, so a phone in Standalone — which keeps a background socket —
+        // never saw a desktop-side playlist change. Sync is keyed on the socket only.
+        it('syncs in standalone mode on socket open and on the pull hint', async () => {
+            const { playlistSyncService } = require('../services/PlaylistSyncService');
+            (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
+            useStore.setState({ mode: 'standalone' });
+
+            await act(async () => { socketListeners['connection-status']('connected'); });
+            expect(playlistSyncService.sync).toHaveBeenCalled();
+
+            playlistSyncService.sync.mockClear();
+            await act(async () => { socketListeners['playlists-data']([]); });
+            expect(playlistSyncService.sync).toHaveBeenCalled();
+        });
+
         it('should handle radio-data event', () => {
             const callback = socketListeners['radio-data'];
             expect(callback).toBeDefined();
@@ -788,9 +804,19 @@ describe('Mobile useStore', () => {
 
             jest.clearAllMocks();
 
-            // Local
+            // Standalone with the background socket up: still synced. Gating this on the
+            // mode is what made desktop-side changes invisible on a standalone phone.
             useStore.setState({ mode: 'standalone' });
+            (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
             mobileDatabase.getAllPlaylists.mockResolvedValueOnce([{ id: 'p1' }]);
+            act(() => useStore.getState().refreshPlaylists());
+            expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
+            expect(playlistSyncService.sync).toHaveBeenCalled();
+
+            jest.clearAllMocks();
+
+            // Socket down: the mirror still reads, nothing tries to sync.
+            (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
             act(() => useStore.getState().refreshPlaylists());
             expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
             expect(playlistSyncService.sync).not.toHaveBeenCalled();

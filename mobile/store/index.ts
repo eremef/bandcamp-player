@@ -2185,10 +2185,13 @@ export const useStore = create<AppState>((set, get) => ({
         const { mobileDatabase } = require('../services/MobileDatabase');
         mobileDatabase.getAllPlaylists().then((playlists: Playlist[]) => set({ playlists }));
 
+        // Sync is keyed on the socket, not the mode: standalone keeps a background
+        // connection, and the mirror has to track the desktop there too.
+        if (webSocketService.isConnected()) get().syncPlaylists();
+
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('get-bandcamp-playlists');
             set({ isLoadingBandcampPlaylists: true });
-            get().syncPlaylists();
         } else {
             get().fetchBandcampPlaylists();
         }
@@ -2467,6 +2470,11 @@ webSocketService.on('connection-status', (status, isExplicit) => {
         AsyncStorage.removeItem('last_ip');
     }
 
+    // Flush the outbox and re-pull the mirror on every socket open, standalone included.
+    if (status === 'connected') {
+        useStore.getState().syncPlaylists();
+    }
+
     if (status === 'connected' && useStore.getState().mode === 'remote') {
         // Request initial data - reset to 0 but use cache if available
         useStore.getState().refreshCollection(false);
@@ -2594,7 +2602,6 @@ webSocketService.on('collection-data', (collectionData) => {
 // hint outright while a cycle is in flight (that cycle ends with a pull anyway). Never
 // used to trigger a flush — the host broadcasts this to every client on every mutation.
 webSocketService.on('playlists-data', () => {
-    if (useStore.getState().mode !== 'remote') return;
     useStore.getState().syncPlaylists();
 });
 
