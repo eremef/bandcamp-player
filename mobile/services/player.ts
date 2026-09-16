@@ -8,6 +8,9 @@ export async function setupPlayer() {
         TrackPlayer.setupPlayer({
             handleAudioBecomingNoisy: true,
             audioMixing: 'exclusive',
+            progressSync: {
+                intervalSeconds: 1,
+            },
             android: {
                 wakeMode: 'network',
                 taskRemovedBehavior: 'stop',

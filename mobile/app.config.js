@@ -21,6 +21,9 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'xyz.eremef.beta',
+      infoPlist: {
+        UIBackgroundModes: ['audio'],
+      },
     },
     android: {
       package: 'xyz.eremef.beta',

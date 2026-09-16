@@ -289,7 +289,6 @@ export const useStore = create<AppState>((set, get) => ({
     disconnectLastfm: async () => {
         const { mobileScrobblerService } = require('../services/MobileScrobblerService');
         await mobileScrobblerService.disconnect();
-        set({ lastfmState: { isConnected: false, user: null } });
     },
 
     toggleScrobbling: async () => {
@@ -297,6 +296,8 @@ export const useStore = create<AppState>((set, get) => ({
         set({ scrobblingEnabled: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('scrobblingEnabled', newValue);
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        await mobileScrobblerService.handleScrobblingPreferenceChanged(newValue);
     },
     togglePlaylistSync: async () => {
         const newValue = !get().playlistSyncEnabled;
@@ -662,6 +663,9 @@ export const useStore = create<AppState>((set, get) => ({
                 set({ connectionStatus: 'disconnected' });
             }
         }
+
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        await mobileScrobblerService.handleModeChanged(mode);
     },
 
     loginBandcamp: async () => {

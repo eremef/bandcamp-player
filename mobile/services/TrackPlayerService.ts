@@ -110,6 +110,8 @@ async function handleMediaItemTransition(event: any) {
             console.log('[MobilePlayer] Ignoring transition: currentTrack is null');
             return;
         }
+        const { mobileScrobblerService } = require('./MobileScrobblerService');
+        await mobileScrobblerService.handleTrackTransition(event.item?.mediaId, event.index);
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
         if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
             if (store.userIntendedPause || !store.isPlaying) {
@@ -149,6 +151,12 @@ async function handleMediaItemTransition(event: any) {
     }
 }
 
+async function handleProgressUpdated(event: any) {
+    if (useStore.getState().mode !== 'standalone') return;
+    const { mobileScrobblerService } = require('./MobileScrobblerService');
+    await mobileScrobblerService.handleProgressUpdate(event.position, event.duration, event.mediaId);
+}
+
 export async function PlaybackService(event?: any) {
     console.log(`[PlaybackService] received event:`, event?.type);
     if (!event) return;
@@ -166,6 +174,9 @@ export async function PlaybackService(event?: any) {
             break;
         case Event.MediaItemTransition:
             await handleMediaItemTransition(event);
+            break;
+        case Event.PlaybackProgressUpdated:
+            await handleProgressUpdated(event);
             break;
         case Event.RemotePlay:
             useStore.getState().play();
@@ -220,6 +231,7 @@ const subs = [
     TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged),
     TrackPlayer.addEventListener(Event.PlaybackError, handlePlaybackError),
     TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition),
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, handleProgressUpdated),
 
     TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play()),
     TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause()),

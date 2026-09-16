@@ -113,6 +113,58 @@ describe('MobileDatabase', () => {
         });
     });
 
+    describe('Scrobble outbox', () => {
+        beforeEach(async () => {
+            await dbInstance.init();
+            jest.clearAllMocks();
+        });
+
+        it('persists an account-owned play before delivery', async () => {
+            await dbInstance.enqueueScrobble({
+                playId: 'play-1',
+                accountId: 'api:user',
+                artist: 'Artist',
+                track: 'Track',
+                album: 'Album',
+                duration: 120,
+                timestamp: 100,
+            });
+
+            expect(mockDb.runAsync).toHaveBeenCalledWith(
+                expect.stringContaining('INSERT OR IGNORE INTO scrobble_queue'),
+                ['play-1', 'api:user', 'Artist', 'Track', 'Album', 120, 100]
+            );
+        });
+
+        it('claims rows in order and leases them before submission', async () => {
+            mockDb.getAllAsync.mockResolvedValueOnce([
+                { id: 4, play_id: 'play-4', timestamp: 100, attempt_count: 0 },
+            ]);
+
+            const rows = await dbInstance.claimPendingScrobbles('api:user', 200, 50);
+
+            expect(rows).toHaveLength(1);
+            expect(mockDb.getAllAsync).toHaveBeenCalledWith(
+                expect.stringContaining("status = 'sending'"),
+                ['api:user', 200, 200, 200, 50]
+            );
+            expect(mockDb.runAsync).toHaveBeenCalledWith(
+                expect.stringContaining("SET status = 'sending'"),
+                [230, 4]
+            );
+        });
+
+        it('assigns quarantined legacy rows only after an explicit choice', async () => {
+            await dbInstance.assignLegacyScrobbles('api:user');
+
+            expect(mockDb.runAsync).toHaveBeenCalledWith(
+                expect.stringContaining("status = 'pending'"),
+                ['api:user']
+            );
+            expect(String(mockDb.runAsync.mock.calls[0][0])).toContain("status = 'legacy-unowned'");
+        });
+    });
+
     describe('Granular Storage', () => {
         beforeEach(async () => {
             await dbInstance.init();
