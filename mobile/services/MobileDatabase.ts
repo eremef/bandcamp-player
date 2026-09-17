@@ -147,11 +147,18 @@ export class MobileDatabase {
 
             CREATE TABLE IF NOT EXISTS scrobble_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                play_id TEXT UNIQUE,
+                account_id TEXT,
                 artist TEXT NOT NULL,
                 track TEXT NOT NULL,
                 album TEXT,
                 duration REAL,
                 timestamp INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                next_attempt_at INTEGER NOT NULL DEFAULT 0,
+                locked_until INTEGER,
+                last_error_code TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -208,6 +215,32 @@ export class MobileDatabase {
             }
         } catch (e) {
             console.error('[MobileDatabase] FTS Migration failed:', e);
+        }
+
+        try {
+            const tableInfo = await this.db.getAllAsync<{ name: string }>('PRAGMA table_info(scrobble_queue)');
+            const columns: Array<[string, string]> = [
+                ['play_id', 'TEXT'],
+                ['account_id', 'TEXT'],
+                ['status', "TEXT NOT NULL DEFAULT 'pending'"],
+                ['attempt_count', 'INTEGER NOT NULL DEFAULT 0'],
+                ['next_attempt_at', 'INTEGER NOT NULL DEFAULT 0'],
+                ['locked_until', 'INTEGER'],
+                ['last_error_code', 'TEXT'],
+            ];
+            const existing = new Set(tableInfo.map(column => column.name));
+            for (const [name, definition] of columns) {
+                if (!existing.has(name)) {
+                    await this.db.execAsync(`ALTER TABLE scrobble_queue ADD COLUMN ${name} ${definition}`);
+                }
+            }
+            await this.db.runAsync("UPDATE scrobble_queue SET play_id = 'legacy-' || id WHERE play_id IS NULL");
+            await this.db.runAsync("UPDATE scrobble_queue SET status = 'legacy-unowned' WHERE account_id IS NULL");
+            await this.db.execAsync('CREATE UNIQUE INDEX IF NOT EXISTS idx_scrobble_queue_play_id ON scrobble_queue(play_id)');
+            await this.db.execAsync('CREATE INDEX IF NOT EXISTS idx_scrobble_queue_delivery ON scrobble_queue(account_id, status, next_attempt_at, timestamp)');
+            await this.db.runAsync("DELETE FROM scrobble_queue WHERE status = 'ignored' AND created_at < datetime('now', '-30 days')");
+        } catch (e) {
+            console.error('[MobileDatabase] Scrobble queue migration failed:', e);
         }
 
         // Clear orphans left behind while the foreign_keys pragma was never enabled —
@@ -854,19 +887,176 @@ export class MobileDatabase {
 
     // --- Scrobble Queue ---
 
-    async addScrobble(artist: string, track: string, album: string | undefined, duration: number | undefined, timestamp: number) {
+    async enqueueScrobble(scrobble: {
+        playId: string;
+        accountId: string;
+        artist: string;
+        track: string;
+        album?: string;
+        duration?: number;
+        timestamp: number;
+    }): Promise<void> {
         if (!this.db) await this.init();
         await this.db!.runAsync(
-            'INSERT INTO scrobble_queue (artist, track, album, duration, timestamp) VALUES (?, ?, ?, ?, ?)',
-            [artist, track, album ?? null, duration ?? null, timestamp]
+            `INSERT OR IGNORE INTO scrobble_queue
+            (play_id, account_id, artist, track, album, duration, timestamp, status, next_attempt_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+            [
+                scrobble.playId,
+                scrobble.accountId,
+                scrobble.artist,
+                scrobble.track,
+                scrobble.album ?? null,
+                scrobble.duration ?? null,
+                scrobble.timestamp,
+            ]
         );
     }
 
-    async getPendingScrobbles(): Promise<{ id: number; artist: string; track: string; album: string | null; duration: number | null; timestamp: number }[]> {
+    async addScrobble(artist: string, track: string, album: string | undefined, duration: number | undefined, timestamp: number) {
+        if (!this.db) await this.init();
+        const playId = `legacy-live-${timestamp}-${Math.random().toString(36).slice(2)}`;
+        await this.db!.runAsync(
+            `INSERT INTO scrobble_queue
+            (play_id, artist, track, album, duration, timestamp, status, next_attempt_at)
+            VALUES (?, ?, ?, ?, ?, ?, 'legacy-unowned', 0)`,
+            [playId, artist, track, album ?? null, duration ?? null, timestamp]
+        );
+    }
+
+    async getPendingScrobbles(): Promise<Array<{
+        id: number;
+        play_id: string;
+        account_id: string | null;
+        artist: string;
+        track: string;
+        album: string | null;
+        duration: number | null;
+        timestamp: number;
+    }>> {
         if (!this.db) await this.init();
         return await this.db!.getAllAsync(
-            'SELECT * FROM scrobble_queue ORDER BY timestamp ASC'
+            "SELECT * FROM scrobble_queue WHERE status IN ('pending', 'retry') ORDER BY timestamp ASC, id ASC"
         );
+    }
+
+    async claimPendingScrobbles(accountId: string, now: number, limit = 50): Promise<Array<{
+        id: number;
+        play_id: string;
+        account_id: string;
+        artist: string;
+        track: string;
+        album: string | null;
+        duration: number | null;
+        timestamp: number;
+        attempt_count: number;
+    }>> {
+        if (!this.db) await this.init();
+        let claimed: Array<{
+            id: number;
+            play_id: string;
+            account_id: string;
+            artist: string;
+            track: string;
+            album: string | null;
+            duration: number | null;
+            timestamp: number;
+            attempt_count: number;
+        }> = [];
+        await this.db!.withTransactionAsync(async () => {
+            claimed = await this.db!.getAllAsync(
+                `SELECT * FROM scrobble_queue
+                WHERE account_id = ?
+                  AND (status IN ('pending', 'retry') OR (status = 'sending' AND locked_until < ?))
+                  AND next_attempt_at <= ?
+                  AND (locked_until IS NULL OR locked_until < ?)
+                ORDER BY timestamp ASC, id ASC
+                LIMIT ?`,
+                [accountId, now, now, now, limit]
+            );
+            const lockedUntil = now + 30;
+            for (const row of claimed) {
+                await this.db!.runAsync(
+                    "UPDATE scrobble_queue SET status = 'sending', locked_until = ?, attempt_count = attempt_count + 1 WHERE id = ?",
+                    [lockedUntil, row.id]
+                );
+            }
+        });
+        return claimed;
+    }
+
+    async acknowledgeScrobble(id: number): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM scrobble_queue WHERE id = ?', [id]);
+    }
+
+    async markScrobbleIgnored(id: number, code: number, message?: string): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync(
+            "UPDATE scrobble_queue SET status = 'ignored', locked_until = NULL, last_error_code = ? WHERE id = ?",
+            [message ? `${code}:${message}` : String(code), id]
+        );
+    }
+
+    async releaseScrobbles(ids: number[], retryAt: number, errorCode?: string): Promise<void> {
+        if (!this.db) await this.init();
+        for (const id of ids) {
+            await this.db!.runAsync(
+                "UPDATE scrobble_queue SET status = 'retry', locked_until = NULL, next_attempt_at = ?, last_error_code = ? WHERE id = ?",
+                [retryAt, errorCode ?? null, id]
+            );
+        }
+    }
+
+    async countPendingScrobbles(accountId: string): Promise<number> {
+        if (!this.db) await this.init();
+        const row = await this.db!.getFirstAsync<{ count: number }>(
+            "SELECT COUNT(*) as count FROM scrobble_queue WHERE account_id = ? AND status IN ('pending', 'retry', 'sending')",
+            [accountId]
+        );
+        return row?.count ?? 0;
+    }
+
+    async getNextScrobbleRetryAt(accountId: string): Promise<number | null> {
+        if (!this.db) await this.init();
+        const row = await this.db!.getFirstAsync<{ retry_at: number | null }>(
+            `SELECT MIN(
+                CASE WHEN status = 'sending' THEN COALESCE(locked_until, next_attempt_at)
+                     ELSE next_attempt_at END
+            ) as retry_at
+            FROM scrobble_queue
+            WHERE account_id = ? AND status IN ('pending', 'retry', 'sending')`,
+            [accountId]
+        );
+        return row?.retry_at ?? null;
+    }
+
+    async clearScrobblesForAccount(accountId: string): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync('DELETE FROM scrobble_queue WHERE account_id = ?', [accountId]);
+    }
+
+    async countLegacyScrobbles(): Promise<number> {
+        if (!this.db) await this.init();
+        const row = await this.db!.getFirstAsync<{ count: number }>(
+            "SELECT COUNT(*) as count FROM scrobble_queue WHERE account_id IS NULL AND status = 'legacy-unowned'"
+        );
+        return row?.count ?? 0;
+    }
+
+    async assignLegacyScrobbles(accountId: string): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync(
+            `UPDATE scrobble_queue
+            SET account_id = ?, status = 'pending', next_attempt_at = 0, locked_until = NULL, last_error_code = NULL
+            WHERE account_id IS NULL AND status = 'legacy-unowned'`,
+            [accountId]
+        );
+    }
+
+    async discardLegacyScrobbles(): Promise<void> {
+        if (!this.db) await this.init();
+        await this.db!.runAsync("DELETE FROM scrobble_queue WHERE account_id IS NULL AND status = 'legacy-unowned'");
     }
 
     async deleteScrobble(id: number) {

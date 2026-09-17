@@ -53,6 +53,33 @@ export default function SettingsScreen() {
     };
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
 
+    const lastfmDescription = (() => {
+        if (lastfmState.sessionStatus === 'reconnect-required') return 'Reconnect required';
+        if (lastfmState.sessionStatus === 'storage-error') return 'Could not access the saved connection';
+        if (!lastfmState.isConnected) return 'Connect to scrobble tracks in standalone mode';
+        if (!scrobblingEnabled) return 'Connected · Scrobbling is off';
+        if (lastfmState.deliveryStatus === 'offline') return `Waiting for network${lastfmState.pendingCount ? ` · ${lastfmState.pendingCount} pending` : ''}`;
+        if (lastfmState.deliveryStatus === 'configuration-error') return 'Connected · Last.fm configuration error';
+        if (lastfmState.deliveryStatus === 'sending') return `Sending${lastfmState.pendingCount ? ` ${lastfmState.pendingCount} pending` : ''}…`;
+        if (lastfmState.deliveryStatus === 'retrying') return `Retry scheduled${lastfmState.pendingCount ? ` · ${lastfmState.pendingCount} pending` : ''}`;
+        return lastfmState.pendingCount ? `Connected · ${lastfmState.pendingCount} pending` : 'Connected';
+    })();
+
+    const retryLastfm = () => {
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        void mobileScrobblerService.flushPendingScrobbles();
+    };
+
+    const assignLegacyScrobbles = () => {
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        void mobileScrobblerService.assignLegacyScrobblesToCurrentAccount();
+    };
+
+    const discardLegacyScrobbles = () => {
+        const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+        void mobileScrobblerService.discardLegacyScrobbles();
+    };
+
     const handleRefreshConfig = async () => {
         setIsRefreshingConfig(true);
         try {
@@ -170,11 +197,21 @@ export default function SettingsScreen() {
                                 <Music color={colors.text} size={20} style={styles.settingIcon} />
                                 <View style={{ flex: 1 }}>
                                     <Text style={[styles.settingTitle, { color: colors.text }]}>
-                                        {lastfmState.isConnected ? lastfmState.user?.name : 'Last.fm Account'}
+                                        {lastfmState.user?.name || 'Last.fm Account'}
                                     </Text>
                                     <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
-                                        {lastfmState.isConnected ? 'Connected' : 'Connect to scrobble tracks in standalone mode'}
+                                        {lastfmDescription}
                                     </Text>
+                                    {lastfmState.lastError && (
+                                        <Text style={[styles.settingDescription, { color: colors.error || '#ff6b6b' }]} numberOfLines={2}>
+                                            {lastfmState.lastError}
+                                        </Text>
+                                    )}
+                                    {lastfmState.lastAcceptedAt && (
+                                        <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                            Last accepted {new Date(lastfmState.lastAcceptedAt).toLocaleString()}
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
                             {lastfmState.isConnected ? (
@@ -187,6 +224,32 @@ export default function SettingsScreen() {
                                 </TouchableOpacity>
                             )}
                         </View>
+
+                        {lastfmState.isConnected && (lastfmState.pendingCount ?? 0) > 0 && (
+                            <TouchableOpacity onPress={retryLastfm} style={styles.retryScrobblesButton}>
+                                <RefreshCw color={colors.accent} size={18} />
+                                <Text style={{ color: colors.accent, marginLeft: 8 }}>Retry pending scrobbles</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {(lastfmState.legacyPendingCount ?? 0) > 0 && (
+                            <View style={[styles.legacyScrobbles, { borderBottomColor: colors.border || '#333' }]}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Legacy queued scrobbles</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    {lastfmState.legacyPendingCount} older {lastfmState.legacyPendingCount === 1 ? 'play is' : 'plays are'} not linked to an account and will not be sent automatically.
+                                </Text>
+                                <View style={styles.legacyScrobbleActions}>
+                                    {lastfmState.isConnected && (
+                                        <TouchableOpacity onPress={assignLegacyScrobbles} style={styles.legacyScrobbleButton}>
+                                            <Text style={{ color: colors.accent }}>Assign to {lastfmState.user?.name}</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                    <TouchableOpacity onPress={discardLegacyScrobbles} style={styles.legacyScrobbleButton}>
+                                        <Text style={{ color: colors.error || '#ff6b6b' }}>Discard</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
 
                         {lastfmState.isConnected && (
                             <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
@@ -473,6 +536,25 @@ const styles = StyleSheet.create({
     },
     refreshButton: {
         padding: 10,
+    },
+    retryScrobblesButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: 48,
+        paddingHorizontal: 16,
+    },
+    legacyScrobbles: {
+        padding: 16,
+        borderBottomWidth: 1,
+    },
+    legacyScrobbleActions: {
+        flexDirection: 'row',
+        marginTop: 8,
+    },
+    legacyScrobbleButton: {
+        minHeight: 48,
+        justifyContent: 'center',
+        marginRight: 24,
     },
     stepperContainer: {
         flexDirection: 'row',

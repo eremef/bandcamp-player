@@ -31,6 +31,7 @@ jest.mock('expo-router', () => ({
 
 jest.mock('expo-network', () => ({
     getIpAddressAsync: jest.fn(),
+    addNetworkStateListener: jest.fn(() => ({ remove: jest.fn() })),
 }));
 
 jest.mock('expo-secure-store', () => ({

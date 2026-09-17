@@ -1,76 +1,164 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { useTheme } from '../theme';
-import { useStore } from '../store';
 import { mobileScrobblerService } from '../services/MobileScrobblerService';
+import { isLastfmCallbackUrl, LASTFM_CALLBACK_URL } from '../services/lastfm-auth';
 
-const CALLBACK_URL = 'http://localhost:26505/lastfm-callback';
+type LoginPhase = 'loading' | 'authorizing' | 'exchanging' | 'error';
 
 export default function LastfmLoginScreen() {
     const router = useRouter();
     const colors = useTheme();
-    const [isLoading, setIsLoading] = useState(true);
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [attempt, setAttempt] = useState(() => mobileScrobblerService.createAuthenticationUrl(LASTFM_CALLBACK_URL));
+    const [phase, setPhase] = useState<LoginPhase>('loading');
+    const [progress, setProgress] = useState(0);
+    const [error, setError] = useState<string | null>(null);
+    const [canRetrySave, setCanRetrySave] = useState(false);
+    const [webViewKey, setWebViewKey] = useState(0);
+    const processingRef = useRef(false);
+    const mountedRef = useRef(true);
 
-    const apiKey = mobileScrobblerService.getApiKey();
-    const authUrl = `${mobileScrobblerService.getAuthUrl()}?api_key=${apiKey}&cb=${encodeURIComponent(CALLBACK_URL)}`;
+    useEffect(() => () => {
+        mountedRef.current = false;
+        mobileScrobblerService.cancelAuthentication(attempt.attemptId);
+    }, [attempt.attemptId]);
 
-    const handleNavigationChange = async (navState: { url: string }) => {
-        if (isProcessing) return;
+    useEffect(() => {
+        if (phase !== 'loading') return;
+        const timeout = setTimeout(() => {
+            setPhase('error');
+            setError('Last.fm took too long to load. Check your connection and try again.');
+        }, 20_000);
+        return () => clearTimeout(timeout);
+    }, [phase, attempt.attemptId]);
 
-        if (navState.url.startsWith(CALLBACK_URL)) {
-            setIsProcessing(true);
+    const close = () => {
+        mobileScrobblerService.cancelAuthentication(attempt.attemptId);
+        router.back();
+    };
 
-            try {
-                const url = new URL(navState.url);
-                const token = url.searchParams.get('token');
+    const retry = () => {
+        if (canRetrySave) {
+            processingRef.current = true;
+            setPhase('exchanging');
+            setError(null);
+            void mobileScrobblerService.retryPendingSession(attempt.attemptId)
+                .then(() => {
+                    if (mountedRef.current) router.back();
+                })
+                .catch((saveError: unknown) => {
+                    if (!mountedRef.current) return;
+                    processingRef.current = false;
+                    setPhase('error');
+                    setError(saveError instanceof Error ? saveError.message : 'Could not save the Last.fm connection.');
+                    setCanRetrySave(mobileScrobblerService.hasPendingSession(attempt.attemptId));
+                });
+            return;
+        }
+        mobileScrobblerService.cancelAuthentication(attempt.attemptId);
+        processingRef.current = false;
+        setAttempt(mobileScrobblerService.createAuthenticationUrl(LASTFM_CALLBACK_URL));
+        setPhase('loading');
+        setProgress(0);
+        setError(null);
+        setCanRetrySave(false);
+        setWebViewKey(value => value + 1);
+    };
 
-                if (token) {
-                    console.log('[LastfmLogin] Token received, exchanging for session...');
-                    const state = await mobileScrobblerService.getSession(token);
-                    useStore.setState({ lastfmState: state });
-                    console.log('[LastfmLogin] Session obtained successfully');
-                } else {
-                    console.warn('[LastfmLogin] No token in callback URL');
-                }
-            } catch (error) {
-                console.error('[LastfmLogin] Auth error:', error);
-            }
-
-            router.back();
+    const processCallback = async (url: string) => {
+        if (processingRef.current || !isLastfmCallbackUrl(url)) return;
+        processingRef.current = true;
+        setPhase('exchanging');
+        setError(null);
+        try {
+            const token = new URL(url).searchParams.get('token');
+            if (!token) throw new Error('Last.fm did not return an authorization token.');
+            await mobileScrobblerService.getSession(token, attempt.attemptId);
+            if (mountedRef.current) router.back();
+        } catch (callbackError: unknown) {
+            if (!mountedRef.current) return;
+            processingRef.current = false;
+            setPhase('error');
+            setError(callbackError instanceof Error ? callbackError.message : 'Could not connect to Last.fm.');
+            setCanRetrySave(mobileScrobblerService.hasPendingSession(attempt.attemptId));
         }
     };
 
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+            <View style={[styles.header, { borderBottomColor: colors.border || '#333' }]}>
+                <TouchableOpacity accessibilityLabel="Close Last.fm login" onPress={close} style={styles.closeButton}>
                     <X color={colors.text} size={24} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>Connect to Last.fm</Text>
+                <View style={styles.headerSpacer} />
             </View>
 
-            <WebView
-                source={{ uri: authUrl }}
-                style={styles.webview}
-                onLoadStart={() => setIsLoading(true)}
-                onLoadEnd={() => setIsLoading(false)}
-                onNavigationStateChange={handleNavigationChange}
-                javaScriptEnabled={true}
-            />
+            {phase !== 'error' && (
+                <WebView
+                    key={webViewKey}
+                    source={{ uri: attempt.url }}
+                    style={styles.webview}
+                    originWhitelist={['https://*', 'http://localhost:26505']}
+                    javaScriptEnabled
+                    domStorageEnabled
+                    onShouldStartLoadWithRequest={request => {
+                        if (!isLastfmCallbackUrl(request.url)) return true;
+                        void processCallback(request.url);
+                        return false;
+                    }}
+                    onNavigationStateChange={state => {
+                        if (isLastfmCallbackUrl(state.url)) void processCallback(state.url);
+                    }}
+                    onLoadStart={() => {
+                        if (!processingRef.current) setPhase('loading');
+                    }}
+                    onLoadProgress={({ nativeEvent }) => setProgress(nativeEvent.progress)}
+                    onLoadEnd={() => {
+                        if (!processingRef.current) setPhase('authorizing');
+                    }}
+                    onError={({ nativeEvent }) => {
+                        if (processingRef.current) return;
+                        setPhase('error');
+                        setError(nativeEvent.description || 'Could not load Last.fm.');
+                    }}
+                    onHttpError={({ nativeEvent }) => {
+                        if (processingRef.current || nativeEvent.statusCode < 400) return;
+                        setPhase('error');
+                        setError(`Last.fm returned HTTP ${nativeEvent.statusCode}.`);
+                    }}
+                    onRenderProcessGone={() => {
+                        setPhase('error');
+                        setError('The login page stopped responding.');
+                    }}
+                />
+            )}
 
-            {(isLoading || isProcessing) && (
+            {(phase === 'loading' || phase === 'exchanging') && (
                 <View style={[styles.loadingOverlay, { backgroundColor: colors.background }]}>
                     <ActivityIndicator size="large" color={colors.accent} />
-                    {isProcessing && (
-                        <Text style={[styles.processingText, { color: colors.textSecondary }]}>
-                            Connecting...
-                        </Text>
-                    )}
+                    <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+                        {phase === 'exchanging'
+                            ? 'Saving your Last.fm connection…'
+                            : `Loading Last.fm… ${Math.round(progress * 100)}%`}
+                    </Text>
+                </View>
+            )}
+
+            {phase === 'error' && (
+                <View style={styles.errorContainer}>
+                    <Text style={[styles.errorTitle, { color: colors.text }]}>Could not connect</Text>
+                    <Text style={[styles.errorText, { color: colors.textSecondary }]}>{error}</Text>
+                    <TouchableOpacity onPress={retry} style={[styles.retryButton, { backgroundColor: colors.accent }]}>
+                        <Text style={styles.retryText}>Try again</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={close} style={styles.cancelButton}>
+                        <Text style={{ color: colors.accent }}>Cancel</Text>
+                    </TouchableOpacity>
                 </View>
             )}
         </SafeAreaView>
@@ -87,29 +175,70 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         padding: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#333',
     },
     title: {
         fontSize: 18,
         fontWeight: 'bold',
     },
     closeButton: {
-        padding: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 48,
+        minHeight: 48,
+    },
+    headerSpacer: {
+        width: 48,
     },
     webview: {
         flex: 1,
     },
     loadingOverlay: {
         position: 'absolute',
-        top: 60,
+        top: 81,
         left: 0,
         right: 0,
         bottom: 0,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    processingText: {
+    statusText: {
         marginTop: 12,
         fontSize: 14,
+    },
+    errorContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 32,
+    },
+    errorTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 12,
+    },
+    errorText: {
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    retryButton: {
+        minWidth: 160,
+        minHeight: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
+    retryText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    cancelButton: {
+        minWidth: 120,
+        minHeight: 48,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 8,
     },
 });

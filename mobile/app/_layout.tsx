@@ -62,6 +62,8 @@ export default function RootLayout() {
             ) {
                 // App coming to foreground - check if we should navigate to player
                 const state = useStore.getState();
+                const { mobileScrobblerService } = require('../services/MobileScrobblerService');
+                void mobileScrobblerService.handleAppForeground();
                 const canAccess =
                     ((state.mode === 'remote' || state.mode === 'standalone') && state.connectionStatus === 'connected') &&
                     (state.mode === 'remote' || (state.mode === 'standalone' && state.auth.isAuthenticated));

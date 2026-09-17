@@ -202,6 +202,12 @@ export interface LastfmUser {
 export interface LastfmState {
   isConnected: boolean;
   user: LastfmUser | null;
+  sessionStatus?: "loading" | "disconnected" | "connected" | "reconnect-required" | "storage-error";
+  deliveryStatus?: "idle" | "sending" | "offline" | "retrying" | "configuration-error";
+  pendingCount?: number;
+  legacyPendingCount?: number;
+  lastAcceptedAt?: number;
+  lastError?: string;
 }
 
 export interface ScrobbleData {

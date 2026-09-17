@@ -11,6 +11,13 @@ jest.mock('../../services/MobilePlayerService', () => ({
     }
 }));
 
+jest.mock('../../services/MobileScrobblerService', () => ({
+    mobileScrobblerService: {
+        handleTrackTransition: jest.fn(),
+        handleProgressUpdate: jest.fn(),
+    },
+}));
+
 describe('TrackPlayerService (PlaybackService)', () => {
     let mockPlay: jest.Mock;
     let mockPause: jest.Mock;
@@ -29,9 +36,12 @@ describe('TrackPlayerService (PlaybackService)', () => {
 
     beforeEach(() => {
         const { mobilePlayerService } = require('../../services/MobilePlayerService');
+        const { mobileScrobblerService } = require('../../services/MobileScrobblerService');
         if (mobilePlayerService.handleTrackEnd.mockClear) {
             mobilePlayerService.handleTrackEnd.mockClear();
         }
+        mobileScrobblerService.handleTrackTransition.mockClear();
+        mobileScrobblerService.handleProgressUpdate.mockClear();
         mockPlay = jest.fn();
         mockPause = jest.fn();
         mockNext = jest.fn();
@@ -110,6 +120,17 @@ describe('TrackPlayerService (PlaybackService)', () => {
             const { mobilePlayerService } = require('../../services/MobilePlayerService');
             await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ended });
             expect(mobilePlayerService.handleTrackEnd).toHaveBeenCalled();
+        });
+
+        it('forwards progress updates to the scrobbler', async () => {
+            const { mobileScrobblerService } = require('../../services/MobileScrobblerService');
+            await PlaybackService({
+                type: Event.PlaybackProgressUpdated,
+                mediaId: 'queue-item-1',
+                position: 42,
+                duration: 180,
+            });
+            expect(mobileScrobblerService.handleProgressUpdate).toHaveBeenCalledWith(42, 180, 'queue-item-1');
         });
 
         it('ignores PlaybackStateChanged Ended in remote mode', async () => {

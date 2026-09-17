@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'bandcamp-remote',
-    version: '1.8.37-beta',
+    version: '1.8.38-alpha.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -21,6 +21,9 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'xyz.eremef.beta',
+      infoPlist: {
+        UIBackgroundModes: ['audio'],
+      },
     },
     android: {
       package: 'xyz.eremef.beta',

@@ -171,8 +171,6 @@ class MobilePlayerService {
                     useStore.setState(update);
                     this.lastStoreUpdateTime = now;
 
-                    const { mobileScrobblerService } = require('./MobileScrobblerService');
-                    mobileScrobblerService.handleProgressUpdate(progress.position, progress.duration);
                 }
 
                 // Handle Simulated Crossfade (Volume fading)
