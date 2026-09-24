@@ -8,6 +8,8 @@ const newVersion = args.find(arg => !arg.startsWith('--'));
 const ignoreErrors = args.includes('--ignore-errors');
 const forceTag = args.includes('--force-tag');
 const fastTrack = args.includes('--fast-track');
+const skipDesktop = args.includes('--skip-desktop');
+const skipMobile = args.includes('--skip-mobile');
 
 if (!newVersion) {
     console.error('Usage: node scripts/release.js <newVersion> [--ignore-errors] [--force-tag] [--fast-track]');
@@ -122,13 +124,19 @@ run('node scripts/validate-config.js');
 // 5. Run Quality Checks (Tests, Typecheck, Lint)
 if (!fastTrack) {
     log('Step 5: Running quality checks...');
-    run('npm test', rootDir);
-    //run('npm run test:e2e', rootDir, { canFail: true });
-    run('npm test', mobileDir);
-    run('npm run typecheck', rootDir);
-    run('npm run typecheck', mobileDir, { canFail: true });
-    run('npm run lint', rootDir);
-    run('npm run lint', mobileDir);
+    if (!skipDesktop) {
+        log('Step 5a:Running desktop checks...');
+        run('npm test', rootDir);
+        run('npm run typecheck', rootDir);
+        run('npm run lint', rootDir);
+        //run('npm run test:e2e', rootDir, { canFail: true });
+    }
+    if (!skipMobile) {
+        log('Step 5b: Running mobile checks...');
+        run('npm test', mobileDir);
+        run('npm run typecheck', mobileDir, { canFail: true });
+        run('npm run lint', mobileDir);
+    }
 }
 
 // 6. Git Operations

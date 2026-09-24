@@ -138,7 +138,7 @@ interface AppState extends PlayerState {
     refreshRadio: () => void;
     refreshQueue: () => void;
     refreshArtists: () => void;
-    refreshArtistCollection: (artistId: string) => void;
+    refreshArtistCollection: (artistId: string, artistName?: string) => void;
     getArtistsBulkItems: (artistNames: string[]) => Promise<CollectionItem[]>;
 
     // Pagination State
@@ -2294,14 +2294,40 @@ export const useStore = create<AppState>((set, get) => ({
                 .catch((err: any) => console.error('[MobileStore] Failed to load artists:', err));
         }
     },
-    refreshArtistCollection: (artistId: string) => {
-        if (!get().auth.isAuthenticated) {
+    refreshArtistCollection: (artistId: string, artistName?: string) => {
+        const { mode, connectionStatus, offlineMode, auth } = get();
+        if (mode === 'remote' && connectionStatus === 'connected') {
+            set({ isArtistCollectionLoading: true });
+            webSocketService.send('get-artist-collection', artistId);
+            return;
+        }
+
+        if (!auth.isAuthenticated) {
             console.log('[MobileStore] Skipping artist collection fetch: user not authenticated');
+            set({ isArtistCollectionLoading: false });
             return;
         }
         set({ isArtistCollectionLoading: true });
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-artist-collection', artistId);
+        if (offlineMode) {
+            if (!auth.user) {
+                set({ isArtistCollectionLoading: false });
+                return;
+            }
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const resolvedArtistName = artistName || get().artists.find(artist => artist.id === artistId)?.name;
+            mobileDatabase.getCollectionByArtistNames(auth.user.id, resolvedArtistName ? [resolvedArtistName] : [])
+                .then((items: CollectionItem[]) => set({
+                    artistCollection: {
+                        items,
+                        totalCount: items.length,
+                        lastUpdated: new Date().toISOString()
+                    },
+                    isArtistCollectionLoading: false
+                }))
+                .catch((err: any) => {
+                    console.error('[MobileStore] Failed to load cached artist collection:', err);
+                    set({ isArtistCollectionLoading: false });
+                });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
             mobileScraperService.fetchCollection(false)

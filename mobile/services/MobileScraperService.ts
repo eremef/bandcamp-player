@@ -702,6 +702,12 @@ export class MobileScraperService {
                 return null;
             }
 
+            if (tralbumData.item_type === 'track' && tralbumData.album_url) {
+                const baseUrl = tralbumData.url ? new URL(tralbumData.url).origin : new URL(albumUrl).origin;
+                const fullAlbumUrl = new URL(tralbumData.album_url, baseUrl).toString();
+                return this.getAlbumDetails(fullAlbumUrl);
+            }
+
             // Enhance tralbumData with DOM fallbacks if missing or generic
             let domArtist = '';
             for (const selector of config.selectors.album.artistDOM) {

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { webSocketService } from '../services/WebSocketService';
-import { Album, Track } from '@shared/types';
+import { Album, Artist, Track } from '@shared/types';
 import { useStore } from '../store';
 import { ArrowLeft, Play, MoreVertical, ListEnd, ListPlus, ListMusic } from 'lucide-react-native';
 import { ActionSheet, Action } from '../components/ActionSheet';
@@ -13,7 +13,13 @@ import { useTheme } from '../theme';
 
 export default function AlbumDetailScreen() {
     const colors = useTheme();
-    const { url, artist, title, artworkUrl } = useLocalSearchParams<{ url: string, artist?: string, title?: string, artworkUrl?: string }>();
+    const { url, albumId, artist, title, artworkUrl } = useLocalSearchParams<{
+        url: string;
+        albumId?: string;
+        artist?: string;
+        title?: string;
+        artworkUrl?: string;
+    }>();
     const router = useRouter();
     const [album, setAlbum] = useState<Album | null>(artist ? {
         id: '',
@@ -26,12 +32,65 @@ export default function AlbumDetailScreen() {
     } : null);
     const [isLoading, setIsLoading] = useState(true);
     const [lastUrl, setLastUrl] = useState(url);
+    const [lastAlbumId, setLastAlbumId] = useState(albumId);
     const mode = useStore(state => state.mode);
+    const offlineMode = useStore(state => state.offlineMode);
+    const cachedTrackIds = useStore(state => state.cachedTrackIds);
+    const artists = useStore(state => state.artists) || [];
+    const collection = useStore(state => state.collection);
     const [lastMode, setLastMode] = useState(mode);
 
+    const loadCachedAlbum = useCallback(async () => {
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        const { mobileCacheService } = require('../services/MobileCacheService');
+        const entries: any[] = albumId
+            ? await mobileDatabase.getCacheEntriesByAlbum(albumId)
+            : (await mobileDatabase.getAllCacheEntries()).filter((entry: any) =>
+                entry.album?.toLowerCase() === title?.toLowerCase()
+                && entry.artist?.toLowerCase() === artist?.toLowerCase()
+            );
+        const cachedEntries = await Promise.all(entries.map(async entry =>
+            await mobileCacheService.isCached(entry.track_id) ? entry : null
+        ));
+        const validEntries = cachedEntries.filter((entry): entry is any => entry !== null);
+        if (validEntries.length > 0) {
+            useStore.setState(state => ({
+                cachedTrackIds: new Set([...state.cachedTrackIds, ...validEntries.map(entry => entry.track_id)])
+            }));
+        }
+        const tracks: Track[] = validEntries.map((entry: any) => ({
+            id: entry.track_id,
+            title: entry.title || '',
+            artist: entry.artist || artist || '',
+            artistId: undefined,
+            album: entry.album || title || '',
+            albumId: entry.album_id || albumId,
+            duration: entry.duration || 0,
+            trackNumber: entry.track_number || undefined,
+            artworkUrl: entry.artwork_url || artworkUrl || '',
+            streamUrl: '',
+            bandcampUrl: url || '',
+            isCached: true,
+            cachedPath: entry.file_path
+        }));
+        tracks.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
+
+        if (tracks.length === 0) return null;
+        return {
+            id: albumId || tracks[0].albumId || '',
+            title: title || tracks[0].album,
+            artist: artist || tracks[0].artist,
+            artworkUrl: artworkUrl || tracks[0].artworkUrl,
+            bandcampUrl: url || '',
+            tracks,
+            trackCount: tracks.length
+        } as Album;
+    }, [albumId, artist, artworkUrl, title, url]);
+
     // Reset state when URL or mode changes (runs during render to avoid cascading updates)
-    if (url !== lastUrl || mode !== lastMode) {
+    if (url !== lastUrl || albumId !== lastAlbumId || mode !== lastMode) {
         setLastUrl(url);
+        setLastAlbumId(albumId);
         setLastMode(mode);
         setIsLoading(true);
         setAlbum(artist ? {
@@ -66,7 +125,47 @@ export default function AlbumDetailScreen() {
     const [isAlbumAction, setIsAlbumAction] = useState(false);
 
     useEffect(() => {
-        if (!url) return;
+        if (offlineMode) {
+            loadCachedAlbum()
+                .then(cachedAlbum => {
+                    if (cachedAlbum) {
+                        setAlbum(cachedAlbum);
+                    } else {
+                        Alert.alert('Offline Mode', 'This album has no downloaded tracks.');
+                    }
+                })
+                .catch((err: any) => console.error('Error loading cached album details:', err))
+                .finally(() => setIsLoading(false));
+            return;
+        }
+
+        const showAlbum = (details: Album) => {
+            const finalArtist = (details.artist === 'Unknown Artist' && artist) ? artist : details.artist;
+            const updatedTracks = (details.tracks || []).map(t => ({
+                ...t,
+                artist: (t.artist === 'Unknown Artist' || !t.artist) ? finalArtist : t.artist
+            }));
+
+            setAlbum({
+                ...details,
+                artist: finalArtist,
+                tracks: updatedTracks
+            });
+        };
+
+        const loadCachedFallback = async () => {
+            const cachedAlbum = await loadCachedAlbum();
+            if (cachedAlbum) {
+                setAlbum(cachedAlbum);
+            } else {
+                Alert.alert('Error', 'Failed to load album details');
+            }
+        };
+
+        if (!url) {
+            loadCachedFallback().finally(() => setIsLoading(false));
+            return;
+        }
 
         // If in standalone mode, fetch via scraper
         if (mode === 'standalone') {
@@ -76,24 +175,14 @@ export default function AlbumDetailScreen() {
             mobileScraperService.getAlbumDetails(url)
                 .then((details: Album | null) => {
                     if (details) {
-                        const finalArtist = (details.artist === 'Unknown Artist' && artist) ? artist : details.artist;
-                        const updatedTracks = (details.tracks || []).map(t => ({
-                            ...t,
-                            artist: (t.artist === 'Unknown Artist' || !t.artist) ? finalArtist : t.artist
-                        }));
-
-                        setAlbum({
-                            ...details,
-                            artist: finalArtist,
-                            tracks: updatedTracks
-                        });
+                        showAlbum(details);
                     } else {
-                        Alert.alert('Error', 'Failed to load album details');
+                        return loadCachedFallback();
                     }
                 })
                 .catch((err: any) => {
                     console.error('Error fetching album details:', err);
-                    Alert.alert('Error', 'Failed to load album details');
+                    return loadCachedFallback();
                 })
                 .finally(() => {
                     setIsLoading(false);
@@ -104,18 +193,8 @@ export default function AlbumDetailScreen() {
         // Remote mode: use WebSocket
         const handleAlbumDetails = (details: Album) => {
             // Check if this details match the requested URL (or close enough)
-            if (details.bandcampUrl === url) {
-                const finalArtist = (details.artist === 'Unknown Artist' && artist) ? artist : details.artist;
-                const updatedTracks = (details.tracks || []).map(t => ({
-                    ...t,
-                    artist: (t.artist === 'Unknown Artist' || !t.artist) ? finalArtist : t.artist
-                }));
-
-                setAlbum({
-                    ...details,
-                    artist: finalArtist,
-                    tracks: updatedTracks
-                });
+            if (details && (details.bandcampUrl === url || (albumId && details.id === albumId))) {
+                showAlbum(details);
                 setIsLoading(false);
             }
         };
@@ -129,16 +208,58 @@ export default function AlbumDetailScreen() {
         return () => {
             unsubscribe();
         };
-    }, [url, mode, artist]);
+    }, [url, mode, artist, albumId, offlineMode, loadCachedAlbum]);
 
     const handlePlayAll = () => {
-        if (url && album) {
-            useStore.getState().playAlbum(url, album);
+        if (album && (url || offlineMode)) {
+            useStore.getState().playAlbum(url || album.bandcampUrl, album);
         }
     };
 
     const handleTrackPress = (track: Track) => {
         playTrack(track);
+    };
+
+    const resolveAlbumArtist = (): Artist | null => {
+        if (!album?.artist || album.artist === 'Unknown Artist') return null;
+
+        const normalizeArtistName = (name: string) => `name-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        const artist = artists.find(candidate =>
+            candidate.id === album.artistId || normalizeArtistName(candidate.name) === normalizeArtistName(album.artist)
+        );
+        if (artist) return artist;
+
+        const collectionItem = collection?.items?.find(item => {
+            const data = item.type === 'album' ? item.album : item.track;
+            return data && (
+                (album.artistId && data.artistId === album.artistId)
+                || normalizeArtistName(data.artist) === normalizeArtistName(album.artist)
+            );
+        });
+        const data = collectionItem?.type === 'album' ? collectionItem.album : collectionItem?.track;
+        if (!data) return null;
+
+        return {
+            id: data.artistId || normalizeArtistName(data.artist),
+            name: data.artist,
+            imageUrl: data.artworkUrl,
+            bandcampUrl: data.bandcampUrl?.match(/^https?:\/\/[^/]+/)?.[0] || ''
+        };
+    };
+
+    const handleArtistPress = () => {
+        const artist = resolveAlbumArtist();
+        if (!artist) return;
+
+        router.push({
+            pathname: '/artist/artist_detail' as any,
+            params: {
+                id: artist.id,
+                name: artist.name,
+                imageUrl: artist.imageUrl || album?.artworkUrl || '',
+                bandcampUrl: artist.bandcampUrl || ''
+            }
+        });
     };
 
     const handleAlbumMenu = () => {
@@ -149,7 +270,7 @@ export default function AlbumDetailScreen() {
                 text: "Play Next",
                 icon: ListEnd,
                 onPress: async () => {
-                    if (album.bandcampUrl) {
+                    if (album.bandcampUrl || offlineMode) {
                         await addAlbumToQueue(album.bandcampUrl, true, album.tracks);
                         Alert.alert('Success', 'Album added to play next');
                     }
@@ -159,7 +280,7 @@ export default function AlbumDetailScreen() {
                 text: "Add to Queue",
                 icon: ListPlus,
                 onPress: async () => {
-                    if (album.bandcampUrl) {
+                    if (album.bandcampUrl || offlineMode) {
                         await addAlbumToQueue(album.bandcampUrl, false, album.tracks);
                         Alert.alert('Success', 'Album added to queue');
                     }
@@ -274,6 +395,8 @@ export default function AlbumDetailScreen() {
         );
     }
 
+    const canPlayAlbum = album?.tracks.some(track => track.streamUrl || cachedTrackIds.has(track.id));
+
     const renderHeader = () => (
         <View style={styles.albumHeader}>
             <Image source={{ uri: album.artworkUrl }} style={[styles.artwork, { backgroundColor: colors.card }]} />
@@ -283,17 +406,25 @@ export default function AlbumDetailScreen() {
                     <Text style={styles.preorderBadgeText}>PRE-ORDER</Text>
                 </View>
             )}
-            <Text style={[styles.artist, { color: colors.accent }]}>
-                {album.artist}
-            </Text>
+            {resolveAlbumArtist() ? <TouchableOpacity
+                onPress={handleArtistPress}
+                accessibilityRole="link"
+                accessibilityLabel={`View artist ${album.artist}`}
+            >
+                <Text style={[styles.artist, { color: colors.accent }]}>
+                    {album.artist}
+                </Text>
+            </TouchableOpacity> : (
+                <Text style={[styles.artist, { color: colors.accent }]}>{album.artist}</Text>
+            )}
             <TouchableOpacity
                 style={[
                     styles.playButton,
                     { backgroundColor: colors.accent },
-                    !album.tracks.some((t) => !!t.streamUrl) && { opacity: 0.5 }
+                    !canPlayAlbum && { opacity: 0.5 }
                 ]}
                 onPress={handlePlayAll}
-                disabled={!album.tracks.some((t) => !!t.streamUrl)}
+                disabled={!canPlayAlbum}
             >
                 <Play size={20} color="#fff" fill="#fff" />
                 <Text style={[styles.playButtonText, { color: '#fff' }]}>Play Album</Text>
@@ -302,7 +433,7 @@ export default function AlbumDetailScreen() {
     );
 
     const renderTrack = ({ item, index }: { item: Track, index: number }) => {
-        const isUnreleased = !item.streamUrl;
+        const isUnreleased = !item.streamUrl && !cachedTrackIds.has(item.id);
         return (
             <TouchableOpacity
                 style={[

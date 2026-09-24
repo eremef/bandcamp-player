@@ -21,7 +21,12 @@ const ITEM_WIDTH = (SCREEN_WIDTH - (LIST_PADDING * 2) - (GAP * (COLUMN_COUNT - 1
 
 export default function ArtistDetailScreen() {
     const colors = useTheme();
-    const { id } = useLocalSearchParams<{ id: string }>();
+    const { id, name, imageUrl, bandcampUrl } = useLocalSearchParams<{
+        id: string;
+        name?: string;
+        imageUrl?: string;
+        bandcampUrl?: string;
+    }>();
     const router = useRouter();
     const {
         collection,
@@ -30,6 +35,8 @@ export default function ArtistDetailScreen() {
         isArtistCollectionLoading,
         refreshArtistCollection,
         connectionStatus,
+        mode,
+        offlineMode,
         playAlbum,
         playTrack,
         playlists,
@@ -61,22 +68,28 @@ export default function ArtistDetailScreen() {
             return artistId === id;
         });
 
-        if (!item) return null;
-        const data = item.type === 'album' ? item.album! : item.track!;
+        if (item) {
+            const data = item.type === 'album' ? item.album! : item.track!;
+            return {
+                id,
+                name: data.artist,
+                imageUrl: data.artworkUrl,
+                bandcampUrl: data.bandcampUrl ? new URL(data.bandcampUrl).origin : ''
+            };
+        }
 
-        return {
-            id,
-            name: data.artist,
-            imageUrl: data.artworkUrl,
-            bandcampUrl: data.bandcampUrl ? new URL(data.bandcampUrl).origin : ''
-        };
-    }, [collection, artists, id, dedupeEnabled]);
+        return name ? { id, name, imageUrl, bandcampUrl: bandcampUrl || '' } : null;
+    }, [collection, artists, id, dedupeEnabled, name, imageUrl, bandcampUrl]);
 
     useEffect(() => {
-        if (connectionStatus === 'connected' && id) {
-            refreshArtistCollection(id);
+        if (id && (connectionStatus === 'connected' || (mode === 'standalone' && offlineMode))) {
+            if (mode === 'standalone' && offlineMode) {
+                refreshArtistCollection(id, artist?.name);
+            } else {
+                refreshArtistCollection(id);
+            }
         }
-    }, [connectionStatus, id, refreshArtistCollection]);
+    }, [connectionStatus, mode, offlineMode, id, artist?.name, refreshArtistCollection]);
 
     const artistItems = artistCollection?.items || [];
 
