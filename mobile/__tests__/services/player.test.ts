@@ -15,7 +15,7 @@ describe('player.ts', () => {
 
             expect(TrackPlayer.setupPlayer).toHaveBeenCalledWith(expect.objectContaining({
                 handleAudioBecomingNoisy: true,
-                audioMixing: 'exclusive',
+                audioMixing: 'mix',
                 android: expect.objectContaining({
                     wakeMode: 'network',
                     taskRemovedBehavior: 'stop',
