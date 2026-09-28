@@ -838,6 +838,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     pause: () => {
+        console.log('[MobileStore] pause', { mode: get().mode, connected: get().connectionStatus === 'connected' });
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('pause');
         } else {
