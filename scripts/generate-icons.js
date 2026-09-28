@@ -26,14 +26,15 @@ async function processIcon() {
         process.exit(1);
     }
 
-    const saveResized = async (name, width, height, destDir) => {
+    const saveResized = async (name, width, height, destDir, roundEdges = false) => {
         console.log(`\nProcessing ${name} (${width}x${height})...`);
         try {
+
+
             const workImg = baseImage.clone();
 
             // Jimp v1 resize({ w, h })
             workImg.resize({ w: width, h: height });
-
             const destPath = path.join(destDir, name);
 
             // Try await getBuffer
@@ -74,7 +75,7 @@ async function processIcon() {
 
     // Mobile
     await saveResized('icon.png', 256, 256, MOBILE_ICON_DIR);
-    await saveResized('splash-icon.png', 512, 512, MOBILE_ICON_DIR);
+    await saveResized('splash-icon.png', 512, 512, MOBILE_ICON_DIR, true);
     await saveResized('favicon.png', 48, 48, MOBILE_ICON_DIR);
 
     // Adaptive

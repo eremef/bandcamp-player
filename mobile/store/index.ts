@@ -203,6 +203,8 @@ interface AppState extends PlayerState {
     isFloatingPlayerLocked: boolean;
     toggleFloatingPlayer: () => Promise<void>;
     toggleFloatingPlayerLock: () => Promise<void>;
+    swipeTabsEnabled: boolean;
+    setSwipeTabsEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean, userIntendedPause: boolean } = {
@@ -274,6 +276,7 @@ export const useStore = create<AppState>((set, get) => ({
     crossfadeDuration: 3,
     floatingPlayerEnabled: true,
     isFloatingPlayerLocked: false,
+    swipeTabsEnabled: true,
     playlistSyncEnabled: true,
     playlistSyncMode: 'two-way' as PlaylistSyncMode,
     setTheme: async (theme: Theme) => {
@@ -330,6 +333,11 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isFloatingPlayerLocked: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('isFloatingPlayerLocked', newValue);
+    },
+    setSwipeTabsEnabled: async (enabled) => {
+        set({ swipeTabsEnabled: enabled });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('swipeTabsEnabled', enabled);
     },
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
@@ -549,6 +557,7 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            swipeTabsEnabled: settings.swipeTabsEnabled !== false,
             playlistSyncEnabled: settings.playlistSyncEnabled !== false,
             playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,
@@ -760,6 +769,7 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            swipeTabsEnabled: settings.swipeTabsEnabled !== false,
             playlistSyncEnabled: settings.playlistSyncEnabled !== false,
             playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,

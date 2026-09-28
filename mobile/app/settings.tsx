@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../theme';
-import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer, RefreshCw } from 'lucide-react-native';
+import { X, TestTubeDiagonal, RefreshCcw, Info, Music, LogOut, Heart, FastForward, Minus, Plus, Monitor, Sun, Moon, Check, WifiOff, Database, Trash2, Timer, RefreshCw, ArrowLeftRight } from 'lucide-react-native';
 import { Theme } from '@shared/types';
 import { useStore } from '../store';
 import { Switch, ScrollView } from 'react-native';
@@ -40,6 +40,8 @@ export default function SettingsScreen() {
         clearCache,
         floatingPlayerEnabled,
         toggleFloatingPlayer,
+        swipeTabsEnabled,
+        setSwipeTabsEnabled,
         playlistSyncEnabled,
         playlistSyncMode,
         togglePlaylistSync
@@ -135,6 +137,26 @@ export default function SettingsScreen() {
                         <Switch
                             value={floatingPlayerEnabled}
                             onValueChange={toggleFloatingPlayer}
+                            trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
+                        />
+                    </View>
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Navigation</Text>
+                    <View style={[styles.settingItem, { borderBottomColor: colors.border || '#333' }]}>
+                        <View style={styles.settingLabelContainer}>
+                            <ArrowLeftRight color={colors.text} size={20} style={styles.settingIcon} />
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.settingTitle, { color: colors.text }]}>Swipe Between Tabs</Text>
+                                <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                                    Swipe left or right to move between the main tabs
+                                </Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={swipeTabsEnabled}
+                            onValueChange={setSwipeTabsEnabled}
                             trackColor={{ false: '#333', true: colors.accent || '#1DA1F2' }}
                         />
                     </View>

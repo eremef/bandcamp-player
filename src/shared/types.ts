@@ -247,6 +247,7 @@ export interface AppSettings {
   playlistSyncMode: PlaylistSyncMode;
   discordRpcEnabled: boolean;
   theme: Theme;
+  swipeTabsEnabled?: boolean;
   allowBetaUpdates: boolean;
 
   // Collection settings
