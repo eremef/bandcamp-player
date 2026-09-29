@@ -120,7 +120,10 @@ describe('PlayerScreen', () => {
                 id: '1',
                 title: 'Test Song',
                 artist: 'Test Artist',
+                artistId: 'band-1',
                 album: 'Test Album',
+                albumId: 'album-1',
+                bandcampUrl: 'https://artist.bandcamp.com/track/test-song',
                 artworkUrl: 'http://art.com/1.jpg',
             },
             isPlaying: false,
@@ -142,6 +145,20 @@ describe('PlayerScreen', () => {
             theme: 'dark' as Theme,
             setTheme: jest.fn(),
             mode: 'standalone',
+            artists: [{ id: 'name-test-artist', name: 'Test Artist', bandcampUrl: 'https://artist.bandcamp.com' }],
+            collection: {
+                items: [{
+                    id: 'album-1',
+                    type: 'album',
+                    album: {
+                        id: 'album-1',
+                        title: 'Test Album',
+                        artist: 'Test Artist',
+                        bandcampUrl: 'https://artist.bandcamp.com/album/test-album',
+                        artworkUrl: 'http://art.com/1.jpg',
+                    },
+                }],
+            },
             setMode: jest.fn(),
             logoutBandcamp: jest.fn(),
             playlists: [],
@@ -177,6 +194,60 @@ describe('PlayerScreen', () => {
         expect(getByText('Test Artist')).toBeTruthy();
         expect(getByText('Test Album')).toBeTruthy();
         unmount();
+    });
+
+    it('opens the current artist details from the artist name', () => {
+        const { getByText } = render(<PlayerScreen />);
+
+        fireEvent.press(getByText('Test Artist'));
+
+        expect(router.push).toHaveBeenCalledWith({
+            pathname: '/artist/artist_detail',
+            params: {
+                id: 'name-test-artist',
+                name: 'Test Artist',
+                imageUrl: 'http://art.com/1.jpg',
+                bandcampUrl: 'https://artist.bandcamp.com',
+            },
+        });
+    });
+
+    it('opens album details using the matching collection album URL', () => {
+        const { getByText } = render(<PlayerScreen />);
+
+        fireEvent.press(getByText('Test Album'));
+
+        expect(router.push).toHaveBeenCalledWith({
+            pathname: '/album_detail',
+            params: {
+                url: 'https://artist.bandcamp.com/album/test-album',
+                albumId: 'album-1',
+                artist: 'Test Artist',
+                title: 'Test Album',
+                artworkUrl: 'http://art.com/1.jpg',
+            },
+        });
+    });
+
+    it('uses the current track artist ID when the collection confirms the artist', () => {
+        mockStore.mode = 'remote';
+        mockStore.artists = [];
+        const { getByText } = render(<PlayerScreen />);
+
+        fireEvent.press(getByText('Test Artist'));
+
+        expect(router.push).toHaveBeenCalledWith(expect.objectContaining({
+            pathname: '/artist/artist_detail',
+            params: expect.objectContaining({ id: 'band-1' }),
+        }));
+    });
+
+    it('does not link to artist details when the artist is not in the database or collection', () => {
+        mockStore.artists = [];
+        mockStore.collection = { items: [] };
+        const { queryByLabelText } = render(<PlayerScreen />);
+
+        expect(queryByLabelText('View artist Test Artist')).toBeNull();
     });
 
     it('renders placeholder when no track', () => {

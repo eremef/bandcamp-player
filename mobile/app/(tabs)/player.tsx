@@ -49,8 +49,75 @@ export default function PlayerScreen() {
         playlists,
         addTrackToPlaylist,
         createPlaylist,
-        offlineMode
+        offlineMode,
+        artists,
+        collection,
     } = useStore();
+
+    const resolveCurrentArtist = () => {
+        if (!currentTrack?.artist || currentTrack.artist === 'Unknown Artist') return null;
+        const normalizeArtistName = (name: string) => `name-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+        const artist = artists.find(candidate =>
+            candidate.id === currentTrack.artistId || normalizeArtistName(candidate.name) === normalizeArtistName(currentTrack.artist)
+        );
+        if (artist) return artist;
+
+        const collectionItem = collection?.items?.find(item => {
+            const data = item.type === 'album' ? item.album : item.track;
+            return data && (
+                (currentTrack.artistId && data.artistId === currentTrack.artistId)
+                || normalizeArtistName(data.artist) === normalizeArtistName(currentTrack.artist)
+            );
+        });
+        const data = collectionItem?.type === 'album' ? collectionItem.album : collectionItem?.track;
+        if (!data) return null;
+
+        return {
+            id: data.artistId || currentTrack.artistId || normalizeArtistName(data.artist),
+            name: data.artist,
+            imageUrl: data.artworkUrl,
+            bandcampUrl: data.bandcampUrl?.match(/^https?:\/\/[^/]+/)?.[0] || ''
+        };
+    };
+
+    const handleArtistPress = () => {
+        const artist = resolveCurrentArtist();
+        if (!artist) return;
+
+        router.push({
+            pathname: '/artist/artist_detail' as any,
+            params: {
+                id: artist.id,
+                name: artist.name,
+                imageUrl: artist.imageUrl || currentTrack?.artworkUrl || '',
+                bandcampUrl: artist.bandcampUrl || ''
+            }
+        });
+    };
+
+    const handleAlbumPress = () => {
+        if (!currentTrack?.album || currentTrack.radioStationId || (!currentTrack.albumId && !currentTrack.bandcampUrl)) return;
+
+        const collectionAlbums = collection?.items
+            ?.filter(item => item.type === 'album' && item.album)
+            .map(item => item.album!);
+        const collectionAlbum = collectionAlbums?.find(album => album.id === currentTrack.albumId)
+            || collectionAlbums?.find(album =>
+                album.title.toLowerCase() === currentTrack.album.toLowerCase()
+                && album.artist.toLowerCase() === currentTrack.artist.toLowerCase()
+            );
+
+        router.push({
+            pathname: '/album_detail',
+            params: {
+                url: collectionAlbum?.bandcampUrl || currentTrack.bandcampUrl || '',
+                albumId: collectionAlbum?.id || currentTrack.albumId || '',
+                artist: collectionAlbum?.artist || currentTrack.artist || '',
+                title: collectionAlbum?.title || currentTrack.album,
+                artworkUrl: collectionAlbum?.artworkUrl || currentTrack.artworkUrl || ''
+            }
+        });
+    };
 
     const handleDisconnect = () => {
         setIsMenuVisible(false); // Close menu first
@@ -155,13 +222,26 @@ export default function PlayerScreen() {
                         {currentTrack?.title || 'Not Playing'}
                     </Text>
                     {currentTrack && (
-                        <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
-                            {currentTrack.artist || 'Unknown Artist'}
-                        </Text>
+                        resolveCurrentArtist() ? <TouchableOpacity onPress={handleArtistPress} accessibilityRole="link" accessibilityLabel={`View artist ${currentTrack.artist}`}>
+                            <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
+                                {currentTrack.artist || 'Unknown Artist'}
+                            </Text>
+                        </TouchableOpacity> : (
+                            <Text style={[styles.artist, { color: colors.accent }]} numberOfLines={1}>
+                                {currentTrack.artist || 'Unknown Artist'}
+                            </Text>
+                        )
                     )}
-                    <Text style={[styles.album, { color: colors.textSecondary }]} numberOfLines={1}>
-                        {currentTrack?.album || ''}
-                    </Text>
+                    <TouchableOpacity
+                        onPress={handleAlbumPress}
+                        disabled={!currentTrack?.album || !!currentTrack.radioStationId || (!currentTrack.albumId && !currentTrack.bandcampUrl)}
+                        accessibilityRole="link"
+                        accessibilityLabel={`View album ${currentTrack?.album || ''}`}
+                    >
+                        <Text style={[styles.album, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {currentTrack?.album || ''}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
                 <View style={{ flex: 1 }} />

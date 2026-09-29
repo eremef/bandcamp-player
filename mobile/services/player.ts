@@ -7,7 +7,7 @@ export async function setupPlayer() {
     try {
         TrackPlayer.setupPlayer({
             handleAudioBecomingNoisy: true,
-            audioMixing: 'exclusive',
+            audioMixing: 'mix',
             progressSync: {
                 intervalSeconds: 1,
             },

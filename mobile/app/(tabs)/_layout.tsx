@@ -5,12 +5,16 @@ import { Redirect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Platform, View, Text } from 'react-native';
 import { useTheme } from '../../theme';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
+const TAB_NAMES = ['player', 'collection', 'artists', 'playlists', 'radio', 'queue'] as const;
 
 export default function TabLayout() {
     const connectionStatus = useStore((state) => state.connectionStatus);
     const mode = useStore((state) => state.mode);
     const auth = useStore((state) => state.auth);
     const offlineMode = useStore((state) => state.offlineMode);
+    const swipeTabsEnabled = useStore((state) => state.swipeTabsEnabled);
     const insets = useSafeAreaInsets();
 
     const colors = useTheme();
@@ -36,6 +40,34 @@ export default function TabLayout() {
                     },
                     tabBarActiveTintColor: colors.accent,
                     tabBarInactiveTintColor: colors.textSecondary,
+                }}
+                screenLayout={({ route, navigation, children }) => {
+                    if (!swipeTabsEnabled) {
+                        return <View style={{ flex: 1 }}>{children}</View>;
+                    }
+
+                    const currentIndex = TAB_NAMES.indexOf(route.name as (typeof TAB_NAMES)[number]);
+                    const swipeGesture = Gesture.Pan()
+                        .activeOffsetX([-25, 25])
+                        .failOffsetY([-20, 20])
+                        .runOnJS(true)
+                        .onEnd(({ translationX }) => {
+                            if (Math.abs(translationX) < 70 || currentIndex === -1) {
+                                return;
+                            }
+
+                            const nextIndex = currentIndex + (translationX < 0 ? 1 : -1);
+                            const nextTab = TAB_NAMES[nextIndex];
+                            if (nextTab) {
+                                navigation.navigate(nextTab);
+                            }
+                        });
+
+                    return (
+                        <GestureDetector gesture={swipeGesture}>
+                            <View style={{ flex: 1 }}>{children}</View>
+                        </GestureDetector>
+                    );
                 }}
             >
                 <Tabs.Screen

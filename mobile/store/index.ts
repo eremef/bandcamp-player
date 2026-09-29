@@ -101,7 +101,7 @@ interface AppState extends PlayerState {
     removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
     reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => void;
     fetchPlaylistDetails: (id: string) => Promise<Playlist | undefined>;
-    
+
     // Playlists Playback Actions
     playPlaylistNext: (id: string) => void;
     addPlaylistToQueue: (id: string) => void;
@@ -138,7 +138,7 @@ interface AppState extends PlayerState {
     refreshRadio: () => void;
     refreshQueue: () => void;
     refreshArtists: () => void;
-    refreshArtistCollection: (artistId: string) => void;
+    refreshArtistCollection: (artistId: string, artistName?: string) => void;
     getArtistsBulkItems: (artistNames: string[]) => Promise<CollectionItem[]>;
 
     // Pagination State
@@ -203,6 +203,8 @@ interface AppState extends PlayerState {
     isFloatingPlayerLocked: boolean;
     toggleFloatingPlayer: () => Promise<void>;
     toggleFloatingPlayerLock: () => Promise<void>;
+    swipeTabsEnabled: boolean;
+    setSwipeTabsEnabled: (enabled: boolean) => Promise<void>;
 }
 
 const initialState: Omit<PlayerState, 'queue'> & { skipAutoLogin: boolean, userIntendedPause: boolean } = {
@@ -274,6 +276,7 @@ export const useStore = create<AppState>((set, get) => ({
     crossfadeDuration: 3,
     floatingPlayerEnabled: true,
     isFloatingPlayerLocked: false,
+    swipeTabsEnabled: true,
     playlistSyncEnabled: true,
     playlistSyncMode: 'two-way' as PlaylistSyncMode,
     setTheme: async (theme: Theme) => {
@@ -330,6 +333,11 @@ export const useStore = create<AppState>((set, get) => ({
         set({ isFloatingPlayerLocked: newValue });
         const { mobileDatabase } = require('../services/MobileDatabase');
         await mobileDatabase.setSetting('isFloatingPlayerLocked', newValue);
+    },
+    setSwipeTabsEnabled: async (enabled) => {
+        set({ swipeTabsEnabled: enabled });
+        const { mobileDatabase } = require('../services/MobileDatabase');
+        await mobileDatabase.setSetting('swipeTabsEnabled', enabled);
     },
     toggleSimulationMode: async () => {
         const newValue = !get().isSimulationMode;
@@ -549,6 +557,7 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            swipeTabsEnabled: settings.swipeTabsEnabled !== false,
             playlistSyncEnabled: settings.playlistSyncEnabled !== false,
             playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,
@@ -760,6 +769,7 @@ export const useStore = create<AppState>((set, get) => ({
             crossfadeDuration: typeof settings.crossfadeDuration === 'number' ? settings.crossfadeDuration : 2,
             floatingPlayerEnabled: settings.floatingPlayerEnabled !== false,
             isFloatingPlayerLocked: settings.isFloatingPlayerLocked === true,
+            swipeTabsEnabled: settings.swipeTabsEnabled !== false,
             playlistSyncEnabled: settings.playlistSyncEnabled !== false,
             playlistSyncMode: settings.playlistSyncMode ?? 'two-way',
             downloadWifiOnly: settings.downloadWifiOnly !== false,
@@ -1530,8 +1540,8 @@ export const useStore = create<AppState>((set, get) => ({
                 const newTracks = [...playlist.tracks];
                 const [moved] = newTracks.splice(fromIndex, 1);
                 newTracks.splice(toIndex, 0, moved);
-                
-                const updatedPlaylists = state.playlists.map(p => 
+
+                const updatedPlaylists = state.playlists.map(p =>
                     p.id === playlistId ? { ...p, tracks: newTracks } : p
                 );
                 set({ playlists: updatedPlaylists });
@@ -1553,11 +1563,11 @@ export const useStore = create<AppState>((set, get) => ({
         const state = get();
         if (state.mode === 'remote' && state.connectionStatus === 'connected') {
             const isBandcamp = state.bandcampPlaylists.some(p => p.id === id);
-            
+
             if (isBandcamp) {
                 const bcPlaylist = state.bandcampPlaylists.find(p => p.id === id);
                 if (!bcPlaylist || !bcPlaylist.bandcampUrl) return undefined;
-                
+
                 const fetchedTracks = await new Promise<Track[] | undefined>((resolve) => {
                     const timeout = setTimeout(() => {
                         resolve(undefined);
@@ -1573,7 +1583,7 @@ export const useStore = create<AppState>((set, get) => ({
                     });
                     webSocketService.send('get-bandcamp-playlist-tracks', bcPlaylist.bandcampUrl);
                 });
-                
+
                 if (fetchedTracks) {
                     const updatedPlaylist = { ...bcPlaylist, tracks: fetchedTracks };
                     set((s) => ({
@@ -1613,10 +1623,10 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
         }
-        
+
         let playlist = get().playlists.find(p => p.id === id);
         if (!playlist) {
-             playlist = get().bandcampPlaylists.find(p => p.id === id);
+            playlist = get().bandcampPlaylists.find(p => p.id === id);
         }
         return playlist;
     },
@@ -1795,13 +1805,13 @@ export const useStore = create<AppState>((set, get) => ({
                 const { queue } = get();
                 const newItems = [...queue.items];
                 const insertIndex = queue.items.length === 0 ? 0 : queue.currentIndex + 1;
-                
+
                 const newQueueItems: QueueItem[] = playlist.tracks.map(track => ({
                     id: `${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     track,
                     source: 'playlist'
                 }));
-                
+
                 newItems.splice(insertIndex, 0, ...newQueueItems);
                 set({ queue: { ...queue, items: newItems } });
                 get().saveQueue();
@@ -1944,18 +1954,18 @@ export const useStore = create<AppState>((set, get) => ({
 
             const { Platform, Alert } = require('react-native');
             const safeName = playlist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            
+
             const exportData = {
                 ...playlist,
                 // We no longer strip streamUrl so playback has a valid URL before expiration
                 tracks: playlist.tracks,
             };
-            
+
             const jsonContent = JSON.stringify(exportData, null, 2);
 
             if (Platform.OS === 'android') {
                 const { Directory } = require('expo-file-system');
-                
+
                 try {
                     const destDir = await Directory.pickDirectoryAsync();
                     if (destDir) {
@@ -1969,11 +1979,11 @@ export const useStore = create<AppState>((set, get) => ({
             } else {
                 const { File, Paths } = require('expo-file-system');
                 const Sharing = require('expo-sharing');
-                
+
                 const file = new File(Paths.cache, `${safeName}_playlist.json`);
                 await file.create();
                 await file.write(jsonContent);
-                
+
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(file.uri, {
                         mimeType: 'application/json',
@@ -2240,7 +2250,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             const { mobileScraperService } = require('../services/MobileScraperService');
             const bandcampPlaylists = await mobileScraperService.fetchBandcampPlaylists();
-            
+
             // Fetch tracks for each playlist automatically
             const playlistsWithTracks = [];
             for (const p of bandcampPlaylists) {
@@ -2251,7 +2261,7 @@ export const useStore = create<AppState>((set, get) => ({
                     playlistsWithTracks.push(p);
                 }
             }
-            
+
             set({ bandcampPlaylists: playlistsWithTracks, isLoadingBandcampPlaylists: false });
         } catch (error) {
             console.error('[MobileStore] Failed to fetch Bandcamp playlists', error);
@@ -2294,14 +2304,40 @@ export const useStore = create<AppState>((set, get) => ({
                 .catch((err: any) => console.error('[MobileStore] Failed to load artists:', err));
         }
     },
-    refreshArtistCollection: (artistId: string) => {
-        if (!get().auth.isAuthenticated) {
+    refreshArtistCollection: (artistId: string, artistName?: string) => {
+        const { mode, connectionStatus, offlineMode, auth } = get();
+        if (mode === 'remote' && connectionStatus === 'connected') {
+            set({ isArtistCollectionLoading: true });
+            webSocketService.send('get-artist-collection', artistId);
+            return;
+        }
+
+        if (!auth.isAuthenticated) {
             console.log('[MobileStore] Skipping artist collection fetch: user not authenticated');
+            set({ isArtistCollectionLoading: false });
             return;
         }
         set({ isArtistCollectionLoading: true });
-        if (get().mode === 'remote' && get().connectionStatus === 'connected') {
-            webSocketService.send('get-artist-collection', artistId);
+        if (offlineMode) {
+            if (!auth.user) {
+                set({ isArtistCollectionLoading: false });
+                return;
+            }
+            const { mobileDatabase } = require('../services/MobileDatabase');
+            const resolvedArtistName = artistName || get().artists.find(artist => artist.id === artistId)?.name;
+            mobileDatabase.getCollectionByArtistNames(auth.user.id, resolvedArtistName ? [resolvedArtistName] : [])
+                .then((items: CollectionItem[]) => set({
+                    artistCollection: {
+                        items,
+                        totalCount: items.length,
+                        lastUpdated: new Date().toISOString()
+                    },
+                    isArtistCollectionLoading: false
+                }))
+                .catch((err: any) => {
+                    console.error('[MobileStore] Failed to load cached artist collection:', err);
+                    set({ isArtistCollectionLoading: false });
+                });
         } else {
             const { mobileScraperService } = require('../services/MobileScraperService');
             mobileScraperService.fetchCollection(false)

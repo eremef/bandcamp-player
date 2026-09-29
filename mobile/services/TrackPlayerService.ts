@@ -158,8 +158,11 @@ async function handleProgressUpdated(event: any) {
 }
 
 export async function PlaybackService(event?: any) {
-    console.log(`[PlaybackService] received event:`, event?.type);
     if (!event) return;
+
+    if (event?.type !== Event.PlaybackProgressUpdated) {
+        console.log(`[PlaybackService] received event:`, event?.type);
+    }
 
     switch (event.type) {
         case Event.IsPlayingChanged:

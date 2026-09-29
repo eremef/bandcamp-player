@@ -367,6 +367,7 @@ export class RemoteControlService extends EventEmitter {
                 await this.playerService.play();
                 break;
             case 'pause':
+                console.log(`[RemoteService] Pause received from client ${clientId}`);
                 this.playerService.pause();
                 break;
             case 'next':
