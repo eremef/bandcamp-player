@@ -101,7 +101,7 @@ interface AppState extends PlayerState {
     removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
     reorderPlaylistTracks: (playlistId: string, fromIndex: number, toIndex: number) => void;
     fetchPlaylistDetails: (id: string) => Promise<Playlist | undefined>;
-    
+
     // Playlists Playback Actions
     playPlaylistNext: (id: string) => void;
     addPlaylistToQueue: (id: string) => void;
@@ -848,7 +848,6 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
     pause: () => {
-        console.log('[MobileStore] pause', { mode: get().mode, connected: get().connectionStatus === 'connected' });
         if (get().mode === 'remote' && get().connectionStatus === 'connected') {
             webSocketService.send('pause');
         } else {
@@ -1541,8 +1540,8 @@ export const useStore = create<AppState>((set, get) => ({
                 const newTracks = [...playlist.tracks];
                 const [moved] = newTracks.splice(fromIndex, 1);
                 newTracks.splice(toIndex, 0, moved);
-                
-                const updatedPlaylists = state.playlists.map(p => 
+
+                const updatedPlaylists = state.playlists.map(p =>
                     p.id === playlistId ? { ...p, tracks: newTracks } : p
                 );
                 set({ playlists: updatedPlaylists });
@@ -1564,11 +1563,11 @@ export const useStore = create<AppState>((set, get) => ({
         const state = get();
         if (state.mode === 'remote' && state.connectionStatus === 'connected') {
             const isBandcamp = state.bandcampPlaylists.some(p => p.id === id);
-            
+
             if (isBandcamp) {
                 const bcPlaylist = state.bandcampPlaylists.find(p => p.id === id);
                 if (!bcPlaylist || !bcPlaylist.bandcampUrl) return undefined;
-                
+
                 const fetchedTracks = await new Promise<Track[] | undefined>((resolve) => {
                     const timeout = setTimeout(() => {
                         resolve(undefined);
@@ -1584,7 +1583,7 @@ export const useStore = create<AppState>((set, get) => ({
                     });
                     webSocketService.send('get-bandcamp-playlist-tracks', bcPlaylist.bandcampUrl);
                 });
-                
+
                 if (fetchedTracks) {
                     const updatedPlaylist = { ...bcPlaylist, tracks: fetchedTracks };
                     set((s) => ({
@@ -1624,10 +1623,10 @@ export const useStore = create<AppState>((set, get) => ({
                 }
             }
         }
-        
+
         let playlist = get().playlists.find(p => p.id === id);
         if (!playlist) {
-             playlist = get().bandcampPlaylists.find(p => p.id === id);
+            playlist = get().bandcampPlaylists.find(p => p.id === id);
         }
         return playlist;
     },
@@ -1806,13 +1805,13 @@ export const useStore = create<AppState>((set, get) => ({
                 const { queue } = get();
                 const newItems = [...queue.items];
                 const insertIndex = queue.items.length === 0 ? 0 : queue.currentIndex + 1;
-                
+
                 const newQueueItems: QueueItem[] = playlist.tracks.map(track => ({
                     id: `${track.id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     track,
                     source: 'playlist'
                 }));
-                
+
                 newItems.splice(insertIndex, 0, ...newQueueItems);
                 set({ queue: { ...queue, items: newItems } });
                 get().saveQueue();
@@ -1955,18 +1954,18 @@ export const useStore = create<AppState>((set, get) => ({
 
             const { Platform, Alert } = require('react-native');
             const safeName = playlist.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-            
+
             const exportData = {
                 ...playlist,
                 // We no longer strip streamUrl so playback has a valid URL before expiration
                 tracks: playlist.tracks,
             };
-            
+
             const jsonContent = JSON.stringify(exportData, null, 2);
 
             if (Platform.OS === 'android') {
                 const { Directory } = require('expo-file-system');
-                
+
                 try {
                     const destDir = await Directory.pickDirectoryAsync();
                     if (destDir) {
@@ -1980,11 +1979,11 @@ export const useStore = create<AppState>((set, get) => ({
             } else {
                 const { File, Paths } = require('expo-file-system');
                 const Sharing = require('expo-sharing');
-                
+
                 const file = new File(Paths.cache, `${safeName}_playlist.json`);
                 await file.create();
                 await file.write(jsonContent);
-                
+
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(file.uri, {
                         mimeType: 'application/json',
@@ -2251,7 +2250,7 @@ export const useStore = create<AppState>((set, get) => ({
         try {
             const { mobileScraperService } = require('../services/MobileScraperService');
             const bandcampPlaylists = await mobileScraperService.fetchBandcampPlaylists();
-            
+
             // Fetch tracks for each playlist automatically
             const playlistsWithTracks = [];
             for (const p of bandcampPlaylists) {
@@ -2262,7 +2261,7 @@ export const useStore = create<AppState>((set, get) => ({
                     playlistsWithTracks.push(p);
                 }
             }
-            
+
             set({ bandcampPlaylists: playlistsWithTracks, isLoadingBandcampPlaylists: false });
         } catch (error) {
             console.error('[MobileStore] Failed to fetch Bandcamp playlists', error);

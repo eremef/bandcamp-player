@@ -6,15 +6,7 @@ let consecutiveErrors = 0;
 let lastErrorTimestamp = 0;
 
 function handleIsPlayingChanged(event: any) {
-    if (useStore.getState().mode !== 'standalone') {
-        if (!event.playing) {
-            console.log('[RemoteMode] Native player stopped playing', {
-                playbackState: TrackPlayer.getPlaybackState(),
-                remotePlaying: useStore.getState().isPlaying,
-            });
-        }
-        return;
-    }
+    if (useStore.getState().mode !== 'standalone') return;
 
     if (event.playing) {
         if (useStore.getState().userIntendedPause) {
@@ -166,8 +158,11 @@ async function handleProgressUpdated(event: any) {
 }
 
 export async function PlaybackService(event?: any) {
-    console.log(`[PlaybackService] received event:`, event?.type);
     if (!event) return;
+
+    if (event?.type !== Event.PlaybackProgressUpdated) {
+        console.log(`[PlaybackService] received event:`, event?.type);
+    }
 
     switch (event.type) {
         case Event.IsPlayingChanged:
@@ -190,7 +185,6 @@ export async function PlaybackService(event?: any) {
             useStore.getState().play();
             break;
         case Event.RemotePause:
-            console.log('[PlaybackService] RemotePause', { mode: useStore.getState().mode });
             useStore.getState().pause();
             break;
         case Event.RemoteNext:
@@ -243,10 +237,7 @@ const subs = [
     TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, handleProgressUpdated),
 
     TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play()),
-    TrackPlayer.addEventListener(Event.RemotePause, () => {
-        console.log('[TrackPlayerService] RemotePause', { mode: useStore.getState().mode });
-        useStore.getState().pause();
-    }),
+    TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause()),
     TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next()),
     TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous()),
     TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position)),
