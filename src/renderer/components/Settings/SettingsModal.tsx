@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../../store/store';
-import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 import ConnectedDevicesModal from './ConnectedDevicesModal';
@@ -23,7 +23,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         auth,
         logout,
         remoteStatus,
+        pairingRequests,
+        connectedDevices,
         fetchRemoteStatus,
+        createPairingInvite,
+        approvePairing,
+        rejectPairing,
         updateStatus,
         checkForUpdates,
         installUpdate,
@@ -36,6 +41,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
     const [copied, setCopied] = useState(false);
     const [showDevicesModal, setShowDevicesModal] = useState(false);
+    const [pairingInvite, setPairingInvite] = useState<{ code: string; expiresAt: string; caCertificate: string; caFingerprint: string } | null>(null);
+    const [pairingError, setPairingError] = useState<string | null>(null);
 
     useEffect(() => {
         window.electron.system.getAppVersion().then(setAppVersion);
@@ -43,6 +50,17 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             fetchRemoteConfig();
         }
     }, [fetchRemoteConfig, remoteConfig]);
+
+    useEffect(() => {
+        if (settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe') {
+            setPairingError(null);
+            createPairingInvite().then(setPairingInvite).catch((error) => {
+                setPairingError(error instanceof Error ? error.message : 'Could not create a pairing code.');
+            });
+        } else {
+            setPairingInvite(null);
+        }
+    }, [settings?.remoteEnabled, remoteStatus?.isRunning, remoteStatus?.securityMode, createPairingInvite]);
 
     useEffect(() => {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -94,6 +112,39 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
+
+    const handleCreatePairingInvite = async () => {
+        try {
+            setPairingError(null);
+            setPairingInvite(await createPairingInvite());
+        } catch (error) {
+            setPairingError(error instanceof Error ? error.message : 'Could not create a pairing code.');
+        }
+    };
+
+    const handleDownloadRemoteCertificate = async () => {
+        const certificate = await window.electron.remote.getPairingCertificate();
+        if (!certificate) return;
+        const objectUrl = URL.createObjectURL(new Blob([certificate], { type: 'application/x-x509-ca-cert' }));
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = 'beta-player-remote-ca.crt';
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+    };
+
+    const pairingTicket = pairingInvite && remoteStatus
+        ? btoa(JSON.stringify({
+            version: 1,
+            host: remoteStatus.ip,
+            port: remoteStatus.port,
+            code: pairingInvite.code,
+            caFingerprint: pairingInvite.caFingerprint,
+        })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+        : '';
+    const pairingQrValue = pairingTicket && remoteStatus
+        ? `beta-app://pair?ticket=${pairingTicket}`
+        : '';
 
     const renderUpdateSection = () => {
         const { status, info, progress, error } = updateStatus;
@@ -479,7 +530,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Enable Remote Control</span>
-                                <span className={styles.settingHint}>Control playback from your mobile device</span>
+                                <span className={styles.settingHint}>Control playback from paired devices on your local network</span>
                             </div>
                             <label className={styles.switch}>
                                 <input
@@ -491,6 +542,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 <span className={styles.slider}></span>
                             </label>
                         </div>
+
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Connection Security</span>
+                                <span className={styles.settingHint}>Safe mode encrypts traffic and requires device approval.</span>
+                            </div>
+                            <select
+                                className={styles.selectInput}
+                                value={settings?.remoteSecurityMode ?? 'safe'}
+                                onChange={(event) => {
+                                    const mode = event.target.value as 'safe' | 'unsafe';
+                                    if (mode === 'unsafe' && !window.confirm('Unsafe mode sends remote control traffic without encryption or pairing. Devices on your LAN may read commands and control playback. Continue?')) return;
+                                    updateSettings({ remoteSecurityMode: mode });
+                                }}
+                                data-testid="setting-remote-security-mode"
+                            >
+                                <option value="safe">Safe (recommended)</option>
+                                <option value="unsafe">Unsafe (legacy connection)</option>
+                            </select>
+                        </div>
+
+                        {settings?.remoteSecurityMode === 'unsafe' && (
+                            <div className={styles.unsafeWarning}>
+                                <ShieldAlert size={18} />
+                                <span>Unsafe mode uses the previous unencrypted connection. Anyone on your local network may observe or send remote commands.</span>
+                            </div>
+                        )}
 
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
@@ -510,19 +588,24 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             </select>
                         </div>
 
-                        {settings?.remoteEnabled && remoteStatus && (
+                        {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && (
                             <div className={styles.remoteInfo}>
+                                <div className={styles.safeModeHeading}>
+                                    <ShieldCheck size={18} />
+                                    <span>Safe connection is active</span>
+                                </div>
+                                <div className={styles.remoteQr}>
+                                    <QRCodeCanvas
+                                        value={pairingQrValue || remoteStatus.url}
+                                        size={240}
+                                        bgColor="#ffffff"
+                                        fgColor="#000000"
+                                        level="M"
+                                        includeMargin={true}
+                                    />
+                                </div>
                                 <div className={styles.remoteDetails}>
-                                    <div className={styles.remoteQr}>
-                                        <QRCodeCanvas
-                                            value={remoteStatus.url}
-                                            size={128}
-                                            bgColor="#ffffff"
-                                            fgColor="#000000"
-                                            level="L"
-                                            includeMargin={true}
-                                        />
-                                    </div>
+
                                     <div className={styles.remoteText}>
                                         <div className={styles.remoteUrlContainer}>
                                             <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
@@ -536,18 +619,69 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                 {copied ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
                                             </button>
                                         </div>
-                                        <p className={styles.remoteHint}>Scan this QR code or open the URL in your mobile browser</p>
-                                        <div className={styles.remoteConnections} onClick={() => remoteStatus.connections > 0 && setShowDevicesModal(true)} style={remoteStatus.connections > 0 ? { cursor: 'pointer' } : {}}>
+                                        <p className={styles.remoteHint}>Scan with the mobile app to pair. The desktop will ask you to approve the device.</p>
+                                        {pairingInvite && (
+                                            <div className={styles.pairingCodeBlock}>
+                                                <span className={styles.settingLabel}>Manual pairing code · expires {new Date(pairingInvite.expiresAt).toLocaleTimeString()}</span>
+                                                <div className={styles.remoteUrlContainer}>
+                                                    <code className={styles.pairingCode}>{pairingInvite.code}</code>
+                                                    <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code)} title="Copy pairing code">
+                                                        {copied ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
+                                                    </button>
+                                                </div>
+                                                <span className={styles.settingHint}>Enter the host, this code, and the certificate fingerprint in the mobile app.</span>
+                                                <code className={styles.fingerprint}>{pairingInvite.caFingerprint.match(/.{1,4}/g)?.join(':')}</code>
+                                            </div>
+                                        )}
+                                        <div className={styles.remoteActions}>
+                                            <button className={styles.remoteActionBtn} onClick={handleCreatePairingInvite}>New pairing code</button>
+                                            <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
+                                        </div>
+                                        <p className={styles.remoteHint}>The mobile app pins this certificate automatically. To use the browser remote, install this local certificate in your operating system once; do not bypass browser certificate warnings.</p>
+                                        {pairingError && <p className={styles.remoteError}>{pairingError}</p>}
+                                        {pairingRequests.length > 0 && (
+                                            <div className={styles.pairingRequests}>
+                                                <strong>Pairing approval required</strong>
+                                                {pairingRequests.map((request) => (
+                                                    <div className={styles.pairingRequest} key={request.id}>
+                                                        <span>{request.name} · {request.platform} · {request.ip}</span>
+                                                        <div>
+                                                            <button className={styles.approveBtn} onClick={() => approvePairing(request.id)}>Approve</button>
+                                                            <button className={styles.rejectBtn} onClick={() => rejectPairing(request.id)}>Reject</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className={styles.remoteConnections} onClick={() => connectedDevices.length > 0 && setShowDevicesModal(true)} style={connectedDevices.length > 0 ? { cursor: 'pointer' } : {}}>
                                             <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
-                                                ● {remoteStatus.connections} connected {remoteStatus.connections === 1 ? 'device' : 'devices'}
+                                                ● {remoteStatus.connections} online · {connectedDevices.length} paired
                                             </span>
-                                            {remoteStatus.connections > 0 && (
+                                            {connectedDevices.length > 0 && (
                                                 <span className={styles.manageLink}> (Manage)</span>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'unsafe' && (
+                            <div className={styles.remoteInfo}>
+                                <div className={styles.remoteDetails}>
+                                    <div className={styles.remoteQr}>
+                                        <QRCodeCanvas value={remoteStatus.url} size={160} bgColor="#ffffff" fgColor="#000000" level="M" includeMargin />
+                                    </div>
+                                    <div className={styles.remoteText}>
+                                        <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>{remoteStatus.url}</p>
+                                        <p className={styles.remoteHint}>Unsafe legacy connection. Select Unsafe in the mobile app to connect.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {settings?.remoteEnabled && !remoteStatus?.isRunning && (
+                            <p className={styles.remoteError}>{remoteStatus?.error || 'Remote control did not start. Check the desktop log or select Unsafe mode if desktop key storage is unavailable.'}</p>
                         )}
                     </section>
 

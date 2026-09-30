@@ -392,6 +392,27 @@
     border-radius: var(--radius-lg);
 }
 
+.safeModeHeading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-md);
+}
+
+.unsafeWarning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    color: var(--color-warning, #f0b429);
+    background: color-mix(in srgb, var(--color-warning, #f0b429) 12%, transparent);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+}
+
 .remoteDetails {
     display: flex;
     gap: var(--spacing-lg);
@@ -399,10 +420,88 @@
 }
 
 .remoteQr {
-    background: white;
-    padding: 4px;
+    padding: var(--spacing-md);
     border-radius: var(--radius-sm);
     display: flex;
+    flex-wrap: balance;
+    justify-content: space-around;
+}
+
+.pairingCodeBlock {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.pairingCode,
+.fingerprint {
+    display: block;
+    color: var(--text-primary);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.fingerprint {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.remoteActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+}
+
+.remoteActionBtn,
+.approveBtn,
+.rejectBtn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.approveBtn {
+    color: var(--color-success);
+}
+
+.rejectBtn {
+    color: var(--color-error);
+}
+
+.pairingRequests {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.pairingRequest {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.pairingRequest > div {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.remoteError {
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
 }
 
 .remoteText {

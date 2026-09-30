@@ -272,7 +272,11 @@ async function initializeServices() {
   // Start remote service if enabled
   const settings = database.getSettings();
   if (settings?.remoteEnabled) {
-    remoteService.start();
+    try {
+      await remoteService.start();
+    } catch (error) {
+      console.error("[RemoteService] Failed to start:", error);
+    }
   }
 
   // Set initial theme

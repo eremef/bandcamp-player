@@ -185,6 +185,12 @@ export const REMOTE_CHANNELS = {
   ON_CONNECTIONS_CHANGED: "remote:on-connections-changed",
   GET_DEVICES: "remote:get-devices",
   DISCONNECT_DEVICE: "remote:disconnect-device",
+  CREATE_PAIRING_INVITE: "remote:create-pairing-invite",
+  GET_PAIRING_CERTIFICATE: "remote:get-pairing-certificate",
+  APPROVE_PAIRING: "remote:approve-pairing",
+  REJECT_PAIRING: "remote:reject-pairing",
+  ON_PAIRING_REQUESTS_CHANGED: "remote:on-pairing-requests-changed",
+  ON_PAIRED_DEVICES_CHANGED: "remote:on-paired-devices-changed",
 } as const;
 
 // ============================================================================

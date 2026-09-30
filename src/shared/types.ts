@@ -244,6 +244,7 @@ export interface AppSettings {
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;
+  remoteSecurityMode: RemoteSecurityMode;
   playlistSyncMode: PlaylistSyncMode;
   discordRpcEnabled: boolean;
   theme: Theme;
@@ -372,4 +373,61 @@ export interface RemoteClient {
     appVersion: string;
     device: string;
   };
+  paired?: boolean;
+  pairingId?: string;
+  securityMode?: RemoteSecurityMode;
+}
+
+export type RemoteSecurityMode = "safe" | "unsafe";
+
+export interface RemotePairingRecord {
+  id: string;
+  tokenHash: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  createdAt: string;
+  lastConnectedAt: string | null;
+}
+
+export interface RemotePairedDevice {
+  id: string;
+  ip: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  createdAt: string;
+  lastConnectedAt: string | null;
+  online: boolean;
+}
+
+export interface RemotePairingRequest {
+  id: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  ip: string;
+  requestedAt: string;
+}
+
+export interface RemoteControlStatus {
+  isRunning: boolean;
+  port: number;
+  ip: string;
+  url: string;
+  connections: number;
+  securityMode: RemoteSecurityMode;
+  caFingerprint: string | null;
+  pairingRequests: RemotePairingRequest[];
+  error: string | null;
+}
+
+export interface RemotePairingInvite {
+  code: string;
+  expiresAt: string;
+  caCertificate: string;
+  caFingerprint: string;
 }

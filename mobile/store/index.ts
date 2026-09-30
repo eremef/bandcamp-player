@@ -2,6 +2,7 @@ import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track,
 import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
+import type { RemoteConnectionOptions } from '../services/WebSocketService';
 
 const runAfterInteractions = (callback: () => void) => {
     if (typeof requestIdleCallback !== 'undefined') {
@@ -67,7 +68,7 @@ interface AppState extends PlayerState {
     setMode: (mode: 'remote' | 'standalone') => Promise<void>;
     loginBandcamp: () => Promise<void>;
     logoutBandcamp: () => Promise<void>;
-    connect: (ip?: string) => Promise<void>;
+    connect: (ip?: string, options?: RemoteConnectionOptions) => Promise<void>;
     disconnect: () => Promise<void>;
     autoConnect: () => Promise<void>;
     startScan: () => Promise<void>;
@@ -696,7 +697,7 @@ export const useStore = create<AppState>((set, get) => ({
         });
     },
 
-    connect: async (manualIp?: string) => {
+    connect: async (manualIp?: string, options?: RemoteConnectionOptions) => {
         const ip = manualIp || get().hostIp;
         if (!ip) return;
 
@@ -709,7 +710,7 @@ export const useStore = create<AppState>((set, get) => ({
         await AsyncStorage.setItem('last_ip', ip);
 
         set({ hostIp: ip, recentIps: newRecents, connectionStatus: 'connecting', skipAutoLogin: false });
-        webSocketService.connect(ip);
+        await webSocketService.connect(ip, options);
     },
 
     disconnect: async () => {

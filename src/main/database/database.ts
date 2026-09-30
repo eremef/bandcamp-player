@@ -8,6 +8,7 @@ import type {
   Track,
   CacheEntry,
   RadioStation,
+  RemotePairingRecord,
 } from "../../shared/types";
 
 // ============================================================================
@@ -37,6 +38,17 @@ export class Database {
       CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS remote_paired_devices (
+        id TEXT PRIMARY KEY,
+        token_hash TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        app_version TEXT NOT NULL,
+        device TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_connected_at TEXT
       );
 
       -- Playlists table
@@ -200,6 +212,7 @@ export class Database {
       scrobblingEnabled: true,
       scrobbleThreshold: 50,
       remoteEnabled: true,
+      remoteSecurityMode: "safe",
       playlistSyncMode: "two-way",
       discordRpcEnabled: false,
       theme: "system",
@@ -279,6 +292,67 @@ export class Database {
       console.warn("[Database] Failed to setSettings:", err);
       return settings as AppSettings;
     }
+  }
+
+  getRemotePairings(): RemotePairingRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT id, token_hash AS tokenHash, name, platform,
+          app_version AS appVersion, device, created_at AS createdAt,
+          last_connected_at AS lastConnectedAt
+        FROM remote_paired_devices ORDER BY created_at DESC`,
+      )
+      .all() as RemotePairingRecord[];
+    return rows;
+  }
+
+  getRemotePairing(id: string): RemotePairingRecord | null {
+    const row = this.db
+      .prepare(
+        `SELECT id, token_hash AS tokenHash, name, platform,
+          app_version AS appVersion, device, created_at AS createdAt,
+          last_connected_at AS lastConnectedAt
+        FROM remote_paired_devices WHERE id = ?`,
+      )
+      .get(id) as RemotePairingRecord | undefined;
+    return row ?? null;
+  }
+
+  saveRemotePairing(pairing: RemotePairingRecord): void {
+    this.db
+      .prepare(
+        `INSERT INTO remote_paired_devices
+          (id, token_hash, name, platform, app_version, device, created_at, last_connected_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          token_hash = excluded.token_hash,
+          name = excluded.name,
+          platform = excluded.platform,
+          app_version = excluded.app_version,
+          device = excluded.device,
+          last_connected_at = excluded.last_connected_at`,
+      )
+      .run(
+        pairing.id,
+        pairing.tokenHash,
+        pairing.name,
+        pairing.platform,
+        pairing.appVersion,
+        pairing.device,
+        pairing.createdAt,
+        pairing.lastConnectedAt,
+      );
+  }
+
+  updateRemotePairingLastConnected(id: string, lastConnectedAt: string): void {
+    this.db
+      .prepare("UPDATE remote_paired_devices SET last_connected_at = ? WHERE id = ?")
+      .run(lastConnectedAt, id);
+  }
+
+  revokeRemotePairing(id: string): boolean {
+    return this.db.prepare("DELETE FROM remote_paired_devices WHERE id = ?").run(id)
+      .changes > 0;
   }
 
   // ---- Playlists ----
