@@ -1,24 +1,48 @@
-import { _electron as electron, test as base, ElectronApplication, Page } from '@playwright/test';
+import { _electron as electron, test as base, type ElectronApplication, type Page } from '@playwright/test';
 import { join } from 'path';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { createServer } from 'node:net';
 
 type AppFixtures = {
     electronApp: ElectronApplication;
     window: Page;
+    userDataPath: string;
+    remotePort: number;
 };
 
+const getAvailablePort = () => new Promise<number>((resolve, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        if (!address || typeof address === 'string') {
+            server.close();
+            reject(new Error('Could not allocate a test port'));
+            return;
+        }
+
+        server.close((error) => error ? reject(error) : resolve(address.port));
+    });
+});
+
 export const test = base.extend<AppFixtures>({
-    electronApp: async ({ }, use, testInfo) => {
+    userDataPath: async ({ }, use, testInfo) => {
+        await use(testInfo.outputPath('user-data'));
+    },
+    remotePort: async ({ }, use) => {
+        await use(await getAvailablePort());
+    },
+    electronApp: async ({ remotePort, userDataPath }, use) => {
         const electronApp = await electron.launch({
             args: [
                 join(__dirname, '../dist/main/main.js'),
-                `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.testId)}`
+                `--user-data-dir=${userDataPath}`
             ],
             env: {
                 ...process.env,
                 NODE_ENV: 'production',
                 E2E_TEST: 'true',
-                REMOTE_PORT: '0'
+                REMOTE_PORT: String(remotePort)
             },
         });
 

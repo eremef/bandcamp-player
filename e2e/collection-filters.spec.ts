@@ -80,16 +80,10 @@ test.describe('Collection Filters', () => {
 
 
     test('should filter albums, tracks, and wishlist items', async ({ window }) => {
-        // Verify all 3 artists are visible, with a longer timeout to allow Collection to refresh
-        // await expect(window.locator('text=Artist A')).toBeVisible();
         await expect(window.locator('text=Artist B')).toBeVisible();
-        // Wait a bit for React to settle after Settings close
-        await window.waitForTimeout(1000);
 
         // Open Filter Menu
         await window.getByTestId('filter-toggle-btn').click();
-
-        await window.waitForTimeout(500);
 
         // Uncheck Albums
         await window.getByTestId('filter-albums-btn').click();

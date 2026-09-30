@@ -100,7 +100,6 @@ test.describe('Collection Bulk Actions', () => {
     test('bulk actions button is hidden when search returns no results', async ({ window }) => {
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('xyznonexistent12345');
-        await window.waitForTimeout(300);
 
         await expect(window.getByTestId('album-card')).toHaveCount(0);
         await expect(window.getByTitle('Bulk actions for current view')).not.toBeVisible();
@@ -109,8 +108,6 @@ test.describe('Collection Bulk Actions', () => {
     test('bulk actions button appears when search has matching results', async ({ window }) => {
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
-        await window.waitForTimeout(300);
-
 
         await expect(window.getByTestId('album-card').first()).toBeVisible();
         await expect(window.getByTitle('Bulk actions for current view')).toBeVisible();
@@ -123,7 +120,6 @@ test.describe('Collection Bulk Actions', () => {
     test('bulk actions menu opens and closes on toggle', async ({ window }) => {
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
-        await window.waitForTimeout(300);
 
         const bulkBtn = window.getByTitle('Bulk actions for current view');
         await expect(bulkBtn).toBeVisible();
@@ -156,23 +152,18 @@ test.describe('Collection Bulk Actions', () => {
         // Search and use bulk "Add to Queue"
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
-        await window.waitForTimeout(300);
+        await expect(window.getByTestId('album-card').first()).toBeVisible();
 
         await window.getByTitle('Bulk actions for current view').click();
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.click();
-        await window.waitForTimeout(500);
 
         // Open queue and verify items are present
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
         const queueItems = window.locator('li[class*="item"]');
-        await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
-        expect(await queueItems.count()).toBeGreaterThan(0);
-
-        // Wait for the bulk operation to fully finish before proceeding
-        await expect(window.locator('text=/Processing \\d+/')).not.toBeVisible({ timeout: 10000 });
+        await expect.poll(async () => queueItems.count()).toBe(4);
 
         // Close queue panel to avoid obscuring elements in the next test
         const closeBtnAfter = window.getByTitle('Close');
@@ -188,7 +179,7 @@ test.describe('Collection Bulk Actions', () => {
 
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
-        await window.waitForTimeout(300);
+        await expect(window.getByTestId('album-card').first()).toBeVisible();
 
         await window.getByTitle('Bulk actions for current view').click();
         const playAllItem = window.locator('button', { hasText: 'Play All' }).first();
@@ -206,20 +197,19 @@ test.describe('Collection Bulk Actions', () => {
         // Step 1: Add some tracks to queue first
         const searchInput = window.getByPlaceholder('Search your music...');
         await searchInput.fill('Mock');
-        await window.waitForTimeout(300);
+        await expect(window.getByTestId('album-card').first()).toBeVisible();
 
         await window.getByTitle('Bulk actions for current view').click();
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.click({ force: true });
-        await window.waitForTimeout(500);
 
         // Check initial queue count
         const queueBtn = window.locator('div[class*="playerBar"]').getByTitle('Queue', { exact: true });
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
         const queueItems = window.locator('li[class*="item"]');
-        await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
+        await expect.poll(async () => queueItems.count()).toBe(4);
         const initialCount = await queueItems.count();
 
         // Close queue panel
@@ -230,12 +220,10 @@ test.describe('Collection Bulk Actions', () => {
         const playNextItem = window.locator('button', { hasText: 'Play Next' }).first();
         await expect(playNextItem).toBeVisible({ timeout: 3000 });
         await playNextItem.click({ force: true });
-        await window.waitForTimeout(500);
 
         // Open queue and verify count grew
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
-        const newCount = await queueItems.count();
-        expect(newCount).toBeGreaterThan(initialCount);
+        await expect.poll(async () => queueItems.count()).toBeGreaterThan(initialCount);
     });
 });

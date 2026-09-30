@@ -60,12 +60,6 @@ test.describe('Queue Management', () => {
 
         await expect(queueHeading).toBeVisible({ timeout: 5000 });
         
-        // Clear the queue if it's not empty from a previous test in the same worker
-        const clearBtn = window.getByRole('button', { name: 'Clear queue' });
-        if (await clearBtn.isVisible()) {
-             await clearBtn.click();
-        }
-        
         await expect(window.locator('text=Queue is empty')).toBeVisible();
         await expect(window.locator('text=0 tracks')).toBeVisible();
     });
@@ -83,9 +77,6 @@ test.describe('Queue Management', () => {
         await expect(addToQueueBtn).toBeVisible({ timeout: 5000 });
         await addToQueueBtn.click({ force: true });
 
-        // Wait for queue update
-        await window.waitForTimeout(1000);
-
         // Open the queue panel to verify
         const queueBtn = window.getByRole('button', { name: 'Queue', exact: true }).first();
         const queueHeading = window.getByRole('heading', { name: 'Queue', level: 2 });
@@ -96,8 +87,7 @@ test.describe('Queue Management', () => {
 
         await expect(queueHeading).toBeVisible({ timeout: 5000 });
 
-        // Queue should NOT be empty now
-        await expect(window.locator('text=Queue is empty')).not.toBeVisible({ timeout: 3000 });
+        await expect(window.locator('li[class*="item"]').first()).toBeVisible({ timeout: 10000 });
     });
 
     test('should clear queue', async ({ window }) => {
@@ -109,8 +99,6 @@ test.describe('Queue Management', () => {
         const addToQueueBtn = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueBtn).toBeVisible({ timeout: 5000 });
         await addToQueueBtn.click({ force: true });
-        await window.waitForTimeout(1000);
-
         // Open queue
         const queueBtn = window.getByRole('button', { name: 'Queue', exact: true }).first();
         const queueHeading = window.getByRole('heading', { name: 'Queue', level: 2 });
@@ -120,11 +108,10 @@ test.describe('Queue Management', () => {
         }
         await expect(queueHeading).toBeVisible({ timeout: 5000 });
 
-        // Click Clear
-        const clearBtn = window.locator('button', { hasText: 'Clear' }).first();
+        const clearBtn = window.getByTitle('Clear queue');
+        await expect(clearBtn).toBeVisible();
         await clearBtn.click();
 
-        // Verify queue is empty
         await expect(window.locator('text=Queue is empty')).toBeVisible({ timeout: 5000 });
     });
 });

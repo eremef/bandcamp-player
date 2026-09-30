@@ -1,48 +1,25 @@
-import { _electron as electron, test, expect, ElectronApplication, Page } from '@playwright/test';
-import { join } from 'path';
+import { test, expect } from './fixtures';
 
 test.describe('Search', () => {
-    let electronApp: ElectronApplication;
-    let window: Page;
-
-    test.beforeEach(async ({ }, testInfo) => {
-        electronApp = await electron.launch({
-            args: [join(__dirname, '../dist/main/main.js'), `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.workerIndex.toString())}`],
-            env: { 
-                ...process.env, 
-                NODE_ENV: 'production', 
-                E2E_TEST: 'true',
-                REMOTE_PORT: (9999 + testInfo.workerIndex).toString()
-            },
-        });
-        window = await electronApp.firstWindow();
-        await window.waitForLoadState('domcontentloaded');
-
-        // Wait for either login button or collection to be ready
-        const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
-
-        await loginBtn.or(collectionBtn).waitFor();
-
-        if (await loginBtn.isVisible()) {
-            await loginBtn.click();
+    test.beforeEach(async ({ window }) => {
+        const loginButton = window.getByRole('button', { name: 'Login with Bandcamp' });
+        const collectionButton = window.getByRole('button', { name: 'Collection', exact: true });
+        if (await loginButton.isVisible()) {
+            await loginButton.click();
         }
-        await expect(collectionBtn).toBeVisible();
+        await expect(collectionButton).toBeVisible({ timeout: 15000 });
 
-        // Navigate to Artists view where the search bar is
         await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', exact: true })).toBeVisible();
+        await expect(window.locator('[class*="artistCard"]').first()).toBeVisible();
     });
 
-    test.afterEach(async () => {
-        await electronApp.close();
-    });
+    test('filters the artists list as text is entered', async ({ window }) => {
+        const searchInput = window.getByPlaceholder('Search..');
+        await searchInput.fill('Electromagnetic');
 
-    test('should allow typing in search bar', async () => {
-        const searchInput = window.locator('input[placeholder="Search.."]');
-        await expect(searchInput).toBeVisible();
-
-        await searchInput.fill('Test Artist');
-        await expect(searchInput).toHaveValue('Test Artist');
+        await expect(searchInput).toHaveValue('Electromagnetic');
+        await expect(window.locator('[class*="artistCard"]')).toHaveCount(1);
+        await expect(window.getByText('Electromagnetic Interference', { exact: true })).toBeVisible();
     });
 });

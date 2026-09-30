@@ -23,30 +23,20 @@ test.describe('Theme Switching', () => {
 
         // Switch to Dark theme
         await themeSelect.selectOption('dark');
-        await window.waitForTimeout(500);
 
-        // Verify the theme attribute changed on the document
-        const darkTheme = await window.evaluate(() =>
+        const readTheme = () => window.evaluate(() =>
             document.documentElement.getAttribute('data-theme') ||
             document.body.getAttribute('data-theme') ||
             document.documentElement.className
         );
-        expect(darkTheme).toContain('dark');
+        await expect.poll(readTheme).toContain('dark');
 
         // Switch to Light theme
         await themeSelect.selectOption('light');
-        await window.waitForTimeout(500);
-
-        const lightTheme = await window.evaluate(() =>
-            document.documentElement.getAttribute('data-theme') ||
-            document.body.getAttribute('data-theme') ||
-            document.documentElement.className
-        );
-        expect(lightTheme).toContain('light');
+        await expect.poll(readTheme).toContain('light');
 
         // Reset to System Default
         await themeSelect.selectOption('system');
-        await window.waitForTimeout(500);
 
         // Close settings
         const closeButton = window.locator('header').filter({ has: settingsHeading }).locator('button');

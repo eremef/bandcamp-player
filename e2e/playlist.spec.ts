@@ -1,58 +1,96 @@
 import { test, expect } from './fixtures';
 
+const MOCK_COLLECTION = {
+    items: [
+        {
+            id: 'playlist-item',
+            type: 'album' as const,
+            token: 'playlist-token',
+            purchaseDate: '2026-09-30T10:00:00.000Z',
+            album: {
+                id: 'playlist-album',
+                title: 'Playlist Album',
+                artist: 'Playlist Artist',
+                artistId: 'playlist-artist',
+                artworkUrl: '',
+                bandcampUrl: 'https://mock.bandcamp.com/album/playlist',
+                trackCount: 2,
+                tracks: [
+                    {
+                        id: 'playlist-track-1',
+                        title: 'Playlist Track One',
+                        artist: 'Playlist Artist',
+                        artistId: 'playlist-artist',
+                        album: 'Playlist Album',
+                        duration: 180,
+                        artworkUrl: '',
+                        streamUrl: 'https://mock.stream/playlist-one.mp3',
+                        bandcampUrl: '',
+                        isCached: true,
+                    },
+                    {
+                        id: 'playlist-track-2',
+                        title: 'Playlist Track Two',
+                        artist: 'Playlist Artist',
+                        artistId: 'playlist-artist',
+                        album: 'Playlist Album',
+                        duration: 200,
+                        artworkUrl: '',
+                        streamUrl: 'https://mock.stream/playlist-two.mp3',
+                        bandcampUrl: '',
+                        isCached: true,
+                    },
+                ],
+            },
+        },
+    ],
+    totalCount: 1,
+    lastUpdated: '2026-09-30T10:00:00.000Z',
+};
+
 test.describe('Playlist Lifecycle', () => {
-    test.beforeEach(async ({ window }) => {
-        // Perform login if needed
-        const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
+    test.beforeEach(async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ ipcMain }, mockCollection) => {
+            ipcMain.removeHandler('collection:fetch');
+            ipcMain.removeHandler('collection:refresh');
+            ipcMain.handle('collection:fetch', async () => mockCollection);
+            ipcMain.handle('collection:refresh', async () => mockCollection);
+        }, MOCK_COLLECTION);
 
-        if (await loginBtn.isVisible()) {
-            await loginBtn.click();
+        const loginButton = window.getByRole('button', { name: 'Login with Bandcamp' });
+        const collectionButton = window.getByRole('button', { name: 'Collection', exact: true });
+        if (await loginButton.isVisible()) {
+            await loginButton.click();
         }
-
-        // Wait for the app to be ready
-        await expect(collectionBtn).toBeVisible({ timeout: 15000 });
+        await expect(collectionButton).toBeVisible({ timeout: 15000 });
+        await collectionButton.click();
+        await window.getByTitle('Refresh').click();
+        await expect(window.getByText('Playlist Album')).toBeVisible({ timeout: 10000 });
     });
 
-    test('should create a new playlist and add an album to it', async ({ window }) => {
-        const testPlaylistName = `Test Playlist ${Date.now()}`;
-
-        // 1. Create Playlist via Sidebar
+    test('creates a playlist and adds collection tracks', async ({ window }) => {
+        const playlistName = `Playlist E2E ${Date.now()}`;
         await window.getByRole('button', { name: 'Create Playlist' }).click();
         const nameInput = window.getByPlaceholder('Playlist name...');
-        await nameInput.fill(testPlaylistName);
+        await nameInput.fill(playlistName);
         await nameInput.press('Enter');
 
-        // Verify it appears in the sidebar list
-        const playlistItem = window.getByRole('button', { name: testPlaylistName, exact: false });
-        await expect(playlistItem).toBeVisible({ timeout: 10000 });
+        const playlistButton = window.getByRole('button', { name: new RegExp(playlistName) });
+        await expect(playlistButton).toBeVisible({ timeout: 10000 });
 
-        // 2. Navigate to Collection and use right-click context menu to add to playlist
-        await window.getByRole('button', { name: 'Collection', exact: true }).click();
+        const albumCard = window.getByTestId('album-card').filter({ hasText: 'Playlist Album' });
+        await albumCard.click({ button: 'right' });
+        const contextMenu = albumCard.locator('div[class*="menu"]').filter({ hasText: 'Play Now' });
+        await contextMenu.getByRole('button', { name: 'Add to Playlist', exact: true }).click();
 
-        // Wait for cards to load
-        const firstAlbumCard = window.getByTestId('album-card').first();
-        await expect(firstAlbumCard).toBeVisible({ timeout: 15000 });
+        const modalHeading = window.getByRole('heading', { name: 'Add to Playlist', exact: true });
+        await expect(modalHeading).toBeVisible();
+        const playlistModal = window.locator('div[class*="modal"]').filter({ has: modalHeading });
+        await playlistModal.getByRole('button', { name: new RegExp(playlistName) }).click();
 
-        // Right-click to open context menu (more reliable than hover + button click)
-        await firstAlbumCard.click({ button: 'right' });
-
-        // Wait for the context menu to appear, then find the playlist option
-        // The menu has a "Play Now", "Add to Queue" then playlist names as buttons
-        const playlistMenuOption = window.locator('button', { hasText: testPlaylistName }).first();
-        await expect(playlistMenuOption).toBeVisible({ timeout: 10000 });
-        await playlistMenuOption.click({ force: true });
-
-        // Wait for the add operation to complete
-        await window.waitForTimeout(3000);
-
-        // 3. Navigate to the playlist and verify tracks were added
-        // Click the playlist in the sidebar
-        const updatedPlaylistItem = window.getByRole('button', { name: testPlaylistName, exact: false });
-        await updatedPlaylistItem.click();
-
-        // Verify the detail view shows the playlist name
-        const playlistHeading = window.getByRole('heading', { level: 1 });
-        await expect(playlistHeading).toContainText(testPlaylistName, { timeout: 15000 });
+        await playlistButton.click();
+        await expect(window.getByRole('heading', { level: 1 })).toContainText(playlistName);
+        await expect(window.getByText('Playlist Track One', { exact: true })).toBeVisible();
+        await expect(window.getByText('Playlist Track Two', { exact: true })).toBeVisible();
     });
 });
