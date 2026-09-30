@@ -95,6 +95,8 @@ const mockElectron = {
     disconnectDevice: vi.fn(),
     onStatusChanged: vi.fn(),
     onConnectionsChanged: vi.fn(),
+    onPairingRequestsChanged: vi.fn(),
+    onPairedDevicesChanged: vi.fn(),
   },
   window: {
     toggleMiniPlayer: vi.fn(),
@@ -136,6 +138,19 @@ describe("useStore", () => {
     // Ensure mock functions are fresh
     mockElectron.collection.onUpdated.mockReset();
     mockElectron.collection.onRefreshStarted.mockReset();
+
+    mockElectron.remote.getStatus.mockResolvedValue({
+      isRunning: false,
+      port: 9999,
+      ip: "192.168.1.10",
+      url: "https://192.168.1.10:9999",
+      connections: 0,
+      securityMode: "safe",
+      caFingerprint: null,
+      pairingRequests: [],
+      error: null,
+    });
+    mockElectron.remote.getConnectedDevices.mockResolvedValue([]);
 
     useStore.setState({
       auth: { isAuthenticated: false, user: null },
@@ -983,6 +998,12 @@ describe("useStore", () => {
     mockElectron.remote.onConnectionsChanged.mockImplementation(
       (cb) => (listeners["remoteConn"] = cb),
     );
+    mockElectron.remote.onPairingRequestsChanged.mockImplementation(
+      (cb) => (listeners["pairingRequests"] = cb),
+    );
+    mockElectron.remote.onPairedDevicesChanged.mockImplementation(
+      (cb) => (listeners["pairedDevices"] = cb),
+    );
     mockElectron.cast.onDevicesUpdated.mockImplementation(
       (cb) => (listeners["castDevices"] = cb),
     );
@@ -1031,6 +1052,14 @@ describe("useStore", () => {
     useStore.setState({ remoteStatus: { connections: 0 } as any });
     act(() => listeners["remoteConn"](5));
     expect(useStore.getState().remoteStatus?.connections).toBe(5);
+
+    const pairingRequests = [{ id: "request-1", name: "Phone", platform: "android" }];
+    act(() => listeners["pairingRequests"](pairingRequests));
+    expect(useStore.getState().pairingRequests).toEqual(pairingRequests);
+
+    const pairedDevices = [{ id: "device-1", name: "Phone", online: true }];
+    act(() => listeners["pairedDevices"](pairedDevices));
+    expect(useStore.getState().connectedDevices).toEqual(pairedDevices);
 
     // Test Cast Updates
     const mockDevices = [{ id: "c1", name: "Cast 1", host: "1.2.3.4" }];

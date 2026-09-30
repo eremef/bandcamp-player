@@ -217,13 +217,18 @@ describe('Mobile useStore', () => {
 
     it('should connect to a host', async () => {
         const ip = '192.168.1.10';
+        const options = {
+            mode: 'safe' as const,
+            pairingCode: 'A'.repeat(24),
+            caFingerprint: 'ab'.repeat(32),
+        };
         await act(async () => {
-            await useStore.getState().connect(ip);
+            await useStore.getState().connect(ip, options);
         });
 
         expect(useStore.getState().hostIp).toBe(ip);
         expect(useStore.getState().connectionStatus).toBe('connecting');
-        expect(webSocketService.connect).toHaveBeenCalledWith(ip);
+        expect(webSocketService.connect).toHaveBeenCalledWith(ip, options);
         expect(AsyncStorage.setItem).toHaveBeenCalledWith('recent_ips', expect.any(String));
         expect(AsyncStorage.setItem).toHaveBeenCalledWith('last_ip', ip);
     });
@@ -259,7 +264,7 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().hostIp).toBe('192.168.1.20');
         }, { timeout: 2000 });
 
-        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
+        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20', undefined);
         expect(useStore.getState().recentIps).toEqual(['192.168.1.20']);
 
     });
@@ -283,7 +288,7 @@ describe('Mobile useStore', () => {
         });
 
         expect(DiscoveryService.scanNetwork).toHaveBeenCalled();
-        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30');
+        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30', undefined);
     });
 
     describe('Playback Controls', () => {

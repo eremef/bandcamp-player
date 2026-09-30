@@ -21,7 +21,7 @@ jest.mock('expo-router', () => ({
 
 // Mock Lucide Icons
 jest.mock('lucide-react-native', () => ({
-    Github: () => 'Github',
+    GitFork: () => 'GitFork',
     ArrowLeft: () => 'ArrowLeft',
 }));
 

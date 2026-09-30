@@ -50,7 +50,7 @@ describe('RemoteControlService Disconnect Flow', () => {
     let mockWs: any;
     let mockReq: any;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         // Setup service mocks
         mockPlayerService = {
             on: vi.fn(),
@@ -61,13 +61,18 @@ describe('RemoteControlService Disconnect Flow', () => {
         mockScraperService = {} as unknown as ScraperService;
         mockPlaylistService = { on: vi.fn(), off: vi.fn() } as unknown as PlaylistService;
         mockAuthService = {} as unknown as AuthService;
-        mockDatabase = {} as unknown as Database;
+        mockDatabase = {
+            getSettings: vi.fn().mockReturnValue({ remoteSecurityMode: 'unsafe' }),
+            getRemotePairings: vi.fn().mockReturnValue([]),
+        } as unknown as Database;
 
         // Mock HTTP server
         mockHttpServer = {
             listen: vi.fn((port, host, cb) => cb && cb()),
-            close: vi.fn(),
+            close: vi.fn((cb) => cb?.()),
             on: vi.fn(),
+            once: vi.fn(),
+            off: vi.fn(),
         };
         (http.createServer as any).mockReturnValue(mockHttpServer);
 
@@ -85,7 +90,7 @@ describe('RemoteControlService Disconnect Flow', () => {
             mockDatabase
         );
 
-        remoteService.start();
+        await remoteService.start();
 
         // Simulate connection
         mockWs = new EventEmitter();
@@ -101,9 +106,9 @@ describe('RemoteControlService Disconnect Flow', () => {
         mockWss.emit('connection', mockWs, mockReq);
     });
 
-    afterEach(() => {
+    afterEach(async () => {
         vi.clearAllMocks();
-        remoteService.stop();
+        await remoteService.stop();
     });
 
     it('should send disconnect message before closing socket', () => {
