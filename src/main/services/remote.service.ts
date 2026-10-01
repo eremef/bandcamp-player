@@ -505,7 +505,7 @@ export class RemoteControlService extends EventEmitter {
                 completed = true;
                 try {
                     socket.close();
-                } catch {}
+                } catch { /* empty */ }
                 resolve(address);
             };
 

@@ -282,13 +282,14 @@ describe('Mobile useStore', () => {
 
     it('should start scan and connect if found', async () => {
         (DiscoveryService.scanNetwork as jest.Mock).mockResolvedValue('192.168.1.30');
+        const options = { mode: 'unsafe' as const };
 
         await act(async () => {
-            await useStore.getState().startScan();
+            await useStore.getState().startScan(options);
         });
 
         expect(DiscoveryService.scanNetwork).toHaveBeenCalled();
-        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30', undefined);
+        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30', options);
     });
 
     describe('Playback Controls', () => {
