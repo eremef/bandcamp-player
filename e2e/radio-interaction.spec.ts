@@ -30,13 +30,48 @@ const MOCK_STATIONS = [
 test.describe('Radio Interactions', () => {
     test.beforeEach(async ({ electronApp, window }) => {
         // Mock IPC handler so any call to get/refresh stations returns mock data
-        await electronApp.evaluate(({ ipcMain }, mockStations) => {
+        await electronApp.evaluate(({ ipcMain, BrowserWindow }, mockStations) => {
             ipcMain.removeHandler('radio:get-stations');
             ipcMain.removeHandler('radio:refresh-stations');
+            ipcMain.removeHandler('radio:play-station');
+            ipcMain.removeHandler('radio:add-to-queue');
             ipcMain.handle('radio:get-stations', async () => mockStations);
             ipcMain.handle('radio:refresh-stations', async (e) => {
                 e.sender.send('radio:on-stations-updated', mockStations);
                 return mockStations;
+            });
+            ipcMain.handle('radio:play-station', async (_event, station) => {
+                BrowserWindow.getAllWindows()[0]?.webContents.send('radio:on-state-changed', {
+                    isActive: true,
+                    currentStation: station,
+                    currentTrack: null,
+                });
+            });
+            let queue: { items: unknown[]; currentIndex: number } = { items: [], currentIndex: -1 };
+            ipcMain.handle('radio:add-to-queue', async (_event, station) => {
+                queue = {
+                    items: [
+                        ...queue.items,
+                        {
+                            id: `radio-${station.id}`,
+                            source: 'radio',
+                            radioStation: station,
+                            track: {
+                                id: `radio-track-${station.id}`,
+                                title: station.name,
+                                artist: 'Bandcamp',
+                                album: station.name,
+                                duration: 180,
+                                artworkUrl: '',
+                                streamUrl: station.streamUrl,
+                                bandcampUrl: '',
+                                isCached: false,
+                            },
+                        },
+                    ],
+                    currentIndex: -1,
+                };
+                BrowserWindow.getAllWindows()[0]?.webContents.send('queue:on-updated', queue);
             });
         }, MOCK_STATIONS);
 
@@ -57,38 +92,33 @@ test.describe('Radio Interactions', () => {
             await window.electron.radio.refreshStations();
         });
 
-        // Wait for mock stations to appear
-        await window.waitForTimeout(300);
+        await expect(window.getByTestId('radio-card')).toHaveCount(MOCK_STATIONS.length);
     });
 
     test('should play and switch radio stations', async ({ window }) => {
         const stations = window.getByTestId('radio-card');
         await expect(stations.first()).toBeVisible({ timeout: 15000 });
 
-        // 1. Play first station via the Play Mix button overlay
-        await stations.nth(0).getByTitle('Play Mix').click({ force: true });
+        const firstStation = stations.nth(0);
+        await firstStation.getByTitle('Play Mix').click({ force: true });
+        await expect(firstStation).toHaveClass(/active/);
 
-        // PlayerBar should update
-        const playerBar = window.locator('div[class*="playerBar"]');
-        await expect(playerBar).toBeVisible({ timeout: 10000 });
+        const secondStation = stations.nth(1);
+        await secondStation.getByTitle('Play Mix').click({ force: true });
+        await expect(secondStation).toHaveClass(/active/);
+        await expect(firstStation).not.toHaveClass(/active/);
 
-        // 2. Play second station (rapid switch)
-        await stations.nth(1).getByTitle('Play Mix').click({ force: true });
+        const thirdStation = stations.nth(2);
+        await thirdStation.getByTitle('More options').click({ force: true });
+        const contextMenu = thirdStation.locator('[class*="contextMenu"]');
+        await expect(contextMenu.getByRole('button', { name: 'Play', exact: true }).first()).toBeVisible();
+        await expect(contextMenu.getByRole('button', { name: 'Play Next', exact: true })).toBeVisible();
+        await contextMenu.getByRole('button', { name: 'Add to Queue', exact: true }).first().click();
 
-        // 3. Verify context menu options
-        await stations.nth(2).click({ button: 'right' });
-        const playNowMenu = window.getByText('Play Mix', { exact: true });
-        await expect(playNowMenu).toBeVisible();
-
-        const addToQueueMenu = window.locator('button, div').filter({ hasText: 'Add Mix to Queue' }).last();
-        await expect(addToQueueMenu).toBeVisible();
-        await addToQueueMenu.click({ force: true });
-
-        // Verify it was added to queue
-        await window.getByTitle('Queue', { exact: true }).click();
+        await window.getByTestId('player-queue-btn').click();
         const queueItems = window.locator('li[class*="item"]');
         await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
-        expect(await queueItems.count()).toBeGreaterThan(0);
+        await expect(queueItems.first()).toContainText('The Metal Show');
     });
 
     test('should search for radio stations', async ({ window }) => {
@@ -99,14 +129,13 @@ test.describe('Radio Interactions', () => {
         await expect(stations.first()).toBeVisible({ timeout: 15000 });
 
         await searchInput.fill('Bandcamp');
-        await window.waitForTimeout(500);
 
         const filteredStations = window.getByTestId('radio-card');
-        const count = await filteredStations.count();
-        expect(count).toBeGreaterThan(0);
+        await expect(filteredStations).toHaveCount(2);
 
         // Clear search via the X button
         await window.locator('button').filter({ has: window.locator('svg[class*="lucide-x"]') }).click({ force: true });
         await expect(searchInput).toHaveValue('');
+        await expect(filteredStations).toHaveCount(MOCK_STATIONS.length);
     });
 });

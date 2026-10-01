@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
-import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle, ShieldAlert } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 import ConnectedDevicesModal from './ConnectedDevicesModal';
+import PairingApprovalModal from './PairingApprovalModal';
 
 interface SettingsModalProps {
     onClose: () => void;
 }
+
+type CopyableField = 'remoteUrl' | 'pairingCode' | 'fingerprint' | `networkAddress:${string}`;
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
     const isMac = window.electron.system.platform === 'darwin';
@@ -23,7 +26,12 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         auth,
         logout,
         remoteStatus,
+        pairingRequests,
+        connectedDevices,
         fetchRemoteStatus,
+        createPairingInvite,
+        approvePairing,
+        rejectPairing,
         updateStatus,
         checkForUpdates,
         installUpdate,
@@ -34,8 +42,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
     const [appVersion, setAppVersion] = useState<string>('1.0.0');
     const [isRefreshingConfig, setIsRefreshingConfig] = useState(false);
-    const [copied, setCopied] = useState(false);
+    const [showUnsafeConfirmation, setShowUnsafeConfirmation] = useState(false);
+    const [copiedFields, setCopiedFields] = useState<Record<string, boolean>>({
+        remoteUrl: false,
+        pairingCode: false,
+        fingerprint: false,
+    });
     const [showDevicesModal, setShowDevicesModal] = useState(false);
+    const [pairingInvite, setPairingInvite] = useState<{ code: string; expiresAt: string; caCertificate: string; caFingerprint: string } | null>(null);
+    const [pairingError, setPairingError] = useState<string | null>(null);
+    const unsafeConfirmationRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
         window.electron.system.getAppVersion().then(setAppVersion);
@@ -43,6 +59,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             fetchRemoteConfig();
         }
     }, [fetchRemoteConfig, remoteConfig]);
+
+    useEffect(() => {
+        fetchRemoteStatus();
+    }, [fetchRemoteStatus]);
+
+    useEffect(() => {
+        if (settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe') {
+            setPairingError(null);
+            createPairingInvite().then(setPairingInvite).catch((error) => {
+                setPairingError(error instanceof Error ? error.message : 'Could not create a pairing code.');
+            });
+        } else {
+            setPairingInvite(null);
+        }
+    }, [settings?.remoteEnabled, remoteStatus?.isRunning, remoteStatus?.securityMode, remoteStatus?.generation, createPairingInvite]);
+
+    useEffect(() => {
+        const dialog = unsafeConfirmationRef.current;
+        if (!dialog) return;
+
+        if (showUnsafeConfirmation && !dialog.open) {
+            dialog.showModal();
+            dialog.querySelector<HTMLButtonElement>('[data-autofocus]')?.focus();
+        } else if (!showUnsafeConfirmation && dialog.open) {
+            dialog.close();
+        }
+    }, [showUnsafeConfirmation]);
 
     useEffect(() => {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -72,11 +115,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         fetchCacheStats();
     }
 
-    // Fetch remote status on mount
-    if (!remoteStatus && settings?.remoteEnabled) {
-        fetchRemoteStatus();
-    }
-
     const formatBytes = (bytes: number) => {
         if (bytes === 0) return '0 B';
         const k = 1024;
@@ -89,11 +127,49 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         window.electron.system.openExternal(url);
     };
 
-    const handleCopy = (text: string) => {
+    const handleCopy = (text: string, field: CopyableField) => {
         navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedFields((current) => ({ ...current, [field]: true }));
+        setTimeout(() => setCopiedFields((current) => ({ ...current, [field]: false })), 2000);
     };
+
+    const handleCreatePairingInvite = async () => {
+        try {
+            setPairingError(null);
+            setPairingInvite(await createPairingInvite());
+        } catch (error) {
+            setPairingError(error instanceof Error ? error.message : 'Could not create a pairing code.');
+        }
+    };
+
+    const handleDownloadRemoteCertificate = async () => {
+        const certificate = await window.electron.remote.getPairingCertificate();
+        if (!certificate) return;
+        const objectUrl = URL.createObjectURL(new Blob([certificate], { type: 'application/x-x509-ca-cert' }));
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = 'beta-player-remote-ca.crt';
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+    };
+
+    const pairingTicket = pairingInvite && remoteStatus?.ip
+        ? btoa(JSON.stringify({
+            version: 1,
+            host: remoteStatus.ip,
+            port: remoteStatus.port,
+            code: pairingInvite.code,
+            caFingerprint: pairingInvite.caFingerprint,
+        })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+        : '';
+    const pairingQrValue = pairingTicket
+        ? `beta-app://pair?ticket=${pairingTicket}`
+        : '';
+
+    const availableRemoteInterfaces = remoteStatus?.availableInterfaces ?? [];
+    const remoteInterfaceNames = [...new Set(availableRemoteInterfaces.map((networkInterface) => networkInterface.name))];
+    const remoteListenMode = settings?.remoteListenMode ?? 'recommended';
+    const recommendedInterface = availableRemoteInterfaces.find((networkInterface) => networkInterface.address === remoteStatus?.recommendedAddress);
 
     const renderUpdateSection = () => {
         const { status, info, progress, error } = updateStatus;
@@ -380,7 +456,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             <div className={styles.lastfmDisconnected}>
                                 <p>Connect your Last.fm account to scrobble tracks</p>
                                 <button className={styles.connectBtn} onClick={connectLastfm}>
-                                    <Music size={18} />
+                                    <Music size={16} />
                                     <span>Connect to Last.fm</span>
                                 </button>
                             </div>
@@ -479,7 +555,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Enable Remote Control</span>
-                                <span className={styles.settingHint}>Control playback from your mobile device</span>
+                                <span className={styles.settingHint}>Control playback from paired devices on your local network</span>
                             </div>
                             <label className={styles.switch}>
                                 <input
@@ -492,67 +568,343 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             </label>
                         </div>
 
-                        <div className={styles.setting}>
-                            <div className={styles.settingInfo}>
-                                <span className={styles.settingLabel}>Playlist Sync</span>
-                                <span className={styles.settingHint}>Set here for all devices. Desktop &rarr; Mobile makes phones read-only.</span>
-                            </div>
-                            <select
-                                className={styles.selectInput}
-                                value={settings?.playlistSyncMode || 'two-way'}
-                                onChange={(e) => updateSettings({ playlistSyncMode: e.target.value as any })}
-                                data-testid="setting-playlist-sync-mode"
-                            >
-                                <option value="two-way">Two-way</option>
-                                <option value="desktop-to-mobile">Desktop &rarr; Mobile</option>
-                                <option value="mobile-to-desktop">Mobile &rarr; Desktop</option>
-                                <option value="disabled">Disabled</option>
-                            </select>
-                        </div>
-
-                        {settings?.remoteEnabled && remoteStatus && (
-                            <div className={styles.remoteInfo}>
-                                <div className={styles.remoteDetails}>
-                                    <div className={styles.remoteQr}>
-                                        <QRCodeCanvas
-                                            value={remoteStatus.url}
-                                            size={128}
-                                            bgColor="#ffffff"
-                                            fgColor="#000000"
-                                            level="L"
-                                            includeMargin={true}
-                                        />
+                        {settings?.remoteEnabled && (
+                            <>
+                                <div className={styles.setting}>
+                                    <div className={styles.settingInfo}>
+                                        <span className={styles.settingLabel}>Network interface</span>
+                                        <span className={styles.settingHint}>Recommended uses the interface selected by your system&apos;s network route.</span>
                                     </div>
-                                    <div className={styles.remoteText}>
-                                        <div className={styles.remoteUrlContainer}>
-                                            <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
-                                                {remoteStatus.url}
-                                            </p>
-                                            <button
-                                                className={styles.copyBtn}
-                                                onClick={() => handleCopy(remoteStatus.url)}
-                                                title="Copy to clipboard"
+                                    <select
+                                        className={styles.selectInput}
+                                        value={remoteListenMode}
+                                        onChange={(event) => {
+                                            const mode = event.target.value as 'recommended' | 'interface' | 'all';
+                                            updateSettings({
+                                                remoteListenMode: mode,
+                                                ...(mode === 'interface' && !settings?.remoteInterfaceName && recommendedInterface
+                                                    ? { remoteInterfaceName: recommendedInterface.name }
+                                                    : {}),
+                                            });
+                                        }}
+                                        data-testid="setting-remote-listen-mode"
+                                    >
+                                        <option value="recommended">Recommended interface</option>
+                                        <option value="interface">Specific interface</option>
+                                        <option value="all">All IPv4 interfaces</option>
+                                    </select>
+                                </div>
+
+                                {remoteListenMode === 'recommended' && (
+                                    <p className={styles.settingHint}>
+                                        {recommendedInterface
+                                            ? `Using ${recommendedInterface.name} · ${recommendedInterface.address}`
+                                            : 'The recommended address will be resolved when Remote Control starts.'}
+                                    </p>
+                                )}
+
+                                {remoteListenMode === 'interface' && (
+                                    <div className={styles.setting}>
+                                        <div className={styles.settingInfo}>
+                                            <span className={styles.settingLabel}>Select interface</span>
+                                            {/* <span className={styles.settingHint}>The service will listen only on this network adapter.</span> */}
+                                        </div>
+                                        <select
+                                            className={styles.selectInput}
+                                            value={settings?.remoteInterfaceName ?? ''}
+                                            onChange={(event) => updateSettings({ remoteInterfaceName: event.target.value })}
+                                            data-testid="setting-remote-interface"
+                                            disabled={remoteInterfaceNames.length === 0}
+                                        >
+                                            {settings?.remoteInterfaceName && !remoteInterfaceNames.includes(settings.remoteInterfaceName) && (
+                                                <option value={settings.remoteInterfaceName} disabled>
+                                                    {settings.remoteInterfaceName} — unavailable
+                                                </option>
+                                            )}
+                                            {remoteInterfaceNames.map((name) => (
+                                                <option key={name} value={name}>
+                                                    {name} — {availableRemoteInterfaces.filter((networkInterface) => networkInterface.name === name).map((networkInterface) => networkInterface.address).join(', ')}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {remoteListenMode === 'all' && (
+                                    <>
+                                        <div className={styles.setting}>
+                                            <div className={styles.settingInfo}>
+                                                <span className={styles.settingLabel}>Select interface</span>
+                                                {/* <span className={styles.settingHint}>Used for the connection URL and Safe-mode pairing QR. All available addresses are listed below.</span> */}
+                                            </div>
+                                            <select
+                                                className={styles.selectInput}
+                                                value={settings?.remoteQrAddress ?? ''}
+                                                onChange={(event) => updateSettings({ remoteQrAddress: event.target.value })}
+                                                data-testid="setting-remote-qr-address"
+                                                disabled={availableRemoteInterfaces.length === 0}
                                             >
-                                                {copied ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
+                                                <option value="">
+                                                    {recommendedInterface
+                                                        ? `Recommended · ${recommendedInterface.name} (${recommendedInterface.address})`
+                                                        : 'Choose an address for the pairing QR'}
+                                                </option>
+                                                {settings?.remoteQrAddress && !availableRemoteInterfaces.some((networkInterface) => networkInterface.address === settings.remoteQrAddress) && (
+                                                    <option value={settings.remoteQrAddress} disabled>
+                                                        {settings.remoteQrAddress} — unavailable
+                                                    </option>
+                                                )}
+                                                {availableRemoteInterfaces.map((networkInterface) => (
+                                                    <option key={`${networkInterface.name}:${networkInterface.address}`} value={networkInterface.address}>
+                                                        {networkInterface.name} — {networkInterface.address}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <details className={styles.networkInterfaceDisclosure}>
+                                            <summary>Available local IPv4 addresses ({availableRemoteInterfaces.length})</summary>
+                                            <div className={styles.networkInterfaceList}>
+                                                {availableRemoteInterfaces.length === 0 ? (
+                                                    <span className={styles.settingHint}>No private IPv4 addresses are available on this computer.</span>
+                                                ) : availableRemoteInterfaces.map((networkInterface) => (
+                                                    <div className={styles.networkInterfaceRow} key={`${networkInterface.name}:${networkInterface.address}`}>
+                                                        <div className={styles.networkInterfaceInfo}>
+                                                            <span className={styles.settingHint}>{networkInterface.name}</span>
+                                                            <code className={styles.networkInterfaceAddress}>{networkInterface.address}</code>
+                                                        </div>
+                                                        <button
+                                                            className={styles.copyBtn}
+                                                            onClick={() => handleCopy(networkInterface.address, `networkAddress:${networkInterface.name}:${networkInterface.address}`)}
+                                                            title={`Copy ${networkInterface.address}`}
+                                                        >
+                                                            {copiedFields[`networkAddress:${networkInterface.name}:${networkInterface.address}`] ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </details>
+                                    </>
+                                )}
+
+                                <div className={styles.setting}>
+                                    <div className={styles.settingInfo}>
+                                        <span className={styles.settingLabel}>Connection Security</span>
+                                        <span className={styles.settingHint}>Safe mode encrypts traffic and requires device approval.</span>
+                                    </div>
+                                    <select
+                                        className={styles.selectInput}
+                                        value={settings?.remoteSecurityMode ?? 'safe'}
+                                        onChange={(event) => {
+                                            const mode = event.target.value as 'safe' | 'unsafe';
+                                            if (mode === 'unsafe') {
+                                                setShowUnsafeConfirmation(true);
+                                                return;
+                                            }
+                                            updateSettings({ remoteSecurityMode: mode });
+                                        }}
+                                        data-testid="setting-remote-security-mode"
+                                    >
+                                        <option value="safe">Safe (recommended)</option>
+                                        <option value="unsafe">Unsafe (legacy connection)</option>
+                                    </select>
+                                </div>
+
+                                {settings?.remoteSecurityMode === 'unsafe' && (
+                                    <div className={styles.unsafeWarning}>
+                                        <ShieldAlert size={18} />
+                                        <span>Unsafe mode uses the unencrypted connection. Anyone on your local network may observe or send remote commands.</span>
+                                    </div>
+                                )}
+
+                                <dialog
+                                    ref={unsafeConfirmationRef}
+                                    className={styles.unsafeConfirmationDialog}
+                                    aria-modal="true"
+                                    aria-labelledby="unsafe-confirmation-title"
+                                    aria-describedby="unsafe-confirmation-description"
+                                    onCancel={(event) => {
+                                        event.preventDefault();
+                                        setShowUnsafeConfirmation(false);
+                                    }}
+                                    onClick={(event) => {
+                                        if (event.target === event.currentTarget) {
+                                            setShowUnsafeConfirmation(false);
+                                        }
+                                    }}
+                                >
+                                    <div className={styles.unsafeConfirmationContent}>
+                                        <div className={styles.unsafeConfirmationHeading}>
+                                            <ShieldAlert size={20} />
+                                            <h2 id="unsafe-confirmation-title">Switch to unsafe connection?</h2>
+                                        </div>
+                                        <p id="unsafe-confirmation-description" className={styles.unsafeConfirmationDescription}>
+                                            Unsafe mode sends remote control traffic without encryption or device pairing. Other devices on your local network may read commands and control playback.
+                                        </p>
+                                        <div className={styles.unsafeConfirmationActions}>
+                                            <button
+                                                className={styles.unsafeCancelBtn}
+                                                data-autofocus
+                                                onClick={() => setShowUnsafeConfirmation(false)}
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                className={styles.unsafeConfirmBtn}
+                                                onClick={() => {
+                                                    setShowUnsafeConfirmation(false);
+                                                    updateSettings({ remoteSecurityMode: 'unsafe' });
+                                                }}
+                                            >
+                                                Switch to Unsafe
                                             </button>
                                         </div>
-                                        <p className={styles.remoteHint}>Scan this QR code or open the URL in your mobile browser</p>
-                                        <div className={styles.remoteConnections} onClick={() => remoteStatus.connections > 0 && setShowDevicesModal(true)} style={remoteStatus.connections > 0 ? { cursor: 'pointer' } : {}}>
-                                            <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
-                                                ● {remoteStatus.connections} connected {remoteStatus.connections === 1 ? 'device' : 'devices'}
-                                            </span>
-                                            {remoteStatus.connections > 0 && (
-                                                <span className={styles.manageLink}> (Manage)</span>
+                                    </div>
+                                </dialog>
+
+                                <div className={styles.setting}>
+                                    <div className={styles.settingInfo}>
+                                        <span className={styles.settingLabel}>Playlist Sync</span>
+                                        <span className={styles.settingHint}>Set here for all devices. Desktop &rarr; Mobile makes phones read-only.</span>
+                                    </div>
+                                    <select
+                                        className={styles.selectInput}
+                                        value={settings?.playlistSyncMode || 'two-way'}
+                                        onChange={(e) => updateSettings({ playlistSyncMode: e.target.value as any })}
+                                        data-testid="setting-playlist-sync-mode"
+                                    >
+                                        <option value="two-way">Two-way</option>
+                                        <option value="desktop-to-mobile">Desktop &rarr; Mobile</option>
+                                        <option value="mobile-to-desktop">Mobile &rarr; Desktop</option>
+                                        <option value="disabled">Disabled</option>
+                                    </select>
+                                </div>
+
+                                {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && (
+                                    <div className={styles.remoteInfo}>
+                                        <div className={styles.safeModeHeading}>
+                                            <span>Remote control pairing code</span>
+                                            <span>expires {pairingInvite ? new Date(pairingInvite.expiresAt).toLocaleTimeString() : 'N/A'}</span>
+                                        </div>
+                                        <div className={styles.remoteQr}>
+                                            {pairingQrValue ? (
+                                                <QRCodeCanvas
+                                                    value={pairingQrValue}
+                                                    size={240}
+                                                    bgColor="#ffffff"
+                                                    fgColor="#000000"
+                                                    level="M"
+                                                    marginSize={4}
+                                                />
+                                            ) : (
+                                                <p className={styles.remoteHint}>Choose an available pairing address above to create the QR code.</p>
                                             )}
                                         </div>
+                                        <div className={styles.remoteDetails}>
+                                            <div className={styles.remoteText}>
+                                                <p className={styles.remoteHint}>Scan with the mobile app to pair. The desktop app will ask you to approve the device.</p>
+                                                <details className={styles.manualPairingDetails}>
+                                                    <summary>Can&apos;t scan? Enter details manually</summary>
+                                                    <div className={styles.pairingCodeBlock}>
+                                                        <span className={styles.settingLabel}>Host</span>
+                                                        {remoteStatus.url ? (
+                                                            <div className={styles.remoteUrlContainer}>
+                                                                <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
+                                                                    {remoteStatus.url}
+                                                                </p>
+                                                                <button
+                                                                    className={styles.copyBtn}
+                                                                    onClick={() => handleCopy(remoteStatus.url, 'remoteUrl')}
+                                                                    title="Copy host address"
+                                                                >
+                                                                    {copiedFields.remoteUrl ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className={styles.settingHint}>Choose a pairing address above first.</span>
+                                                        )}
+                                                        {pairingInvite ? (
+                                                            <>
+                                                                <span className={styles.settingLabel}>Pairing code</span>
+                                                                <div className={styles.remoteUrlContainer}>
+                                                                    <code className={styles.pairingCode}>{pairingInvite.code}</code>
+                                                                    <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code, 'pairingCode')} title="Copy pairing code">
+                                                                        {copiedFields.pairingCode ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                                <span className={styles.settingLabel}>Certificate fingerprint</span>
+                                                                <div className={styles.remoteUrlContainer}>
+
+                                                                    <code className={styles.fingerprint}>{pairingInvite.caFingerprint.match(/.{1,4}/g)?.join(':')}</code>
+                                                                    <button
+                                                                        className={styles.copyBtn}
+                                                                        onClick={() => handleCopy(pairingInvite.caFingerprint, 'fingerprint')}
+                                                                        title="Copy fingerprint"
+                                                                    >
+                                                                        {copiedFields.fingerprint ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                                <p className={styles.remoteHint}>To use the browser remote, install this local certificate in your operating system once; do not bypass browser certificate warnings.</p>
+                                                                <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
+
+                                                            </>
+                                                        ) : (
+                                                            <span className={styles.settingHint}>Manual pairing details are not available right now.</span>
+                                                        )}
+                                                    </div>
+                                                </details>
+                                                <div className={styles.remoteActions}>
+                                                    <button className={styles.remoteActionBtn} onClick={handleCreatePairingInvite}>New pairing code</button>
+                                                </div>
+                                                {pairingError && <p className={styles.remoteError}>{pairingError}</p>}
+                                                <div className={styles.remoteConnections} onClick={() => connectedDevices.length > 0 && setShowDevicesModal(true)} style={connectedDevices.length > 0 ? { cursor: 'pointer' } : {}}>
+                                                    <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
+                                                        ● {remoteStatus.connections} online · {connectedDevices.length} paired
+                                                    </span>
+                                                    {connectedDevices.length > 0 && (
+                                                        <span className={styles.manageLink}> (Manage)</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                )}
+
+                                {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'unsafe' && (
+                                    <div className={styles.remoteInfo}>
+                                        <div className={styles.remoteDetails}>
+                                            <div className={styles.remoteQr}>
+                                                {remoteStatus.url ? (
+                                                    <QRCodeCanvas value={remoteStatus.url} size={160} bgColor="#ffffff" fgColor="#000000" level="M" includeMargin />
+                                                ) : (
+                                                    <p className={styles.remoteHint}>Choose a primary connection address above.</p>
+                                                )}
+                                            </div>
+                                            <div className={styles.remoteText}>
+                                                {remoteStatus.url && <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>{remoteStatus.url}</p>}
+                                                <p className={styles.remoteHint}>Unsafe legacy connection. Select Unsafe in the mobile app to connect.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {settings?.remoteEnabled && !remoteStatus?.isRunning && (
+                                    <p className={styles.remoteError}>{remoteStatus?.error || 'Remote control did not start. Check the desktop log or select Unsafe mode if desktop key storage is unavailable.'}</p>
+                                )}
+                            </>
                         )}
                     </section>
 
-                    {showDevicesModal && (
+                    {settings?.remoteEnabled && showDevicesModal && (
                         <ConnectedDevicesModal onClose={() => setShowDevicesModal(false)} />
+                    )}
+
+                    {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && pairingRequests[0] && (
+                        <PairingApprovalModal
+                            key={pairingRequests[0].id}
+                            request={pairingRequests[0]}
+                            approvePairing={approvePairing}
+                            rejectPairing={rejectPairing}
+                        />
                     )}
 
                     {/* Account */}
@@ -649,6 +1001,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     </section>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

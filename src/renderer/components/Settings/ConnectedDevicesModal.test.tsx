@@ -53,8 +53,16 @@ describe('ConnectedDevicesModal', () => {
 
     it('renders connected devices', async () => {
         const mockDevices = [
-            { id: '1', ip: '192.168.1.5', userAgent: 'Android', connectedAt: new Date().toISOString() },
-            { id: '2', ip: '192.168.1.6', userAgent: 'iPhone', connectedAt: new Date().toISOString() },
+            {
+                id: '1', ip: '192.168.1.5', name: 'Android Device', platform: 'android',
+                appVersion: '1.0', device: 'Pixel', createdAt: new Date().toISOString(),
+                lastConnectedAt: new Date().toISOString(), online: true,
+            },
+            {
+                id: '2', ip: '192.168.1.6', name: 'iPhone', platform: 'ios',
+                appVersion: '1.0', device: 'iPhone', createdAt: new Date().toISOString(),
+                lastConnectedAt: new Date().toISOString(), online: false,
+            },
         ];
         (useStore as any).mockReturnValue({
             ...defaultStore,
@@ -66,13 +74,18 @@ describe('ConnectedDevicesModal', () => {
         await waitFor(() => {
             expect(getByText('Android Device')).toBeInTheDocument();
             expect(getByText('iPhone')).toBeInTheDocument();
-            expect(getByText('192.168.1.5')).toBeInTheDocument();
+            expect(getByText('android · Online')).toBeInTheDocument();
+            expect(getByText('ios · Offline')).toBeInTheDocument();
         });
     });
 
     it('calls disconnect when trash icon is clicked', async () => {
         const mockDevices = [
-            { id: '1', ip: '192.168.1.5', userAgent: 'Android', connectedAt: new Date().toISOString() },
+            {
+                id: '1', ip: '192.168.1.5', name: 'Android Device', platform: 'android',
+                appVersion: '1.0', device: 'Pixel', createdAt: new Date().toISOString(),
+                lastConnectedAt: new Date().toISOString(), online: true,
+            },
         ];
         (useStore as any).mockReturnValue({
             ...defaultStore,
@@ -82,7 +95,7 @@ describe('ConnectedDevicesModal', () => {
         const { getByTitle } = render(<ConnectedDevicesModal onClose={mockOnClose} />);
 
         await waitFor(() => {
-            const disconnectBtn = getByTitle('Disconnect');
+            const disconnectBtn = getByTitle('Revoke pairing');
             fireEvent.click(disconnectBtn);
             expect(mockDisconnect).toHaveBeenCalledWith('1');
         });

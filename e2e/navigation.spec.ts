@@ -28,7 +28,8 @@ test.describe('Navigation', () => {
         await expect(window.getByRole('heading', { name: 'Bandcamp Radio', level: 1 })).toBeVisible();
 
         // Navigate back to Collection
-        await window.getByRole('button', { name: 'Collection', exact: true }).click();
-        await expect(window.getByRole('heading', { name: 'Collection', level: 1 })).toBeVisible();
+        const collectionButton = window.getByTestId('nav-collection');
+        await collectionButton.click();
+        await expect(collectionButton).toHaveClass(/active/);
     });
 });

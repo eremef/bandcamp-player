@@ -94,7 +94,7 @@
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: var(--spacing-lg);
+    margin-bottom: var(--spacing-xs);
 }
 
 /* Setting row */
@@ -102,7 +102,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-md) 0;
+    padding: var(--spacing-sm) 0;
     gap: var(--spacing-lg);
 }
 
@@ -294,12 +294,16 @@
     padding: var(--spacing-lg);
     background: var(--bg-tertiary);
     border-radius: var(--radius-lg);
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
 }
 
 .lastfmDisconnected p {
     margin-bottom: var(--spacing-md);
     color: var(--text-secondary);
+    align-self: center;
+    display: flex;
 }
 
 .connectBtn {
@@ -309,6 +313,9 @@
     font-weight: var(--font-weight-medium);
     border-radius: var(--radius-full);
     transition: all var(--transition-fast);
+    align-self: center;
+    display: flex;
+    gap: var(--spacing-xs);
 }
 
 .connectBtn:hover {
@@ -369,7 +376,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     color: var(--text-primary);
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
@@ -392,6 +399,104 @@
     border-radius: var(--radius-lg);
 }
 
+.safeModeHeading {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    color: var(--text-primary);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-md);
+}
+
+.unsafeWarning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    margin: var(--spacing-sm) 0 var(--spacing-md);
+    color: var(--color-warning, #f0b429);
+    background: color-mix(in srgb, var(--color-warning, #f0b429) 12%, transparent);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+}
+
+.unsafeConfirmationDialog,
+.pairingApprovalDialog {
+    width: min(460px, calc(100vw - 32px));
+    margin: auto;
+    padding: 0;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+}
+
+.unsafeConfirmationDialog::backdrop,
+.pairingApprovalDialog::backdrop {
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+}
+
+.unsafeConfirmationContent,
+.pairingApprovalContent {
+    padding: var(--spacing-xl);
+}
+
+.unsafeConfirmationHeading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-warning);
+}
+
+.unsafeConfirmationHeading h2 {
+    font-size: var(--font-size-lg);
+}
+
+.unsafeConfirmationDescription,
+.pairingApprovalDescription {
+    margin-top: var(--spacing-md);
+    line-height: var(--line-height-normal);
+}
+
+.unsafeConfirmationActions,
+.pairingApprovalActions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xl);
+}
+
+.unsafeCancelBtn,
+.unsafeConfirmBtn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: background var(--transition-fast);
+}
+
+.unsafeCancelBtn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.unsafeCancelBtn:hover {
+    background: var(--bg-hover);
+}
+
+.unsafeConfirmBtn {
+    background: var(--color-warning);
+    color: #111111;
+}
+
+.unsafeConfirmBtn:hover {
+    filter: brightness(1.08);
+}
+
 .remoteDetails {
     display: flex;
     gap: var(--spacing-lg);
@@ -399,10 +504,172 @@
 }
 
 .remoteQr {
-    background: white;
-    padding: 4px;
+    padding: var(--spacing-md);
     border-radius: var(--radius-sm);
     display: flex;
+    flex-wrap: balance;
+    justify-content: space-around;
+}
+
+.pairingCodeBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.manualPairingDetails {
+    margin-top: var(--spacing-sm);
+}
+
+.manualPairingDetails summary {
+    color: var(--text-link);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.manualPairingDetails summary:hover {
+    color: var(--accent-hover);
+}
+
+.manualPairingDetails[open] summary {
+    margin-bottom: var(--spacing-sm);
+}
+
+.networkInterfaceDisclosure {
+    margin-bottom: var(--spacing-md);
+}
+
+.networkInterfaceDisclosure summary {
+    color: var(--text-link);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.networkInterfaceDisclosure summary:hover {
+    color: var(--accent-hover);
+}
+
+.networkInterfaceDisclosure[open] summary {
+    margin-bottom: var(--spacing-sm);
+}
+
+.networkInterfaceList {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.networkInterfaceRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.networkInterfaceInfo {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.networkInterfaceAddress {
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.pairingCode,
+.fingerprint {
+    display: block;
+    color: var(--text-secondary);
+    overflow-wrap: anywhere;
+    user-select: all;
+}
+
+.fingerprint {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.remoteActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-sm) 0;
+}
+
+/* .remoteActionBtn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+} */
+
+.approveBtn,
+.rejectBtn {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
+.approveBtn {
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.approveBtn:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.rejectBtn {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.rejectBtn:hover:not(:disabled) {
+    background: var(--bg-hover);
+}
+
+.approveBtn:disabled,
+.rejectBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.pairingApprovalHeading {
+    font-size: var(--font-size-lg);
+}
+
+.pairingRequest {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin: var(--spacing-md) 0;
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
+}
+
+.pairingRequest span {
+    color: var(--text-secondary);
+}
+
+.remoteError {
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
 }
 
 .remoteText {
@@ -413,11 +680,10 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
 }
 
 .remoteUrl {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
     color: var(--accent-primary);
     margin: 0;
     cursor: pointer;
@@ -429,7 +695,6 @@
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    padding: var(--spacing-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -445,7 +710,7 @@
 .remoteHint {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    margin: 0 0 var(--spacing-md) 0;
+    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
 }
 
 .remoteConnections {
@@ -584,7 +849,8 @@
 
 .checkBtn,
 .updateBtn,
-.installBtn {
+.installBtn,
+.remoteActionBtn {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -597,7 +863,8 @@
 }
 
 .checkBtn:hover,
-.installBtn:hover {
+.installBtn:hover,
+.remoteActionBtn:hover {
     background: var(--bg-hover);
 }
 

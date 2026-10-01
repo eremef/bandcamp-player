@@ -1,59 +1,52 @@
 import { test, expect } from './fixtures';
+import type { CastDevice } from '../src/shared/types';
+
+const CAST_DEVICE: CastDevice = {
+    id: 'device1',
+    name: 'Living Room TV',
+    host: '192.168.1.20',
+    friendlyName: 'Living Room TV',
+    type: 'Chromecast',
+    status: 'disconnected',
+};
 
 test.describe('Chromecast Integration', () => {
     test.beforeEach(async ({ window }) => {
-        // Perform login if needed
-        const loginBtn = window.getByRole('button', { name: 'Login with Bandcamp' });
-        const collectionBtn = window.getByRole('button', { name: 'Collection', exact: true });
-
-        if (await loginBtn.isVisible()) {
-            await loginBtn.click();
+        const loginButton = window.getByRole('button', { name: 'Login with Bandcamp' });
+        const collectionButton = window.getByRole('button', { name: 'Collection', exact: true });
+        if (await loginButton.isVisible()) {
+            await loginButton.click();
         }
-        await expect(collectionBtn).toBeVisible({ timeout: 15000 });
+        await expect(collectionButton).toBeVisible({ timeout: 15000 });
     });
 
-    test('should populate and store cast devices via IPC', async ({ window }) => {
-        // Since useStore might not be hooked into the window directly,
-        // we simulate the main process returning cast devices to the app
-        await window.evaluate(() => {
-            // @ts-ignore
-            const globalWin = window as any;
-            // Let's mimic the electron IPC firing the devices event
-            const event = new CustomEvent('message', {
-                detail: {
-                    channel: 'cast:devices',
-                    data: [
-                        { id: 'device1', friendlyName: 'Living Room TV' },
-                        { id: 'device2', friendlyName: 'Bedroom Speaker' }
-                    ]
-                }
+    test('shows devices discovered through IPC', async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ BrowserWindow }, device) => {
+            BrowserWindow.getAllWindows()[0]?.webContents.send('cast:on-devices-updated', [device]);
+        }, CAST_DEVICE);
+
+        await window.getByTitle('Cast to Device').click();
+        await expect(window.getByRole('heading', { name: 'Cast to device', level: 3 })).toBeVisible();
+        await expect(window.getByText('Living Room TV', { exact: true })).toBeVisible();
+    });
+
+    test('connects to a discovered device from the cast menu', async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ ipcMain, BrowserWindow }, device) => {
+            ipcMain.removeHandler('cast:connect');
+            ipcMain.handle('cast:connect', async () => {
+                BrowserWindow.getAllWindows()[0]?.webContents.send('cast:on-status-changed', {
+                    status: 'connected',
+                    device: { ...device, status: 'connected' },
+                });
             });
-            globalWin.dispatchEvent(event);
+            BrowserWindow.getAllWindows()[0]?.webContents.send('cast:on-devices-updated', [device]);
+        }, CAST_DEVICE);
 
-            // Or overriding the default fetch method if used
-            if (globalWin.electron && globalWin.electron.cast) {
-                globalWin.electron.cast.getDevices = async () => [
-                    { id: 'device1', friendlyName: 'Living Room TV' },
-                    { id: 'device2', friendlyName: 'Bedroom Speaker' }
-                ];
-            }
-        });
+        await window.getByTitle('Cast to Device').click();
+        await window.getByText('Living Room TV', { exact: true }).click();
+        await expect(window.getByTitle('Cast to Device')).toHaveClass(/active/);
 
-        // Click the cast button now that devices should theoretically be available
-        const castBtn = window.locator('button[title="Cast to Device"]');
-        if (await castBtn.isVisible()) {
-            await castBtn.click({ force: true });
-            const castMenuHeading = window.getByRole('heading', { name: 'Cast to device', level: 3 });
-            await expect(castMenuHeading).toBeVisible({ timeout: 5000 }).catch(() => { });
-        }
-
-        // Pass strictly on structure rendering
-        expect(true).toBeTruthy();
-    });
-
-    test('should reflect connected cast state in store', async ({ window }) => {
-        // Ensure the Cast button is present which implies cast logic is loaded
-        const castBtn = window.locator('button[title="Cast to Device"]');
-        await expect(castBtn).toBeVisible();
+        await window.getByTitle('Cast to Device').click();
+        await expect(window.getByText('Disconnect', { exact: true })).toBeVisible();
     });
 });

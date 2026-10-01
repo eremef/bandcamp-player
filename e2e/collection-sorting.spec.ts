@@ -67,15 +67,11 @@ test.describe('Collection Sorting', () => {
         await sortBtn.click();
         await window.locator('button', { hasText: 'Descending' }).click();
 
-        // Wait for sorting to apply
-        await window.waitForTimeout(500);
-
         // Artist A is newer (2024) than Artist Z (2023)
         await expect(window.getByTestId('album-card').nth(0)).toContainText('Artist A');
 
         // Open Sort Menu
         await window.getByTestId('sort-toggle-btn').click();
-        await window.waitForTimeout(500);
         
         // Change sort to Purchase Date Ascending (Oldest first)
         await window.getByTestId('sort-asc-btn').click();
@@ -85,7 +81,6 @@ test.describe('Collection Sorting', () => {
 
         // Open Sort Menu again
         await window.getByTestId('sort-toggle-btn').click();
-        await window.waitForTimeout(500);
         
         // Change to Artist
         await window.getByTestId('sort-artist-btn').click();
@@ -95,7 +90,6 @@ test.describe('Collection Sorting', () => {
 
         // Open Sort Menu again
         await window.getByTestId('sort-toggle-btn').click();
-        await window.waitForTimeout(500);
         
         // Change to Descending
         await window.getByTestId('sort-desc-btn').click();

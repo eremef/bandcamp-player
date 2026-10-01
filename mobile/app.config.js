@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'bandcamp-remote',
-    version: '1.8.39-beta',
+    version: '1.8.40-alpha.2',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -49,6 +49,14 @@ module.exports = {
     },
     plugins: [
       'expo-asset',
+      [
+        'expo-camera',
+        {
+          cameraPermission: 'Allow Beta Player to scan desktop pairing QR codes.',
+          microphonePermission: false,
+          recordAudioAndroid: false,
+        },
+      ],
       'expo-font',
       'expo-router',
       [

@@ -13,7 +13,10 @@ import type {
   RadioStation,
   RadioState,
   Queue,
-  RemoteClient,
+  RemotePairedDevice,
+  RemotePairingRequest,
+  RemotePairingInvite,
+  RemoteControlStatus,
   CastDevice,
   CastStatus,
   Artist,
@@ -180,19 +183,17 @@ interface SettingsSlice {
 }
 
 interface RemoteSlice {
-  remoteStatus: {
-    isRunning: boolean;
-    port: number;
-    ip: string;
-    url: string;
-    connections: number;
-  } | null;
-  connectedDevices: RemoteClient[];
+  remoteStatus: RemoteControlStatus | null;
+  connectedDevices: RemotePairedDevice[];
+  pairingRequests: RemotePairingRequest[];
   fetchRemoteStatus: () => Promise<void>;
   startRemote: () => Promise<void>;
   stopRemote: () => Promise<void>;
   fetchConnectedDevices: () => Promise<void>;
   disconnectDevice: (clientId: string) => Promise<void>;
+  createPairingInvite: () => Promise<RemotePairingInvite>;
+  approvePairing: (requestId: string) => Promise<boolean>;
+  rejectPairing: (requestId: string) => Promise<boolean>;
 }
 
 interface UpdateSlice {
@@ -1121,23 +1122,37 @@ export const useStore = create<StoreState>()((set, get) => ({
       get().fetchCollection();
     }
 
-    // Auto-start/stop remote service based on setting
-    if ("remoteEnabled" in newSettings) {
-      if (newSettings.remoteEnabled) {
-        await window.electron.remote.start();
-      } else {
-        await window.electron.remote.stop();
+    // Restart remote control when its listener configuration changes.
+    const remoteListenerSettingsChanged =
+      "remoteListenMode" in newSettings || "remoteInterfaceName" in newSettings;
+    const remoteQrAddressChanged = "remoteQrAddress" in newSettings;
+    if (
+      "remoteEnabled" in newSettings ||
+      "remoteSecurityMode" in newSettings ||
+      remoteListenerSettingsChanged
+    ) {
+      try {
+        if (newSettings.remoteEnabled ?? get().settings?.remoteEnabled) {
+          await window.electron.remote.stop();
+          await window.electron.remote.start();
+        } else {
+          await window.electron.remote.stop();
+        }
+      } finally {
+        await get().fetchRemoteStatus();
       }
-      get().fetchRemoteStatus();
+    } else if (remoteQrAddressChanged) {
+      await get().fetchRemoteStatus();
     }
   },
 
   // ---- Remote Slice ----
   remoteStatus: null,
   connectedDevices: [],
+  pairingRequests: [],
   fetchRemoteStatus: async () => {
     const status = await window.electron.remote.getStatus();
-    set({ remoteStatus: status });
+    set({ remoteStatus: status, pairingRequests: status.pairingRequests });
   },
   startRemote: async () => {
     await window.electron.remote.start();
@@ -1146,7 +1161,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   stopRemote: async () => {
     await window.electron.remote.stop();
     get().fetchRemoteStatus();
-    set({ connectedDevices: [] });
+    set({ connectedDevices: [], pairingRequests: [] });
   },
   fetchConnectedDevices: async () => {
     const devices = await window.electron.remote.getConnectedDevices();
@@ -1158,6 +1173,9 @@ export const useStore = create<StoreState>()((set, get) => ({
       get().fetchConnectedDevices();
     }
   },
+  createPairingInvite: async () => window.electron.remote.createPairingInvite(),
+  approvePairing: async (requestId) => window.electron.remote.approvePairing(requestId),
+  rejectPairing: async (requestId) => window.electron.remote.rejectPairing(requestId),
 
   // ---- Update Slice ----
   updateStatus: { status: "idle" },
@@ -1423,6 +1441,13 @@ export async function initializeStoreSubscriptions() {
     }
     // Also refresh the devices list if it's available
     useStore.getState().fetchConnectedDevices();
+  });
+  window.electron.remote.onPairingRequestsChanged((requests) => {
+    useStore.setState({ pairingRequests: requests });
+    useStore.getState().fetchRemoteStatus();
+  });
+  window.electron.remote.onPairedDevicesChanged((devices) => {
+    useStore.setState({ connectedDevices: devices });
   });
 
   // Update events

@@ -6,6 +6,25 @@ let currentState = {};
 let fullCollectionItems = [];
 let isScrubbing = false;
 let isExplicitlyDisconnected = false;
+let pairingTicket = null;
+let pairingPrompted = false;
+let isSecurelyAuthenticated = false;
+
+function readPairingTicket() {
+    const match = window.location.hash.match(/(?:^#|&)pair=([A-Za-z0-9_-]+)/);
+    if (!match) return null;
+    try {
+        const normalized = match[1].replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = JSON.parse(atob(normalized + '='.repeat((4 - normalized.length % 4) % 4)));
+        if (decoded.version === 1 && typeof decoded.code === 'string') {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+            return decoded;
+        }
+    } catch (error) {
+        console.warn('The pairing link could not be read');
+    }
+    return null;
+}
 
 function formatTime(seconds) {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -48,35 +67,97 @@ function sanitizeUrl(url) {
 function connect() {
     isExplicitlyDisconnected = false;
     const host = window.location.host;
-    ws = new WebSocket('ws://' + host);
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(protocol + '//' + host);
+    ws = socket;
 
-    ws.onopen = () => {
-        document.getElementById('status-bar').innerText = 'Connected';
-        document.getElementById('status-bar').style.color = 'var(--color-success)';
-        // Initial load of collection
-        sendCommand('get-collection');
+    socket.onopen = () => {
+        if (ws !== socket) return;
+        if (protocol === 'ws:') {
+            document.getElementById('status-bar').innerText = 'Unsafe connection';
+            document.getElementById('status-bar').style.color = 'var(--color-warning)';
+            sendCommand('get-collection');
+        } else {
+            document.getElementById('status-bar').innerText = 'Authenticating...';
+            document.getElementById('status-bar').style.color = 'var(--text-secondary)';
+        }
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+        if (ws !== socket) return;
         const data = JSON.parse(event.data);
         handleMessage(data);
     };
 
-    ws.onclose = () => {
+    socket.onclose = () => {
+        if (ws !== socket) return;
+        const wasSecurelyAuthenticated = isSecurelyAuthenticated;
+        isSecurelyAuthenticated = false;
         if (isExplicitlyDisconnected) {
             console.log('Disconnected by host, not retrying');
             return;
         }
         document.getElementById('status-bar').innerText = 'Disconnected. Retrying...';
         document.getElementById('status-bar').style.color = 'var(--color-error)';
-        setTimeout(connect, 3000);
+        if (protocol === 'ws:' || wasSecurelyAuthenticated) setTimeout(connect, 3000);
     };
 }
 
 function handleMessage(message) {
     const { type, payload } = message;
 
-    if (type === 'state-changed') {
+    if (type === 'authentication-required') {
+        if (!pairingPrompted) {
+            pairingPrompted = true;
+            const code = pairingTicket?.code || window.prompt('Enter the one-time pairing code shown in the desktop app.');
+            if (code) {
+                sendCommand('pair', {
+                    code: code.trim(),
+                    deviceInfo: { platform: 'web', appVersion: '1', device: 'Web browser' }
+                });
+                document.getElementById('status-bar').innerText = 'Waiting for desktop approval...';
+            } else {
+                isExplicitlyDisconnected = true;
+                if (ws) ws.close();
+                document.getElementById('status-bar').innerText = 'Pairing code required';
+            }
+        }
+    } else if (type === 'authenticated') {
+        isSecurelyAuthenticated = true;
+        document.getElementById('status-bar').innerText = 'Connected securely';
+        document.getElementById('status-bar').style.color = 'var(--color-success)';
+        sendCommand('get-collection');
+    } else if (type === 'pairing-pending') {
+        document.getElementById('status-bar').innerText = 'Waiting for desktop approval...';
+    } else if (type === 'pairing-rejected' || type === 'pairing-failed' || type === 'authentication-failed') {
+        isExplicitlyDisconnected = true;
+        if (ws) ws.close();
+        document.getElementById('status-bar').innerText = payload?.message || 'Pairing failed';
+        document.getElementById('status-bar').style.color = 'var(--color-error)';
+    } else if (type === 'paired') {
+        isSecurelyAuthenticated = true;
+        const activeSocket = ws;
+        fetch('/pair/claim', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ deviceId: payload.deviceId, token: payload.token })
+        }).then((response) => {
+            if (!response.ok) throw new Error('Could not save browser pairing');
+            pairingTicket = null;
+            pairingPrompted = false;
+            if (ws === activeSocket && activeSocket) {
+                ws = null;
+                activeSocket.close();
+            }
+            setTimeout(connect, 100);
+        }).catch(() => {
+            isExplicitlyDisconnected = true;
+            if (ws) ws.close();
+            document.getElementById('status-bar').innerText = 'Pairing could not be saved. Try pairing again.';
+            document.getElementById('status-bar').style.color = 'var(--color-error)';
+        });
+    } else if (type === 'state-changed') {
         updateUI(payload);
     } else if (type === 'collection-data') {
         renderCollection(payload);
@@ -1280,4 +1361,5 @@ function closeModal(e) {
     document.getElementById('options-modal').classList.remove('active');
 }
 
+pairingTicket = readPairingTicket();
 connect();

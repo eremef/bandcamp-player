@@ -226,6 +226,12 @@ export type SortKey = "default" | "artist" | "album";
 export type SortDirection = "asc" | "desc";
 export type CollectionViewMode = "grid" | "list";
 export type CoverSize = "small" | "medium" | "large";
+export type RemoteListenMode = "recommended" | "interface" | "all";
+
+export interface RemoteNetworkInterface {
+  name: string;
+  address: string;
+}
 
 export interface AppSettings {
   // Cache settings
@@ -244,6 +250,10 @@ export interface AppSettings {
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;
+  remoteSecurityMode: RemoteSecurityMode;
+  remoteListenMode?: RemoteListenMode;
+  remoteInterfaceName?: string;
+  remoteQrAddress?: string;
   playlistSyncMode: PlaylistSyncMode;
   discordRpcEnabled: boolean;
   theme: Theme;
@@ -372,4 +382,67 @@ export interface RemoteClient {
     appVersion: string;
     device: string;
   };
+  paired?: boolean;
+  pairingId?: string;
+  securityMode?: RemoteSecurityMode;
+}
+
+export type RemoteSecurityMode = "safe" | "unsafe";
+
+export interface RemotePairingRecord {
+  id: string;
+  tokenHash: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  createdAt: string;
+  lastConnectedAt: string | null;
+}
+
+export interface RemotePairedDevice {
+  id: string;
+  ip: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  createdAt: string;
+  lastConnectedAt: string | null;
+  online: boolean;
+}
+
+export interface RemotePairingRequest {
+  id: string;
+  name: string;
+  platform: string;
+  appVersion: string;
+  device: string;
+  ip: string;
+  requestedAt: string;
+}
+
+export interface RemoteControlStatus {
+  isRunning: boolean;
+  port: number;
+  ip: string;
+  url: string;
+  listenMode?: RemoteListenMode;
+  listeningAddress?: string;
+  generation?: number;
+  availableInterfaces?: RemoteNetworkInterface[];
+  recommendedAddress?: string | null;
+  recommendedInterfaceName?: string | null;
+  connections: number;
+  securityMode: RemoteSecurityMode;
+  caFingerprint: string | null;
+  pairingRequests: RemotePairingRequest[];
+  error: string | null;
+}
+
+export interface RemotePairingInvite {
+  code: string;
+  expiresAt: string;
+  caCertificate: string;
+  caFingerprint: string;
 }

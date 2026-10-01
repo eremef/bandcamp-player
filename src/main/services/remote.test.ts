@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { Database } from '../database/database';
 import { EventEmitter } from 'events';
 import * as http from 'http';
+import * as https from 'https';
 import { WebSocketServer } from 'ws';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -18,7 +19,14 @@ vi.mock('./playlist.service');
 vi.mock('./auth.service');
 vi.mock('../database/database');
 vi.mock('fs');
-vi.mock('dgram');
+vi.mock('dgram', () => ({
+    createSocket: vi.fn(() => ({
+        once: vi.fn(),
+        connect: vi.fn((_port, _address, onConnect) => onConnect?.()),
+        address: vi.fn(() => ({ address: '192.168.1.10', family: 'IPv4', port: 49152 })),
+        close: vi.fn(),
+    })),
+}));
 
 vi.mock('os', () => ({
     networkInterfaces: vi.fn()
@@ -26,26 +34,19 @@ vi.mock('os', () => ({
 
 // Mock HTTP to capture the handler
 vi.mock('http', () => {
+    const createServer = vi.fn().mockImplementation((handler) => ({
+        listen: vi.fn((_p, _h, cb) => {
+            (createServer as any)._lastHandler = handler;
+            cb?.();
+        }),
+        close: vi.fn((cb) => cb?.()),
+        on: vi.fn(),
+        once: vi.fn(),
+        off: vi.fn(),
+    }));
     return {
-        default: {
-            createServer: vi.fn().mockImplementation((handler) => ({
-                listen: vi.fn((_p, _h, cb) => {
-                    // Store the handler on the listen mock so we can find it
-                    (http.createServer as any)._lastHandler = handler;
-                    cb?.();
-                }),
-                close: vi.fn(),
-                on: vi.fn(),
-            }))
-        },
-        createServer: vi.fn().mockImplementation((handler) => ({
-            listen: vi.fn((_p, _h, cb) => {
-                (http.createServer as any)._lastHandler = handler;
-                cb?.();
-            }),
-            close: vi.fn(),
-            on: vi.fn(),
-        })),
+        default: { createServer },
+        createServer,
         IncomingMessage: class { },
         ServerResponse: class {
             writeHead = vi.fn().mockReturnThis();
@@ -53,6 +54,32 @@ vi.mock('http', () => {
         },
     };
 });
+
+vi.mock('https', () => {
+    const createServer = vi.fn().mockImplementation((_options, handler) => ({
+        listen: vi.fn((_p, _h, cb) => {
+            (createServer as any)._lastHandler = handler;
+            cb?.();
+        }),
+        close: vi.fn((cb) => cb?.()),
+        on: vi.fn(),
+        once: vi.fn(),
+        off: vi.fn(),
+    }));
+    return { default: { createServer }, createServer };
+});
+
+vi.mock('./remote-tls.service', () => ({
+    RemoteTlsService: class {
+        getMaterial = vi.fn().mockResolvedValue({
+            key: 'private-key',
+            cert: 'server-certificate',
+            caCertificate: 'ca-certificate',
+            caFingerprint: 'fingerprint',
+        });
+        getCaCertificate = vi.fn().mockReturnValue('ca-certificate');
+    },
+}));
 
 vi.mock('ws', async () => {
     const { EventEmitter } = await import('events');
@@ -78,6 +105,7 @@ describe('RemoteControlService', () => {
     let mockAuthService: any;
     let mockDatabase: any;
     let mockWss: any;
+    let savedPairings: any[];
 
     beforeEach(() => {
         // Setup service mocks
@@ -128,13 +156,25 @@ describe('RemoteControlService', () => {
             getUser: vi.fn().mockReturnValue({ isAuthenticated: true }),
         } as unknown as AuthService;
 
+        savedPairings = [];
         mockDatabase = {
             getArtists: vi.fn().mockReturnValue([]),
-            getSettings: vi.fn().mockReturnValue({ playlistSyncMode: 'two-way' }),
+            getSettings: vi.fn().mockReturnValue({ playlistSyncMode: 'two-way', remoteSecurityMode: 'unsafe' }),
+            getRemotePairings: vi.fn(() => savedPairings),
+            getRemotePairing: vi.fn((id: string) => savedPairings.find(pairing => pairing.id === id)),
+            saveRemotePairing: vi.fn((pairing) => savedPairings.push(pairing)),
+            updateRemotePairingLastConnected: vi.fn(),
+            revokeRemotePairing: vi.fn((id: string) => {
+                const count = savedPairings.length;
+                savedPairings = savedPairings.filter(pairing => pairing.id !== id);
+                return savedPairings.length < count;
+            }),
         } as unknown as Database;
 
         // Get the mock WSS instance
         mockWss = new (WebSocketServer as any)();
+        mockWss.removeAllListeners();
+        mockWss.clients.clear();
 
         // Mock networkInterfaces
         vi.mocked(os.networkInterfaces).mockReturnValue({
@@ -150,19 +190,83 @@ describe('RemoteControlService', () => {
         );
     });
 
-    afterEach(() => {
+    afterEach(async () => {
+        await remoteService.stop();
         vi.clearAllMocks();
     });
 
     describe('Lifecycle & Infrastructure', () => {
-        it('should start the server', () => {
-            remoteService.start();
+        it('should start the server', async () => {
+            await remoteService.start();
             expect(remoteService.getStatus().isRunning).toBe(true);
+            const server = (http.createServer as any).mock.results.at(-1).value;
+            expect(server.listen).toHaveBeenCalledWith(9999, '192.168.1.10', expect.any(Function));
+            expect(remoteService.getStatus().recommendedAddress).toBe('192.168.1.10');
         });
 
-        it('should stop the server', () => {
-            remoteService.start();
-            remoteService.stop();
+        it('binds to all IPv4 addresses and advertises the selected pairing address', async () => {
+            vi.mocked(os.networkInterfaces).mockReturnValue({
+                eth0: [{ family: 'IPv4', internal: false, address: '192.168.1.10' } as any],
+                wlan0: [{ family: 'IPv4', internal: false, address: '192.168.1.20' } as any],
+            });
+            mockDatabase.getSettings.mockReturnValue({
+                remoteSecurityMode: 'safe',
+                remoteListenMode: 'all',
+                remoteQrAddress: '192.168.1.20',
+            });
+
+            await remoteService.start();
+
+            const server = (https.createServer as any).mock.results.at(-1).value;
+            expect(server.listen).toHaveBeenCalledWith(9999, '0.0.0.0', expect.any(Function));
+            expect(remoteService.getStatus()).toMatchObject({
+                ip: '192.168.1.20',
+                url: 'https://192.168.1.20:9999',
+                listenMode: 'all',
+                availableInterfaces: [
+                    { name: 'eth0', address: '192.168.1.10' },
+                    { name: 'wlan0', address: '192.168.1.20' },
+                ],
+            });
+        });
+
+        it('binds only to a configured network interface', async () => {
+            vi.mocked(os.networkInterfaces).mockReturnValue({
+                eth0: [{ family: 'IPv4', internal: false, address: '192.168.1.10' } as any],
+                wlan0: [{ family: 'IPv4', internal: false, address: '192.168.1.20' } as any],
+            });
+            mockDatabase.getSettings.mockReturnValue({
+                remoteSecurityMode: 'unsafe',
+                remoteListenMode: 'interface',
+                remoteInterfaceName: 'wlan0',
+            });
+
+            await remoteService.start();
+
+            const server = (http.createServer as any).mock.results.at(-1).value;
+            expect(server.listen).toHaveBeenCalledWith(9999, '192.168.1.20', expect.any(Function));
+            expect(remoteService.getStatus()).toMatchObject({
+                ip: '192.168.1.20',
+                url: 'http://192.168.1.20:9999',
+                listenMode: 'interface',
+            });
+        });
+
+        it('fails instead of silently falling back when the selected interface is unavailable', async () => {
+            mockDatabase.getSettings.mockReturnValue({
+                remoteSecurityMode: 'unsafe',
+                remoteListenMode: 'interface',
+                remoteInterfaceName: 'missing-adapter',
+            });
+
+            await expect(remoteService.start()).rejects.toThrow('The selected network interface is unavailable');
+            expect(remoteService.getStatus().isRunning).toBe(false);
+            expect(remoteService.getStatus().error).toContain('The selected network interface is unavailable');
+        });
+
+        it('should stop the server', async () => {
+            await remoteService.start();
+            await remoteService.stop();
             expect(remoteService.getStatus().isRunning).toBe(false);
         });
 
@@ -176,10 +280,12 @@ describe('RemoteControlService', () => {
     describe('Message Handling', () => {
         let mockWs: any;
 
-        beforeEach(() => {
-            remoteService.start();
+        beforeEach(async () => {
+            await remoteService.start();
             mockWs = new EventEmitter();
             mockWs.send = vi.fn();
+            mockWs.close = vi.fn();
+            mockWs.terminate = vi.fn();
             mockWs.readyState = 1;
             mockWss.emit('connection', mockWs, { socket: { remoteAddress: '127.0.0.1' }, headers: { 'user-agent': 'Test' } });
         });
@@ -337,14 +443,14 @@ describe('RemoteControlService', () => {
         it('should handle track/album queueing', async () => {
             mockScraperService.getAlbumDetails.mockResolvedValue({ tracks: [{ id: 't1', streamUrl: 'url' }] });
 
-            await sendMessage('play-track', { bandcampUrl: 'http://track.url' });
+            await sendMessage('play-track', { bandcampUrl: 'https://artist.bandcamp.com/track/item' });
             expect(mockPlayerService.addToQueue).toHaveBeenCalled();
 
-            await sendMessage('add-album-to-queue', { albumUrl: 'http://album.url' });
+            await sendMessage('add-album-to-queue', { albumUrl: 'https://artist.bandcamp.com/album/item' });
             expect(mockPlayerService.addTracksToQueue).toHaveBeenCalled();
 
-            await sendMessage('get-album', 'http://album.url');
-            expect(mockScraperService.getAlbumDetails).toHaveBeenCalledWith('http://album.url');
+            await sendMessage('get-album', 'https://artist.bandcamp.com/album/item');
+            expect(mockScraperService.getAlbumDetails).toHaveBeenCalledWith('https://artist.bandcamp.com/album/item');
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('album-details'));
         });
 
@@ -420,8 +526,8 @@ describe('RemoteControlService', () => {
     });
 
     describe('Device Management', () => {
-        it('should list and disconnect device', () => {
-            remoteService.start();
+        it('should list and disconnect device', async () => {
+            await remoteService.start();
             const mockWs = new EventEmitter() as any;
             mockWs.send = vi.fn((_data, cb) => cb && cb());
             mockWs.close = vi.fn();
@@ -438,9 +544,140 @@ describe('RemoteControlService', () => {
         });
     });
 
+    describe('Safe LAN pairing', () => {
+        const connect = async (address = '192.168.1.25') => {
+            const ws = new EventEmitter() as any;
+            ws.send = vi.fn();
+            ws.close = vi.fn();
+            ws.terminate = vi.fn();
+            ws.readyState = 1;
+            mockWss.emit('connection', ws, {
+                socket: { remoteAddress: address },
+                headers: { host: '192.168.1.10:9999', 'user-agent': 'Test remote' },
+            });
+            await new Promise(resolve => setTimeout(resolve, 0));
+            return ws;
+        };
+
+        const sendMessage = async (ws: any, type: string, payload?: any) => {
+            ws.emit('message', JSON.stringify({ type, payload }));
+            await new Promise(resolve => setTimeout(resolve, 0));
+        };
+
+        beforeEach(async () => {
+            mockDatabase.getSettings.mockReturnValue({ remoteSecurityMode: 'safe', playlistSyncMode: 'two-way' });
+            await remoteService.start();
+        });
+
+        it('starts TLS with the local certificate and restricts the pairing certificate route to the LAN host', () => {
+            expect(remoteService.getStatus()).toMatchObject({
+                securityMode: 'safe',
+                url: 'https://192.168.1.10:9999',
+                caFingerprint: 'fingerprint',
+            });
+            expect(https.createServer).toHaveBeenCalledWith(
+                expect.objectContaining({ key: 'private-key', cert: 'server-certificate', minVersion: 'TLSv1.2' }),
+                expect.any(Function),
+            );
+
+            const handler = (https.createServer as any)._lastHandler;
+            const deniedResponse = { writeHead: vi.fn(), end: vi.fn() };
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/pairing-ca.crt', method: 'GET', headers: { host: 'attacker.example:9999' } }, deniedResponse);
+            expect(deniedResponse.writeHead).toHaveBeenCalledWith(403);
+
+            const allowedResponse = { writeHead: vi.fn(), end: vi.fn() };
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/pairing-ca.crt', method: 'GET', headers: { host: '192.168.1.10:9999' } }, allowedResponse);
+            expect(allowedResponse.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({
+                'Content-Type': 'application/x-x509-ca-cert',
+                'Cache-Control': 'no-store',
+            }));
+            expect(allowedResponse.end).toHaveBeenCalledWith('ca-certificate');
+
+            const externalClientResponse = { writeHead: vi.fn(), end: vi.fn() };
+            handler({
+                socket: { remoteAddress: '8.8.8.8' },
+                url: '/pairing-ca.crt',
+                method: 'GET',
+                headers: { host: '192.168.1.10:9999' },
+            }, externalClientResponse);
+            expect(externalClientResponse.writeHead).toHaveBeenCalledWith(403);
+        });
+
+        it('requires authentication before remote commands can run', async () => {
+            const ws = await connect();
+            expect(ws.send).toHaveBeenCalledWith(JSON.stringify({ type: 'authentication-required', payload: null }));
+
+            await sendMessage(ws, 'pause');
+
+            expect(mockPlayerService.pause).not.toHaveBeenCalled();
+            expect(remoteService.getStatus().connections).toBe(0);
+        });
+
+        it('approves a valid pairing request and persists a hashed token', async () => {
+            const invite = remoteService.createPairingInvite();
+            const ws = await connect();
+
+            await sendMessage(ws, 'pair', {
+                code: invite.code,
+                deviceInfo: { platform: 'android', appVersion: '2.0', device: 'Pixel' },
+            });
+
+            const request = remoteService.getPairingRequests()[0];
+            expect(request).toMatchObject({ name: 'Pixel', platform: 'android', device: 'Pixel', ip: '192.168.1.25' });
+            expect(remoteService.approvePairing(request.id)).toBe(true);
+
+            const pairedMessage = ws.send.mock.calls
+                .map(([data]: [string]) => JSON.parse(data))
+                .find((message: any) => message.type === 'paired');
+            expect(pairedMessage.payload).toMatchObject({ deviceId: expect.any(String), caFingerprint: 'fingerprint' });
+            expect(pairedMessage.payload.token).toEqual(expect.any(String));
+            expect(savedPairings[0]).toMatchObject({ id: pairedMessage.payload.deviceId, name: 'Pixel' });
+            expect(savedPairings[0].tokenHash).not.toBe(pairedMessage.payload.token);
+            expect(remoteService.getStatus().connections).toBe(1);
+        });
+
+        it('authenticates a previously paired client and updates last-connected time', async () => {
+            const invite = remoteService.createPairingInvite();
+            const firstWs = await connect();
+            await sendMessage(firstWs, 'pair', {
+                code: invite.code,
+                deviceInfo: { platform: 'ios', appVersion: '2.0', device: 'Phone' },
+            });
+            const requestId = remoteService.getPairingRequests()[0].id;
+            remoteService.approvePairing(requestId);
+            const pairedMessage = firstWs.send.mock.calls
+                .map(([data]: [string]) => JSON.parse(data))
+                .find((message: any) => message.type === 'paired');
+
+            const reconnectingWs = await connect();
+            await sendMessage(reconnectingWs, 'authenticate', {
+                deviceId: pairedMessage.payload.deviceId,
+                token: pairedMessage.payload.token,
+            });
+
+            expect(mockDatabase.updateRemotePairingLastConnected).toHaveBeenCalledWith(
+                pairedMessage.payload.deviceId,
+                expect.any(String),
+            );
+            expect(reconnectingWs.send).toHaveBeenCalledWith(expect.stringContaining('"type":"authenticated"'));
+            expect(remoteService.getStatus().connections).toBe(2);
+        });
+
+        it('rejects an invalid invite code without creating a pairing request', async () => {
+            remoteService.createPairingInvite();
+            const ws = await connect();
+
+            await sendMessage(ws, 'pair', { code: 'A'.repeat(24) });
+
+            expect(ws.send).toHaveBeenCalledWith(expect.stringContaining('"type":"pairing-failed"'));
+            expect(remoteService.getPairingRequests()).toHaveLength(0);
+            expect(savedPairings).toHaveLength(0);
+        });
+    });
+
     describe('HTTP Server', () => {
-        it('should serve files', () => {
-            remoteService.start();
+        it('should serve files', async () => {
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             expect(typeof handler).toBe('function');
 
@@ -448,84 +685,84 @@ describe('RemoteControlService', () => {
 
             // Mock fs.readFile for index
             (fs.readFile as any).mockImplementation((_p: string, _opts: any, cb: any) => cb(null, 'html /* ICONS_INJECTION */'));
-            handler({ url: '/' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 
             res.writeHead.mockClear();
             // Mock fs.readFile for static
             (fs.readFile as any).mockImplementation((_p: string, cb: any) => cb(null, 'js'));
-            handler({ url: '/client.js' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/client.js', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(200, expect.objectContaining({ 'Content-Type': 'application/javascript' }));
 
             // Not found
-            handler({ url: '/404' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/404', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(404);
         });
 
-        it('should handle 500 when index.html read fails', () => {
-            remoteService.start();
+        it('should handle 500 when index.html read fails', async () => {
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             const res = { writeHead: vi.fn().mockReturnThis(), end: vi.fn().mockReturnThis() } as any;
 
             // Mock fs.readFile to fail
             (fs.readFile as any).mockImplementationOnce((_p: string, _opts: any, cb: any) => cb(new Error('Test Error')));
-            handler({ url: '/' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(500);
             expect(res.end).toHaveBeenCalledWith('Error loading remote interface');
         });
 
-        it('should handle static file read errors', () => {
-            remoteService.start();
+        it('should handle static file read errors', async () => {
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             const res = { writeHead: vi.fn().mockReturnThis(), end: vi.fn().mockReturnThis() } as any;
 
             // Mock fs.readFile to fail
             (fs.readFile as any).mockImplementationOnce((_p: string, cb: any) => cb(new Error('Test Error')));
-            handler({ url: '/styles.css' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/styles.css', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(404);
             expect(res.end).toHaveBeenCalledWith();
         });
 
-        it('should resolve assets path correctly in DEV mode', () => {
+        it('should resolve assets path correctly in DEV mode', async () => {
             const originalEnv = process.env.NODE_ENV;
             process.env.NODE_ENV = 'development';
             (fs.existsSync as any).mockImplementation((p: string) => p.includes('src/assets/remote') || p.includes('src\\assets\\remote'));
 
-            remoteService.start();
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             const res = { writeHead: vi.fn().mockReturnThis(), end: vi.fn().mockReturnThis() } as any;
             (fs.readFile as any).mockImplementation((_p: string, _opts: any, cb: any) => cb(null, 'html'));
-            handler({ url: '/' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 
             process.env.NODE_ENV = originalEnv;
         });
 
-        it('should resolve assets path correctly in PROD mode', () => {
+        it('should resolve assets path correctly in PROD mode', async () => {
             const originalEnv = process.env.NODE_ENV;
             process.env.NODE_ENV = 'production';
             (fs.existsSync as any).mockImplementation((p: string) => p.includes('assets') && !p.includes('src'));
 
-            remoteService.start();
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             const res = { writeHead: vi.fn().mockReturnThis(), end: vi.fn().mockReturnThis() } as any;
             (fs.readFile as any).mockImplementation((_p: string, _opts: any, cb: any) => cb(null, 'html'));
-            handler({ url: '/' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 
             process.env.NODE_ENV = originalEnv;
         });
 
-        it('should fallback to PROD mode path when index.html not found anywhere', () => {
+        it('should fallback to PROD mode path when index.html not found anywhere', async () => {
             const originalEnv = process.env.NODE_ENV;
             process.env.NODE_ENV = 'production';
             (fs.existsSync as any).mockReturnValue(false);
 
-            remoteService.start();
+            await remoteService.start();
             const handler = (http.createServer as any)._lastHandler;
             const res = { writeHead: vi.fn().mockReturnThis(), end: vi.fn().mockReturnThis() } as any;
             (fs.readFile as any).mockImplementation((_p: string, _opts: any, cb: any) => cb(null, 'html'));
-            handler({ url: '/' }, res);
+            handler({ socket: { remoteAddress: '192.168.1.25' }, url: '/', method: 'GET', headers: { host: '192.168.1.10:9999' } }, res);
             expect(res.writeHead).toHaveBeenCalledWith(200, expect.any(Object));
 
             process.env.NODE_ENV = originalEnv;

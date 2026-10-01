@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Switch, Alert } from 'react-native';
 import { useStore } from '../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle, Globe, LogIn } from 'lucide-react-native';
+import { Wifi, AlertCircle, Globe, LogIn, Camera } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useRouter } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ConnectScreen() {
     const insets = useSafeAreaInsets();
@@ -17,6 +18,10 @@ export default function ConnectScreen() {
     const router = useRouter();
     const [ipInput, setIpInput] = useState(hostIp);
     const [isAutoConnecting, setIsAutoConnecting] = useState(true);
+    const [securityMode, setSecurityMode] = useState<'safe' | 'unsafe'>('safe');
+    const [pairingCode, setPairingCode] = useState('');
+    const [certificateFingerprint, setCertificateFingerprint] = useState('');
+    const [connectionError, setConnectionError] = useState('');
 
     useEffect(() => {
         // Attempt auto-connect on mount
@@ -30,6 +35,19 @@ export default function ConnectScreen() {
     useEffect(() => {
         setIpInput(hostIp);
     }, [hostIp]);
+
+    useEffect(() => {
+        const loadConnectionMode = async () => {
+            const key = `remote_security_mode_${ipInput.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+            const saved = await AsyncStorage.getItem(key);
+            setSecurityMode(saved === 'unsafe' ? 'unsafe' : 'safe');
+        };
+        void loadConnectionMode();
+    }, [ipInput]);
+
+    useEffect(() => webSocketService.on('connection-error', (message: string) => {
+        setConnectionError(message);
+    }), []);
 
     // Auto-redirect to player when connected or authenticated and ready
     useEffect(() => {
@@ -48,7 +66,27 @@ export default function ConnectScreen() {
     const handleConnect = (ip?: string) => {
         const targetIp = ip || ipInput;
         setHostIp(targetIp);
-        connect(targetIp);
+        setConnectionError('');
+        connect(targetIp, {
+            mode: securityMode,
+            pairingCode: pairingCode.trim() || undefined,
+            caFingerprint: certificateFingerprint.trim() || undefined,
+        });
+    };
+
+    const handleSecurityModeChange = (useUnsafe: boolean) => {
+        if (useUnsafe) {
+            Alert.alert(
+                'Use unsafe connection?',
+                'This uses the previous unencrypted connection. Other devices on your local network may read traffic or control playback. The desktop must also be set to Unsafe mode.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Use unsafe', style: 'destructive', onPress: () => setSecurityMode('unsafe') },
+                ],
+            );
+            return;
+        }
+        setSecurityMode('safe');
     };
 
     const handleModeSelect = async (newMode: 'remote' | 'standalone') => {
@@ -161,18 +199,67 @@ export default function ConnectScreen() {
                                 </View>
                             ) : (
                                 <>
-                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Enter the IP address of your desktop</Text>
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                            placeholder="192.168.1.x"
-                                            placeholderTextColor={colors.textSecondary}
-                                            value={ipInput}
-                                            onChangeText={setIpInput}
-                                            keyboardType="numeric"
-                                            autoCapitalize="none"
+                                    <View style={[styles.securityOption, { backgroundColor: colors.input, borderColor: colors.border }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: colors.text, fontWeight: '600' }}>Safe connection</Text>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Encrypted and paired with this device</Text>
+                                        </View>
+                                        <Switch
+                                            value={securityMode === 'unsafe'}
+                                            onValueChange={handleSecurityModeChange}
+                                            trackColor={{ false: colors.accent, true: '#b3261e' }}
                                         />
+                                        <Text style={{ color: securityMode === 'unsafe' ? '#ff7777' : colors.textSecondary, fontSize: 12 }}>
+                                            {securityMode === 'unsafe' ? 'Unsafe' : 'Safe'}
+                                        </Text>
                                     </View>
+
+                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Desktop IP address</Text>
+                                    <TextInput
+                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                        placeholder="192.168.1.x"
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={ipInput}
+                                        onChangeText={setIpInput}
+                                        keyboardType="numeric"
+                                        autoCapitalize="none"
+                                    />
+
+                                    {securityMode === 'safe' ? (
+                                        <View style={styles.pairingFields}>
+                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Scan the QR code here, or with your preferred app.</Text>
+                                            <TouchableOpacity
+                                                style={[styles.scanButton, { borderColor: colors.border }]}
+                                                onPress={() => router.push('/scan')}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Camera size={18} color={colors.accent} />
+                                                    <Text style={[styles.scanButtonText, { color: colors.accent }]}>Scan pairing QR code</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings</Text>
+                                            <TextInput
+                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                placeholder="One-time pairing code"
+                                                placeholderTextColor={colors.textSecondary}
+                                                value={pairingCode}
+                                                onChangeText={setPairingCode}
+                                                autoCapitalize="none"
+                                                autoCorrect={false}
+                                            />
+                                            <TextInput
+                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                placeholder="Certificate fingerprint (SHA-256)"
+                                                placeholderTextColor={colors.textSecondary}
+                                                value={certificateFingerprint}
+                                                onChangeText={setCertificateFingerprint}
+                                                autoCapitalize="none"
+                                                autoCorrect={false}
+                                            />
+                                        </View>
+                                    ) : (
+                                        <Text style={[styles.unsafeHint, { color: '#ff7777' }]}>Unsafe traffic is not encrypted. The desktop app must also be set to Unsafe mode; the app will not downgrade automatically.</Text>
+                                    )}
 
                                     <TouchableOpacity
                                         style={[styles.button, { backgroundColor: colors.accent }, connectionStatus === 'connecting' && styles.buttonDisabled]}
@@ -186,9 +273,9 @@ export default function ConnectScreen() {
                                         )}
                                     </TouchableOpacity>
 
-                                    <TouchableOpacity
+                                    {securityMode === 'unsafe' && <TouchableOpacity
                                         style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
-                                        onPress={() => startScan()}
+                                        onPress={() => startScan({ mode: securityMode })}
                                         disabled={connectionStatus === 'connecting' || isScanning}
                                     >
                                         {isScanning ? (
@@ -199,12 +286,12 @@ export default function ConnectScreen() {
                                                 <Text style={[styles.scanButtonText, { color: colors.accent }]}>Auto Scan Network</Text>
                                             </View>
                                         )}
-                                    </TouchableOpacity>
+                                    </TouchableOpacity>}
 
-                                    {connectionStatus === 'disconnected' && hostIp && !isAutoConnecting && (
+                                    {(connectionError || (connectionStatus === 'disconnected' && hostIp && !isAutoConnecting)) && (
                                         <View style={styles.statusContainer}>
                                             <AlertCircle size={16} color="#ff4444" />
-                                            <Text style={[styles.errorText, { color: '#ff4444' }]}>Disconnected. Check IP and try again.</Text>
+                                            <Text style={[styles.errorText, { color: '#ff4444' }]}>{connectionError || 'Disconnected. Check the address and try again.'}</Text>
                                         </View>
                                     )}
 
@@ -292,7 +379,7 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         fontSize: 14,
-        marginBottom: 12,
+        marginBottom: 6,
         textAlign: 'center',
     },
     iconContainer: {
@@ -348,7 +435,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
-        marginTop: 12,
         borderWidth: 1,
         borderColor: '#333',
     },
@@ -356,6 +442,33 @@ const styles = StyleSheet.create({
         color: '#0896afff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    securityOption: {
+        width: '100%',
+        minHeight: 68,
+        paddingHorizontal: 14,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    pairingFields: {
+        width: '100%',
+        gap: 10,
+        marginBottom: 18,
+    },
+    pairingHint: {
+        fontSize: 13,
+        lineHeight: 19,
+        marginBottom: 4,
+    },
+    unsafeHint: {
+        width: '100%',
+        fontSize: 13,
+        lineHeight: 18,
+        marginBottom: 14,
     },
     buttonDisabled: {
         opacity: 0.7,
