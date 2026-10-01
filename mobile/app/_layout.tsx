@@ -109,6 +109,7 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="scan" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="bandcamp_login" options={{ presentation: 'modal' }} />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="album_detail" />

@@ -71,7 +71,7 @@ interface AppState extends PlayerState {
     connect: (ip?: string, options?: RemoteConnectionOptions) => Promise<void>;
     disconnect: () => Promise<void>;
     autoConnect: () => Promise<void>;
-    startScan: () => Promise<void>;
+    startScan: (options?: RemoteConnectionOptions) => Promise<void>;
     removeRecentIp: (ip: string) => Promise<void>;
 
     isScanning: boolean;
@@ -813,7 +813,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    startScan: async () => {
+    startScan: async (options) => {
         if (get().isScanning) return;
         set({ isScanning: true });
 
@@ -825,7 +825,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (ip) {
                 console.log('Discovery found IP:', ip);
-                get().connect(ip);
+                get().connect(ip, options);
             }
         } finally {
             set({ isScanning: false });

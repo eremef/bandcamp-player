@@ -45,6 +45,7 @@
     "expo-asset": "~57.0.18",
     "expo-background-fetch": "~57.0.20",
     "expo-build-properties": "~57.0.22",
+    "expo-camera": "~57.0.5",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
     "expo-dev-client": "~57.0.19",

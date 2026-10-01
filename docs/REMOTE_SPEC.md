@@ -26,7 +26,13 @@ This document specifies the WebSocket protocol used to remote control the Beta P
 
 ## Safe LAN pairing
 
-Safe mode is enabled by default on desktop and mobile. It works on the local network and does not use a relay or account service. The desktop binds the listener to a private LAN IPv4 address rather than all interfaces.
+Safe mode is enabled by default on desktop and mobile. It works on the local network and does not use a relay or account service. Desktop Settings offers three IPv4 listener choices:
+
+- **Recommended interface** uses the local address selected by the operating system's default route.
+- **Specific interface** binds only to the selected adapter and resolves that adapter's current private IPv4 address whenever the service starts. If the adapter is missing, the service reports an error instead of switching to another adapter.
+- **All IPv4 interfaces** binds to `0.0.0.0`. Settings lists the available private IPv4 addresses and lets the user choose which address appears in the connection URL and pairing QR code. The QR ticket still contains one host address.
+
+All modes accept only supported private IPv4 client sources and local host addresses. These choices control the listener and advertised address; they do not guarantee reachability through the operating-system firewall, VPN, router, or Wi-Fi client isolation. IPv6 addresses are not currently supported by the remote pairing flow.
 
 The desktop creates a local certificate authority and stores its private key encrypted with Electron's OS-backed secure storage. It signs the HTTPS/WSS server certificate for the current LAN addresses. If the OS does not provide encrypted key storage, Safe mode fails closed and reports the reason; the user can explicitly select Unsafe mode instead.
 

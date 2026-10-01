@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from 'http';
 import { createServer as createHttpsServer } from 'https';
+import { createSocket } from 'dgram';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -10,12 +11,16 @@ import { PlayerService } from './player.service';
 import { ScraperService } from './scraper.service';
 import { PlaylistService } from './playlist.service';
 import { AuthService } from './auth.service';
-import {
+import type {
+    AppSettings,
     Track,
     RemoteClient,
     RemotePairingRecord,
     RemotePairedDevice,
     RemotePairingRequest,
+    RemoteListenMode,
+    RemoteNetworkInterface,
+    RemoteControlStatus,
     RemoteSecurityMode,
 } from '../../shared/types';
 import { Database } from '../database/database';
@@ -54,6 +59,7 @@ export class RemoteControlService extends EventEmitter {
     private wss: WebSocketServer | null = null;
     private port: number = 9999;
     private isRunning: boolean = false;
+    private generation = 0;
     private playerService: PlayerService;
     private scraperService: ScraperService;
     private playlistService: PlaylistService;
@@ -63,6 +69,11 @@ export class RemoteControlService extends EventEmitter {
     private readonly tlsService = new RemoteTlsService();
     private tlsMaterial: RemoteTlsMaterial | null = null;
     private securityMode: RemoteSecurityMode = 'safe';
+    private listenAddress = '127.0.0.1';
+    private advertisedAddress: string | null = null;
+    private recommendedInterface: RemoteNetworkInterface | null = null;
+    private activeInterfaces: RemoteNetworkInterface[] = [];
+    private allowedHostAddresses = new Set<string>();
     private pairingInvite: { codeHash: Buffer; expiresAt: number } | null = null;
     private pairingRequests = new Map<string, { ws: WebSocket; request: RemotePairingRequest; timeout: ReturnType<typeof setTimeout> }>();
     private startError: string | null = null;
@@ -154,7 +165,20 @@ export class RemoteControlService extends EventEmitter {
         if (this.isRunning) return;
 
         this.startError = null;
-        this.securityMode = this.database.getSettings()?.remoteSecurityMode ?? 'safe';
+        const settings = this.database.getSettings();
+        this.securityMode = settings?.remoteSecurityMode ?? 'safe';
+        this.tlsMaterial = null;
+        try {
+            const networkConfig = await this.resolveListenConfiguration(settings);
+            this.listenAddress = networkConfig.listenAddress;
+            this.advertisedAddress = networkConfig.advertisedAddress;
+            this.activeInterfaces = networkConfig.interfaces;
+            this.allowedHostAddresses = new Set(networkConfig.allowedHostAddresses);
+        } catch (error) {
+            this.startError = error instanceof Error ? error.message : 'Could not choose a network interface for remote control.';
+            throw error;
+        }
+
         try {
             this.tlsMaterial = this.securityMode === 'safe' ? await this.tlsService.getMaterial() : null;
         } catch (error) {
@@ -183,7 +207,11 @@ export class RemoteControlService extends EventEmitter {
                     return;
                 }
                 const origin = info.origin;
-                if (!this.isAllowedHost(info.req.headers.host || '')) {
+                const remoteAddress = info.req.socket.remoteAddress || '';
+                if (
+                    !this.isAllowedHost(info.req.headers.host || '') ||
+                    !this.isAllowedRemoteClient(remoteAddress)
+                ) {
                     callback(false, 403, 'Remote access is limited to this LAN host');
                     return;
                 }
@@ -203,7 +231,7 @@ export class RemoteControlService extends EventEmitter {
                         return;
                     }
                 }
-                const remoteIp = (info.req.socket.remoteAddress || 'unknown').replace('::ffff:', '');
+                const remoteIp = remoteAddress.replace('::ffff:', '') || 'unknown';
                 const unauthenticatedFromIp = Array.from(this.clients.values()).filter(
                     client => client.ip === remoteIp && !client.authenticated,
                 ).length;
@@ -310,11 +338,13 @@ export class RemoteControlService extends EventEmitter {
                     reject(error);
                 };
                 this.server.once('error', onError);
-                this.server.listen(this.port, this.getLocalIp(), () => {
+                this.server.listen(this.port, this.listenAddress, () => {
                     this.server.off('error', onError);
                     this.isRunning = true;
+                    this.generation += 1;
                     const scheme = this.securityMode === 'safe' ? 'https' : 'http';
-                    console.log(`[RemoteService] Running at ${scheme}://${this.getLocalIp()}:${this.port}`);
+                    const address = this.advertisedAddress ?? 'no pairing address selected';
+                    console.log(`[RemoteService] Listening on ${this.listenAddress}:${this.port}; pairing address ${scheme}://${address}:${this.port}`);
                     this.emit('status-changed', true);
                     resolve();
                 });
@@ -411,14 +441,144 @@ export class RemoteControlService extends EventEmitter {
     }
 
 
-    getStatus(): { isRunning: boolean; port: number; ip: string; url: string; connections: number; securityMode: RemoteSecurityMode; caFingerprint: string | null; pairingRequests: RemotePairingRequest[]; error: string | null } {
-        const ip = this.getLocalIp();
+    private async resolveListenConfiguration(settings: AppSettings | null): Promise<{
+        listenAddress: string;
+        advertisedAddress: string | null;
+        interfaces: RemoteNetworkInterface[];
+        allowedHostAddresses: string[];
+    }> {
+        const interfaces = this.getAvailableInterfaces();
+        this.recommendedInterface = await this.getRecommendedInterface(interfaces);
+
+        const requestedMode = settings?.remoteListenMode;
+        const mode: RemoteListenMode = requestedMode === 'all' || requestedMode === 'interface'
+            ? requestedMode
+            : 'recommended';
+
+        if (mode === 'all') {
+            if (interfaces.length === 0) {
+                throw new Error('No private IPv4 network interfaces are available for remote control.');
+            }
+            const qrInterface = settings?.remoteQrAddress
+                ? interfaces.find((networkInterface) => networkInterface.address === settings.remoteQrAddress)
+                : this.recommendedInterface;
+            return {
+                listenAddress: '0.0.0.0',
+                advertisedAddress: qrInterface?.address ?? null,
+                interfaces,
+                allowedHostAddresses: interfaces.map((networkInterface) => networkInterface.address),
+            };
+        }
+
+        if (mode === 'interface') {
+            const selectedInterface = interfaces.find((networkInterface) => networkInterface.name === settings?.remoteInterfaceName);
+            if (!selectedInterface) {
+                throw new Error('The selected network interface is unavailable. Choose another interface or use Recommended.');
+            }
+            return {
+                listenAddress: selectedInterface.address,
+                advertisedAddress: selectedInterface.address,
+                interfaces,
+                allowedHostAddresses: [selectedInterface.address],
+            };
+        }
+
+        if (!this.recommendedInterface) {
+            throw new Error('Could not identify the recommended network interface. Choose a specific interface or All interfaces.');
+        }
+        return {
+            listenAddress: this.recommendedInterface.address,
+            advertisedAddress: this.recommendedInterface.address,
+            interfaces,
+            allowedHostAddresses: [this.recommendedInterface.address],
+        };
+    }
+
+    private async getRecommendedInterface(interfaces: RemoteNetworkInterface[]): Promise<RemoteNetworkInterface | null> {
+        if (interfaces.length === 0) return null;
+
+        const routeAddress = await new Promise<string | null>((resolve) => {
+            const socket = createSocket('udp4');
+            let completed = false;
+            const finish = (address: string | null) => {
+                if (completed) return;
+                completed = true;
+                try {
+                    socket.close();
+                } catch {}
+                resolve(address);
+            };
+
+            socket.once('error', () => finish(null));
+            try {
+                socket.connect(9, '192.0.2.1', () => finish(socket.address().address));
+            } catch {
+                finish(null);
+            }
+        });
+
+        if (routeAddress) {
+            const routedInterface = interfaces.find((networkInterface) => networkInterface.address === routeAddress);
+            if (routedInterface) return routedInterface;
+
+            const addressIsAssignedLocally = Object.values(networkInterfaces()).some((entries) =>
+                entries?.some((entry) => entry.family === 'IPv4' && !entry.internal && entry.address === routeAddress),
+            );
+            if (addressIsAssignedLocally) return null;
+        }
+        return interfaces.length === 1 ? interfaces[0] : null;
+    }
+
+    private getAvailableInterfaces(): RemoteNetworkInterface[] {
+        const interfaces: RemoteNetworkInterface[] = [];
+        for (const [name, entries] of Object.entries(networkInterfaces())) {
+            for (const entry of entries ?? []) {
+                if (entry.family === 'IPv4' && !entry.internal && this.isPrivateIpv4(entry.address)) {
+                    interfaces.push({ name, address: entry.address });
+                }
+            }
+        }
+        return interfaces.sort((left, right) => left.name.localeCompare(right.name) || left.address.localeCompare(right.address));
+    }
+
+    getStatus(): RemoteControlStatus {
+        const settings = this.database.getSettings();
+        const requestedMode = settings?.remoteListenMode;
+        const listenMode: RemoteListenMode = requestedMode === 'all' || requestedMode === 'interface'
+            ? requestedMode
+            : 'recommended';
+        const interfaces = this.isRunning ? this.activeInterfaces : this.getAvailableInterfaces();
+        const recommendedInterface = this.recommendedInterface
+            ? interfaces.find((networkInterface) => networkInterface.address === this.recommendedInterface?.address) ?? null
+            : null;
+        const configuredInterface = settings?.remoteInterfaceName
+            ? interfaces.find((networkInterface) => networkInterface.name === settings.remoteInterfaceName) ?? null
+            : null;
+        const qrInterface = listenMode === 'all'
+            ? settings?.remoteQrAddress
+                ? interfaces.find((networkInterface) => networkInterface.address === settings.remoteQrAddress) ?? null
+                : recommendedInterface
+            : listenMode === 'interface'
+                ? configuredInterface
+                : recommendedInterface;
+        const ip = qrInterface?.address ?? '';
         const scheme = this.securityMode === 'safe' ? 'https' : 'http';
+        const listeningAddress = this.isRunning
+            ? this.listenAddress
+            : listenMode === 'all'
+                ? '0.0.0.0'
+                : qrInterface?.address ?? '';
         return {
             isRunning: this.isRunning,
             port: this.port,
             ip,
-            url: `${scheme}://${ip}:${this.port}`,
+            url: ip ? `${scheme}://${ip}:${this.port}` : '',
+            listenMode,
+            listeningAddress,
+            generation: this.generation,
+            availableInterfaces: interfaces,
+            recommendedAddress: recommendedInterface?.address ?? null,
+            recommendedInterfaceName: recommendedInterface?.name ?? null,
             connections: Array.from(this.clients.values()).filter(client => client.authenticated).length,
             securityMode: this.securityMode,
             caFingerprint: this.tlsMaterial?.caFingerprint ?? null,
@@ -714,7 +874,12 @@ export class RemoteControlService extends EventEmitter {
             : [hostHeader.slice(0, hostHeader.lastIndexOf(':')), hostHeader.slice(hostHeader.lastIndexOf(':') + 1)];
         if (port !== String(this.port)) return false;
         if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
-        return host === this.getLocalIp();
+        return this.allowedHostAddresses.has(host);
+    }
+
+    private isAllowedRemoteClient(remoteAddress: string): boolean {
+        const address = remoteAddress.replace('::ffff:', '');
+        return address === '::1' || address === '127.0.0.1' || this.isPrivateIpv4(address);
     }
 
     private getCookieValue(cookieHeader: string | undefined, name: string): string | null {
@@ -729,7 +894,10 @@ export class RemoteControlService extends EventEmitter {
     }
 
     private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
-        if (!this.isAllowedHost(req.headers.host || '')) {
+        if (
+            !this.isAllowedHost(req.headers.host || '') ||
+            !this.isAllowedRemoteClient(req.socket.remoteAddress || '')
+        ) {
             res.writeHead(403);
             res.end();
             return;
@@ -809,18 +977,6 @@ export class RemoteControlService extends EventEmitter {
             res.writeHead(400, { 'Cache-Control': 'no-store' });
             res.end();
         }
-    }
-
-    private getLocalIp(): string {
-        const nets = networkInterfaces();
-        for (const name of Object.keys(nets)) {
-            for (const net of nets[name]!) {
-                if (net.family === 'IPv4' && !net.internal && this.isPrivateIpv4(net.address)) {
-                    return net.address;
-                }
-            }
-        }
-        return 'localhost';
     }
 
     private isPrivateIpv4(address: string): boolean {

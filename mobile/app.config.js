@@ -49,6 +49,14 @@ module.exports = {
     },
     plugins: [
       'expo-asset',
+      [
+        'expo-camera',
+        {
+          cameraPermission: 'Allow Beta Player to scan desktop pairing QR codes.',
+          microphonePermission: false,
+          recordAudioAndroid: false,
+        },
+      ],
       'expo-font',
       'expo-router',
       [

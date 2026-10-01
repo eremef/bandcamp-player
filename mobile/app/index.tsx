@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Switch, Alert } from 'react-native';
 import { useStore } from '../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Wifi, AlertCircle, Globe, LogIn } from 'lucide-react-native';
+import { Wifi, AlertCircle, Globe, LogIn, Camera } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useRouter } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';
@@ -199,19 +199,6 @@ export default function ConnectScreen() {
                                 </View>
                             ) : (
                                 <>
-                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Connect to your desktop on the local network</Text>
-                                    <View style={styles.inputContainer}>
-                                        <TextInput
-                                            style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                            placeholder="192.168.1.x"
-                                            placeholderTextColor={colors.textSecondary}
-                                            value={ipInput}
-                                            onChangeText={setIpInput}
-                                            keyboardType="numeric"
-                                            autoCapitalize="none"
-                                        />
-                                    </View>
-
                                     <View style={[styles.securityOption, { backgroundColor: colors.input, borderColor: colors.border }]}>
                                         <View style={{ flex: 1 }}>
                                             <Text style={{ color: colors.text, fontWeight: '600' }}>Safe connection</Text>
@@ -227,9 +214,30 @@ export default function ConnectScreen() {
                                         </Text>
                                     </View>
 
+                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Desktop IP address</Text>
+                                    <TextInput
+                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                        placeholder="192.168.1.x"
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={ipInput}
+                                        onChangeText={setIpInput}
+                                        keyboardType="numeric"
+                                        autoCapitalize="none"
+                                    />
+
                                     {securityMode === 'safe' ? (
                                         <View style={styles.pairingFields}>
-                                            <Text style={[styles.pairingHint, { color: colors.textSecondary }]}>For the easiest setup, scan the desktop QR code with your phone camera. For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings.</Text>
+                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Scan the QR code here, or with your preferred app.</Text>
+                                            <TouchableOpacity
+                                                style={[styles.scanButton, { borderColor: colors.border }]}
+                                                onPress={() => router.push('/scan')}
+                                            >
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                    <Camera size={18} color={colors.accent} />
+                                                    <Text style={[styles.scanButtonText, { color: colors.accent }]}>Scan pairing QR code</Text>
+                                                </View>
+                                            </TouchableOpacity>
+                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings</Text>
                                             <TextInput
                                                 style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                                                 placeholder="One-time pairing code"
@@ -267,7 +275,7 @@ export default function ConnectScreen() {
 
                                     {securityMode === 'unsafe' && <TouchableOpacity
                                         style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
-                                        onPress={() => startScan()}
+                                        onPress={() => startScan({ mode: securityMode })}
                                         disabled={connectionStatus === 'connecting' || isScanning}
                                     >
                                         {isScanning ? (
@@ -371,7 +379,7 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         fontSize: 14,
-        marginBottom: 12,
+        marginBottom: 6,
         textAlign: 'center',
     },
     iconContainer: {
@@ -427,7 +435,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         flexDirection: 'row',
-        marginTop: 12,
         borderWidth: 1,
         borderColor: '#333',
     },

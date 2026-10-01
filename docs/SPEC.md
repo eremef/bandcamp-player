@@ -321,7 +321,7 @@ When playing a cached album in offline mode:
 
 ### Remote Control (Mobile & Web)
 
-1. **Discovery**: Mobile app scans local network or User inputs IP. Web client is accessed directly via browser at `http://<host-ip>:9999`.
+1. **Discovery**: Mobile app scans local network or user inputs an IP. The web client is accessed at `https://<host-ip>:9999` in Safe mode or `http://<host-ip>:9999` in Unsafe mode.
 2. **Connection**: Establishes WebSocket connection to Desktop on port `9999` (default). The port can be configured via the `REMOTE_PORT` environment variable.
 3. **Sync**: Desktop pushes initial state (Collection, Playlists, Playback Status). This includes the current **Collection Sort and Filter** state, ensuring both platforms show the same view.
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.

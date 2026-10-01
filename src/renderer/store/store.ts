@@ -1122,15 +1122,27 @@ export const useStore = create<StoreState>()((set, get) => ({
       get().fetchCollection();
     }
 
-    // Auto-start/stop remote service based on setting
-    if ("remoteEnabled" in newSettings || "remoteSecurityMode" in newSettings) {
-      if (newSettings.remoteEnabled ?? get().settings?.remoteEnabled) {
-        await window.electron.remote.stop();
-        await window.electron.remote.start();
-      } else {
-        await window.electron.remote.stop();
+    // Restart remote control when its listener configuration changes.
+    const remoteListenerSettingsChanged =
+      "remoteListenMode" in newSettings || "remoteInterfaceName" in newSettings;
+    const remoteQrAddressChanged = "remoteQrAddress" in newSettings;
+    if (
+      "remoteEnabled" in newSettings ||
+      "remoteSecurityMode" in newSettings ||
+      remoteListenerSettingsChanged
+    ) {
+      try {
+        if (newSettings.remoteEnabled ?? get().settings?.remoteEnabled) {
+          await window.electron.remote.stop();
+          await window.electron.remote.start();
+        } else {
+          await window.electron.remote.stop();
+        }
+      } finally {
+        await get().fetchRemoteStatus();
       }
-      get().fetchRemoteStatus();
+    } else if (remoteQrAddressChanged) {
+      await get().fetchRemoteStatus();
     }
   },
 

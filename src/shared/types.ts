@@ -226,6 +226,12 @@ export type SortKey = "default" | "artist" | "album";
 export type SortDirection = "asc" | "desc";
 export type CollectionViewMode = "grid" | "list";
 export type CoverSize = "small" | "medium" | "large";
+export type RemoteListenMode = "recommended" | "interface" | "all";
+
+export interface RemoteNetworkInterface {
+  name: string;
+  address: string;
+}
 
 export interface AppSettings {
   // Cache settings
@@ -245,6 +251,9 @@ export interface AppSettings {
   showNotifications: boolean;
   remoteEnabled: boolean;
   remoteSecurityMode: RemoteSecurityMode;
+  remoteListenMode?: RemoteListenMode;
+  remoteInterfaceName?: string;
+  remoteQrAddress?: string;
   playlistSyncMode: PlaylistSyncMode;
   discordRpcEnabled: boolean;
   theme: Theme;
@@ -418,6 +427,12 @@ export interface RemoteControlStatus {
   port: number;
   ip: string;
   url: string;
+  listenMode?: RemoteListenMode;
+  listeningAddress?: string;
+  generation?: number;
+  availableInterfaces?: RemoteNetworkInterface[];
+  recommendedAddress?: string | null;
+  recommendedInterfaceName?: string | null;
   connections: number;
   securityMode: RemoteSecurityMode;
   caFingerprint: string | null;
