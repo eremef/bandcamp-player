@@ -4,6 +4,7 @@ import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, Check
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 import ConnectedDevicesModal from './ConnectedDevicesModal';
+import PairingApprovalModal from './PairingApprovalModal';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -605,8 +606,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {remoteListenMode === 'interface' && (
                                     <div className={styles.setting}>
                                         <div className={styles.settingInfo}>
-                                            <span className={styles.settingLabel}>Selected interface</span>
-                                            <span className={styles.settingHint}>The service will listen only on this network adapter.</span>
+                                            <span className={styles.settingLabel}>Select interface</span>
+                                            {/* <span className={styles.settingHint}>The service will listen only on this network adapter.</span> */}
                                         </div>
                                         <select
                                             className={styles.selectInput}
@@ -615,7 +616,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                             data-testid="setting-remote-interface"
                                             disabled={remoteInterfaceNames.length === 0}
                                         >
-                                            <option value="">Choose an interface</option>
                                             {settings?.remoteInterfaceName && !remoteInterfaceNames.includes(settings.remoteInterfaceName) && (
                                                 <option value={settings.remoteInterfaceName} disabled>
                                                     {settings.remoteInterfaceName} — unavailable
@@ -634,8 +634,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     <>
                                         <div className={styles.setting}>
                                             <div className={styles.settingInfo}>
-                                                <span className={styles.settingLabel}>Primary connection address</span>
-                                                <span className={styles.settingHint}>Used for the connection URL and Safe-mode pairing QR. All available addresses are listed below.</span>
+                                                <span className={styles.settingLabel}>Select interface</span>
+                                                {/* <span className={styles.settingHint}>Used for the connection URL and Safe-mode pairing QR. All available addresses are listed below.</span> */}
                                             </div>
                                             <select
                                                 className={styles.selectInput}
@@ -683,14 +683,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                 ))}
                                             </div>
                                         </details>
-                                        <div className={styles.unsafeWarning}>
-                                            <ShieldAlert size={18} />
-                                            <span>
-                                                {settings?.remoteSecurityMode === 'unsafe'
-                                                    ? 'Unsafe mode sends unencrypted traffic to private IPv4 networks through every adapter. Use it only on networks you trust.'
-                                                    : 'The service listens on every IPv4 adapter but accepts only private IPv4 clients. Safe mode still requires pairing, and firewall or network rules determine reachability.'}
-                                            </span>
-                                        </div>
                                     </>
                                 )}
 
@@ -720,7 +712,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {settings?.remoteSecurityMode === 'unsafe' && (
                                     <div className={styles.unsafeWarning}>
                                         <ShieldAlert size={18} />
-                                        <span>Unsafe mode uses the previous unencrypted connection. Anyone on your local network may observe or send remote commands.</span>
+                                        <span>Unsafe mode uses the unencrypted connection. Anyone on your local network may observe or send remote commands.</span>
                                     </div>
                                 )}
 
@@ -790,7 +782,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && (
                                     <div className={styles.remoteInfo}>
                                         <div className={styles.safeModeHeading}>
-                                            <span>Remote Control Pairing</span>
+                                            <span>Remote control pairing code</span>
+                                            <span>expires {pairingInvite ? new Date(pairingInvite.expiresAt).toLocaleTimeString() : 'N/A'}</span>
                                         </div>
                                         <div className={styles.remoteQr}>
                                             {pairingQrValue ? (
@@ -808,7 +801,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         </div>
                                         <div className={styles.remoteDetails}>
                                             <div className={styles.remoteText}>
-                                                <p className={styles.remoteHint}>Scan with the mobile app to pair. The desktop will ask you to approve the device.</p>
+                                                <p className={styles.remoteHint}>Scan with the mobile app to pair. The desktop app will ask you to approve the device.</p>
                                                 <details className={styles.manualPairingDetails}>
                                                     <summary>Can&apos;t scan? Enter details manually</summary>
                                                     <div className={styles.pairingCodeBlock}>
@@ -823,7 +816,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                                     onClick={() => handleCopy(remoteStatus.url, 'remoteUrl')}
                                                                     title="Copy host address"
                                                                 >
-                                                                    {copiedFields.remoteUrl ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
+                                                                    {copiedFields.remoteUrl ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
                                                                 </button>
                                                             </div>
                                                         ) : (
@@ -831,15 +824,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                         )}
                                                         {pairingInvite ? (
                                                             <>
-                                                                <span className={styles.settingLabel}>Pairing code · expires {new Date(pairingInvite.expiresAt).toLocaleTimeString()}</span>
+                                                                <span className={styles.settingLabel}>Pairing code</span>
                                                                 <div className={styles.remoteUrlContainer}>
                                                                     <code className={styles.pairingCode}>{pairingInvite.code}</code>
                                                                     <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code, 'pairingCode')} title="Copy pairing code">
                                                                         {copiedFields.pairingCode ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
                                                                     </button>
                                                                 </div>
-                                                                <span className={styles.settingHint}>Enter the host, pairing code, and certificate fingerprint in the mobile app.</span>
+                                                                <span className={styles.settingLabel}>Certificate fingerprint</span>
                                                                 <div className={styles.remoteUrlContainer}>
+
                                                                     <code className={styles.fingerprint}>{pairingInvite.caFingerprint.match(/.{1,4}/g)?.join(':')}</code>
                                                                     <button
                                                                         className={styles.copyBtn}
@@ -849,6 +843,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                                         {copiedFields.fingerprint ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
                                                                     </button>
                                                                 </div>
+                                                                <p className={styles.remoteHint}>To use the browser remote, install this local certificate in your operating system once; do not bypass browser certificate warnings.</p>
+                                                                <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
+
                                                             </>
                                                         ) : (
                                                             <span className={styles.settingHint}>Manual pairing details are not available right now.</span>
@@ -857,24 +854,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                 </details>
                                                 <div className={styles.remoteActions}>
                                                     <button className={styles.remoteActionBtn} onClick={handleCreatePairingInvite}>New pairing code</button>
-                                                    <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
                                                 </div>
-                                                <p className={styles.remoteHint}>The mobile app pins this certificate automatically. To use the browser remote, install this local certificate in your operating system once; do not bypass browser certificate warnings.</p>
                                                 {pairingError && <p className={styles.remoteError}>{pairingError}</p>}
-                                                {pairingRequests.length > 0 && (
-                                                    <div className={styles.pairingRequests}>
-                                                        <strong>Pairing approval required</strong>
-                                                        {pairingRequests.map((request) => (
-                                                            <div className={styles.pairingRequest} key={request.id}>
-                                                                <span>{request.name} · {request.platform} · {request.ip}</span>
-                                                                <div>
-                                                                    <button className={styles.approveBtn} onClick={() => approvePairing(request.id)}>Approve</button>
-                                                                    <button className={styles.rejectBtn} onClick={() => rejectPairing(request.id)}>Reject</button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
                                                 <div className={styles.remoteConnections} onClick={() => connectedDevices.length > 0 && setShowDevicesModal(true)} style={connectedDevices.length > 0 ? { cursor: 'pointer' } : {}}>
                                                     <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
                                                         ● {remoteStatus.connections} online · {connectedDevices.length} paired
@@ -915,6 +896,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                     {settings?.remoteEnabled && showDevicesModal && (
                         <ConnectedDevicesModal onClose={() => setShowDevicesModal(false)} />
+                    )}
+
+                    {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && pairingRequests[0] && (
+                        <PairingApprovalModal
+                            key={pairingRequests[0].id}
+                            request={pairingRequests[0]}
+                            approvePairing={approvePairing}
+                            rejectPairing={rejectPairing}
+                        />
                     )}
 
                     {/* Account */}
@@ -1011,6 +1001,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     </section>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
