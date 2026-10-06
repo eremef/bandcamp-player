@@ -1123,13 +1123,11 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
 
     // Restart remote control when its listener configuration changes.
-    const remoteListenerSettingsChanged =
-      "remoteListenMode" in newSettings || "remoteInterfaceName" in newSettings;
-    const remoteQrAddressChanged = "remoteQrAddress" in newSettings;
+    const remoteInterfaceChanged = "remoteInterfaceName" in newSettings;
     if (
       "remoteEnabled" in newSettings ||
       "remoteSecurityMode" in newSettings ||
-      remoteListenerSettingsChanged
+      remoteInterfaceChanged
     ) {
       try {
         if (newSettings.remoteEnabled ?? get().settings?.remoteEnabled) {
@@ -1141,8 +1139,6 @@ export const useStore = create<StoreState>()((set, get) => ({
       } finally {
         await get().fetchRemoteStatus();
       }
-    } else if (remoteQrAddressChanged) {
-      await get().fetchRemoteStatus();
     }
   },
 

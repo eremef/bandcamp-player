@@ -5,12 +5,18 @@ import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
 import ConnectedDevicesModal from './ConnectedDevicesModal';
 import PairingApprovalModal from './PairingApprovalModal';
+import {
+    formatPairingExpiration,
+    getOrderedRemoteInterfaceNames,
+    getSelectedRemoteInterfaceName,
+    isPairingInviteExpired,
+} from './pairing-utils';
 
 interface SettingsModalProps {
     onClose: () => void;
 }
 
-type CopyableField = 'remoteUrl' | 'pairingCode' | 'fingerprint' | `networkAddress:${string}`;
+type CopyableField = 'remoteUrl' | 'pairingCode' | 'fingerprint';
 
 export function SettingsModal({ onClose }: SettingsModalProps) {
     const isMac = window.electron.system.platform === 'darwin';
@@ -51,6 +57,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const [showDevicesModal, setShowDevicesModal] = useState(false);
     const [pairingInvite, setPairingInvite] = useState<{ code: string; expiresAt: string; caCertificate: string; caFingerprint: string } | null>(null);
     const [pairingError, setPairingError] = useState<string | null>(null);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
     const unsafeConfirmationRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -74,6 +81,15 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             setPairingInvite(null);
         }
     }, [settings?.remoteEnabled, remoteStatus?.isRunning, remoteStatus?.securityMode, remoteStatus?.generation, createPairingInvite]);
+
+    useEffect(() => {
+        if (!pairingInvite) return;
+
+        const updateCurrentTime = () => setCurrentTime(Date.now());
+        updateCurrentTime();
+        const intervalId = window.setInterval(updateCurrentTime, 1000);
+        return () => window.clearInterval(intervalId);
+    }, [pairingInvite]);
 
     useEffect(() => {
         const dialog = unsafeConfirmationRef.current;
@@ -153,7 +169,13 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         URL.revokeObjectURL(objectUrl);
     };
 
-    const pairingTicket = pairingInvite && remoteStatus?.ip
+    const pairingInviteExpired = pairingInvite
+        ? isPairingInviteExpired(pairingInvite.expiresAt, currentTime)
+        : false;
+    const pairingExpirationText = pairingInvite
+        ? formatPairingExpiration(pairingInvite.expiresAt, currentTime)
+        : null;
+    const pairingTicket = pairingInvite && !pairingInviteExpired && remoteStatus?.ip
         ? btoa(JSON.stringify({
             version: 1,
             host: remoteStatus.ip,
@@ -167,9 +189,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         : '';
 
     const availableRemoteInterfaces = remoteStatus?.availableInterfaces ?? [];
-    const remoteInterfaceNames = [...new Set(availableRemoteInterfaces.map((networkInterface) => networkInterface.name))];
-    const remoteListenMode = settings?.remoteListenMode ?? 'recommended';
+    const remoteInterfaceNames = getOrderedRemoteInterfaceNames(availableRemoteInterfaces, remoteStatus?.recommendedAddress);
     const recommendedInterface = availableRemoteInterfaces.find((networkInterface) => networkInterface.address === remoteStatus?.recommendedAddress);
+    const selectedRemoteInterfaceName = getSelectedRemoteInterfaceName(settings?.remoteInterfaceName, recommendedInterface?.name);
+    const getInterfaceLabel = (name: string) => `${name} — ${availableRemoteInterfaces.filter((networkInterface) => networkInterface.name === name).map((networkInterface) => networkInterface.address).join(', ')}`;
 
     const renderUpdateSection = () => {
         const { status, info, progress, error } = updateStatus;
@@ -570,121 +593,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                         {settings?.remoteEnabled && (
                             <>
-                                <div className={styles.setting}>
-                                    <div className={styles.settingInfo}>
-                                        <span className={styles.settingLabel}>Network interface</span>
-                                        <span className={styles.settingHint}>Recommended uses the interface selected by your system&apos;s network route.</span>
-                                    </div>
-                                    <select
-                                        className={styles.selectInput}
-                                        value={remoteListenMode}
-                                        onChange={(event) => {
-                                            const mode = event.target.value as 'recommended' | 'interface' | 'all';
-                                            updateSettings({
-                                                remoteListenMode: mode,
-                                                ...(mode === 'interface' && !settings?.remoteInterfaceName && recommendedInterface
-                                                    ? { remoteInterfaceName: recommendedInterface.name }
-                                                    : {}),
-                                            });
-                                        }}
-                                        data-testid="setting-remote-listen-mode"
-                                    >
-                                        <option value="recommended">Recommended interface</option>
-                                        <option value="interface">Specific interface</option>
-                                        <option value="all">All IPv4 interfaces</option>
-                                    </select>
-                                </div>
-
-                                {remoteListenMode === 'recommended' && (
-                                    <p className={styles.settingHint}>
-                                        {recommendedInterface
-                                            ? `Using ${recommendedInterface.name} · ${recommendedInterface.address}`
-                                            : 'The recommended address will be resolved when Remote Control starts.'}
-                                    </p>
-                                )}
-
-                                {remoteListenMode === 'interface' && (
-                                    <div className={styles.setting}>
-                                        <div className={styles.settingInfo}>
-                                            <span className={styles.settingLabel}>Select interface</span>
-                                            {/* <span className={styles.settingHint}>The service will listen only on this network adapter.</span> */}
-                                        </div>
-                                        <select
-                                            className={styles.selectInput}
-                                            value={settings?.remoteInterfaceName ?? ''}
-                                            onChange={(event) => updateSettings({ remoteInterfaceName: event.target.value })}
-                                            data-testid="setting-remote-interface"
-                                            disabled={remoteInterfaceNames.length === 0}
-                                        >
-                                            {settings?.remoteInterfaceName && !remoteInterfaceNames.includes(settings.remoteInterfaceName) && (
-                                                <option value={settings.remoteInterfaceName} disabled>
-                                                    {settings.remoteInterfaceName} — unavailable
-                                                </option>
-                                            )}
-                                            {remoteInterfaceNames.map((name) => (
-                                                <option key={name} value={name}>
-                                                    {name} — {availableRemoteInterfaces.filter((networkInterface) => networkInterface.name === name).map((networkInterface) => networkInterface.address).join(', ')}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-
-                                {remoteListenMode === 'all' && (
-                                    <>
-                                        <div className={styles.setting}>
-                                            <div className={styles.settingInfo}>
-                                                <span className={styles.settingLabel}>Select interface</span>
-                                                {/* <span className={styles.settingHint}>Used for the connection URL and Safe-mode pairing QR. All available addresses are listed below.</span> */}
-                                            </div>
-                                            <select
-                                                className={styles.selectInput}
-                                                value={settings?.remoteQrAddress ?? ''}
-                                                onChange={(event) => updateSettings({ remoteQrAddress: event.target.value })}
-                                                data-testid="setting-remote-qr-address"
-                                                disabled={availableRemoteInterfaces.length === 0}
-                                            >
-                                                <option value="">
-                                                    {recommendedInterface
-                                                        ? `Recommended · ${recommendedInterface.name} (${recommendedInterface.address})`
-                                                        : 'Choose an address for the pairing QR'}
-                                                </option>
-                                                {settings?.remoteQrAddress && !availableRemoteInterfaces.some((networkInterface) => networkInterface.address === settings.remoteQrAddress) && (
-                                                    <option value={settings.remoteQrAddress} disabled>
-                                                        {settings.remoteQrAddress} — unavailable
-                                                    </option>
-                                                )}
-                                                {availableRemoteInterfaces.map((networkInterface) => (
-                                                    <option key={`${networkInterface.name}:${networkInterface.address}`} value={networkInterface.address}>
-                                                        {networkInterface.name} — {networkInterface.address}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <details className={styles.networkInterfaceDisclosure}>
-                                            <summary>Available local IPv4 addresses ({availableRemoteInterfaces.length})</summary>
-                                            <div className={styles.networkInterfaceList}>
-                                                {availableRemoteInterfaces.length === 0 ? (
-                                                    <span className={styles.settingHint}>No private IPv4 addresses are available on this computer.</span>
-                                                ) : availableRemoteInterfaces.map((networkInterface) => (
-                                                    <div className={styles.networkInterfaceRow} key={`${networkInterface.name}:${networkInterface.address}`}>
-                                                        <div className={styles.networkInterfaceInfo}>
-                                                            <span className={styles.settingHint}>{networkInterface.name}</span>
-                                                            <code className={styles.networkInterfaceAddress}>{networkInterface.address}</code>
-                                                        </div>
-                                                        <button
-                                                            className={styles.copyBtn}
-                                                            onClick={() => handleCopy(networkInterface.address, `networkAddress:${networkInterface.name}:${networkInterface.address}`)}
-                                                            title={`Copy ${networkInterface.address}`}
-                                                        >
-                                                            {copiedFields[`networkAddress:${networkInterface.name}:${networkInterface.address}`] ? <Check size={16} color="#4bb543" /> : <Copy size={16} />}
-                                                        </button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </details>
-                                    </>
-                                )}
 
                                 <div className={styles.setting}>
                                     <div className={styles.settingInfo}>
@@ -708,6 +616,33 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         <option value="unsafe">Unsafe (legacy connection)</option>
                                     </select>
                                 </div>
+
+                                <div className={`${styles.setting} ${styles.networkInterfaceSetting}`}>
+                                    <div className={styles.settingInfo}>
+                                        <span className={styles.settingLabel}>Network interface</span>
+                                        <span className={styles.settingHint}>Remote Control listens on this interface.</span>
+                                    </div>
+                                    <select
+                                        className={styles.selectInput}
+                                        value={selectedRemoteInterfaceName}
+                                        onChange={(event) => updateSettings({ remoteInterfaceName: event.target.value })}
+                                        data-testid="setting-remote-interface"
+                                        disabled={remoteInterfaceNames.length === 0}
+                                    >
+                                        {remoteInterfaceNames.map((name) => (
+                                            <option key={name} value={name}>
+                                                {name === recommendedInterface?.name ? `Recommended · ${getInterfaceLabel(name)}` : getInterfaceLabel(name)}
+                                            </option>
+                                        ))}
+                                        {settings?.remoteInterfaceName && !remoteInterfaceNames.includes(settings.remoteInterfaceName) && (
+                                            <option value={settings.remoteInterfaceName} disabled>
+                                                {settings.remoteInterfaceName} — unavailable
+                                            </option>
+                                        )}
+                                    </select>
+                                </div>
+
+
 
                                 {settings?.remoteSecurityMode === 'unsafe' && (
                                     <div className={styles.unsafeWarning}>
@@ -782,8 +717,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && (
                                     <div className={styles.remoteInfo}>
                                         <div className={styles.safeModeHeading}>
-                                            <span>Remote control pairing code</span>
-                                            <span>expires {pairingInvite ? new Date(pairingInvite.expiresAt).toLocaleTimeString() : 'N/A'}</span>
+                                            <span>Pairing code</span>
+                                            <span className={styles.expiresText}>
+                                                {pairingInviteExpired ? (
+                                                    <button type="button" className={styles.generatePairingCodeLink} onClick={handleCreatePairingInvite}>
+                                                        Generate new code
+                                                    </button>
+                                                ) : pairingExpirationText ? `expires in: ${pairingExpirationText}` : 'N/A'}
+                                            </span>
                                         </div>
                                         <div className={styles.remoteQr}>
                                             {pairingQrValue ? (
@@ -796,7 +737,9 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                     marginSize={4}
                                                 />
                                             ) : (
-                                                <p className={styles.remoteHint}>Choose an available pairing address above to create the QR code.</p>
+                                                <p className={styles.remoteHint}>
+                                                    {pairingInviteExpired ? 'Pairing code expired. Generate a new code to continue.' : 'Choose an available pairing address above to create the QR code.'}
+                                                </p>
                                             )}
                                         </div>
                                         <div className={styles.remoteDetails}>
@@ -825,12 +768,16 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                         {pairingInvite ? (
                                                             <>
                                                                 <span className={styles.settingLabel}>Pairing code</span>
-                                                                <div className={styles.remoteUrlContainer}>
-                                                                    <code className={styles.pairingCode}>{pairingInvite.code}</code>
-                                                                    <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code, 'pairingCode')} title="Copy pairing code">
-                                                                        {copiedFields.pairingCode ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
-                                                                    </button>
-                                                                </div>
+                                                                {pairingInviteExpired ? (
+                                                                    <span className={styles.settingHint}>Pairing code expired. Generate a new code above.</span>
+                                                                ) : (
+                                                                    <div className={styles.remoteUrlContainer}>
+                                                                        <code className={styles.pairingCode}>{pairingInvite.code}</code>
+                                                                        <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code, 'pairingCode')} title="Copy pairing code">
+                                                                            {copiedFields.pairingCode ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                        </button>
+                                                                    </div>
+                                                                )}
                                                                 <span className={styles.settingLabel}>Certificate fingerprint</span>
                                                                 <div className={styles.remoteUrlContainer}>
 
@@ -852,13 +799,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                         )}
                                                     </div>
                                                 </details>
-                                                <div className={styles.remoteActions}>
-                                                    <button className={styles.remoteActionBtn} onClick={handleCreatePairingInvite}>New pairing code</button>
-                                                </div>
                                                 {pairingError && <p className={styles.remoteError}>{pairingError}</p>}
+                                                <span className={styles.settingLabel}>Paired devices</span>
                                                 <div className={styles.remoteConnections} onClick={() => connectedDevices.length > 0 && setShowDevicesModal(true)} style={connectedDevices.length > 0 ? { cursor: 'pointer' } : {}}>
                                                     <span className={remoteStatus.connections > 0 ? styles.connected : styles.disconnected}>
-                                                        ● {remoteStatus.connections} online · {connectedDevices.length} paired
+                                                        {remoteStatus.connections} online · {connectedDevices.length} paired
                                                     </span>
                                                     {connectedDevices.length > 0 && (
                                                         <span className={styles.manageLink}> (Manage)</span>

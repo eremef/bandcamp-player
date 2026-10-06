@@ -217,12 +217,14 @@ class MobilePlayerService {
         }
 
         // If no track provided, resume current or play from queue
-        const resumePosition = this.pausedPosition;
+        const resumePosition = this.pausedPosition > 0 ? this.pausedPosition : store.currentTime;
         this.pausedPosition = 0;
 
         const playbackState = TrackPlayer.getPlaybackState();
         const playing = TrackPlayer.isPlaying();
-        if (!playing && playbackState === PlaybackState.Ready) {
+        const nativeQueue = TrackPlayer.getQueue();
+        const hasRestoredTrack = Array.isArray(nativeQueue) && nativeQueue.length > 0 && resumePosition > 0;
+        if (!playing && (playbackState === PlaybackState.Ready || hasRestoredTrack)) {
             TrackPlayer.play();
             useStore.setState({ isPlaying: true });
         } else if (store.currentTrack) {
@@ -234,8 +236,9 @@ class MobilePlayerService {
     }
 
     pause() {
-        useStore.setState({ userIntendedPause: true });
-        this.pausedPosition = TrackPlayer.getProgress().position;
+        const position = TrackPlayer.getProgress().position;
+        this.pausedPosition = position;
+        useStore.setState({ userIntendedPause: true, currentTime: position });
         TrackPlayer.pause();
         useStore.setState({ isPlaying: false });
         useStore.getState().saveQueue();
@@ -484,6 +487,12 @@ class MobilePlayerService {
                 console.warn(`[MobilePlayer] Track "${track.title}" is unreleased or missing stream URL.`);
                 this.isLoadingTrack = false;
                 useStore.setState({ collectionError: `"${track.title}" is unreleased (pre-order track)` });
+                return false;
+            }
+
+            const currentMode = (useStore.getState() as { mode?: string }).mode;
+            if (currentMode && currentMode !== 'standalone') {
+                this.isLoadingTrack = false;
                 return false;
             }
 

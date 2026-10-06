@@ -215,6 +215,52 @@ describe('Mobile useStore', () => {
         expect(useStore.getState().skipAutoLogin).toBe(true);
     });
 
+    it('should save the native playback position when switching away from standalone mode', async () => {
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 45, duration: 100 });
+        useStore.setState({
+            mode: 'standalone',
+            connectionStatus: 'connected',
+            currentTime: 0,
+            queue: { items: [{ id: 'q1', track: { id: 't1' } as any, source: 'collection' }], currentIndex: 0 },
+        });
+
+        await act(async () => {
+            await useStore.getState().setMode('remote');
+        });
+
+        const savedQueueCall = (AsyncStorage.setItem as jest.Mock).mock.calls.find(([key]) => key === 'standalone_queue');
+        expect(savedQueueCall).toBeDefined();
+        expect(JSON.parse(savedQueueCall[1]).currentTime).toBe(45);
+    });
+
+    it('should not apply a stale standalone restore after switching to remote mode', async () => {
+        let resolveQueue!: (value: string) => void;
+        const delayedQueue = new Promise<string>(resolve => {
+            resolveQueue = resolve;
+        });
+        const getItemMock = AsyncStorage.getItem as jest.Mock;
+        getItemMock.mockImplementation((key: string) => key === 'standalone_queue' ? delayedQueue : Promise.resolve(null));
+
+        useStore.setState({ mode: 'standalone', currentTrack: { id: 'standalone-track' } as any, isPlaying: true });
+        const restorePromise = useStore.getState().restoreStandaloneState();
+
+        useStore.setState({ mode: 'remote', currentTrack: { id: 'remote-track' } as any, isPlaying: true });
+        resolveQueue(JSON.stringify({
+            items: [{ id: 'q1', track: { id: 'standalone-track' } }],
+            currentIndex: 0,
+            currentTime: 30,
+        }));
+
+        await act(async () => {
+            await restorePromise;
+        });
+
+        expect(useStore.getState().mode).toBe('remote');
+        expect(useStore.getState().currentTrack?.id).toBe('remote-track');
+        getItemMock.mockImplementation(() => Promise.resolve(null));
+    });
+
     it('should connect to a host', async () => {
         const ip = '192.168.1.10';
         const options = {

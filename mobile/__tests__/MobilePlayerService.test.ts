@@ -111,6 +111,14 @@ describe('MobilePlayerService', () => {
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false });
         });
 
+        it('should persist the exact native position when pausing', async () => {
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 37, duration: 100, buffered: 37 });
+
+            await mobilePlayerService.pause();
+
+            expect(useStore.setState).toHaveBeenCalledWith({ userIntendedPause: true, currentTime: 37 });
+        });
+
         it('should stop playback', async () => {
             await mobilePlayerService.stop();
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false });
@@ -164,6 +172,28 @@ describe('MobilePlayerService', () => {
             await mobilePlayerService.play();
             expect(TrackPlayer.setMediaItems).toHaveBeenCalled(); // via loadTrack
             expect(TrackPlayer.play).toHaveBeenCalled();
+        });
+
+        it('should resume a restored track while the native player is preparing', async () => {
+            (mobilePlayerService as any).isInitialized = true;
+            (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('buffering');
+            (TrackPlayer.getQueue as jest.Mock).mockReturnValue([{ mediaId: 't1' }]);
+            const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                volume: 0.5,
+                currentTrack: mockTrack,
+                currentTime: 45,
+                queue: { items: [{ id: 't1', track: mockTrack }], currentIndex: 0 },
+            });
+
+            await mobilePlayerService.play();
+
+            expect(TrackPlayer.play).toHaveBeenCalled();
+            expect(TrackPlayer.setMediaItems).not.toHaveBeenCalled();
         });
 
         it('should play from queue if no current track', async () => {
@@ -341,6 +371,43 @@ describe('MobilePlayerService', () => {
             await mobilePlayerService.loadTrack(track as any, 50);
 
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(50);
+        });
+
+        it('should discard a standalone load that finishes after switching to remote mode', async () => {
+            let resolveAlbum!: (value: { tracks: Array<{ title: string; streamUrl: string }> }) => void;
+            const albumPromise = new Promise<{ tracks: Array<{ title: string; streamUrl: string }> }>(resolve => {
+                resolveAlbum = resolve;
+            });
+            let mode: 'standalone' | 'remote' = 'standalone';
+            const track = { id: '1', title: 'T', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockImplementation(() => ({
+                mode,
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 },
+            }));
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockReturnValueOnce(albumPromise);
+
+            const loadPromise = mobilePlayerService.loadTrack(track as any);
+            mode = 'remote';
+            resolveAlbum({ tracks: [{ title: 'T', streamUrl: 'url' }] });
+
+            await expect(loadPromise).resolves.toBe(false);
+            expect(useStore.setState).not.toHaveBeenCalledWith(expect.objectContaining({ currentTrack: expect.anything() }));
+
+            (useStore.getState as jest.Mock).mockReturnValue({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                volume: 0.8,
+                isPlaying: false,
+                currentTrack: null,
+                currentTime: 0,
+                repeatMode: 'off',
+                isShuffled: false,
+                queue: { items: [], currentIndex: 0 },
+            });
         });
 
         it('should fetch stream url for radio show', async () => {

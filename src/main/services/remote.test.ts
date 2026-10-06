@@ -204,25 +204,24 @@ describe('RemoteControlService', () => {
             expect(remoteService.getStatus().recommendedAddress).toBe('192.168.1.10');
         });
 
-        it('binds to all IPv4 addresses and advertises the selected pairing address', async () => {
+        it('binds to the selected network interface and advertises its address', async () => {
             vi.mocked(os.networkInterfaces).mockReturnValue({
                 eth0: [{ family: 'IPv4', internal: false, address: '192.168.1.10' } as any],
                 wlan0: [{ family: 'IPv4', internal: false, address: '192.168.1.20' } as any],
             });
             mockDatabase.getSettings.mockReturnValue({
                 remoteSecurityMode: 'safe',
-                remoteListenMode: 'all',
-                remoteQrAddress: '192.168.1.20',
+                remoteInterfaceName: 'wlan0',
             });
 
             await remoteService.start();
 
             const server = (https.createServer as any).mock.results.at(-1).value;
-            expect(server.listen).toHaveBeenCalledWith(9999, '0.0.0.0', expect.any(Function));
+            expect(server.listen).toHaveBeenCalledWith(9999, '192.168.1.20', expect.any(Function));
             expect(remoteService.getStatus()).toMatchObject({
                 ip: '192.168.1.20',
                 url: 'https://192.168.1.20:9999',
-                listenMode: 'all',
+                listeningAddress: '192.168.1.20',
                 availableInterfaces: [
                     { name: 'eth0', address: '192.168.1.10' },
                     { name: 'wlan0', address: '192.168.1.20' },
@@ -230,32 +229,13 @@ describe('RemoteControlService', () => {
             });
         });
 
-        it('binds only to a configured network interface', async () => {
+        it('fails instead of silently falling back when the selected interface is unavailable', async () => {
             vi.mocked(os.networkInterfaces).mockReturnValue({
                 eth0: [{ family: 'IPv4', internal: false, address: '192.168.1.10' } as any],
                 wlan0: [{ family: 'IPv4', internal: false, address: '192.168.1.20' } as any],
             });
             mockDatabase.getSettings.mockReturnValue({
                 remoteSecurityMode: 'unsafe',
-                remoteListenMode: 'interface',
-                remoteInterfaceName: 'wlan0',
-            });
-
-            await remoteService.start();
-
-            const server = (http.createServer as any).mock.results.at(-1).value;
-            expect(server.listen).toHaveBeenCalledWith(9999, '192.168.1.20', expect.any(Function));
-            expect(remoteService.getStatus()).toMatchObject({
-                ip: '192.168.1.20',
-                url: 'http://192.168.1.20:9999',
-                listenMode: 'interface',
-            });
-        });
-
-        it('fails instead of silently falling back when the selected interface is unavailable', async () => {
-            mockDatabase.getSettings.mockReturnValue({
-                remoteSecurityMode: 'unsafe',
-                remoteListenMode: 'interface',
                 remoteInterfaceName: 'missing-adapter',
             });
 

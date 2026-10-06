@@ -532,6 +532,8 @@ export const useStore = create<AppState>((set, get) => ({
         const settings = await mobileDatabase.getSettings();
         const restoredVolume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
 
+        if (get().mode !== 'standalone') return;
+
         // Atomic set: restored playback state
         set({
             mode: 'standalone',
@@ -569,21 +571,27 @@ export const useStore = create<AppState>((set, get) => ({
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         await mobilePlayerService.setVolume(restoredVolume);
 
+        if (get().mode !== 'standalone') return;
+
         // Load track into player without playing if restored
         if (restoredTrack) {
             await mobilePlayerService.loadTrack(restoredTrack, restoredTime);
         }
 
+        if (get().mode !== 'standalone') return;
+
         // Restore auth
         const { mobileAuthService } = require('../services/MobileAuthService');
         const authState = await mobileAuthService.checkSession();
-        if (authState.isAuthenticated) {
+        if (get().mode === 'standalone' && authState.isAuthenticated) {
             set({ auth: authState, connectionStatus: 'connected' });
         }
 
         // Restore simulation mode
         const simMode = await AsyncStorage.getItem('is_simulation_mode');
-        set({ isSimulationMode: simMode === 'true' });
+        if (get().mode === 'standalone') {
+            set({ isSimulationMode: simMode === 'true' });
+        }
 
         // Data refresh — defer to after UI interactions complete for immediate responsiveness
         // Using requestIdleCallback ensures the UI is rendered first
@@ -611,6 +619,15 @@ export const useStore = create<AppState>((set, get) => ({
         // Capture everything we need BEFORE stop() or set() modifies anything
 
         if (currentMode === 'standalone') {
+            try {
+                const progress = TrackPlayer.getProgress();
+                if (typeof progress.position === 'number' && Number.isFinite(progress.position)) {
+                    set({ currentTime: progress.position });
+                }
+            } catch {
+                // Keep the last polled position if the native player is unavailable.
+            }
+
             // Save standalone playback snapshot to AsyncStorage
             await get().saveQueue();
         }

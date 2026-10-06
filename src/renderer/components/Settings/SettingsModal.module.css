@@ -106,6 +106,22 @@
     gap: var(--spacing-lg);
 }
 
+.networkInterfaceSetting {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.networkInterfaceSetting .settingInfo {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.networkInterfaceSetting .selectInput {
+    width: 100%;
+}
+
 .settingInfo {
     display: flex;
     flex-direction: column;
@@ -402,11 +418,31 @@
 .safeModeHeading {
     display: flex;
     flex-direction: row;
+    align-items: center;
     justify-content: space-between;
     gap: var(--spacing-sm);
     color: var(--text-primary);
     font-weight: var(--font-weight-medium);
     margin-bottom: var(--spacing-md);
+}
+
+.expiresText {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.generatePairingCodeLink {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent-primary);
+    font: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.generatePairingCodeLink:hover {
+    color: var(--accent-hover);
 }
 
 .unsafeWarning {
@@ -523,6 +559,7 @@
 
 .manualPairingDetails {
     margin-top: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
 }
 
 .manualPairingDetails summary {
@@ -539,55 +576,10 @@
     margin-bottom: var(--spacing-sm);
 }
 
-.networkInterfaceDisclosure {
-    margin-bottom: var(--spacing-md);
-}
-
-.networkInterfaceDisclosure summary {
-    color: var(--text-link);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-}
-
-.networkInterfaceDisclosure summary:hover {
-    color: var(--accent-hover);
-}
-
-.networkInterfaceDisclosure[open] summary {
-    margin-bottom: var(--spacing-sm);
-}
-
-.networkInterfaceList {
-    display: flex;
-    flex-direction: column;
-    padding: var(--spacing-md);
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-md);
-}
-
-.networkInterfaceRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-md);
-}
-
-.networkInterfaceInfo {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.networkInterfaceAddress {
-    color: var(--text-primary);
-    font-size: var(--font-size-sm);
-    overflow-wrap: anywhere;
-    user-select: all;
-}
-
 .pairingCode,
 .fingerprint {
     display: block;
+    padding-bottom: var(--spacing-xs);
     color: var(--text-secondary);
     overflow-wrap: anywhere;
     user-select: all;
@@ -597,22 +589,6 @@
     font-size: 11px;
     color: var(--text-secondary);
 }
-
-.remoteActions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-    margin: var(--spacing-sm) 0;
-}
-
-/* .remoteActionBtn {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-} */
 
 .approveBtn,
 .rejectBtn {
@@ -684,6 +660,7 @@
 
 .remoteUrl {
     font-size: var(--font-size-md);
+    padding-bottom: var(--spacing-xs);
     color: var(--accent-primary);
     margin: 0;
     cursor: pointer;
@@ -710,7 +687,7 @@
 .remoteHint {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
-    margin: var(--spacing-sm) 0 var(--spacing-xs) 0;
+    margin: 0   ;
 }
 
 .remoteConnections {
@@ -851,8 +828,7 @@
 .updateBtn,
 .installBtn,
 .remoteActionBtn {
-    display: flex;
-    align-items: center;
+    display: block;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
     background: var(--bg-secondary);

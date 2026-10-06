@@ -18,7 +18,6 @@ import type {
     RemotePairingRecord,
     RemotePairedDevice,
     RemotePairingRequest,
-    RemoteListenMode,
     RemoteNetworkInterface,
     RemoteControlStatus,
     RemoteSecurityMode,
@@ -450,47 +449,22 @@ export class RemoteControlService extends EventEmitter {
         const interfaces = this.getAvailableInterfaces();
         this.recommendedInterface = await this.getRecommendedInterface(interfaces);
 
-        const requestedMode = settings?.remoteListenMode;
-        const mode: RemoteListenMode = requestedMode === 'all' || requestedMode === 'interface'
-            ? requestedMode
-            : 'recommended';
-
-        if (mode === 'all') {
-            if (interfaces.length === 0) {
-                throw new Error('No private IPv4 network interfaces are available for remote control.');
-            }
-            const qrInterface = settings?.remoteQrAddress
-                ? interfaces.find((networkInterface) => networkInterface.address === settings.remoteQrAddress)
-                : this.recommendedInterface;
-            return {
-                listenAddress: '0.0.0.0',
-                advertisedAddress: qrInterface?.address ?? null,
-                interfaces,
-                allowedHostAddresses: interfaces.map((networkInterface) => networkInterface.address),
-            };
+        const selectedInterface = settings?.remoteInterfaceName
+            ? interfaces.find((networkInterface) => networkInterface.name === settings.remoteInterfaceName)
+            : null;
+        if (settings?.remoteInterfaceName && !selectedInterface) {
+            throw new Error('The selected network interface is unavailable. Choose another interface or use the recommended interface.');
         }
 
-        if (mode === 'interface') {
-            const selectedInterface = interfaces.find((networkInterface) => networkInterface.name === settings?.remoteInterfaceName);
-            if (!selectedInterface) {
-                throw new Error('The selected network interface is unavailable. Choose another interface or use Recommended.');
-            }
-            return {
-                listenAddress: selectedInterface.address,
-                advertisedAddress: selectedInterface.address,
-                interfaces,
-                allowedHostAddresses: [selectedInterface.address],
-            };
-        }
-
-        if (!this.recommendedInterface) {
-            throw new Error('Could not identify the recommended network interface. Choose a specific interface or All interfaces.');
+        const listenInterface = selectedInterface ?? this.recommendedInterface;
+        if (!listenInterface) {
+            throw new Error('Could not identify the recommended network interface. Choose an available interface.');
         }
         return {
-            listenAddress: this.recommendedInterface.address,
-            advertisedAddress: this.recommendedInterface.address,
+            listenAddress: listenInterface.address,
+            advertisedAddress: listenInterface.address,
             interfaces,
-            allowedHostAddresses: [this.recommendedInterface.address],
+            allowedHostAddresses: [listenInterface.address],
         };
     }
 
@@ -543,10 +517,6 @@ export class RemoteControlService extends EventEmitter {
 
     getStatus(): RemoteControlStatus {
         const settings = this.database.getSettings();
-        const requestedMode = settings?.remoteListenMode;
-        const listenMode: RemoteListenMode = requestedMode === 'all' || requestedMode === 'interface'
-            ? requestedMode
-            : 'recommended';
         const interfaces = this.isRunning ? this.activeInterfaces : this.getAvailableInterfaces();
         const recommendedInterface = this.recommendedInterface
             ? interfaces.find((networkInterface) => networkInterface.address === this.recommendedInterface?.address) ?? null
@@ -554,26 +524,15 @@ export class RemoteControlService extends EventEmitter {
         const configuredInterface = settings?.remoteInterfaceName
             ? interfaces.find((networkInterface) => networkInterface.name === settings.remoteInterfaceName) ?? null
             : null;
-        const qrInterface = listenMode === 'all'
-            ? settings?.remoteQrAddress
-                ? interfaces.find((networkInterface) => networkInterface.address === settings.remoteQrAddress) ?? null
-                : recommendedInterface
-            : listenMode === 'interface'
-                ? configuredInterface
-                : recommendedInterface;
-        const ip = qrInterface?.address ?? '';
+        const selectedInterface = configuredInterface ?? recommendedInterface;
+        const ip = selectedInterface?.address ?? '';
         const scheme = this.securityMode === 'safe' ? 'https' : 'http';
-        const listeningAddress = this.isRunning
-            ? this.listenAddress
-            : listenMode === 'all'
-                ? '0.0.0.0'
-                : qrInterface?.address ?? '';
+        const listeningAddress = this.isRunning ? this.listenAddress : selectedInterface?.address ?? '';
         return {
             isRunning: this.isRunning,
             port: this.port,
             ip,
             url: ip ? `${scheme}://${ip}:${this.port}` : '',
-            listenMode,
             listeningAddress,
             generation: this.generation,
             availableInterfaces: interfaces,
