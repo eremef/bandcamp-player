@@ -596,8 +596,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                                 <div className={styles.setting}>
                                     <div className={styles.settingInfo}>
-                                        <span className={styles.settingLabel}>Connection Security</span>
-                                        <span className={styles.settingHint}>Safe mode encrypts traffic and requires device approval.</span>
+                                        <span className={styles.settingLabel}>Security Mode</span>
+                                        <span className={styles.settingHint}>Secure mode encrypts traffic and requires device approval.</span>
                                     </div>
                                     <select
                                         className={styles.selectInput}
@@ -612,8 +612,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                         }}
                                         data-testid="setting-remote-security-mode"
                                     >
-                                        <option value="safe">Safe (recommended)</option>
-                                        <option value="unsafe">Unsafe (legacy connection)</option>
+                                        <option value="safe">Secure (recommended)</option>
+                                        <option value="unsafe">Unencrypted (legacy)</option>
                                     </select>
                                 </div>
 
@@ -647,7 +647,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {settings?.remoteSecurityMode === 'unsafe' && (
                                     <div className={styles.unsafeWarning}>
                                         <ShieldAlert size={18} />
-                                        <span>Unsafe mode uses the unencrypted connection. Anyone on your local network may observe or send remote commands.</span>
+                                        <span>In unencrypted mode, anyone on your local network may observe or send remote commands.</span>
                                     </div>
                                 )}
 
@@ -670,10 +670,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     <div className={styles.unsafeConfirmationContent}>
                                         <div className={styles.unsafeConfirmationHeading}>
                                             <ShieldAlert size={20} />
-                                            <h2 id="unsafe-confirmation-title">Switch to unsafe connection?</h2>
+                                            <h2 id="unsafe-confirmation-title">Switch to unencrypted mode?</h2>
                                         </div>
                                         <p id="unsafe-confirmation-description" className={styles.unsafeConfirmationDescription}>
-                                            Unsafe mode sends remote control traffic without encryption or device pairing. Other devices on your local network may read commands and control playback.
+                                            Unencrypted connections do not use encryption or device pairing. Other devices on the same network may read commands and control playback.
                                         </p>
                                         <div className={styles.unsafeConfirmationActions}>
                                             <button

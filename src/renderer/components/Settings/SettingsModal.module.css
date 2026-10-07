@@ -383,7 +383,7 @@
 }
 
 .textInput::placeholder {
-    color: var(--text-muted);
+    color: var(--text-secondary);
 }
 
 .selectInput {
@@ -670,7 +670,7 @@
 .copyBtn {
     background: none;
     border: none;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     cursor: pointer;
     display: flex;
     align-items: center;
