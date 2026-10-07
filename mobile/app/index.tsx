@@ -21,6 +21,7 @@ export default function ConnectScreen() {
     const [securityMode, setSecurityMode] = useState<'safe' | 'unsafe'>('safe');
     const [pairingCode, setPairingCode] = useState('');
     const [certificateFingerprint, setCertificateFingerprint] = useState('');
+    const [showManualPairing, setShowManualPairing] = useState(false);
     const [connectionError, setConnectionError] = useState('');
 
     useEffect(() => {
@@ -214,16 +215,7 @@ export default function ConnectScreen() {
                                         </Text>
                                     </View>
 
-                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Desktop IP address</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                        placeholder="192.168.1.x"
-                                        placeholderTextColor={colors.textSecondary}
-                                        value={ipInput}
-                                        onChangeText={setIpInput}
-                                        keyboardType="numeric"
-                                        autoCapitalize="none"
-                                    />
+
 
                                     {securityMode === 'safe' ? (
                                         <View style={styles.pairingFields}>
@@ -237,28 +229,52 @@ export default function ConnectScreen() {
                                                     <Text style={[styles.scanButtonText, { color: colors.accent }]}>Scan pairing QR code</Text>
                                                 </View>
                                             </TouchableOpacity>
-                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings</Text>
-                                            <TextInput
-                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                                placeholder="One-time pairing code"
-                                                placeholderTextColor={colors.textSecondary}
-                                                value={pairingCode}
-                                                onChangeText={setPairingCode}
-                                                autoCapitalize="none"
-                                                autoCorrect={false}
-                                            />
-                                            <TextInput
-                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                                placeholder="Certificate fingerprint (SHA-256)"
-                                                placeholderTextColor={colors.textSecondary}
-                                                value={certificateFingerprint}
-                                                onChangeText={setCertificateFingerprint}
-                                                autoCapitalize="none"
-                                                autoCorrect={false}
-                                            />
+
+                                            <TouchableOpacity
+                                                style={styles.manualPairingToggle}
+                                                onPress={() => setShowManualPairing((visible) => !visible)}
+                                                accessibilityRole="button"
+                                                accessibilityState={{ expanded: showManualPairing }}
+                                            >
+                                                <Text style={[styles.sectionLabel, { color: colors.accent, textDecorationLine: 'underline' }]}>
+                                                    Can&apos;t scan? Enter details manually
+                                                </Text>
+                                            </TouchableOpacity>
+                                            {showManualPairing && (
+                                                <View style={styles.manualPairingFields}>
+                                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings</Text>
+                                                    <TextInput
+                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        placeholder="Desktop IP address (e.g. 192.168.1.x)"
+                                                        placeholderTextColor={colors.textSecondary}
+                                                        value={ipInput}
+                                                        onChangeText={setIpInput}
+                                                        keyboardType="numeric"
+                                                        autoCapitalize="none"
+                                                    />
+                                                    <TextInput
+                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        placeholder="One-time pairing code"
+                                                        placeholderTextColor={colors.textSecondary}
+                                                        value={pairingCode}
+                                                        onChangeText={setPairingCode}
+                                                        autoCapitalize="none"
+                                                        autoCorrect={false}
+                                                    />
+                                                    <TextInput
+                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        placeholder="Certificate fingerprint (SHA-256)"
+                                                        placeholderTextColor={colors.textSecondary}
+                                                        value={certificateFingerprint}
+                                                        onChangeText={setCertificateFingerprint}
+                                                        autoCapitalize="none"
+                                                        autoCorrect={false}
+                                                    />
+                                                </View>
+                                            )}
                                         </View>
                                     ) : (
-                                        <Text style={[styles.unsafeHint, { color: '#ff7777' }]}>Unsafe traffic is not encrypted. The desktop app must also be set to Unsafe mode; the app will not downgrade automatically.</Text>
+                                        <Text style={[styles.unsafeHint, { color: '#ff7777' }]}>Unsafe traffic is not encrypted. The desktop app must also be set to Unsafe mode.</Text>
                                     )}
 
                                     <TouchableOpacity
@@ -362,7 +378,7 @@ const styles = StyleSheet.create({
     },
     modeContainer: {
         flexDirection: 'row',
-        marginBottom: 32,
+        marginBottom: 16,
         gap: 8,
         width: '100%',
         maxWidth: 300,
@@ -400,7 +416,7 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: 16,
         color: '#888888',
-        marginBottom: 32,
+        marginBottom: 16,
         textAlign: 'center',
         paddingHorizontal: 20,
     },
@@ -457,7 +473,13 @@ const styles = StyleSheet.create({
     pairingFields: {
         width: '100%',
         gap: 10,
-        marginBottom: 18,
+        marginBottom: 10,
+    },
+    manualPairingToggle: {
+        paddingVertical: 0,
+    },
+    manualPairingFields: {
+        gap: 10,
     },
     pairingHint: {
         fontSize: 13,
@@ -490,9 +512,10 @@ const styles = StyleSheet.create({
     },
     recentContainer: {
         width: '100%',
-        marginTop: 40,
+        marginTop: 16,
     },
     recentTitle: {
+        textAlign: 'center',
         color: '#666',
         fontSize: 14,
         marginBottom: 12,
@@ -502,7 +525,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#1e1e1e',
-        padding: 16,
+        paddingHorizontal: 8,
         borderRadius: 12,
         marginBottom: 8,
         borderWidth: 1,

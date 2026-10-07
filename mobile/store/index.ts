@@ -502,7 +502,6 @@ export const useStore = create<AppState>((set, get) => ({
         let restoredTrack = null as Track | null;
         let restoredDuration = 0;
         let restoredTime = 0;
-        let restoredUserIntendedPause = true;
 
         const savedQueueJson = await AsyncStorage.getItem('standalone_queue');
         if (savedQueueJson) {
@@ -518,9 +517,6 @@ export const useStore = create<AppState>((set, get) => ({
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;
                     restoredTime = typeof parsed.currentTime === 'number' ? parsed.currentTime : 0;
-                    if (typeof parsed.userIntendedPause === 'boolean') {
-                        restoredUserIntendedPause = parsed.userIntendedPause;
-                    }
                 }
             } catch (e) {
                 console.error('[MobileStore] Failed to parse standalone queue:', e);
@@ -544,7 +540,7 @@ export const useStore = create<AppState>((set, get) => ({
             duration: restoredDuration,
             currentTime: restoredTime,
             isPlaying: false,
-            userIntendedPause: restoredUserIntendedPause,
+            userIntendedPause: true,
             skipAutoLogin: false,
             theme: settings.theme || 'system',
             scrobblingEnabled: settings.scrobblingEnabled !== false,
@@ -622,7 +618,8 @@ export const useStore = create<AppState>((set, get) => ({
             try {
                 const progress = TrackPlayer.getProgress();
                 if (typeof progress.position === 'number' && Number.isFinite(progress.position)) {
-                    set({ currentTime: progress.position });
+                    const { mobilePlayerService } = require('../services/MobilePlayerService');
+                    set({ currentTime: mobilePlayerService.getPositionForSnapshot(progress.position) });
                 }
             } catch {
                 // Keep the last polled position if the native player is unavailable.
@@ -639,6 +636,9 @@ export const useStore = create<AppState>((set, get) => ({
         // Reset TrackPlayer for BOTH directions:
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        mobilePlayerService.prepareForModeChange();
+        TrackPlayer.pause();
         TrackPlayer.clear();
 
         if (mode === 'remote') {

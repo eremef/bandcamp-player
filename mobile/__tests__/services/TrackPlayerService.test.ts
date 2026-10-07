@@ -8,6 +8,12 @@ jest.mock('../../services/MobilePlayerService', () => ({
         playQueueIndex: jest.fn(),
         isLoadingTrack: false,
         prefetchedQueueIndex: -1,
+        handlePlaybackStateChanged: jest.fn(),
+        handleNativeMediaItemTransition: jest.fn().mockReturnValue(false),
+        isNativeTransitionCurrent: jest.fn().mockReturnValue(true),
+        shouldSuppressNativePlayback: jest.fn().mockReturnValue(false),
+        getPositionForSnapshot: jest.fn((position: number) => position),
+        waitForResumeReady: jest.fn().mockResolvedValue(true),
     }
 }));
 
@@ -40,6 +46,12 @@ describe('TrackPlayerService (PlaybackService)', () => {
         if (mobilePlayerService.handleTrackEnd.mockClear) {
             mobilePlayerService.handleTrackEnd.mockClear();
         }
+        mobilePlayerService.handlePlaybackStateChanged.mockClear();
+        mobilePlayerService.handleNativeMediaItemTransition.mockReset().mockReturnValue(false);
+        mobilePlayerService.isNativeTransitionCurrent.mockReset().mockReturnValue(true);
+        mobilePlayerService.shouldSuppressNativePlayback.mockReset().mockReturnValue(false);
+        mobilePlayerService.getPositionForSnapshot.mockReset().mockImplementation((position: number) => position);
+        mobilePlayerService.waitForResumeReady.mockReset().mockResolvedValue(true);
         mobileScrobblerService.handleTrackTransition.mockClear();
         mobileScrobblerService.handleProgressUpdate.mockClear();
         mockPlay = jest.fn();
@@ -69,6 +81,29 @@ describe('TrackPlayerService (PlaybackService)', () => {
             await PlaybackService({ type: Event.IsPlayingChanged, playing: true });
             const state = useStore.getState();
             expect(state.isPlaying).toBe(true);
+        });
+
+        it('pauses native playback while a restored item is still waiting for its resume seek', async () => {
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+            mobilePlayerService.shouldSuppressNativePlayback.mockReturnValue(true);
+            useStore.setState({ userIntendedPause: false, isPlaying: false });
+
+            await PlaybackService({ type: Event.IsPlayingChanged, playing: true });
+
+            expect(TrackPlayer.pause).toHaveBeenCalled();
+            expect(useStore.getState().isPlaying).toBe(false);
+        });
+
+        it('does not apply a delayed standalone pause after switching to remote mode', async () => {
+            jest.useFakeTimers();
+            useStore.setState({ mode: 'standalone', isPlaying: true, userIntendedPause: false });
+
+            await PlaybackService({ type: Event.IsPlayingChanged, playing: false });
+            useStore.setState({ mode: 'remote', isPlaying: true });
+            jest.advanceTimersByTime(300);
+
+            expect(useStore.getState().isPlaying).toBe(true);
+            jest.useRealTimers();
         });
 
         it('calls play on RemotePlay', async () => {
@@ -203,11 +238,24 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 expect(useStore.getState().isPlaying).toBe(false);
                 jest.useRealTimers();
             });
+
+            it('ignores an intermediate transition that no longer matches the active native item', async () => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                const { mobileScrobblerService } = require('../../services/MobileScrobblerService');
+                mobilePlayerService.isNativeTransitionCurrent.mockReturnValue(false);
+
+                await PlaybackService({ type: Event.MediaItemTransition, index: 0, item: { mediaId: 'stale' } });
+
+                expect(mobileScrobblerService.handleTrackTransition).not.toHaveBeenCalled();
+                expect(useStore.getState().queue.currentIndex).toBe(0);
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
         });
 
         describe('PlaybackError handling', () => {
             beforeEach(() => {
                 const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 0, duration: 0 });
                 mobilePlayerService.loadTrack = jest.fn().mockResolvedValue(true);
                 mobilePlayerService.next = jest.fn().mockResolvedValue(undefined);
                 mobilePlayerService.stop = jest.fn().mockResolvedValue(undefined);
@@ -231,6 +279,49 @@ describe('TrackPlayerService (PlaybackService)', () => {
 
                 expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 0, true);
                 expect(TrackPlayer.play).toHaveBeenCalled();
+            });
+
+            it('preserves the native position when refreshing the current track after an error', async () => {
+                useStore.setState({
+                    isPlaying: true,
+                    userIntendedPause: false,
+                    currentTime: 30,
+                    currentTrack: { id: 't1', title: 'Test' } as any,
+                    queue: { items: [{ id: 'q1', track: { id: 't1', title: 'Test' } }], currentIndex: 0 },
+                } as any);
+                (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 37, duration: 180 });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+
+                await PlaybackService({ type: Event.PlaybackError, index: 0 });
+
+                expect(mobilePlayerService.getPositionForSnapshot).toHaveBeenCalledWith(37);
+                expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 37, true);
+            });
+
+            it('resumes an error recovery after readiness even if the pause debounce fires while buffering', async () => {
+                useStore.setState({
+                    isPlaying: true,
+                    userIntendedPause: false,
+                    currentTime: 30,
+                    currentTrack: { id: 't1', title: 'Test' } as any,
+                    queue: { items: [{ id: 'q1', track: { id: 't1', title: 'Test' } }], currentIndex: 0 },
+                } as any);
+                let resolveReady!: (ready: boolean) => void;
+                const readyPromise = new Promise<boolean>(resolve => {
+                    resolveReady = resolve;
+                });
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.waitForResumeReady.mockReturnValueOnce(readyPromise);
+
+                const recoveryPromise = PlaybackService({ type: Event.PlaybackError, index: 0 });
+                await Promise.resolve();
+                await Promise.resolve();
+                useStore.setState({ isPlaying: false } as any);
+                resolveReady(true);
+                await recoveryPromise;
+
+                expect(TrackPlayer.play).toHaveBeenCalled();
+                expect(useStore.getState().isPlaying).toBe(true);
             });
 
             it('halts playback if 3 consecutive errors occur rapidly', async () => {
