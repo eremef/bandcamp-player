@@ -40,6 +40,11 @@ function handleIsPlayingChanged(event: any) {
 
 async function handlePlaybackError(event: any) {
     const store = useStore.getState();
+    if (event?.code === 'controller-connection-failed') {
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        await mobilePlayerService.recoverControllerConnection();
+        return;
+    }
     if (store.mode !== 'standalone') return;
     if (store.userIntendedPause || !store.isPlaying) return;
 
@@ -98,9 +103,9 @@ async function handlePlaybackError(event: any) {
 }
 
 async function handleStateChanged(event: any) {
-    if (useStore.getState().mode !== 'standalone') return;
     const { mobilePlayerService } = require('./MobilePlayerService');
     mobilePlayerService.handlePlaybackStateChanged(event.state);
+    if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
         const store = useStore.getState();
         const { queue, repeatMode } = store;

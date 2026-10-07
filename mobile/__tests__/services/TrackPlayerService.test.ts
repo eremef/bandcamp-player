@@ -6,9 +6,12 @@ jest.mock('../../services/MobilePlayerService', () => ({
     mobilePlayerService: {
         handleTrackEnd: jest.fn(),
         playQueueIndex: jest.fn(),
+        loadTrack: jest.fn(),
+        next: jest.fn(),
         isLoadingTrack: false,
         prefetchedQueueIndex: -1,
         handlePlaybackStateChanged: jest.fn(),
+        recoverControllerConnection: jest.fn().mockResolvedValue(true),
         handleNativeMediaItemTransition: jest.fn().mockReturnValue(false),
         isNativeTransitionCurrent: jest.fn().mockReturnValue(true),
         shouldSuppressNativePlayback: jest.fn().mockReturnValue(false),
@@ -47,6 +50,7 @@ describe('TrackPlayerService (PlaybackService)', () => {
             mobilePlayerService.handleTrackEnd.mockClear();
         }
         mobilePlayerService.handlePlaybackStateChanged.mockClear();
+        mobilePlayerService.recoverControllerConnection.mockClear().mockResolvedValue(true);
         mobilePlayerService.handleNativeMediaItemTransition.mockReset().mockReturnValue(false);
         mobilePlayerService.isNativeTransitionCurrent.mockReset().mockReturnValue(true);
         mobilePlayerService.shouldSuppressNativePlayback.mockReset().mockReturnValue(false);
@@ -74,6 +78,26 @@ describe('TrackPlayerService (PlaybackService)', () => {
     });
 
     describe('Event listeners via PlaybackService (Background)', () => {
+
+        it('routes controller connection failures to recovery in remote mode', async () => {
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+            useStore.setState({ mode: 'remote', isPlaying: false, userIntendedPause: true });
+
+            await PlaybackService({ type: Event.PlaybackError, code: 'controller-connection-failed' });
+
+            expect(mobilePlayerService.recoverControllerConnection).toHaveBeenCalledTimes(1);
+            expect(mobilePlayerService.loadTrack).not.toHaveBeenCalled();
+            expect(mobilePlayerService.next).not.toHaveBeenCalled();
+        });
+
+        it('forwards Ready events to player recovery while in remote mode', async () => {
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+            useStore.setState({ mode: 'remote' });
+
+            await PlaybackService({ type: Event.PlaybackStateChanged, state: PlaybackState.Ready });
+
+            expect(mobilePlayerService.handlePlaybackStateChanged).toHaveBeenCalledWith(PlaybackState.Ready);
+        });
 
 
         it('updates isPlaying on IsPlayingChanged', async () => {

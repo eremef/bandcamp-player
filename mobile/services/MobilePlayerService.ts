@@ -5,7 +5,7 @@ import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';
 import { Track, RepeatMode } from '@shared/types';
-import { setupPlayer } from './player';
+import { addTrack, setupPlayer } from './player';
 
 class MobilePlayerService {
     private isInitialized = false;
@@ -24,12 +24,21 @@ class MobilePlayerService {
     } | null = null;
     private authoritativeResume: { mediaId: string; position: number; seekIssued: boolean } | null = null;
     private playbackReadyRevision = 0;
+    private controllerRecoveryPromise: Promise<boolean> | null = null;
+    private controllerRecoveryNeedsReady = false;
+    private controllerRecoveryFailed = false;
+    private controllerRecoveryReadyAfterRevision = 0;
+    private controllerRecoveryGeneration = 0;
 
     public prepareForModeChange() {
         this.loadGeneration++;
         this.isLoadingTrack = false;
         this.pausedPosition = 0;
         this.clearPendingResume();
+        this.controllerRecoveryGeneration++;
+        this.controllerRecoveryPromise = null;
+        this.controllerRecoveryNeedsReady = false;
+        this.controllerRecoveryFailed = false;
     }
 
     public getPositionForSnapshot(nativePosition: number): number {
@@ -51,9 +60,160 @@ class MobilePlayerService {
         if (state === PlaybackState.Ready) {
             this.playbackReadyRevision++;
             this.applyPendingResume();
+            if (this.controllerRecoveryNeedsReady &&
+                this.playbackReadyRevision > this.controllerRecoveryReadyAfterRevision) {
+                this.controllerRecoveryNeedsReady = false;
+                this.controllerRecoveryFailed = false;
+                if (useStore.getState().collectionError === 'The audio player could not reconnect. Try playback again.') {
+                    useStore.setState({ collectionError: null });
+                }
+            }
         } else if (state === PlaybackState.Error && this.pendingResume) {
             this.pendingResume.resolve(false);
             this.pendingResume = null;
+        }
+    }
+
+    public recoverControllerConnection() {
+        const store = useStore.getState();
+        if (store.mode !== 'standalone' && store.mode !== 'remote') return Promise.resolve(false);
+        if (this.controllerRecoveryPromise) return this.controllerRecoveryPromise;
+
+        if (this.controllerRecoveryNeedsReady) {
+            if (!this.controllerRecoveryFailed) {
+                this.failControllerRecovery();
+            }
+            return this.controllerRecoveryPromise || Promise.resolve(false);
+        }
+
+        this.controllerRecoveryNeedsReady = true;
+        this.controllerRecoveryReadyAfterRevision = this.playbackReadyRevision;
+        const recoveryGeneration = ++this.controllerRecoveryGeneration;
+        this.controllerRecoveryPromise = this.performControllerRecovery(store.mode, recoveryGeneration);
+        return this.controllerRecoveryPromise;
+    }
+
+    private cancelControllerRecovery() {
+        this.loadGeneration++;
+        this.isLoadingTrack = false;
+        this.clearPendingResume();
+    }
+
+    private failControllerRecovery() {
+        const store = useStore.getState();
+        const mediaId = store.queue.items[store.queue.currentIndex]?.id || store.currentTrack?.id;
+        let position = Number.isFinite(store.currentTime) ? Math.max(0, store.currentTime) : 0;
+        if (this.pendingResume) position = this.pendingResume.position;
+        else if (this.authoritativeResume) position = this.authoritativeResume.position;
+        try {
+            const progress = TrackPlayer.getProgress();
+            if (Number.isFinite(progress.position) && progress.position > 0) {
+                position = this.getPositionForSnapshot(progress.position);
+            }
+        } catch {
+            position = this.pendingResume?.position ?? this.authoritativeResume?.position ?? position;
+        }
+        this.controllerRecoveryFailed = true;
+        this.cancelControllerRecovery();
+        if (mediaId) this.authoritativeResume = { mediaId, position, seekIssued: false };
+        useStore.setState({ collectionError: 'The audio player could not reconnect. Try playback again.' });
+    }
+
+    private async performControllerRecovery(mode: 'standalone' | 'remote', recoveryGeneration: number) {
+        const store = useStore.getState();
+        if (store.mode !== mode) return false;
+
+        const currentIndex = Math.max(0, store.queue.currentIndex);
+        const queueTrack = store.queue.items[currentIndex]?.track;
+        const track = store.currentTrack || queueTrack || null;
+        const storePosition = Number.isFinite(store.currentTime) ? Math.max(0, store.currentTime) : 0;
+        let nativePosition = 0;
+        try {
+            const progress = TrackPlayer.getProgress();
+            if (Number.isFinite(progress.position)) nativePosition = Math.max(0, progress.position);
+        } catch {
+            nativePosition = 0;
+        }
+        let position = storePosition;
+        try {
+            position = this.getPositionForSnapshot(nativePosition > 0 ? nativePosition : storePosition);
+        } catch {
+            position = storePosition;
+        }
+        const shouldPlay = mode === 'remote'
+            ? store.isPlaying
+            : store.isPlaying && !store.userIntendedPause;
+
+        this.cancelControllerRecovery();
+        const loadGeneration = this.loadGeneration;
+        this.isInitialized = false;
+        this.lastSetVolume = -1;
+
+        try {
+            TrackPlayer.destroy();
+            await this.setupPlayer();
+            if (!this.isInitialized) {
+                if (this.controllerRecoveryGeneration === recoveryGeneration) this.failControllerRecovery();
+                return false;
+            }
+            if (this.controllerRecoveryFailed || this.loadGeneration !== loadGeneration ||
+                this.controllerRecoveryGeneration !== recoveryGeneration) return false;
+
+            const latestStore = useStore.getState();
+            if (latestStore.mode !== mode || this.controllerRecoveryFailed ||
+                this.controllerRecoveryGeneration !== recoveryGeneration) return false;
+
+            if (mode === 'remote') {
+                if (track) {
+                    const queuedItemIds = latestStore.queue.items.map(item => item.id);
+                    await addTrack(track, latestStore.hostIp, latestStore.queue.items, latestStore.queue.currentIndex);
+                    const currentStore = useStore.getState();
+                    const currentTrackId = currentStore.currentTrack?.id ||
+                        currentStore.queue.items[currentStore.queue.currentIndex]?.track.id;
+                    const originalTrackId = store.currentTrack?.id || queueTrack?.id;
+                    if (currentStore.mode !== mode || currentTrackId !== originalTrackId ||
+                        currentStore.queue.currentIndex !== latestStore.queue.currentIndex ||
+                        currentStore.queue.items.length !== queuedItemIds.length ||
+                        currentStore.queue.items.some((item, index) => item.id !== queuedItemIds[index]) ||
+                        this.controllerRecoveryFailed || this.controllerRecoveryGeneration !== recoveryGeneration) return false;
+                    TrackPlayer.setRepeatMode(currentStore.repeatMode as any);
+                    if (position > 0) TrackPlayer.seekTo(position);
+                }
+                if (useStore.getState().isPlaying) {
+                    TrackPlayer.play();
+                } else {
+                    TrackPlayer.pause();
+                }
+                return true;
+            }
+
+            if (!track) return true;
+            const loaded = await this.loadTrack(track, position);
+            if (!loaded || this.controllerRecoveryFailed) return false;
+
+            const recoveryLoadGeneration = this.loadGeneration;
+            const resumeReady = position > 0 ? this.waitForResumeReady() : Promise.resolve(true);
+            void resumeReady.then(ready => {
+                const current = useStore.getState();
+                if (!ready || !shouldPlay || this.controllerRecoveryFailed || this.loadGeneration !== recoveryLoadGeneration ||
+                    this.controllerRecoveryGeneration !== recoveryGeneration ||
+                    current.mode !== 'standalone' || current.currentTrack?.id !== track.id ||
+                    current.userIntendedPause) return;
+                TrackPlayer.play();
+                useStore.setState({ isPlaying: true });
+            }).catch(error => {
+                console.warn('[MobilePlayer] Controller recovery resume failed:', error);
+            });
+            return true;
+        } catch (error) {
+            if (this.controllerRecoveryGeneration !== recoveryGeneration) return false;
+            this.failControllerRecovery();
+            console.warn('[MobilePlayer] Controller recovery failed:', error);
+            return false;
+        } finally {
+            if (this.controllerRecoveryGeneration === recoveryGeneration) {
+                this.controllerRecoveryPromise = null;
+            }
         }
     }
 
@@ -136,9 +296,10 @@ class MobilePlayerService {
         const success = await setupPlayer();
         if (!success) return;
 
-        const { volume } = useStore.getState();
-        TrackPlayer.setVolume(volume);
-        this.lastSetVolume = volume;
+        const { volume, mode } = useStore.getState();
+        const playerVolume = mode === 'remote' ? 0 : volume;
+        TrackPlayer.setVolume(playerVolume);
+        this.lastSetVolume = playerVolume;
 
         this.isInitialized = true;
         this.startProgressPolling();
@@ -266,7 +427,7 @@ class MobilePlayerService {
         if (this.progressInterval) return;
         this.progressInterval = setInterval(() => {
             const state = useStore.getState();
-            if (state.mode !== 'standalone' || !state.isPlaying) return;
+            if (state.mode !== 'standalone' || !state.isPlaying || this.controllerRecoveryNeedsReady) return;
 
             try {
                 const progress = TrackPlayer.getProgress();
@@ -320,6 +481,16 @@ class MobilePlayerService {
     }
 
     async play(track?: Track) {
+        if (useStore.getState().mode === 'standalone' && this.controllerRecoveryFailed) {
+            useStore.setState({ userIntendedPause: false, isPlaying: true, collectionError: null });
+            this.controllerRecoveryGeneration++;
+            this.controllerRecoveryPromise = null;
+            this.controllerRecoveryNeedsReady = false;
+            this.controllerRecoveryFailed = false;
+            await this.recoverControllerConnection();
+            return;
+        }
+
         useStore.setState({ userIntendedPause: false });
         if (!this.isInitialized) await this.setupPlayer();
 

@@ -39,7 +39,7 @@
     "@preeternal/react-native-cookie-manager": "^6.3.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/slider": "5.2.0",
-    "@rntp/player": "^5.9.2",
+    "@rntp/player": "5.12.1",
     "cheerio": "1.0.0-rc.12",
     "expo": "57.0.24",
     "expo-asset": "~57.0.18",
