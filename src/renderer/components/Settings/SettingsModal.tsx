@@ -18,6 +18,8 @@ interface SettingsModalProps {
 
 type CopyableField = 'remoteUrl' | 'pairingCode' | 'fingerprint';
 
+const getBannerCacheDay = () => Math.floor(Date.now() / 86_400_000);
+
 export function SettingsModal({ onClose }: SettingsModalProps) {
     const isMac = window.electron.system.platform === 'darwin';
     const {
@@ -58,6 +60,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const [pairingInvite, setPairingInvite] = useState<{ code: string; expiresAt: string; caCertificate: string; caFingerprint: string } | null>(null);
     const [pairingError, setPairingError] = useState<string | null>(null);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
+    const [bannerCacheDay, setBannerCacheDay] = useState(getBannerCacheDay);
     const unsafeConfirmationRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
@@ -90,6 +93,11 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         const intervalId = window.setInterval(updateCurrentTime, 1000);
         return () => window.clearInterval(intervalId);
     }, [pairingInvite]);
+
+    useEffect(() => {
+        const intervalId = window.setInterval(() => setBannerCacheDay(getBannerCacheDay()), 60_000);
+        return () => window.clearInterval(intervalId);
+    }, []);
 
     useEffect(() => {
         const dialog = unsafeConfirmationRef.current;
@@ -921,7 +929,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             <div className={styles.supportBanner}>
                                 <p>Like the app? Want it to be actively developed?</p>
                                 <img
-                                    src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1"
+                                    src={`https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=${bannerCacheDay}`}
                                     alt="Buy me a coffee"
                                     title="Buy me a coffee"
                                     onClick={() => handleOpenLink('https://www.buymeacoffee.com/eremef.xyz')}

@@ -443,7 +443,6 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: '#1e1e1e',
         color: '#ffffff',
-        height: 46,
         borderRadius: 12,
         paddingHorizontal: 16,
         fontSize: 18,
