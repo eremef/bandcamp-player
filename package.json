@@ -30,9 +30,6 @@
     "lint:mobile": "npm run lint --prefix mobile",
     "typecheck": "tsc --build",
     "release": "node scripts/release.js",
-    "memory:mine": "mempalace mine .",
-    "memory:status": "mempalace status",
-    "memory:checkpoint": "node scripts/memory-checkpoint.js",
     "postinstall": "node scripts/create-shared-symlink.js && npm run rebuild && electron-builder install-app-deps",
     "mock:cast": "node scripts/mock-cast-receiver.js"
   },
