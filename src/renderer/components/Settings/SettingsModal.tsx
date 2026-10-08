@@ -596,25 +596,25 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
                                 <div className={styles.setting}>
                                     <div className={styles.settingInfo}>
-                                        <span className={styles.settingLabel}>Security Mode</span>
+                                        <span className={styles.settingLabel}>Secure Mode</span>
                                         <span className={styles.settingHint}>Secure mode encrypts traffic and requires device approval.</span>
                                     </div>
-                                    <select
-                                        className={styles.selectInput}
-                                        value={settings?.remoteSecurityMode ?? 'safe'}
-                                        onChange={(event) => {
-                                            const mode = event.target.value as 'safe' | 'unsafe';
-                                            if (mode === 'unsafe') {
-                                                setShowUnsafeConfirmation(true);
-                                                return;
-                                            }
-                                            updateSettings({ remoteSecurityMode: mode });
-                                        }}
-                                        data-testid="setting-remote-security-mode"
-                                    >
-                                        <option value="safe">Secure (recommended)</option>
-                                        <option value="unsafe">Unencrypted (legacy)</option>
-                                    </select>
+                                    <label className={styles.switch}>
+                                        <input
+                                            type="checkbox"
+                                            checked={settings?.remoteSecurityMode !== 'unsafe'}
+                                            onChange={(event) => {
+                                                if (!event.target.checked) {
+                                                    setShowUnsafeConfirmation(true);
+                                                    return;
+                                                }
+                                                updateSettings({ remoteSecurityMode: 'safe' });
+                                            }}
+                                            aria-label="Secure Mode"
+                                            data-testid="setting-remote-security-mode"
+                                        />
+                                        <span className={styles.slider}></span>
+                                    </label>
                                 </div>
 
                                 <div className={`${styles.setting} ${styles.networkInterfaceSetting}`}>
@@ -642,15 +642,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     </select>
                                 </div>
 
-
-
-                                {settings?.remoteSecurityMode === 'unsafe' && (
-                                    <div className={styles.unsafeWarning}>
-                                        <ShieldAlert size={18} />
-                                        <span>In unencrypted mode, anyone on your local network may observe or send remote commands.</span>
-                                    </div>
-                                )}
-
                                 <dialog
                                     ref={unsafeConfirmationRef}
                                     className={styles.unsafeConfirmationDialog}
@@ -670,10 +661,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                     <div className={styles.unsafeConfirmationContent}>
                                         <div className={styles.unsafeConfirmationHeading}>
                                             <ShieldAlert size={20} />
-                                            <h2 id="unsafe-confirmation-title">Switch to unencrypted mode?</h2>
+                                            <h2 id="unsafe-confirmation-title">Disable Secure Mode?</h2>
                                         </div>
                                         <p id="unsafe-confirmation-description" className={styles.unsafeConfirmationDescription}>
-                                            Unencrypted connections do not use encryption or device pairing. Other devices on the same network may read commands and control playback.
+                                            Turning off Secure Mode means that Remote Control connections will not use encryption or device pairing. Other devices on the same network may read commands and control playback.
                                         </p>
                                         <div className={styles.unsafeConfirmationActions}>
                                             <button
@@ -690,7 +681,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                                     updateSettings({ remoteSecurityMode: 'unsafe' });
                                                 }}
                                             >
-                                                Switch to Unsafe
+                                                Disable
                                             </button>
                                         </div>
                                     </div>
@@ -717,7 +708,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                 {settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe' && (
                                     <div className={styles.remoteInfo}>
                                         <div className={styles.safeModeHeading}>
-                                            <span>Pairing code</span>
+                                            <span>Pairing</span>
                                             <span className={styles.expiresText}>
                                                 {pairingInviteExpired ? (
                                                     <button type="button" className={styles.generatePairingCodeLink} onClick={handleCreatePairingInvite}>

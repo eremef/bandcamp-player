@@ -6,7 +6,8 @@ import { Wifi, AlertCircle, Globe, LogIn, Camera } from 'lucide-react-native';
 import { useTheme } from '../theme';
 import { useRouter } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { loadRemoteSecurityMode, saveRemoteSecurityMode } from '../services/remote-security-mode';
+import type { RemoteSecurityMode } from '../services/remote-security-mode';
 
 export default function ConnectScreen() {
     const insets = useSafeAreaInsets();
@@ -18,7 +19,7 @@ export default function ConnectScreen() {
     const router = useRouter();
     const [ipInput, setIpInput] = useState(hostIp);
     const [isAutoConnecting, setIsAutoConnecting] = useState(true);
-    const [securityMode, setSecurityMode] = useState<'safe' | 'unsafe'>('safe');
+    const [securityMode, setSecurityMode] = useState<RemoteSecurityMode>('safe');
     const [pairingCode, setPairingCode] = useState('');
     const [certificateFingerprint, setCertificateFingerprint] = useState('');
     const [showManualPairing, setShowManualPairing] = useState(false);
@@ -27,8 +28,14 @@ export default function ConnectScreen() {
     useEffect(() => {
         // Attempt auto-connect on mount
         const init = async () => {
-            await autoConnect();
-            setIsAutoConnecting(false);
+            try {
+                setSecurityMode(await loadRemoteSecurityMode());
+                await autoConnect();
+            } catch {
+                setConnectionError('Could not restore connection settings.');
+            } finally {
+                setIsAutoConnecting(false);
+            }
         };
         init();
     }, [autoConnect]);
@@ -36,15 +43,6 @@ export default function ConnectScreen() {
     useEffect(() => {
         setIpInput(hostIp);
     }, [hostIp]);
-
-    useEffect(() => {
-        const loadConnectionMode = async () => {
-            const key = `remote_security_mode_${ipInput.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-            const saved = await AsyncStorage.getItem(key);
-            setSecurityMode(saved === 'unsafe' ? 'unsafe' : 'safe');
-        };
-        void loadConnectionMode();
-    }, [ipInput]);
 
     useEffect(() => webSocketService.on('connection-error', (message: string) => {
         setConnectionError(message);
@@ -75,19 +73,28 @@ export default function ConnectScreen() {
         });
     };
 
-    const handleSecurityModeChange = (useUnsafe: boolean) => {
-        if (useUnsafe) {
+    const updateSecurityMode = async (newMode: RemoteSecurityMode) => {
+        try {
+            await saveRemoteSecurityMode(newMode);
+            setSecurityMode(newMode);
+        } catch {
+            Alert.alert('Could not save Secure Mode', 'Try again before connecting.');
+        }
+    };
+
+    const handleSecurityModeChange = (enableSecureMode: boolean) => {
+        if (!enableSecureMode) {
             Alert.alert(
-                'Use unsafe connection?',
-                'This uses the previous unencrypted connection. Other devices on your local network may read traffic or control playback. The desktop must also be set to Unsafe mode.',
+                'Disable secure mode?',
+                'Unencrypted communication can be intercepted by others on your local network. Only disable this mode if you trust your network. The desktop app\'s Secure Mode must also be disabled.',
                 [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Use unsafe', style: 'destructive', onPress: () => setSecurityMode('unsafe') },
+                    { text: 'Disable', style: 'destructive', onPress: () => void updateSecurityMode('unsafe') },
                 ],
             );
             return;
         }
-        setSecurityMode('safe');
+        void updateSecurityMode('safe');
     };
 
     const handleModeSelect = async (newMode: 'remote' | 'standalone') => {
@@ -111,7 +118,7 @@ export default function ConnectScreen() {
         router.replace('/(tabs)/player');
     };
 
-    if (isAutoConnecting && connectionStatus === 'connecting') {
+    if (isAutoConnecting) {
         return (
             <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
                 <View style={styles.content}>
@@ -202,17 +209,15 @@ export default function ConnectScreen() {
                                 <>
                                     <View style={[styles.securityOption, { backgroundColor: colors.input, borderColor: colors.border }]}>
                                         <View style={{ flex: 1 }}>
-                                            <Text style={{ color: colors.text, fontWeight: '600' }}>Safe connection</Text>
+                                            <Text style={{ color: colors.text, fontWeight: '600' }}>Secure Mode</Text>
                                             <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Encrypted and paired with this device</Text>
                                         </View>
                                         <Switch
-                                            value={securityMode === 'unsafe'}
+                                            accessibilityLabel="Secure Mode"
+                                            value={securityMode === 'safe'}
                                             onValueChange={handleSecurityModeChange}
-                                            trackColor={{ false: colors.accent, true: '#b3261e' }}
+                                            trackColor={{ false: '#b3261e', true: colors.accent }}
                                         />
-                                        <Text style={{ color: securityMode === 'unsafe' ? '#ff7777' : colors.textSecondary, fontSize: 12 }}>
-                                            {securityMode === 'unsafe' ? 'Unsafe' : 'Safe'}
-                                        </Text>
                                     </View>
 
 
@@ -274,11 +279,22 @@ export default function ConnectScreen() {
                                             )}
                                         </View>
                                     ) : (
-                                        <Text style={[styles.unsafeHint, { color: '#ff7777' }]}>Unsafe traffic is not encrypted. The desktop app must also be set to Unsafe mode.</Text>
+                                        <View style={styles.unsafeSection}>
+                                            <TextInput
+                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border, marginBottom: 8, }]}
+                                                placeholder="Desktop IP address (e.g. 192.168.1.x)"
+                                                placeholderTextColor={colors.textSecondary}
+                                                value={ipInput}
+                                                onChangeText={setIpInput}
+                                                keyboardType="numeric"
+                                                autoCapitalize="none"
+                                            />
+                                        </View>
                                     )}
 
+
                                     <TouchableOpacity
-                                        style={[styles.button, { backgroundColor: colors.accent }, connectionStatus === 'connecting' && styles.buttonDisabled]}
+                                        style={[styles.button, { backgroundColor: colors.accent, marginBottom: 8, }, connectionStatus === 'connecting' && styles.buttonDisabled]}
                                         onPress={() => handleConnect()}
                                         disabled={connectionStatus === 'connecting'}
                                     >
@@ -427,7 +443,7 @@ const styles = StyleSheet.create({
     input: {
         backgroundColor: '#1e1e1e',
         color: '#ffffff',
-        height: 56,
+        height: 46,
         borderRadius: 12,
         paddingHorizontal: 16,
         fontSize: 18,
@@ -485,6 +501,9 @@ const styles = StyleSheet.create({
         fontSize: 13,
         lineHeight: 19,
         marginBottom: 4,
+    },
+    unsafeSection: {
+        width: '100%',
     },
     unsafeHint: {
         width: '100%',

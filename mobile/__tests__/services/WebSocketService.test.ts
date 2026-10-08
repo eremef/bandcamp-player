@@ -2,6 +2,7 @@ import { webSocketService } from '../../services/WebSocketService';
 import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock WebSocket class
 // Mock WebSocket class
@@ -40,7 +41,8 @@ describe('WebSocketService', () => {
         jest.advanceTimersByTime(20);
     };
 
-    beforeEach(() => {
+    beforeEach(async () => {
+        await AsyncStorage.clear();
         jest.clearAllMocks();
         originalWebSocket = global.WebSocket;
         originalPlatform = Platform.OS;
@@ -68,6 +70,14 @@ describe('WebSocketService', () => {
         expect(statusSpy).toHaveBeenCalledWith('connected');
     });
 
+    it('uses the restored in-app mode when connecting without options', async () => {
+        await AsyncStorage.setItem('remote_security_mode', 'unsafe');
+
+        await webSocketService.connect('192.168.1.10');
+        jest.advanceTimersByTime(20);
+
+        expect((webSocketService as any).ws.url).toBe('ws://192.168.1.10:9999');
+    });
     it('should send messages when connected', async () => {
         await connectUnsafe();
 

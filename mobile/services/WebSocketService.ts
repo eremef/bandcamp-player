@@ -1,11 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { PinnedWebSocket, pinnedWebSocketEmitter } from '../modules/pinned-websocket';
+import { loadRemoteSecurityMode, saveRemoteSecurityMode } from './remote-security-mode';
+import type { RemoteSecurityMode } from './remote-security-mode';
 
 type MessageHandler = (...args: any[]) => void;
-type SecurityMode = 'safe' | 'unsafe';
 
 interface PairingCredentials {
     deviceId: string;
@@ -14,20 +14,19 @@ interface PairingCredentials {
 }
 
 export interface RemoteConnectionOptions {
-    mode?: SecurityMode;
+    mode?: RemoteSecurityMode;
     pairingCode?: string;
     caFingerprint?: string;
     port?: number;
 }
 
-const getModeKey = (host: string) => `remote_security_mode_${host.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 const getCredentialKey = (host: string) => `remote_pairing_${host.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
 class WebSocketService {
     private ws: WebSocket | null = null;
     private url: string | null = null;
     private host: string | null = null;
-    private mode: SecurityMode = 'safe';
+    private mode: RemoteSecurityMode = 'safe';
     private pairingCode: string | null = null;
     private caFingerprint: string | null = null;
     private credentials: PairingCredentials | null = null;
@@ -59,9 +58,8 @@ class WebSocketService {
         }
         const options = typeof optionsOrPort === 'number' ? { port: optionsOrPort } : optionsOrPort;
         this.host = normalizedHost;
-        const savedMode = await AsyncStorage.getItem(getModeKey(normalizedHost));
-        this.mode = options.mode ?? (savedMode === 'unsafe' ? 'unsafe' : 'safe');
-        await AsyncStorage.setItem(getModeKey(normalizedHost), this.mode);
+        this.mode = options.mode ?? await loadRemoteSecurityMode();
+        await saveRemoteSecurityMode(this.mode);
         this.pairingCode = options.pairingCode?.trim() || null;
         this.caFingerprint = options.caFingerprint?.replace(/:/g, '').toLowerCase() || null;
         this.reconnectAttempts = 0;
