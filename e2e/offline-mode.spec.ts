@@ -125,34 +125,30 @@ test.describe('Offline Mode & Caching', () => {
 
         // If it was already cached from a previous test leak, we'll see "Remove from Cache"
         const removeBtn = window.locator('button', { hasText: 'Remove from Cache' });
-        if (await removeBtn.isVisible()) {
-            await removeBtn.click();
-            await window.waitForTimeout(500);
-            await onlineCard.click({ button: 'right' }); // Re-open menu
-        }
+        await expect(removeBtn).toHaveCount(0);
 
         // Context menu should now show "Download for Offline"
         await expect(window.locator('button', { hasText: 'Download for Offline' })).toBeVisible();
     });
 
-    test('should limit navigation when offline', async ({ window }) => {
-        // Go offline in the browser context
-        await window.context().setOffline(true);
+    test('requires Offline Mode when connectivity is lost, then allows navigation', async ({ electronApp, window }) => {
+        await electronApp.evaluate(({ ipcMain, BrowserWindow }) => {
+            ipcMain.removeHandler('system:check-connectivity');
+            ipcMain.handle('system:check-connectivity', async () => ({ isOnline: false }));
+            BrowserWindow.getAllWindows()[0]?.webContents.send('system:on-connectivity-changed', { isOnline: false });
+        });
 
-        await window.waitForTimeout(2000); // Give React time to update online status
+        const noInternetHeading = window.getByRole('heading', { name: 'No Internet Connection' });
+        await expect(noInternetHeading).toBeVisible({ timeout: 10000 });
+        await window.getByRole('button', { name: 'Enable Offline Mode' }).click();
 
-        // Try to navigate to Artists (requires network by default if not cached)
+        await expect(noInternetHeading).not.toBeVisible();
+        await window.getByTestId('nav-settings').click();
+        await expect(window.getByTestId('setting-offline-mode')).toBeChecked();
+        const settingsHeading = window.getByRole('heading', { name: 'Settings', level: 2 });
+        await window.locator('header').filter({ has: settingsHeading }).getByRole('button').click();
+        await expect(settingsHeading).not.toBeVisible();
         await window.getByTestId('nav-artists').click();
-
-        // Check if offline/error message is visible
-        const errorText = window.getByText('offline', { exact: false }).or(window.getByText('network error', { exact: false })).or(window.getByText('failed to fetch', { exact: false }));
-        try {
-            await expect(errorText.first()).toBeVisible({ timeout: 5000 });
-        } catch {
-            console.log('No specific offline error text found, but artists might still be empty/cached.');
-        }
-
-        // Reconnect
-        await window.context().setOffline(false);
+        await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible();
     });
 });

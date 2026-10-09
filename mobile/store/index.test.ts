@@ -19,8 +19,8 @@ jest.mock('@rntp/player', () => ({
     seekTo: jest.fn().mockResolvedValue(undefined),
     setVolume: jest.fn().mockResolvedValue(undefined),
     setMediaItem: jest.fn().mockResolvedValue(undefined),
-    getProgress: jest.fn().mockResolvedValue({ position: 0, duration: 0 }),
-    getPlaybackState: jest.fn().mockResolvedValue({ state: 'none' }),
+    getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0 }),
+    getPlaybackState: jest.fn().mockReturnValue('ready'),
     addEventListener: jest.fn(),
     State: {
         None: 'none',
@@ -96,6 +96,8 @@ jest.mock('../services/MobilePlayerService', () => ({
         playQueueIndex: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn().mockResolvedValue(undefined),
         loadTrack: jest.fn().mockResolvedValue(true),
+        getPositionForSnapshot: jest.fn((position: number) => position),
+        prepareForModeChange: jest.fn(),
     },
 }));
 
@@ -153,6 +155,8 @@ jest.mock('../services/MobileScraperService', () => ({
 describe('Mobile useStore', () => {
     beforeEach(() => {
         jest.useFakeTimers();
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        mobilePlayerService.getPositionForSnapshot.mockReset().mockImplementation((position: number) => position);
         useStore.setState({
             hostIp: '',
             connectionStatus: 'connected', // Set to connected by default for WebSocket tests
@@ -215,15 +219,86 @@ describe('Mobile useStore', () => {
         expect(useStore.getState().skipAutoLogin).toBe(true);
     });
 
+    it('should save the native playback position when switching away from standalone mode', async () => {
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 45, duration: 100 });
+        useStore.setState({
+            mode: 'standalone',
+            connectionStatus: 'connected',
+            currentTime: 0,
+            queue: { items: [{ id: 'q1', track: { id: 't1' } as any, source: 'collection' }], currentIndex: 0 },
+        });
+
+        await act(async () => {
+            await useStore.getState().setMode('remote');
+        });
+
+        const savedQueueCall = (AsyncStorage.setItem as jest.Mock).mock.calls.find(([key]) => key === 'standalone_queue');
+        expect(savedQueueCall).toBeDefined();
+        expect(JSON.parse(savedQueueCall[1]).currentTime).toBe(45);
+    });
+
+    it('should keep the pending standalone resume position when switching modes before native progress catches up', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 0, duration: 100 });
+        mobilePlayerService.getPositionForSnapshot.mockReturnValue(45);
+        useStore.setState({
+            mode: 'standalone',
+            currentTime: 45,
+            queue: { items: [{ id: 'q1', track: { id: 't1' } as any, source: 'collection' }], currentIndex: 0 },
+        });
+
+        await act(async () => {
+            await useStore.getState().setMode('remote');
+        });
+
+        const savedQueueCall = (AsyncStorage.setItem as jest.Mock).mock.calls.find(([key]) => key === 'standalone_queue');
+        expect(JSON.parse(savedQueueCall[1]).currentTime).toBe(45);
+        expect(mobilePlayerService.prepareForModeChange).toHaveBeenCalled();
+    });
+
+    it('should not apply a stale standalone restore after switching to remote mode', async () => {
+        let resolveQueue!: (value: string) => void;
+        const delayedQueue = new Promise<string>(resolve => {
+            resolveQueue = resolve;
+        });
+        const getItemMock = AsyncStorage.getItem as jest.Mock;
+        getItemMock.mockImplementation((key: string) => key === 'standalone_queue' ? delayedQueue : Promise.resolve(null));
+
+        useStore.setState({ mode: 'standalone', currentTrack: { id: 'standalone-track' } as any, isPlaying: true });
+        const restorePromise = useStore.getState().restoreStandaloneState();
+
+        useStore.setState({ mode: 'remote', currentTrack: { id: 'remote-track' } as any, isPlaying: true });
+        resolveQueue(JSON.stringify({
+            items: [{ id: 'q1', track: { id: 'standalone-track' } }],
+            currentIndex: 0,
+            currentTime: 30,
+        }));
+
+        await act(async () => {
+            await restorePromise;
+        });
+
+        expect(useStore.getState().mode).toBe('remote');
+        expect(useStore.getState().currentTrack?.id).toBe('remote-track');
+        getItemMock.mockImplementation(() => Promise.resolve(null));
+    });
+
     it('should connect to a host', async () => {
         const ip = '192.168.1.10';
+        const options = {
+            mode: 'safe' as const,
+            pairingCode: 'A'.repeat(24),
+            caFingerprint: 'ab'.repeat(32),
+        };
         await act(async () => {
-            await useStore.getState().connect(ip);
+            await useStore.getState().connect(ip, options);
         });
 
         expect(useStore.getState().hostIp).toBe(ip);
         expect(useStore.getState().connectionStatus).toBe('connecting');
-        expect(webSocketService.connect).toHaveBeenCalledWith(ip);
+        expect(webSocketService.connect).toHaveBeenCalledWith(ip, options);
         expect(AsyncStorage.setItem).toHaveBeenCalledWith('recent_ips', expect.any(String));
         expect(AsyncStorage.setItem).toHaveBeenCalledWith('last_ip', ip);
     });
@@ -259,7 +334,7 @@ describe('Mobile useStore', () => {
             expect(useStore.getState().hostIp).toBe('192.168.1.20');
         }, { timeout: 2000 });
 
-        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20');
+        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.20', undefined);
         expect(useStore.getState().recentIps).toEqual(['192.168.1.20']);
 
     });
@@ -277,13 +352,14 @@ describe('Mobile useStore', () => {
 
     it('should start scan and connect if found', async () => {
         (DiscoveryService.scanNetwork as jest.Mock).mockResolvedValue('192.168.1.30');
+        const options = { mode: 'unsafe' as const };
 
         await act(async () => {
-            await useStore.getState().startScan();
+            await useStore.getState().startScan(options);
         });
 
         expect(DiscoveryService.scanNetwork).toHaveBeenCalled();
-        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30');
+        expect(webSocketService.connect).toHaveBeenCalledWith('192.168.1.30', options);
     });
 
     describe('Playback Controls', () => {

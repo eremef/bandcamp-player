@@ -55,8 +55,6 @@ test.describe('Settings Wishlist Integration', () => {
                 collectionSortDirection: 'desc',
             });
         });
-        await window.waitForTimeout(300);
-
         // Mock the collection response with standard collection and wishlist items
         await electronApp.evaluate(({ ipcMain }, mockCollection) => {
             ipcMain.removeHandler('collection:fetch');
@@ -93,8 +91,6 @@ test.describe('Settings Wishlist Integration', () => {
         // 3. Go back to Collection, verify wishlist item is visible
         await window.getByTestId('nav-collection').click();
         
-        // Wait a moment and then click refresh to guarantee re-render
-        await window.waitForTimeout(500);
         await window.getByTitle('Refresh').click();
         
         // Ensure the Wishlist filter is checked in the Collection view

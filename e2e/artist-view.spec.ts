@@ -20,9 +20,7 @@ test.describe('Artists View', () => {
         const searchInput = window.getByPlaceholder('Search..');
         await expect(searchInput).toBeVisible();
 
-        // If artists are loaded, verify at least one artist card is visible
-        // (artists may be empty if the test data doesn't have any, but the view should still render)
-        await window.waitForTimeout(2000);
+        await expect(window.locator('[class*="artistCard"]').first()).toBeVisible({ timeout: 15000 });
     });
 
     test('should navigate to artist detail and back', async ({ window }) => {
@@ -30,34 +28,17 @@ test.describe('Artists View', () => {
         await window.getByRole('button', { name: 'Artists', exact: true }).click();
         await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
 
-        // Wait for artist cards to appear
-        await window.waitForTimeout(3000);
-
-        // Find any artist card — they are divs with the artist name
-        // Artists are grouped under h2 letter headings
         const artistCards = window.locator('[class*="artistCard"]');
-        const cardCount = await artistCards.count();
+        await expect(artistCards.first()).toBeVisible({ timeout: 15000 });
+        const firstCard = artistCards.first();
+        const artistName = (await firstCard.locator('[class*="artistName"]').innerText()).trim();
 
-        if (cardCount > 0) {
-            // Get the artist name before clicking
-            const firstCard = artistCards.first();
-            const artistName = await firstCard.locator('[class*="artistName"]').textContent();
+        await firstCard.click();
+        await expect(window.getByRole('heading', { name: artistName, level: 1 })).toBeVisible({ timeout: 10000 });
 
-            // Click to open detail view
-            await firstCard.click();
-
-            // Verify detail view shows artist name as h1
-            if (artistName) {
-                await expect(window.getByRole('heading', { name: artistName.trim(), level: 1 })).toBeVisible({ timeout: 10000 });
-            }
-
-            // Verify back button exists and click it
-            const backBtn = window.getByRole('button', { name: 'Back', exact: true });
-            await expect(backBtn).toBeVisible({ timeout: 5000 });
-            await backBtn.click();
-
-            // Verify we're back to the list
-            await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
-        }
+        const backButton = window.getByRole('button', { name: 'Back', exact: true });
+        await expect(backButton).toBeVisible({ timeout: 5000 });
+        await backButton.click();
+        await expect(window.getByRole('heading', { name: 'Artists', level: 1 })).toBeVisible({ timeout: 10000 });
     });
 });

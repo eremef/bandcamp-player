@@ -9,6 +9,11 @@ function handleIsPlayingChanged(event: any) {
     if (useStore.getState().mode !== 'standalone') return;
 
     if (event.playing) {
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        if (mobilePlayerService.shouldSuppressNativePlayback()) {
+            TrackPlayer.pause();
+            return;
+        }
         if (useStore.getState().userIntendedPause) {
             console.log('[TrackPlayerService] Spontaneous play detected while userIntendedPause is true. Forcing pause.');
             TrackPlayer.pause();
@@ -24,7 +29,9 @@ function handleIsPlayingChanged(event: any) {
         // Debounce the pause state to avoid flicker during track transitions
         if (!isPlayingTimeout) {
             isPlayingTimeout = setTimeout(() => {
-                useStore.setState({ isPlaying: false });
+                if (useStore.getState().mode === 'standalone') {
+                    useStore.setState({ isPlaying: false });
+                }
                 isPlayingTimeout = null;
             }, 300);
         }
@@ -33,6 +40,11 @@ function handleIsPlayingChanged(event: any) {
 
 async function handlePlaybackError(event: any) {
     const store = useStore.getState();
+    if (event?.code === 'controller-connection-failed') {
+        const { mobilePlayerService } = require('./MobilePlayerService');
+        await mobilePlayerService.recoverControllerConnection();
+        return;
+    }
     if (store.mode !== 'standalone') return;
     if (store.userIntendedPause || !store.isPlaying) return;
 
@@ -61,11 +73,24 @@ async function handlePlaybackError(event: any) {
     const targetTrack = store.queue.items[targetIndex]?.track || store.currentTrack;
 
     if (targetTrack) {
+        let retryPosition = 0;
+        if (targetTrack.id === store.currentTrack?.id) {
+            try {
+                const nativePosition = TrackPlayer.getProgress().position;
+                const snapshotPosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
+                retryPosition = Number.isFinite(snapshotPosition) ? snapshotPosition : store.currentTime;
+            } catch {
+                retryPosition = store.currentTime;
+            }
+        }
         console.log(`[TrackPlayerService] Attempting URL refresh for ${targetTrack.title}...`);
-        const success = await mobilePlayerService.loadTrack(targetTrack, 0, true);
+        const success = await mobilePlayerService.loadTrack(targetTrack, retryPosition, true);
         if (success) {
+            const resumeReady = await mobilePlayerService.waitForResumeReady();
+            const latestStore = useStore.getState();
+            if (!resumeReady || latestStore.mode !== 'standalone' || latestStore.currentTrack?.id !== targetTrack.id) return;
             consecutiveErrors = 0;
-            if (!useStore.getState().userIntendedPause && useStore.getState().isPlaying) {
+            if (!latestStore.userIntendedPause) {
                 TrackPlayer.play();
                 useStore.setState({ isPlaying: true });
             }
@@ -78,6 +103,8 @@ async function handlePlaybackError(event: any) {
 }
 
 async function handleStateChanged(event: any) {
+    const { mobilePlayerService } = require('./MobilePlayerService');
+    mobilePlayerService.handlePlaybackStateChanged(event.state);
     if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
         const store = useStore.getState();
@@ -103,15 +130,19 @@ async function handleMediaItemTransition(event: any) {
 
     // Standalone mode logic
     if (store.mode === 'standalone') {
+        if (mobilePlayerService.handleNativeMediaItemTransition(event.index, event.item?.mediaId)) return;
         if (mobilePlayerService.isLoadingTrack) {
             return;
         }
+        if (!mobilePlayerService.isNativeTransitionCurrent(event.index, event.item?.mediaId)) return;
         if (!store.currentTrack) {
             console.log('[MobilePlayer] Ignoring transition: currentTrack is null');
             return;
         }
         const { mobileScrobblerService } = require('./MobileScrobblerService');
         await mobileScrobblerService.handleTrackTransition(event.item?.mediaId, event.index);
+        if (useStore.getState().mode !== 'standalone' ||
+            !mobilePlayerService.isNativeTransitionCurrent(event.index, event.item?.mediaId)) return;
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
         if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
             if (store.userIntendedPause || !store.isPlaying) {

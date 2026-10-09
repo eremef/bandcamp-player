@@ -34,65 +34,43 @@ test.describe('Settings', () => {
         await expect(settingsHeading).not.toBeVisible({ timeout: 5000 });
     });
 
-    test('should persist "Minimize to Tray" setting across sessions', async ({ electronApp }, testInfo) => {
+    test('persists Minimize to Tray across an app restart', async ({ electronApp, userDataPath, remotePort }) => {
         const window = await electronApp.firstWindow();
 
-        // 1. Open Settings
-        await window.getByTitle('Settings').click();
+        await window.getByRole('button', { name: 'Settings' }).click();
         const settingsHeading = window.getByRole('heading', { name: 'Settings', level: 2 });
         await expect(settingsHeading).toBeVisible({ timeout: 10000 });
 
-        // 2. Scroll to and find the "Minimize to Tray" toggle
-        // The text label is "Minimize to Tray" — scroll it into view first
-        const minimizeTrayLabel = window.locator('text=Minimize to Tray').first();
-        await minimizeTrayLabel.scrollIntoViewIfNeeded();
-        await expect(minimizeTrayLabel).toBeVisible({ timeout: 5000 });
-
         const trayCheckbox = window.getByTestId('setting-minimize-tray');
+        await trayCheckbox.scrollIntoViewIfNeeded();
         const initialState = await trayCheckbox.isChecked();
         const newState = !initialState;
-
-        // The checkbox is hidden inside a toggle switch <label>.
-        // Click the input via evaluate to trigger React's onChange properly.
         await trayCheckbox.evaluate((el: HTMLInputElement) => el.click());
-
-        // Verify the checkbox state changed
         await expect(trayCheckbox).toBeChecked({ checked: newState });
 
-        // 3. Close the modal
         const closeButton = window.locator('header').filter({ has: settingsHeading }).locator('button');
         await closeButton.click();
         await expect(settingsHeading).not.toBeVisible({ timeout: 5000 });
 
-        // Wait for settings to flush to disk
-        await window.waitForTimeout(2000);
-
-        // 4. Close the app
-        const userDataDir = join(__dirname, '../temp-test-data', testInfo.testId);
-        const remotePort = (9999 + testInfo.workerIndex).toString();
-
         await electronApp.close();
-        await new Promise(resolve => setTimeout(resolve, 5000));
 
-        // 5. Relaunch with SAME user-data-dir
         const newApp = await electron.launch({
             args: [
                 join(__dirname, '../dist/main/main.js'),
-                `--user-data-dir=${userDataDir}`
+                `--user-data-dir=${userDataPath}`
             ],
             env: {
                 ...process.env,
                 NODE_ENV: 'production',
                 E2E_TEST: 'true',
-                REMOTE_PORT: remotePort
+                REMOTE_PORT: String(remotePort)
             },
         });
 
         try {
             const newWindow = await newApp.firstWindow();
-            await newWindow.waitForLoadState('networkidle');
+            await newWindow.waitForLoadState('domcontentloaded');
 
-            // Wait for UI
             const loginBtn = newWindow.getByRole('button', { name: 'Login with Bandcamp' });
             const collectionBtn = newWindow.getByRole('button', { name: 'Collection', exact: true });
             await loginBtn.or(collectionBtn).waitFor({ timeout: 15000 });
@@ -102,12 +80,10 @@ test.describe('Settings', () => {
                 await expect(collectionBtn).toBeVisible({ timeout: 15000 });
             }
 
-            // 6. Open Settings
-            await newWindow.getByTitle('Settings').click();
+            await newWindow.getByRole('button', { name: 'Settings' }).click();
             const newHeading = newWindow.getByRole('heading', { name: 'Settings', level: 2 });
             await expect(newHeading).toBeVisible({ timeout: 10000 });
 
-            // 7. Verify persisted state
             const newTrayCheckbox = newWindow.getByTestId('setting-minimize-tray');
             await expect(newTrayCheckbox).toBeChecked({ checked: newState, timeout: 10000 });
         } finally {

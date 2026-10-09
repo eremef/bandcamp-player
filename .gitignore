@@ -76,3 +76,5 @@ entities.json
 scratch/
 .opencode/package-lock.json
 .serena/
+mobile/modules/pinned-websocket/android/.gradle/
+mobile/modules/pinned-websocket/android/build/

@@ -15,6 +15,7 @@ module.exports = {
     moduleNameMapper: {
         '^@shared/types$': '<rootDir>/__mocks__/shared-types.ts',
         '^@shared/remote-config.service$': '<rootDir>/__mocks__/remote-config.service.ts',
+        '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
         '^@shared/(.*)$': '<rootDir>/../src/shared/$1',
         '\\.(png|jpg|jpeg|gif|webp|svg|txt)$': '<rootDir>/__mocks__/fileMock.js'
     }

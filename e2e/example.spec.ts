@@ -1,24 +1,8 @@
-import { _electron as electron, test, expect } from '@playwright/test';
-import { join } from 'path';
+import { test, expect } from './fixtures';
 
-test('launch app', async ({ }, testInfo) => {
-    const electronApp = await electron.launch({
-        args: [join(__dirname, '../dist/main/main.js'), `--user-data-dir=${join(__dirname, '../temp-test-data', testInfo.workerIndex.toString())}`],
-        env: {
-            ...process.env,
-            NODE_ENV: 'production',
-            E2E_TEST: 'true',
-            REMOTE_PORT: (9999 + testInfo.workerIndex).toString()
-        },
-    });
-    const window = await electronApp.firstWindow();
-    // Wait for the window to load
-    await window.waitForLoadState('domcontentloaded');
-    // Check title
-    // Note: Adjust the expected title based on your actual application title
-    // expect(await window.title()).toBe('Beta Player'); 
-    // Let's just check if the window is visible for now, or take a screenshot
+test('opens the desktop shell to an interactive screen', async ({ window }) => {
     await expect(window.locator('body')).toBeVisible();
-
-    await electronApp.close();
+    await expect(window.getByRole('button', { name: 'Collection', exact: true }).or(
+        window.getByRole('button', { name: 'Login with Bandcamp' }),
+    )).toBeVisible();
 });

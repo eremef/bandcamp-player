@@ -115,7 +115,6 @@ test.describe('Artist Bulk Actions', () => {
 
         // Click Play All
         await window.locator('button', { hasText: 'Play All' }).first().click();
-        await window.waitForTimeout(500);
 
         await expect(window.locator('text=No track playing')).not.toBeVisible({ timeout: 5000 });
     });
@@ -138,8 +137,6 @@ test.describe('Artist Bulk Actions', () => {
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.evaluate(el => el.click());
-        await window.waitForTimeout(500);
-
         // Verify queue has items
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
@@ -180,8 +177,6 @@ test.describe('Artist Bulk Actions', () => {
         const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
         await addToQueueItem.evaluate(el => el.click());
-        await window.waitForTimeout(500);
-
         // Verify queue has items
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
@@ -191,36 +186,29 @@ test.describe('Artist Bulk Actions', () => {
     });
 
     test('"Play Next" from card context menu increases queue count', async ({ window }) => {
-        // First add tracks to queue via card context menu
         const artistCard = window.locator('[class*="artistCard"]').first();
         await artistCard.click({ button: 'right' });
-        const addToQueueItem = window.locator('button', { hasText: 'Add to Queue' }).first();
+        const cardMenu = artistCard.locator('[class*="cardMenu"]');
+        const addToQueueItem = cardMenu.getByRole('button', { name: 'Add to Queue', exact: true });
         await expect(addToQueueItem).toBeVisible({ timeout: 3000 });
-        await addToQueueItem.evaluate(el => el.click());
-        await window.waitForTimeout(500);
+        await addToQueueItem.click();
 
-        // Check initial queue count
-        const queueBtn = window.locator('div[class*="playerBar"]').getByTitle('Queue', { exact: true });
+        const queueBtn = window.getByTestId('player-queue-btn');
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
         const queueItems = window.locator('li[class*="item"]');
-        await expect(queueItems.first()).toBeVisible({ timeout: 10000 });
+        await expect.poll(async () => queueItems.count()).toBeGreaterThan(0);
         const initialCount = await queueItems.count();
 
-        // Close queue
         await window.getByTitle('Close').click();
 
-        // Right-click and Play Next
         await artistCard.click({ button: 'right' });
-        const playNextItem = window.locator('button', { hasText: 'Play Next' }).first();
+        const playNextItem = artistCard.locator('[class*="cardMenu"]').getByRole('button', { name: 'Play Next', exact: true });
         await expect(playNextItem).toBeVisible({ timeout: 3000 });
-        await playNextItem.evaluate(el => el.click());
-        await window.waitForTimeout(500);
+        await playNextItem.click();
 
-        // Verify count grew
         await queueBtn.click();
         await expect(window.getByRole('heading', { name: 'Queue', level: 2 })).toBeVisible({ timeout: 5000 });
-        const newCount = await queueItems.count();
-        expect(newCount).toBeGreaterThan(initialCount);
+        await expect.poll(async () => queueItems.count()).toBeGreaterThan(initialCount);
     });
 });

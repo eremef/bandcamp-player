@@ -2,6 +2,7 @@ import { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track,
 import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 import { create } from 'zustand';
 import { webSocketService } from '../services/WebSocketService';
+import type { RemoteConnectionOptions } from '../services/WebSocketService';
 
 const runAfterInteractions = (callback: () => void) => {
     if (typeof requestIdleCallback !== 'undefined') {
@@ -67,10 +68,10 @@ interface AppState extends PlayerState {
     setMode: (mode: 'remote' | 'standalone') => Promise<void>;
     loginBandcamp: () => Promise<void>;
     logoutBandcamp: () => Promise<void>;
-    connect: (ip?: string) => Promise<void>;
+    connect: (ip?: string, options?: RemoteConnectionOptions) => Promise<void>;
     disconnect: () => Promise<void>;
     autoConnect: () => Promise<void>;
-    startScan: () => Promise<void>;
+    startScan: (options?: RemoteConnectionOptions) => Promise<void>;
     removeRecentIp: (ip: string) => Promise<void>;
 
     isScanning: boolean;
@@ -501,7 +502,6 @@ export const useStore = create<AppState>((set, get) => ({
         let restoredTrack = null as Track | null;
         let restoredDuration = 0;
         let restoredTime = 0;
-        let restoredUserIntendedPause = true;
 
         const savedQueueJson = await AsyncStorage.getItem('standalone_queue');
         if (savedQueueJson) {
@@ -517,9 +517,6 @@ export const useStore = create<AppState>((set, get) => ({
                     restoredTrack = parsed.items[parsed.currentIndex]?.track || null;
                     restoredDuration = restoredTrack?.duration || 0;
                     restoredTime = typeof parsed.currentTime === 'number' ? parsed.currentTime : 0;
-                    if (typeof parsed.userIntendedPause === 'boolean') {
-                        restoredUserIntendedPause = parsed.userIntendedPause;
-                    }
                 }
             } catch (e) {
                 console.error('[MobileStore] Failed to parse standalone queue:', e);
@@ -531,6 +528,8 @@ export const useStore = create<AppState>((set, get) => ({
         const settings = await mobileDatabase.getSettings();
         const restoredVolume = typeof settings.standalone_volume === 'number' ? settings.standalone_volume : 1;
 
+        if (get().mode !== 'standalone') return;
+
         // Atomic set: restored playback state
         set({
             mode: 'standalone',
@@ -541,7 +540,7 @@ export const useStore = create<AppState>((set, get) => ({
             duration: restoredDuration,
             currentTime: restoredTime,
             isPlaying: false,
-            userIntendedPause: restoredUserIntendedPause,
+            userIntendedPause: true,
             skipAutoLogin: false,
             theme: settings.theme || 'system',
             scrobblingEnabled: settings.scrobblingEnabled !== false,
@@ -568,21 +567,27 @@ export const useStore = create<AppState>((set, get) => ({
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         await mobilePlayerService.setVolume(restoredVolume);
 
+        if (get().mode !== 'standalone') return;
+
         // Load track into player without playing if restored
         if (restoredTrack) {
             await mobilePlayerService.loadTrack(restoredTrack, restoredTime);
         }
 
+        if (get().mode !== 'standalone') return;
+
         // Restore auth
         const { mobileAuthService } = require('../services/MobileAuthService');
         const authState = await mobileAuthService.checkSession();
-        if (authState.isAuthenticated) {
+        if (get().mode === 'standalone' && authState.isAuthenticated) {
             set({ auth: authState, connectionStatus: 'connected' });
         }
 
         // Restore simulation mode
         const simMode = await AsyncStorage.getItem('is_simulation_mode');
-        set({ isSimulationMode: simMode === 'true' });
+        if (get().mode === 'standalone') {
+            set({ isSimulationMode: simMode === 'true' });
+        }
 
         // Data refresh — defer to after UI interactions complete for immediate responsiveness
         // Using requestIdleCallback ensures the UI is rendered first
@@ -610,6 +615,16 @@ export const useStore = create<AppState>((set, get) => ({
         // Capture everything we need BEFORE stop() or set() modifies anything
 
         if (currentMode === 'standalone') {
+            try {
+                const progress = TrackPlayer.getProgress();
+                if (typeof progress.position === 'number' && Number.isFinite(progress.position)) {
+                    const { mobilePlayerService } = require('../services/MobilePlayerService');
+                    set({ currentTime: mobilePlayerService.getPositionForSnapshot(progress.position) });
+                }
+            } catch {
+                // Keep the last polled position if the native player is unavailable.
+            }
+
             // Save standalone playback snapshot to AsyncStorage
             await get().saveQueue();
         }
@@ -621,6 +636,9 @@ export const useStore = create<AppState>((set, get) => ({
         // Reset TrackPlayer for BOTH directions:
         // - standalone→remote: clear standalone playback
         // - remote→standalone: clear remote track to prevent progress bleed
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        mobilePlayerService.prepareForModeChange();
+        TrackPlayer.pause();
         TrackPlayer.clear();
 
         if (mode === 'remote') {
@@ -696,7 +714,7 @@ export const useStore = create<AppState>((set, get) => ({
         });
     },
 
-    connect: async (manualIp?: string) => {
+    connect: async (manualIp?: string, options?: RemoteConnectionOptions) => {
         const ip = manualIp || get().hostIp;
         if (!ip) return;
 
@@ -709,7 +727,7 @@ export const useStore = create<AppState>((set, get) => ({
         await AsyncStorage.setItem('last_ip', ip);
 
         set({ hostIp: ip, recentIps: newRecents, connectionStatus: 'connecting', skipAutoLogin: false });
-        webSocketService.connect(ip);
+        await webSocketService.connect(ip, options);
     },
 
     disconnect: async () => {
@@ -812,7 +830,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
     },
 
-    startScan: async () => {
+    startScan: async (options) => {
         if (get().isScanning) return;
         set({ isScanning: true });
 
@@ -824,7 +842,7 @@ export const useStore = create<AppState>((set, get) => ({
 
             if (ip) {
                 console.log('Discovery found IP:', ip);
-                get().connect(ip);
+                get().connect(ip, options);
             }
         } finally {
             set({ isScanning: false });

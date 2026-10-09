@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "android": {
+    "modules": ["xyz.eremef.pinnedwebsocket.PinnedWebSocketModule"]
+  },
+  "apple": {
+    "modules": ["PinnedWebSocketModule"]
+  }
+}

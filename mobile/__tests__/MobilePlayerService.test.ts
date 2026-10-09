@@ -1,9 +1,9 @@
 import { mobilePlayerService } from '../services/MobilePlayerService';
-import TrackPlayer from '@rntp/player';
+import TrackPlayer, { PlaybackState } from '@rntp/player';
 import { useStore } from '../store';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileDatabase } from '../services/MobileDatabase';
-import { setupPlayer } from '../services/player';
+import { addTrack, setupPlayer } from '../services/player';
 
 jest.mock('@rntp/player', () => ({
     __esModule: true,
@@ -14,8 +14,9 @@ jest.mock('@rntp/player', () => ({
         stop: jest.fn().mockResolvedValue(undefined),
         clear: jest.fn().mockResolvedValue(undefined),
         seekTo: jest.fn().mockResolvedValue(undefined),
-        getPlaybackState: jest.fn().mockResolvedValue('stopped'),
-        getQueue: jest.fn().mockResolvedValue([]),
+        getPlaybackState: jest.fn().mockReturnValue('idle'),
+        getQueue: jest.fn().mockReturnValue([]),
+        getActiveMediaItemIndex: jest.fn().mockReturnValue(null),
         setMediaItem: jest.fn().mockResolvedValue(undefined),
         setMediaItems: jest.fn().mockResolvedValue(undefined),
         setRepeatMode: jest.fn().mockResolvedValue(undefined),
@@ -31,6 +32,7 @@ jest.mock('@rntp/player', () => ({
         Paused: 'paused',
         Stopped: 'stopped',
         Buffering: 'buffering',
+        Error: 'error',
         None: 'none',
     },
     Event: {
@@ -62,13 +64,38 @@ jest.mock('../services/MobileScraperService');
 jest.mock('../services/MobileDatabase');
 jest.mock('../services/player');
 
+let mockNativeQueue: Array<{ mediaId: string }> = [];
+let mockActiveIndex: number | null = null;
+
+function setMutableStoreState(initialState: Record<string, any>) {
+    let state = initialState;
+    (useStore.getState as jest.Mock).mockImplementation(() => state);
+    (useStore.setState as jest.Mock).mockImplementation((update: Record<string, any> | ((current: any) => Record<string, any>)) => {
+        state = { ...state, ...(typeof update === 'function' ? update(state) : update) };
+    });
+}
+
 describe('MobilePlayerService', () => {
     beforeEach(() => {
         jest.restoreAllMocks();
         jest.clearAllMocks();
 
         // Reset MobilePlayerService state (private property workaround)
+        mobilePlayerService.prepareForModeChange();
         (mobilePlayerService as any).isInitialized = false;
+        (mobilePlayerService as any).loadGeneration = 0;
+        (mobilePlayerService as any).playbackReadyRevision = 0;
+        mockNativeQueue = [];
+        mockActiveIndex = null;
+        (TrackPlayer.getQueue as jest.Mock).mockImplementation(() => mockNativeQueue);
+        (TrackPlayer.getActiveMediaItemIndex as jest.Mock).mockImplementation(() => mockActiveIndex);
+        (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
+        (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 0, duration: 0, buffered: 0 });
+        (TrackPlayer.setMediaItems as jest.Mock).mockImplementation((items, index) => {
+            mockNativeQueue = items;
+            mockActiveIndex = index;
+        });
 
         // Default store mock
         (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(),
@@ -104,11 +131,116 @@ describe('MobilePlayerService', () => {
         });
     });
 
+    describe('controller connection recovery', () => {
+        const track = {
+            id: 't1',
+            title: 'Track',
+            artist: 'Artist',
+            album: 'Album',
+            streamUrl: 'https://example.com/track.mp3',
+            duration: 120,
+        };
+
+        const createPlayerState = (mode: 'standalone' | 'remote', isPlaying: boolean) => ({
+            mode,
+            volume: 0.76,
+            isPlaying,
+            userIntendedPause: !isPlaying,
+            currentTrack: track,
+            currentTime: 45,
+            duration: 120,
+            repeatMode: 'off',
+            cachedTrackIds: new Set<string>(),
+            offlineMode: false,
+            queue: { items: [{ id: 'q1', track }], currentIndex: 0 },
+            saveQueue: jest.fn(),
+        });
+
+        it('restarts once, restores the saved resume position, and resumes only after Ready', async () => {
+            setMutableStoreState(createPlayerState('standalone', true));
+            let finishSetup!: (success: boolean) => void;
+            (setupPlayer as jest.Mock).mockReturnValueOnce(new Promise<boolean>(resolve => {
+                finishSetup = resolve;
+            }));
+
+            const recovery = mobilePlayerService.recoverControllerConnection();
+            expect(mobilePlayerService.recoverControllerConnection()).toBe(recovery);
+            finishSetup(true);
+            await expect(recovery).resolves.toBe(true);
+
+            expect(TrackPlayer.destroy).toHaveBeenCalledTimes(1);
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                [expect.objectContaining({ mediaId: 'q1', url: track.streamUrl })],
+                0,
+            );
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+
+            useStore.setState({ isPlaying: false } as any);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(45);
+            expect(TrackPlayer.play).toHaveBeenCalledTimes(1);
+            expect(useStore.getState().isPlaying).toBe(true);
+        });
+
+        it('rebuilds the remote metadata queue muted and restores its pause state', async () => {
+            const state = createPlayerState('remote', false);
+            setMutableStoreState({ ...state, hostIp: '192.168.1.20' });
+
+            await expect(mobilePlayerService.recoverControllerConnection()).resolves.toBe(true);
+
+            expect(TrackPlayer.destroy).toHaveBeenCalledTimes(1);
+            expect(TrackPlayer.setVolume).toHaveBeenCalledWith(0);
+            expect(addTrack).toHaveBeenCalledWith(track, '192.168.1.20', state.queue.items, 0);
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(45);
+            expect(TrackPlayer.pause).toHaveBeenCalled();
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+            expect(useStore.getState().volume).toBe(0.76);
+        });
+
+        it('bounds automatic retries, preserves the queue position, and retries after explicit Play', async () => {
+            const state = createPlayerState('standalone', false);
+            setMutableStoreState(state);
+
+            await expect(mobilePlayerService.recoverControllerConnection()).resolves.toBe(true);
+            await expect(mobilePlayerService.recoverControllerConnection()).resolves.toBe(false);
+
+            expect(TrackPlayer.destroy).toHaveBeenCalledTimes(1);
+            expect(useStore.getState().currentTime).toBe(45);
+            expect(useStore.getState().queue).toEqual(state.queue);
+            expect(useStore.getState().collectionError).toBe('The audio player could not reconnect. Try playback again.');
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(45);
+
+            await mobilePlayerService.play();
+
+            expect(TrackPlayer.destroy).toHaveBeenCalledTimes(2);
+            expect(useStore.getState().collectionError).toBeNull();
+            expect(useStore.getState().userIntendedPause).toBe(false);
+
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(TrackPlayer.seekTo).toHaveBeenLastCalledWith(45);
+            expect(TrackPlayer.play).toHaveBeenCalledTimes(1);
+        });
+    });
+
     describe('playback controls', () => {
         it('should pause playback', async () => {
             await mobilePlayerService.pause();
             expect(TrackPlayer.pause).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: false });
+        });
+
+        it('should persist the exact native position when pausing', async () => {
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 37, duration: 100, buffered: 37 });
+
+            await mobilePlayerService.pause();
+
+            expect(useStore.setState).toHaveBeenCalledWith({ userIntendedPause: true, currentTime: 37 });
         });
 
         it('should stop playback', async () => {
@@ -142,8 +274,21 @@ describe('MobilePlayerService', () => {
 
     describe('play() logic', () => {
         it('should resume if paused', async () => {
+            const track = { id: 't1', title: 'T', streamUrl: 'url' };
+            mockNativeQueue = [{ mediaId: 'q1' }];
+            mockActiveIndex = 0;
+            (useStore.getState as jest.Mock).mockReturnValue({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                volume: 0.8,
+                userIntendedPause: false,
+                currentTrack: track,
+                currentTime: 45,
+                queue: { items: [{ id: 'q1', track }], currentIndex: 0 },
+            });
             (TrackPlayer.isPlaying as jest.Mock).mockReturnValueOnce(false);
-            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValueOnce('ready');
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValueOnce(PlaybackState.Ready);
             await mobilePlayerService.play();
             expect(TrackPlayer.play).toHaveBeenCalled();
             expect(useStore.setState).toHaveBeenCalledWith({ isPlaying: true });
@@ -159,23 +304,52 @@ describe('MobilePlayerService', () => {
                 queue: { items: [], currentIndex: 0 }
             });
             // mock queue empty because playTrack loads it
-            (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+            (TrackPlayer.getQueue as jest.Mock).mockReturnValue([]);
 
             await mobilePlayerService.play();
             expect(TrackPlayer.setMediaItems).toHaveBeenCalled(); // via loadTrack
             expect(TrackPlayer.play).toHaveBeenCalled();
         });
 
+        it('should reload an errored native queue from the saved position', async () => {
+            (mobilePlayerService as any).isInitialized = true;
+            (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Error);
+            mockNativeQueue = [{ mediaId: 'q1' }];
+            mockActiveIndex = 0;
+            const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                userIntendedPause: false,
+                volume: 0.5,
+                currentTrack: mockTrack,
+                currentTime: 45,
+                queue: { items: [{ id: 'q1', track: mockTrack }], currentIndex: 0 },
+            });
+            const playTrackSpy = jest.spyOn(mobilePlayerService, 'playTrack').mockResolvedValue(undefined);
+
+            await mobilePlayerService.play();
+
+            expect(playTrackSpy).toHaveBeenCalledWith(mockTrack, 45);
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+            expect(TrackPlayer.setMediaItems).not.toHaveBeenCalled();
+        });
+
         it('should play from queue if no current track', async () => {
             (TrackPlayer.isPlaying as jest.Mock).mockReturnValue(false);
             (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
             const mockTrack = { id: 't1', title: 'T', streamUrl: 'url' };
-            (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(),
+            setMutableStoreState({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(),
+                mode: 'standalone',
+                userIntendedPause: false,
                 volume: 0.5,
                 currentTrack: null,
                 queue: { items: [{ track: mockTrack }], currentIndex: 0 }
             });
-            (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+            (TrackPlayer.getQueue as jest.Mock).mockReturnValue([]);
 
             await mobilePlayerService.play();
 
@@ -199,7 +373,7 @@ describe('MobilePlayerService', () => {
                 isShuffled: false,
                 currentTime: 0
             });
-            (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+            (TrackPlayer.getQueue as jest.Mock).mockReturnValue([]);
         });
 
         it('should go to next track', async () => {
@@ -315,7 +489,10 @@ describe('MobilePlayerService', () => {
 
     describe('loadTrack', () => {
         beforeEach(() => {
-            (TrackPlayer.getQueue as jest.Mock).mockResolvedValue([]);
+            mockNativeQueue = [];
+            mockActiveIndex = null;
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockReset().mockResolvedValue({ tracks: [] });
+            (mobileScraperService.getStationStreamUrl as jest.Mock).mockReset().mockResolvedValue(null);
         });
 
         it('should load track if streamUrl exists', async () => {
@@ -334,13 +511,213 @@ describe('MobilePlayerService', () => {
             }));
         });
 
-        it('should seek to initialPosition if provided', async () => {
+        it('should wait for the matching native item to become ready before seeking to initialPosition', async () => {
             const track = { id: '1', streamUrl: 'url' };
-            (useStore.getState as jest.Mock).mockReturnValue({ cachedTrackIds: new Set(), offlineMode: false, saveQueue: jest.fn(), queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 } });
+            (useStore.getState as jest.Mock).mockReturnValue({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: { items: [{ id: 'q1', track: track as any, source: 'album' }], currentIndex: 0 },
+            });
 
             await mobilePlayerService.loadTrack(track as any, 50);
 
+            expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(50);
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(50);
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(50);
+            (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 50, duration: 100, buffered: 50 });
+            expect(mobilePlayerService.getPositionForSnapshot(50)).toBe(50);
+            expect(mobilePlayerService.getPositionForSnapshot(51)).toBe(51);
+        });
+
+        it('ignores intermediate transitions and preserves the saved position across a repeated load of the same track', async () => {
+            let resolveFirstAlbum!: (value: { tracks: Array<{ title: string; streamUrl: string }> }) => void;
+            const firstAlbum = new Promise<{ tracks: Array<{ title: string; streamUrl: string }> }>(resolve => {
+                resolveFirstAlbum = resolve;
+            });
+            const firstTrack = { id: 't2', title: 'Two', bandcampUrl: 'https://album' };
+            const secondTrack = { ...firstTrack, streamUrl: 'fresh-url' };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: {
+                    items: [
+                        { id: 'q1', track: { id: 't1' } as any, source: 'album' },
+                        { id: 'q2', track: secondTrack as any, source: 'album' },
+                    ],
+                    currentIndex: 1,
+                },
+            });
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockReturnValueOnce(firstAlbum);
+
+            const firstLoad = mobilePlayerService.loadTrack(firstTrack as any, 45);
+            const secondLoad = mobilePlayerService.loadTrack(secondTrack as any, 45);
+            await expect(secondLoad).resolves.toBe(true);
+            resolveFirstAlbum({ tracks: [{ title: 'Two', streamUrl: 'stale-url' }] });
+            await expect(firstLoad).resolves.toBe(false);
+
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledTimes(1);
+            expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ mediaId: 'q2', url: 'fresh-url' })]),
+                1
+            );
+            expect(mobilePlayerService.isLoadingTrack).toBe(false);
+            expect(mobilePlayerService.isNativeTransitionCurrent(1, 'q2')).toBe(true);
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(45);
+            expect(mobilePlayerService.handleNativeMediaItemTransition(0, 'q1')).toBe(true);
+            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+            expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(45);
+            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+
+            mockNativeQueue.push({ mediaId: 'q3' });
+            mockActiveIndex = 2;
+            expect(mobilePlayerService.handleNativeMediaItemTransition(2, 'q3')).toBe(false);
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(0);
+
+            mockNativeQueue = [];
+            mockActiveIndex = null;
+            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+        });
+
+        it('queues a Play press until the matching resume seek is applied', async () => {
+            (mobilePlayerService as any).isInitialized = true;
+            const track = { id: 't1', title: 'One', streamUrl: 'url' };
+            setMutableStoreState({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                userIntendedPause: true,
+                volume: 0.8,
+                currentTrack: track,
+                currentTime: 45,
+                queue: { items: [{ id: 'q1', track }], currentIndex: 0 },
+            });
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Buffering);
+
+            await mobilePlayerService.loadTrack(track as any, 45);
+            const playPromise = mobilePlayerService.play();
+            await Promise.resolve();
+
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+            expect(useStore.getState().isPlaying).toBeUndefined();
+            expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            await playPromise;
+
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(45);
+            expect(TrackPlayer.play).toHaveBeenCalledTimes(1);
+            expect(useStore.getState().isPlaying).toBe(true);
+            expect((TrackPlayer.seekTo as jest.Mock).mock.invocationCallOrder[0])
+                .toBeLessThan((TrackPlayer.play as jest.Mock).mock.invocationCallOrder[0]);
+        });
+
+        it('preserves a user seek made while the restored item is preparing', async () => {
+            (mobilePlayerService as any).isInitialized = true;
+            const track = { id: 't1', title: 'One', streamUrl: 'url' };
+            (useStore.getState as jest.Mock).mockReturnValue({
+                mode: 'standalone',
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                userIntendedPause: true,
+                volume: 0.8,
+                currentTrack: track,
+                currentTime: 45,
+                queue: { items: [{ id: 'q1', track }], currentIndex: 0 },
+            });
+
+            await mobilePlayerService.loadTrack(track as any, 45);
+            mobilePlayerService.seek(90);
+            expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
+
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            expect(TrackPlayer.seekTo).toHaveBeenCalledWith(90);
+            expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(90);
+        });
+
+        it('does not let a pending Play resume after Pause or Stop', async () => {
+            (mobilePlayerService as any).isInitialized = true;
+            const track = { id: 't1', title: 'One', streamUrl: 'url' };
+            let currentState = {
+                mode: 'standalone',
+                cachedTrackIds: new Set<string>(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                userIntendedPause: true,
+                volume: 0.8,
+                currentTrack: track,
+                currentTime: 45,
+                queue: { items: [{ id: 'q1', track }], currentIndex: 0 },
+            };
+            (useStore.getState as jest.Mock).mockImplementation(() => currentState);
+
+            await mobilePlayerService.loadTrack(track as any, 45);
+            const playPromise = mobilePlayerService.play();
+            await Promise.resolve();
+            currentState = { ...currentState, userIntendedPause: true };
+            await mobilePlayerService.pause();
+            (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+            mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+            await playPromise;
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+
+            await mobilePlayerService.loadTrack(track as any, 45);
+            const stoppedPlayPromise = mobilePlayerService.play();
+            await Promise.resolve();
+            await mobilePlayerService.stop();
+            await stoppedPlayPromise;
+            expect(TrackPlayer.play).not.toHaveBeenCalled();
+        });
+
+        it('should discard a standalone load that finishes after switching to remote mode', async () => {
+            let resolveAlbum!: (value: { tracks: Array<{ title: string; streamUrl: string }> }) => void;
+            const albumPromise = new Promise<{ tracks: Array<{ title: string; streamUrl: string }> }>(resolve => {
+                resolveAlbum = resolve;
+            });
+            let mode: 'standalone' | 'remote' = 'standalone';
+            const track = { id: '1', title: 'T', bandcampUrl: 'https://album' };
+            (useStore.getState as jest.Mock).mockImplementation(() => ({
+                mode,
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                queue: { items: [{ id: '1', track: track as any, source: 'album' }], currentIndex: 0 },
+            }));
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockReturnValueOnce(albumPromise);
+
+            const loadPromise = mobilePlayerService.loadTrack(track as any);
+            mode = 'remote';
+            resolveAlbum({ tracks: [{ title: 'T', streamUrl: 'url' }] });
+
+            await expect(loadPromise).resolves.toBe(false);
+            expect(useStore.setState).not.toHaveBeenCalledWith(expect.objectContaining({ currentTrack: expect.anything() }));
+
+            (useStore.getState as jest.Mock).mockReturnValue({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                volume: 0.8,
+                isPlaying: false,
+                currentTrack: null,
+                currentTime: 0,
+                repeatMode: 'off',
+                isShuffled: false,
+                queue: { items: [], currentIndex: 0 },
+            });
         });
 
         it('should fetch stream url for radio show', async () => {

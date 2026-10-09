@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Github, ArrowLeft } from 'lucide-react-native';
+import { GitFork, ArrowLeft } from 'lucide-react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { useTheme } from '../theme';
@@ -42,7 +42,7 @@ export default function AboutScreen() {
                 </Text>
 
                 <TouchableOpacity style={[styles.githubButton, { backgroundColor: colors.accent }]} onPress={handleGithubPress}>
-                    <Github size={24} color="#fff" />
+                    <GitFork size={24} color="#fff" />
                     <Text style={[styles.githubText, { color: '#fff' }]}>View on GitHub</Text>
                 </TouchableOpacity>
 

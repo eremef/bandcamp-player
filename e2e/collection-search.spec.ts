@@ -15,6 +15,7 @@ test.describe('Collection Search', () => {
         await helpers.resetCollectionState();
 
         await collectionBtn.click();
+        await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
     });
 
     test('should filter collection by search text', async ({ window }) => {
@@ -27,15 +28,10 @@ test.describe('Collection Search', () => {
         await expect(cards.first()).toBeVisible({ timeout: 15000 });
         const initialCount = await cards.count();
 
-        // Search for a specific term
-        await searchInput.fill('Look Up');
-        await window.waitForTimeout(500);
-
-        // Cards should be filtered — at least one should match if data exists
+        await searchInput.fill('Look Up 180° (180°)');
         const filteredCards = window.getByTestId('album-card');
-        const filteredCount = await filteredCards.count();
-        expect(filteredCount).toBeGreaterThan(0);
-        expect(filteredCount).toBeLessThanOrEqual(initialCount);
+        await expect(filteredCards).toHaveCount(1);
+        expect(await filteredCards.count()).toBeLessThanOrEqual(initialCount);
     });
 
     test('should clear search and restore full collection', async ({ window }) => {
@@ -47,17 +43,10 @@ test.describe('Collection Search', () => {
         await expect(cards.first()).toBeVisible({ timeout: 15000 });
         const initialCount = await cards.count();
 
-        // Search for something
-        await searchInput.fill('Look Up');
-        await window.waitForTimeout(500);
-
-        // Clear the search
+        await searchInput.fill('Look Up 180° (180°)');
+        await expect(cards).toHaveCount(1);
         await searchInput.fill('');
-        await window.waitForTimeout(500);
-
-        // Count should return to initial
-        const restoredCount = await cards.count();
-        expect(restoredCount).toBe(initialCount);
+        await expect(cards).toHaveCount(initialCount);
     });
 
     test('should show no results for nonexistent search', async ({ window }) => {
@@ -65,12 +54,7 @@ test.describe('Collection Search', () => {
         await expect(searchInput).toBeVisible({ timeout: 10000 });
         await expect(window.getByTestId('album-card').first()).toBeVisible({ timeout: 15000 });
 
-        // Search for something that doesn't exist
         await searchInput.fill('xyznonexistent12345');
-        await window.waitForTimeout(500);
-
-        // No cards should be visible
-        const cardCount = await window.getByTestId('album-card').count();
-        expect(cardCount).toBe(0);
+        await expect(window.getByTestId('album-card')).toHaveCount(0);
     });
 });

@@ -459,12 +459,30 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(REMOTE_CHANNELS.DISCONNECT_DEVICE, (_, clientId: string) =>
     remoteService.disconnectDevice(clientId),
   );
+  ipcMain.handle(REMOTE_CHANNELS.CREATE_PAIRING_INVITE, () =>
+    remoteService.createPairingInvite(),
+  );
+  ipcMain.handle(REMOTE_CHANNELS.GET_PAIRING_CERTIFICATE, () =>
+    remoteService.getPairingCertificate(),
+  );
+  ipcMain.handle(REMOTE_CHANNELS.APPROVE_PAIRING, (_, requestId: string) =>
+    remoteService.approvePairing(requestId),
+  );
+  ipcMain.handle(REMOTE_CHANNELS.REJECT_PAIRING, (_, requestId: string) =>
+    remoteService.rejectPairing(requestId),
+  );
 
   remoteService.on("status-changed", (isRunning) => {
     broadcast(REMOTE_CHANNELS.ON_STATUS_CHANGED, isRunning);
   });
   remoteService.on("connections-changed", (count) => {
     broadcast(REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED, count);
+  });
+  remoteService.on("pairing-requests-changed", (requests) => {
+    broadcast(REMOTE_CHANNELS.ON_PAIRING_REQUESTS_CHANGED, requests);
+  });
+  remoteService.on("paired-devices-changed", (devices) => {
+    broadcast(REMOTE_CHANNELS.ON_PAIRED_DEVICES_CHANGED, devices);
   });
 
   // ---- Chromecast ----

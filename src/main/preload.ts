@@ -31,7 +31,10 @@ import type {
   RadioStation,
   RadioState,
   Queue,
-  RemoteClient,
+  RemotePairingInvite,
+  RemotePairedDevice,
+  RemotePairingRequest,
+  RemoteControlStatus,
   CastDevice,
   CastStatus,
   Artist,
@@ -303,22 +306,30 @@ const electronAPI = {
   remote: {
     start: (): Promise<void> => ipcRenderer.invoke(REMOTE_CHANNELS.START),
     stop: (): Promise<void> => ipcRenderer.invoke(REMOTE_CHANNELS.STOP),
-    getStatus: (): Promise<{
-      isRunning: boolean;
-      port: number;
-      ip: string;
-      url: string;
-      connections: number;
-    }> => ipcRenderer.invoke(REMOTE_CHANNELS.GET_STATUS),
-    getConnectedDevices: (): Promise<RemoteClient[]> =>
+    getStatus: (): Promise<RemoteControlStatus> => ipcRenderer.invoke(REMOTE_CHANNELS.GET_STATUS),
+    getConnectedDevices: (): Promise<RemotePairedDevice[]> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.GET_DEVICES),
     disconnectDevice: (clientId: string): Promise<boolean> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.DISCONNECT_DEVICE, clientId),
+    createPairingInvite: (): Promise<RemotePairingInvite> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.CREATE_PAIRING_INVITE),
+    getPairingCertificate: (): Promise<string | null> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.GET_PAIRING_CERTIFICATE),
+    approvePairing: (requestId: string): Promise<boolean> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.APPROVE_PAIRING, requestId),
+    rejectPairing: (requestId: string): Promise<boolean> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.REJECT_PAIRING, requestId),
     onStatusChanged: createEventSubscriber<boolean>(
       REMOTE_CHANNELS.ON_STATUS_CHANGED,
     ),
     onConnectionsChanged: createEventSubscriber<number>(
       REMOTE_CHANNELS.ON_CONNECTIONS_CHANGED,
+    ),
+    onPairingRequestsChanged: createEventSubscriber<RemotePairingRequest[]>(
+      REMOTE_CHANNELS.ON_PAIRING_REQUESTS_CHANGED,
+    ),
+    onPairedDevicesChanged: createEventSubscriber<RemotePairedDevice[]>(
+      REMOTE_CHANNELS.ON_PAIRED_DEVICES_CHANGED,
     ),
   },
 

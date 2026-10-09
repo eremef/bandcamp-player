@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Smartphone, Monitor, Globe, Clock, Trash2 } from 'lucide-react';
 import styles from './ConnectedDevicesModal.module.css';
 import { useStore } from '../../store/store';
-import type { RemoteClient } from '../../../shared/types';
+import type { RemotePairedDevice } from '../../../shared/types';
 
 interface ConnectedDevicesModalProps {
     onClose: () => void;
@@ -46,40 +46,19 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
         }
     };
 
-    const getDeviceIcon = (userAgent: string, deviceInfo?: RemoteClient['deviceInfo']) => {
-        if (deviceInfo?.platform) {
-            const platform = deviceInfo.platform.toLowerCase();
-            if (platform === 'android' || platform === 'ios') {
-                return <Smartphone size={20} />;
-            }
-        }
-        const ua = (userAgent || '').toLowerCase();
-        if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+    const getDeviceIcon = (platformName: string) => {
+        const platform = platformName.toLowerCase();
+        if (platform === 'android' || platform === 'ios') {
             return <Smartphone size={20} />;
         }
         return <Globe size={20} />;
     };
 
-    const getDeviceName = (userAgent: string, deviceInfo?: RemoteClient['deviceInfo']) => {
-        if (deviceInfo?.device) {
-            const device = deviceInfo.device.toLowerCase();
-            if (device === 'mobile') {
-                const platform = deviceInfo.platform?.toLowerCase();
-                if (platform === 'android') return 'Android Device';
-                if (platform === 'ios') return 'iPhone';
-            }
-            if (deviceInfo.device !== 'unknown') {
-                return deviceInfo.device;
-            }
-        }
-        const ua = (userAgent || '').toLowerCase();
-        if (ua.includes('android')) return 'Android Device';
-        if (ua.includes('iphone')) return 'iPhone';
-        if (ua.includes('ipad')) return 'iPad';
-        if (ua.includes('windows')) return 'Windows PC';
-        if (ua.includes('mac')) return 'Mac';
-        if (ua.includes('linux')) return 'Linux PC';
-        return 'Unknown Device';
+    const getDeviceName = (device: RemotePairedDevice) => {
+        if (device.name && device.name !== 'unknown') return device.name;
+        if (device.platform === 'android') return 'Android device';
+        if (device.platform === 'ios') return 'iPhone or iPad';
+        return 'Web browser';
     };
 
     return (
@@ -105,24 +84,24 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
                             {connectedDevices.map((device) => (
                                 <div key={device.id} className={styles.deviceItem}>
                                     <div className={styles.deviceIcon}>
-                                        {getDeviceIcon(device.userAgent, device.deviceInfo)}
+                                        {getDeviceIcon(device.platform)}
                                     </div>
                                     <div className={styles.deviceInfo}>
                                         <span className={styles.deviceName}>
-                                            {getDeviceName(device.userAgent, device.deviceInfo)}
+                                            {getDeviceName(device)}
                                         </span>
                                         <div className={styles.deviceMeta}>
-                                            <span className={styles.deviceIp}>{device.ip}</span>
+                                            <span className={styles.deviceIp}>{device.platform} · {device.online ? 'Online' : 'Offline'}</span>
                                             <span className={styles.deviceTime}>
                                                 <Clock size={12} />
-                                                {formatTime(device.connectedAt)}
+                                                {device.lastConnectedAt ? `Last connected ${formatTime(device.lastConnectedAt)}` : `Paired ${formatTime(device.createdAt)}`}
                                             </span>
                                         </div>
                                     </div>
                                     <button
                                         className={styles.disconnectBtn}
                                         onClick={() => handleDisconnect(device.id)}
-                                        title="Disconnect"
+                                        title="Revoke pairing"
                                     >
                                         <Trash2 size={18} />
                                     </button>
