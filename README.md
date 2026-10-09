@@ -62,10 +62,13 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 > **macOS Note ("Damaged and can't be opened")**: Because the releases are not signed with a paid Apple Developer certificate, macOS Gatekeeper may mark downloaded arm64/Intel apps with quarantine flags (`"Beta Player" is damaged and can't be opened`). To install the app, remove the quarantine attribute via Terminal:
 >
 > for Apple Disk Image (*.dmg):
+>
 > ```bash
 > xattr -cr beta-player*.dmg
 > ```
+>
 > and/or for Application file (*.app):
+>
 > ```bash
 > xattr -cr Beta*Player.app
 > ```
@@ -200,6 +203,14 @@ src/
 8. **Open Context Menus** - Access advanced options (Play Next, Add to Playlist) via right-click or menu buttons in both Collection and Radio views
 9. **Offline Mode** - Download tracks via the context menu for offline playback
 
+## Remote Control and Secure Mode
+
+**Secure Mode is enabled by default on both the desktop and mobile app.** Remote control stays on your local network, with encrypted HTTPS/WSS connections, device pairing, and approval on the desktop. This is much safer than the legacy connection, which has no encryption or device pairing.
+
+To connect a phone, enable **Remote Control** in desktop **Settings → Remote Control** and leave **Secure Mode** on. On the mobile connection screen, leave **Secure Mode** on and tap **Scan pairing QR code** to scan the QR code shown on the desktop. Approve the pairing request on the desktop. If scanning is unavailable, use **Can't scan? Enter details manually** on the phone and enter the host, one-time code, and certificate fingerprint shown in desktop Settings.
+
+If you understand the risks and need the legacy connection, turn off **Secure Mode** in both desktop Settings and the mobile connection screen, confirming the warnings in each app. Both sides must use the same mode; the app will not switch to the unencrypted connection automatically. Legacy remote control uses plain HTTP/WS without pairing, so other devices on your local network may read traffic or control playback. Use it only on a network you trust. For browser pairing and more details, see the [remote protocol guide](docs/REMOTE_SPEC.md).
+
 ## Playlist Sync
 
 Your own (non-Bandcamp) playlists are shared between the desktop and the mobile app. The
@@ -207,7 +218,7 @@ desktop is authoritative: its playlist ids are the shared identity, and **Settin
 Control → Playlist Sync** picks the direction for every connected phone.
 
 | Mode | Desktop → phone | Phone → desktop | Playlists editable on the phone |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Two-way** (default) | yes | yes | yes |
 | **Desktop → Mobile** | yes | no | no — read-only mirror |
 | **Mobile → Desktop** | no | yes | yes |
