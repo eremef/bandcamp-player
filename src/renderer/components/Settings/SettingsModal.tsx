@@ -825,14 +825,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                             </div>
                                             <div className={styles.remoteText}>
                                                 {remoteStatus.url && <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>{remoteStatus.url}</p>}
-                                                <p className={styles.remoteHint}>Unsafe legacy connection. Select Unsafe in the mobile app to connect.</p>
+                                                <p className={styles.remoteHint}>Not secure connection. Disable Secure Mode in the mobile app to connect.</p>
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
                                 {settings?.remoteEnabled && !remoteStatus?.isRunning && (
-                                    <p className={styles.remoteError}>{remoteStatus?.error || 'Remote control did not start. Check the desktop log or select Unsafe mode if desktop key storage is unavailable.'}</p>
+                                    <p className={styles.remoteError}>{remoteStatus?.error || 'Remote control did not start. Check the desktop log for details.'}</p>
                                 )}
                             </>
                         )}

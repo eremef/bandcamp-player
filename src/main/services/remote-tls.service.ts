@@ -1,5 +1,6 @@
 import { app, safeStorage } from "electron";
 import * as crypto from "crypto";
+import { constants } from "fs";
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
@@ -18,23 +19,24 @@ interface StoredAuthority {
 }
 
 const AUTHORITY_FILE = "remote-pairing-authority.enc";
+const PRIVATE_AUTHORITY_FILE = "remote-pairing-authority.private.json";
+const PRIVATE_FILE_PERMISSION_ERROR = 'The Linux remote identity file must be owned by your account and accessible only to it.';
 
 export class RemoteTlsService {
   private authority: StoredAuthority | null = null;
 
   async getMaterial(): Promise<RemoteTlsMaterial> {
-    if (!(await safeStorage.isAsyncEncryptionAvailable())) {
+    const privateAuthorityPath = path.join(app.getPath("userData"), PRIVATE_AUTHORITY_FILE);
+    const hasPrivateAuthority = process.platform === 'linux' && await this.fileExists(privateAuthorityPath);
+    const usePrivateFile = process.platform === 'linux' &&
+      (hasPrivateAuthority || safeStorage.getSelectedStorageBackend() === 'basic_text');
+    if (!usePrivateFile && !(await safeStorage.isAsyncEncryptionAvailable())) {
       throw new Error(
         "Safe remote connections need desktop key storage, which is unavailable on this system. Enable Unsafe mode only if you accept unencrypted LAN traffic.",
       );
     }
-    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') {
-      throw new Error(
-        "Safe remote connections need a Linux keyring. No supported keyring is available, so the desktop identity cannot be encrypted safely.",
-      );
-    }
 
-    const authority = await this.loadAuthority();
+    const authority = await this.loadAuthority(usePrivateFile, privateAuthorityPath);
     const names = this.getCertificateNames();
     const now = new Date();
     const expiresAt = new Date(now);
@@ -80,24 +82,72 @@ export class RemoteTlsService {
     return this.authority?.certificate ?? null;
   }
 
-  private async loadAuthority(): Promise<StoredAuthority> {
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.lstat(filePath);
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
+  }
+
+  private async readPrivateAuthority(filePath: string): Promise<StoredAuthority> {
+    const file = await fs.open(filePath, constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      const stats = await file.stat();
+      if (!stats.isFile() || stats.uid !== process.getuid?.() || (stats.mode & 0o077) !== 0) {
+        throw new Error(PRIVATE_FILE_PERMISSION_ERROR);
+      }
+      return JSON.parse(await file.readFile('utf8')) as StoredAuthority;
+    } finally {
+      await file.close();
+    }
+  }
+
+  private async writePrivateAuthority(filePath: string, authority: StoredAuthority): Promise<void> {
+    const temporaryPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+    const file = await fs.open(
+      temporaryPath,
+      constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+      0o600,
+    );
+    try {
+      try {
+        await file.writeFile(JSON.stringify(authority));
+        await file.sync();
+      } finally {
+        await file.close();
+      }
+      await fs.link(temporaryPath, filePath);
+    } finally {
+      await fs.unlink(temporaryPath);
+    }
+  }
+
+  private async loadAuthority(usePrivateFile: boolean, privateAuthorityPath: string): Promise<StoredAuthority> {
     if (this.authority) return this.authority;
 
     const authorityPath = path.join(app.getPath("userData"), AUTHORITY_FILE);
     try {
-      const encrypted = await fs.readFile(authorityPath);
-      const decrypted = await safeStorage.decryptStringAsync(encrypted);
-      const stored = JSON.parse(decrypted.result) as StoredAuthority;
+      const stored = usePrivateFile
+        ? await this.readPrivateAuthority(privateAuthorityPath)
+        : JSON.parse((await safeStorage.decryptStringAsync(await fs.readFile(authorityPath))).result) as StoredAuthority;
       new crypto.X509Certificate(stored.certificate);
       crypto.createPrivateKey(stored.key);
       this.authority = stored;
       return stored;
     } catch (error) {
+      if (usePrivateFile && error instanceof Error && error.message === PRIVATE_FILE_PERMISSION_ERROR) throw error;
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw new Error("The saved remote security identity could not be read.", {
           cause: error,
         });
       }
+    }
+
+    if (usePrivateFile && await this.fileExists(authorityPath)) {
+      throw new Error('The saved remote identity needs its Linux keyring. Restore the keyring to keep existing device pairings.');
     }
 
     const now = new Date();
@@ -127,15 +177,20 @@ export class RemoteTlsService {
         ],
       },
     );
-    this.authority = { key: generated.private, certificate: generated.cert };
-    await fs.mkdir(path.dirname(authorityPath), { recursive: true });
-    const encrypted = await safeStorage.encryptStringAsync(JSON.stringify(this.authority));
-    await fs.writeFile(
-      authorityPath,
-      encrypted,
-      { mode: 0o600 },
-    );
-    return this.authority;
+    const authority = { key: generated.private, certificate: generated.cert };
+    await fs.mkdir(path.dirname(authorityPath), { recursive: true, mode: 0o700 });
+    if (usePrivateFile) {
+      await this.writePrivateAuthority(privateAuthorityPath, authority);
+    } else {
+      const encrypted = await safeStorage.encryptStringAsync(JSON.stringify(authority));
+      if (process.platform === 'linux' && encrypted.subarray(0, 3).toString() === 'v10') {
+        await this.writePrivateAuthority(privateAuthorityPath, authority);
+      } else {
+        await fs.writeFile(authorityPath, encrypted, { mode: 0o600, flag: 'wx' });
+      }
+    }
+    this.authority = authority;
+    return authority;
   }
 
   private getCertificateNames(): Array<{ type: 2 | 7; value?: string; ip?: string }> {
