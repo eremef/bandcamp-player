@@ -289,6 +289,41 @@ describe('RemoteControlService', () => {
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('artist-collection-data'));
         });
 
+        it('returns a request-id matched desktop queue continuation snapshot to the requesting client', async () => {
+            const desktopState = {
+                isPlaying: false,
+                currentTrack: { id: 't2', title: 'Track Two' },
+                currentTime: 37,
+                duration: 180,
+                queue: {
+                    items: [
+                        { id: 'q1', track: { id: 't1' }, source: 'collection' },
+                        { id: 'q2', track: { id: 't2' }, source: 'playlist' },
+                    ],
+                    currentIndex: 1,
+                },
+            };
+            mockPlayerService.getState.mockReturnValue(desktopState);
+            const priorStateBroadcasts = mockWs.send.mock.calls.filter((call: [string]) => call[0].includes('state-changed')).length;
+
+            await sendMessage('request-desktop-queue-continuation', { requestId: 'continue-request-1' });
+
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-snapshot',
+                payload: {
+                    requestId: 'continue-request-1',
+                    snapshot: {
+                        queue: desktopState.queue,
+                        currentTrack: desktopState.currentTrack,
+                        currentIndex: 1,
+                        position: 37,
+                        duration: 180,
+                    },
+                },
+            }));
+            expect(mockWs.send.mock.calls.filter((call: [string]) => call[0].includes('state-changed'))).toHaveLength(priorStateBroadcasts);
+        });
+
         it('should handle playlist CRUD', async () => {
             await sendMessage('create-playlist', { name: 'P1' });
             expect(mockPlaylistService.create).toHaveBeenCalled();

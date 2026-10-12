@@ -14,6 +14,7 @@ jest.mock('lucide-react-native', () => {
         GripVertical: () => <Text>GripIcon</Text>,
         ChevronsDown: () => <Text>ChevronsDownIcon</Text>,
         ListX: () => <Text>ListXIcon</Text>,
+        Import: () => <Text>ImportIcon</Text>,
     };
 });
 
@@ -101,12 +102,18 @@ describe('QueueScreen', () => {
         reorderQueue: jest.fn(),
         refreshQueue: jest.fn(),
         clearQueue: jest.fn(),
+        desktopSocketConnected: false,
+        desktopQueueAvailability: 'unknown',
+        isContinuingDesktopQueue: false,
+        desktopContinuationError: null,
+        continueDesktopQueue: jest.fn().mockResolvedValue('completed'),
     };
 
     beforeEach(() => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             return selector(mockStore);
         });
+        (useStore as any).getState = jest.fn(() => mockStore);
         jest.clearAllMocks();
     });
 
@@ -123,6 +130,96 @@ describe('QueueScreen', () => {
         const { getByText } = render(<QueueScreen />);
         expect(getByText('Track One')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
+    });
+
+    it('shows desktop continuation only for a connected desktop with a known non-empty queue', () => {
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        (useStore as any).getState.mockImplementation(() => availableStore);
+        const { getByTestId, rerender, queryByTestId } = render(<QueueScreen />);
+        expect(getByTestId('continue-desktop-queue')).toBeTruthy();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...availableStore,
+            desktopQueueAvailability: 'unknown',
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('continue-desktop-queue')).toBeNull();
+    });
+
+    it('keeps all three queue actions visible when the phone queue is empty and desktop queue is available', () => {
+        const availableStore = {
+            ...mockStore,
+            queue: { items: [], currentIndex: -1 },
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueAvailabilityRevision: 2,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        (useStore as any).getState.mockImplementation(() => availableStore);
+        const { getByTestId, getByText } = render(<QueueScreen />);
+
+        expect(getByText('ImportIcon')).toBeTruthy();
+        expect(getByText('ChevronsDownIcon')).toBeTruthy();
+        expect(getByText('ListXIcon')).toBeTruthy();
+        expect(getByTestId('continue-desktop-queue').props.accessibilityLabel).toBe('Continue desktop queue on phone');
+        for (const testID of ['continue-desktop-queue', 'scroll-to-current-track', 'clear-phone-queue']) {
+            expect(getByTestId(testID).props.accessibilityHint).toBeTruthy();
+        }
+        expect(getByTestId('scroll-to-current-track').props.accessibilityState.disabled).toBe(true);
+        expect(getByTestId('clear-phone-queue').props.accessibilityState.disabled).toBe(true);
+        for (const testID of ['continue-desktop-queue', 'scroll-to-current-track', 'clear-phone-queue']) {
+            expect(StyleSheet.flatten(getByTestId(testID).props.style)).toMatchObject({ width: 44, height: 44 });
+        }
+    });
+
+    it('shows an accent loading spinner and busy accessibility state during continuation', () => {
+        const preparingStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            isContinuingDesktopQueue: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(preparingStore));
+        const { getByTestId, queryByText } = render(<QueueScreen />);
+
+        expect(getByTestId('desktop-queue-loading-indicator')).toBeTruthy();
+        expect(queryByText('ImportIcon')).toBeNull();
+        expect(getByTestId('continue-desktop-queue').props.accessibilityLabel).toBe('Preparing desktop queue');
+        expect(getByTestId('continue-desktop-queue').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+    });
+
+    it('asks in-app before replacing a non-empty phone queue', async () => {
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            continueDesktopQueue: jest.fn().mockResolvedValue('confirmation-required'),
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        (useStore as any).getState.mockImplementation(() => availableStore);
+        const { getByTestId, getByText, queryByTestId, rerender } = render(<QueueScreen />);
+
+        await act(async () => {
+            fireEvent.press(getByTestId('continue-desktop-queue'));
+        });
+
+        expect(availableStore.continueDesktopQueue).toHaveBeenCalledWith(false);
+        expect(getByText('Replace phone queue?')).toBeTruthy();
+        expect(getByTestId('confirm-continue-desktop-queue')).toBeTruthy();
+
+        const emptyDesktopStore = {
+            ...availableStore,
+            desktopQueueAvailability: 'empty',
+            desktopQueueAvailabilityRevision: 1,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(emptyDesktopStore));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('confirm-continue-desktop-queue')).toBeNull();
     });
 
     it('highlights current playing track', () => {

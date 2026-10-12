@@ -58,7 +58,7 @@ Unsafe mode is an explicit compatibility option on both desktop and mobile. It p
 The mobile companion application implements a **Hybrid Connectivity** model to ensure seamless transition between Remote and Standalone modes:
 
 1. **Persistent Connection**: The mobile app attempts to maintain its authenticated WebSocket connection to the desktop server even when it is in **Standalone Mode**.
-2. **Background Sync**: While in Standalone mode, the mobile app continues to receive `state-changed` and `time-update` messages from the desktop. This ensures the Remote state is always current when the user switches modes.
+2. **Background Queue Awareness**: While in Standalone mode, the mobile app reads desktop queue availability from `state-changed` messages but does not apply desktop playback state to its local player. This lets the phone offer to continue a known non-empty desktop queue without replacing standalone playback state.
 3. **Instant Transition**: Because the connection is kept alive, switching from Standalone back to Remote mode happens instantly without requiring a new WebSocket handshake or discovery scan.
 
 ## Message Format
@@ -93,6 +93,8 @@ Unsafe mode continues to use the legacy protocol below and does not exchange any
 ## Outbound Messages (Desktop -> Client)
 
 These messages are broadcast to all connected clients when the state changes.
+
+In mobile Standalone mode, `state-changed` is used only to track whether the desktop queue is known to be empty or non-empty. The mobile app ignores playback, queue, and progress changes for its local player in this mode.
 
 ### `state-changed`
 
@@ -228,6 +230,14 @@ Clients send these messages to control the player.
   - **Payload**: `{ albumUrl: string, tracks?: Track[], playNext?: boolean }`
 - `add-station-to-queue`: Adds a radio station to the queue.
   - **Payload**: `{ station: RadioStation, playNext?: boolean }`
+
+### Queue Continuation
+
+- `request-desktop-queue-continuation`: Requests a fresh desktop queue snapshot for the phone's standalone player.
+  - **Payload**: `{ requestId: string }`
+- `desktop-queue-snapshot`: Response sent only to the requesting client.
+  - **Payload**: `{ requestId: string, snapshot: { queue: Queue, currentTrack: Track | null, currentIndex: number, position: number, duration: number } }`
+  - The phone matches the response by `requestId`, copies the queue to its local player, resolves playable media on the phone, and keeps its own repeat and shuffle settings. This request does not change or pause desktop playback.
 
 ### Playlist Management
 

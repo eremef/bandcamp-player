@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, RefreshControl, Image, Alert, Modal, ActivityIndicator } from 'react-native';
 import DraggableFlatList, { ScaleDecorator, RenderItemParams } from 'react-native-draggable-flatlist';
 import { FlatList } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical, ListX, ChevronsDown } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ListX, ChevronsDown, Import } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
 
@@ -25,6 +25,14 @@ export default function QueueScreen() {
     const reorderQueue = useStore((state) => state.reorderQueue);
     const isPlaying = useStore((state) => state.isPlaying);
     const clearQueue = useStore((state) => state.clearQueue);
+    const desktopSocketConnected = useStore((state) => state.desktopSocketConnected);
+    const desktopQueueAvailability = useStore((state) => state.desktopQueueAvailability);
+    const desktopQueueAvailabilityRevision = useStore((state) => state.desktopQueueAvailabilityRevision);
+    const isContinuingDesktopQueue = useStore((state) => state.isContinuingDesktopQueue);
+    const desktopContinuationError = useStore((state) => state.desktopContinuationError);
+    const continueDesktopQueue = useStore((state) => state.continueDesktopQueue);
+    const [showReplaceQueueModal, setShowReplaceQueueModal] = useState(false);
+    const [confirmationAvailabilityRevision, setConfirmationAvailabilityRevision] = useState<number | null>(null);
 
     const insets = useSafeAreaInsets();
 
@@ -187,6 +195,21 @@ export default function QueueScreen() {
         }, 1500);
     }, [refreshQueue]);
 
+    const handleContinueDesktopQueue = useCallback(async (confirmed = false) => {
+        const result = await continueDesktopQueue(confirmed);
+        if (result === 'confirmation-required') {
+            setConfirmationAvailabilityRevision(useStore.getState().desktopQueueAvailabilityRevision);
+            setShowReplaceQueueModal(true);
+        } else {
+            setShowReplaceQueueModal(false);
+        }
+    }, [continueDesktopQueue]);
+
+    const showContinueDesktopQueue = mode === 'standalone' && desktopSocketConnected &&
+        desktopQueueAvailability === 'nonempty';
+    const showReplaceQueueConfirmation = showReplaceQueueModal && showContinueDesktopQueue &&
+        confirmationAvailabilityRevision === desktopQueueAvailabilityRevision;
+
     const keyExtractor = useCallback((item: QueueItem) => item.id, []);
 
     const renderEmptyComponent = useCallback(() => (
@@ -199,25 +222,62 @@ export default function QueueScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
-            {queue.items.length > 0 && (
+            {desktopContinuationError && (
+                <Text accessibilityRole="alert" style={[styles.continuationError, { color: colors.textSecondary }]}>
+                    {desktopContinuationError}
+                </Text>
+            )}
+            {(queue.items.length > 0 || showContinueDesktopQueue) && (
                 <View style={styles.header}>
                     <Text style={[styles.headerText, { color: colors.textSecondary }]}>
-                        {queue.items.length} {queue.items.length === 1 ? 'track' : 'tracks'}
+                        {queue.items.length > 0
+                            ? `${queue.items.length} ${queue.items.length === 1 ? 'track' : 'tracks'}`
+                            : 'Desktop queue'}
                     </Text>
                     <View style={styles.clearBtnContainer}>
+                        {showContinueDesktopQueue && (
+                            <TouchableOpacity
+                                testID="continue-desktop-queue"
+                                onPress={() => { void handleContinueDesktopQueue(); }}
+                                style={styles.clearBtn}
+                                disabled={isContinuingDesktopQueue}
+                                accessibilityState={{ disabled: isContinuingDesktopQueue, busy: isContinuingDesktopQueue }}
+                                accessibilityRole="button"
+                                accessibilityLabel={isContinuingDesktopQueue ? 'Preparing desktop queue' : 'Continue desktop queue on phone'}
+                                accessibilityHint={isContinuingDesktopQueue
+                                    ? 'Preparing the desktop queue for playback on this phone.'
+                                    : 'Replaces the phone queue with the desktop queue and starts playback on this phone.'}
+                            >
+                                {isContinuingDesktopQueue
+                                    ? <ActivityIndicator testID="desktop-queue-loading-indicator" size="small" color={colors.textSecondary} />
+                                    : <Import size={20} color={colors.textSecondary} />}
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity
+                            testID="scroll-to-current-track"
                             onPress={() => scrollToIndexSafe(currentIndexRef.current, false)}
                             style={styles.clearBtn}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            disabled={queue.items.length === 0}
+                            accessibilityState={{ disabled: queue.items.length === 0 }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Scroll to current track"
+                            accessibilityHint="Moves the queue list to the track currently playing on this phone."
                         >
                             <ChevronsDown size={20} color={colors.textSecondary} />
                         </TouchableOpacity>
                         <TouchableOpacity
+                            testID="clear-phone-queue"
                             onPress={handleClearQueue}
                             style={styles.clearBtn}
                             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            disabled={queue.items.length === 0}
+                            accessibilityState={{ disabled: queue.items.length === 0 }}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear phone queue"
+                            accessibilityHint="Removes all tracks from the phone's queue."
                         >
-                            <ListX size={20} color={colors.textSecondary} />
+                            <ListX size={20} color={colors.error} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -242,6 +302,39 @@ export default function QueueScreen() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
                 }
             />
+            <Modal
+                visible={showReplaceQueueConfirmation}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowReplaceQueueModal(false)}
+            >
+                <View style={styles.modalBackdrop}>
+                    <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>Replace phone queue?</Text>
+                        <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+                            Continue the desktop queue on this phone and replace its current queue?
+                        </Text>
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                testID="cancel-continue-desktop-queue"
+                                style={styles.modalAction}
+                                onPress={() => setShowReplaceQueueModal(false)}
+                                disabled={isContinuingDesktopQueue}
+                            >
+                                <Text style={{ color: colors.textSecondary }}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                testID="confirm-continue-desktop-queue"
+                                style={styles.modalAction}
+                                onPress={() => { void handleContinueDesktopQueue(true); }}
+                                disabled={isContinuingDesktopQueue}
+                            >
+                                <Text style={{ color: colors.accent }}>Continue</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -267,7 +360,10 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     clearBtn: {
-        padding: 4,
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     listContent: {
         paddingBottom: 43,
@@ -353,5 +449,43 @@ const styles = StyleSheet.create({
     emptySubtext: {
         fontSize: 14,
         color: '#666',
+    },
+    continuationError: {
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        fontSize: 13,
+    },
+    modalBackdrop: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+        backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    },
+    modalCard: {
+        width: '100%',
+        maxWidth: 420,
+        padding: 20,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderRadius: 14,
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 8,
+    },
+    modalMessage: {
+        fontSize: 14,
+        lineHeight: 20,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginTop: 20,
+        gap: 20,
+    },
+    modalAction: {
+        paddingVertical: 8,
+        paddingHorizontal: 4,
     },
 });

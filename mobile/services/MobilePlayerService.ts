@@ -29,16 +29,29 @@ class MobilePlayerService {
     private controllerRecoveryFailed = false;
     private controllerRecoveryReadyAfterRevision = 0;
     private controllerRecoveryGeneration = 0;
+    private trackReadyWaiters = new Set<{
+        mediaId: string;
+        resolve: (ready: boolean) => void;
+        timeout: ReturnType<typeof setTimeout>;
+    }>();
 
     public prepareForModeChange() {
         this.loadGeneration++;
         this.isLoadingTrack = false;
         this.pausedPosition = 0;
         this.clearPendingResume();
+        this.cancelTrackReadyWaiters();
         this.controllerRecoveryGeneration++;
         this.controllerRecoveryPromise = null;
         this.controllerRecoveryNeedsReady = false;
         this.controllerRecoveryFailed = false;
+    }
+
+    public cancelPendingLoad() {
+        this.loadGeneration++;
+        this.isLoadingTrack = false;
+        this.clearPendingResume();
+        this.cancelTrackReadyWaiters();
     }
 
     public getPositionForSnapshot(nativePosition: number): number {
@@ -60,6 +73,7 @@ class MobilePlayerService {
         if (state === PlaybackState.Ready) {
             this.playbackReadyRevision++;
             this.applyPendingResume();
+            this.resolveTrackReadyWaiters(true);
             if (this.controllerRecoveryNeedsReady &&
                 this.playbackReadyRevision > this.controllerRecoveryReadyAfterRevision) {
                 this.controllerRecoveryNeedsReady = false;
@@ -72,6 +86,107 @@ class MobilePlayerService {
             this.pendingResume.resolve(false);
             this.pendingResume = null;
         }
+        if (state === PlaybackState.Error) this.resolveTrackReadyWaiters(false);
+    }
+
+    private resolveTrackReadyWaiters(ready: boolean) {
+        for (const waiter of this.trackReadyWaiters) {
+            if (ready && !this.isNativeItemActive(waiter.mediaId)) continue;
+            clearTimeout(waiter.timeout);
+            this.trackReadyWaiters.delete(waiter);
+            waiter.resolve(ready);
+        }
+    }
+
+    private cancelTrackReadyWaiters() {
+        this.resolveTrackReadyWaiters(false);
+    }
+
+    public waitForTrackReady(mediaId: string, timeoutMs = 12000): Promise<boolean> {
+        try {
+            if (TrackPlayer.getPlaybackState() === PlaybackState.Ready && this.isNativeItemActive(mediaId)) {
+                return Promise.resolve(true);
+            }
+        } catch {
+            return Promise.resolve(false);
+        }
+
+        return new Promise(resolve => {
+            const waiter = {
+                mediaId,
+                resolve,
+                timeout: setTimeout(() => {
+                    this.trackReadyWaiters.delete(waiter);
+                    resolve(false);
+                }, timeoutMs),
+            };
+            this.trackReadyWaiters.add(waiter);
+        });
+    }
+
+    public async playPreparedTrack(trackId: string, position: number): Promise<boolean> {
+        const generation = this.loadGeneration;
+        const initialStore = useStore.getState();
+        const index = initialStore.queue.currentIndex;
+        const item = initialStore.queue.items[index];
+        if (initialStore.mode !== 'standalone' || !item || item.track.id !== trackId) return false;
+
+        const resumed = await this.waitForResumeReady();
+        if (!resumed || generation !== this.loadGeneration) return false;
+        const ready = await this.waitForTrackReady(item.id);
+        if (!ready || generation !== this.loadGeneration) return false;
+
+        const latestStore = useStore.getState();
+        if (latestStore.mode !== 'standalone' || latestStore.queue.currentIndex !== index ||
+            latestStore.queue.items[index]?.id !== item.id || latestStore.currentTrack?.id !== trackId) return false;
+
+        const safePosition = Number.isFinite(position) ? Math.max(0, position) : 0;
+        if (safePosition > 0) {
+            TrackPlayer.seekTo(safePosition);
+            this.authoritativeResume = { mediaId: item.id, position: safePosition, seekIssued: true };
+            this.pausedPosition = safePosition;
+            useStore.setState({ currentTime: safePosition });
+            if (!await this.waitForPosition(safePosition) || generation !== this.loadGeneration) return false;
+        }
+
+        TrackPlayer.setVolume(latestStore.volume);
+        await TrackPlayer.play();
+        const afterPlay = useStore.getState();
+        if (generation !== this.loadGeneration || afterPlay.mode !== 'standalone' ||
+            afterPlay.queue.currentIndex !== index || afterPlay.queue.items[index]?.id !== item.id ||
+            afterPlay.currentTrack?.id !== trackId) {
+            await TrackPlayer.pause();
+            return false;
+        }
+        useStore.setState({ isPlaying: true, userIntendedPause: false });
+        await useStore.getState().saveQueue();
+        return true;
+    }
+
+    private waitForPosition(position: number, timeoutMs = 3000): Promise<boolean> {
+        const target = Math.max(0, position);
+        const isAtTarget = () => {
+            try {
+                const actual = TrackPlayer.getProgress().position;
+                return Number.isFinite(actual) && Math.abs(actual - target) <= 2;
+            } catch {
+                return false;
+            }
+        };
+        if (isAtTarget()) return Promise.resolve(true);
+
+        return new Promise(resolve => {
+            const interval = setInterval(() => {
+                if (!isAtTarget()) return;
+                clearInterval(interval);
+                clearTimeout(timeout);
+                resolve(true);
+            }, 100);
+            const timeout = setTimeout(() => {
+                clearInterval(interval);
+                resolve(false);
+            }, timeoutMs);
+        });
     }
 
     public recoverControllerConnection() {
@@ -255,9 +370,13 @@ class MobilePlayerService {
 
     private isNativeItemActive(mediaId: string) {
         if (typeof TrackPlayer.getActiveMediaItemIndex !== 'function') return false;
-        const activeIndex = TrackPlayer.getActiveMediaItemIndex();
-        const nativeQueue = TrackPlayer.getQueue();
-        return typeof activeIndex === 'number' && Array.isArray(nativeQueue) && nativeQueue[activeIndex]?.mediaId === mediaId;
+        try {
+            const activeIndex = TrackPlayer.getActiveMediaItemIndex();
+            const nativeQueue = TrackPlayer.getQueue();
+            return typeof activeIndex === 'number' && Array.isArray(nativeQueue) && nativeQueue[activeIndex]?.mediaId === mediaId;
+        } catch {
+            return false;
+        }
     }
 
     private applyPendingResume() {
@@ -714,6 +833,7 @@ class MobilePlayerService {
     public async loadTrack(track: Track, initialPosition: number = 0, forceRefreshUrl: boolean = false): Promise<boolean> {
         const generation = ++this.loadGeneration;
         this.clearPendingResume();
+        this.cancelTrackReadyWaiters();
         this.isLoadingTrack = true;
         try {
             if (!this.isInitialized) await this.setupPlayer();

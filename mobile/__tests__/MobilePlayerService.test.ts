@@ -131,6 +131,53 @@ describe('MobilePlayerService', () => {
         });
     });
 
+    it('waits for the prepared native queue item to become ready before starting it', async () => {
+        const track = { id: 'track-1', title: 'Track One' } as any;
+        const queueItem = { id: 'queue-1', track };
+        setMutableStoreState({
+            mode: 'standalone',
+            cachedTrackIds: new Set(),
+            offlineMode: false,
+            saveQueue: jest.fn().mockResolvedValue(undefined),
+            volume: 0.7,
+            isPlaying: false,
+            userIntendedPause: true,
+            currentTrack: track,
+            currentTime: 0,
+            repeatMode: 'off',
+            isShuffled: false,
+            queue: { items: [queueItem], currentIndex: 0 },
+        });
+        mockNativeQueue = [{ mediaId: 'queue-1' }];
+        mockActiveIndex = 0;
+        (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue('idle');
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValue({ position: 25, duration: 100, buffered: 0 });
+
+        let started = false;
+        const startPromise = mobilePlayerService.playPreparedTrack(track.id, 25).then(result => {
+            started = true;
+            return result;
+        });
+        await Promise.resolve();
+        expect(started).toBe(false);
+        expect(TrackPlayer.play).not.toHaveBeenCalled();
+
+        (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
+        mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
+
+        await expect(startPromise).resolves.toBe(true);
+        expect(TrackPlayer.seekTo).toHaveBeenCalledWith(25);
+        expect(TrackPlayer.play).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels native readiness waiters when the playback mode changes', async () => {
+        const readyPromise = mobilePlayerService.waitForTrackReady('queue-1');
+
+        mobilePlayerService.prepareForModeChange();
+
+        await expect(readyPromise).resolves.toBe(false);
+    });
+
     describe('controller connection recovery', () => {
         const track = {
             id: 't1',

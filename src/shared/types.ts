@@ -120,6 +120,14 @@ export interface Queue {
   shuffleOrder?: number[]; // Indices for shuffle mode
 }
 
+export interface DesktopQueueSnapshot {
+  queue: Queue;
+  currentTrack: Track | null;
+  currentIndex: number;
+  position: number;
+  duration: number;
+}
+
 // ============================================================================
 // Player State Types
 // ============================================================================

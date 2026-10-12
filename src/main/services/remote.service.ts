@@ -1465,6 +1465,22 @@ export class RemoteControlService extends EventEmitter {
             case 'get-state':
                 this.sendToClient(ws, 'state-changed', this.playerService.getState());
                 break;
+            case 'request-desktop-queue-continuation': {
+                if (typeof payload?.requestId !== 'string' || payload.requestId.length > 128) break;
+                const state = this.playerService.getState();
+                const queue = state.queue && Array.isArray(state.queue.items)
+                    ? state.queue
+                    : { items: [], currentIndex: -1 };
+                const snapshot = {
+                    queue,
+                    currentTrack: state.currentTrack || null,
+                    currentIndex: Number.isInteger(queue.currentIndex) ? queue.currentIndex : -1,
+                    position: Number.isFinite(state.currentTime) ? Math.max(0, state.currentTime) : 0,
+                    duration: Number.isFinite(state.duration) ? Math.max(0, state.duration) : 0,
+                };
+                this.sendToClient(ws, 'desktop-queue-snapshot', { requestId: payload.requestId, snapshot });
+                break;
+            }
             default:
                 console.warn('[RemoteService] Unknown message type:', type);
         }
