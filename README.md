@@ -333,6 +333,7 @@ mobile/
 - [@richardmalone](https://github.com/richardmalone)
 - [@danielmee](https://github.com/danielmee)
 - [@Lisiadito](https://github.com/Lisiadito)
+- [@genuinecode](https://github.com/genuinecode)
 - [@bshurikan](https://github.com/bshurikan)
 - [@serkuh](https://github.com/serkuh)
 
