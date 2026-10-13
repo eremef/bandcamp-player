@@ -268,7 +268,7 @@ export default function PlayerScreen() {
                         </Text>
                         <ArrowLeftRight size={14} color={colors.textSecondary} style={{ marginLeft: 4 }} />
                     </TouchableOpacity>
-                    <Text style={[styles.modeHintText, { color: colors.textSecondary }]}>Tap to switch</Text>
+                    <Text style={[styles.modeHintText, { color: colors.textSecondary }]}>Tap to switch to {mode === 'remote' ? 'Standalone' : 'Remote'}</Text>
                 </View>
 
                 {/* Progress */}
