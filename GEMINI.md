@@ -11,6 +11,7 @@ Electron + React + TypeScript desktop app for Bandcamp music with offline cachin
 - **Web Remote**: Static files in `src/assets/remote/` (index.html, client.js, styles.css). Icons injected at runtime via `RemoteService`.
 - **Simulation Mode**: Run with `npm run dev:large` to simulate a large collection (5000 items) with network errors for testing scalability and resilience.
 - **Mobile Standalone Mode**: Dedicated native audio engine allows the mobile app to function as an independent Bandcamp player. Supports track navigation, volume control, and background playback.
+- **Queue Handoff**: In Standalone mode, the `queue-handoff-v1` capability gates Import/Export. Tap prepares the destination then pauses the source; long press starts the destination while leaving the source's play/pause state unchanged. Progress is matched once, source queues remain, and an unknown Export commit leaves the phone paused until desktop status is checked. See `docs/REMOTE_SPEC.md`.
 - **Hybrid Connectivity**: Mobile app maintains a background WebSocket connection to the desktop server even in Standalone mode, enabling seamless switching between Remote and local playback.
 - **Scalable Collection Caching**: Large collections are persisted in SQLite with FTS5 for instant, high-performance searching. Cache refreshes daily in the background.
 - **Chromecast Robustness**: `CastService` handles rapid reconnection and session de-syncs (INVALID_MEDIA_SESSION_ID) with automatic state recovery to prevent crashes.

@@ -154,6 +154,11 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
     (_, currentTime: number, duration: number) =>
       playerService.updateTime(currentTime, duration),
   );
+  ipcMain.handle(
+    PLAYER_CHANNELS.REPORT_PLAYBACK_STATUS,
+    (_, trackId: string, confirmationId: string, isPlaying: boolean, position: number, failed = false) =>
+      playerService.reportLocalPlaybackStatus(trackId, confirmationId, isPlaying, position, failed),
+  );
 
   // Player events
   playerService.on("state-changed", (state) => {

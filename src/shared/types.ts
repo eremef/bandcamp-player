@@ -126,6 +126,11 @@ export interface DesktopQueueSnapshot {
   currentIndex: number;
   position: number;
   duration: number;
+  queueVersion?: number;
+  actionVersion?: number;
+  isPlaying?: boolean;
+  isCasting?: boolean;
+  playbackStatusKnown?: boolean;
 }
 
 // ============================================================================
@@ -153,6 +158,7 @@ export interface PlayerState {
   isShuffled: boolean;
   queue: Queue;
   isCasting: boolean;
+  playbackConfirmationId?: string;
   castDevice?: CastDevice;
   error?: string | null;
 }

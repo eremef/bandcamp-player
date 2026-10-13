@@ -39,6 +39,8 @@ export function PlayerBar() {
 
     const audio1Ref = useRef<HTMLAudioElement>(null);
     const audio2Ref = useRef<HTMLAudioElement>(null);
+    const currentTimeRef = useRef(0);
+    const initialSeekRef = useRef<{ trackId: string; confirmationId: string; position: number } | null>(null);
     const activeAudioRef = useRef<1 | 2>(1);
     const hasRequestedNextRef = useRef<boolean>(false);
     const fadeOutIntervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
@@ -52,9 +54,34 @@ export function PlayerBar() {
     const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
 
     const { isPlaying, currentTrack, currentTime, duration, volume, isMuted, isShuffled, repeatMode } = player;
+    const currentTrackRef = useRef(currentTrack);
 
     const crossfadeEnabled = settings?.crossfadeEnabled || false;
     const crossfadeDuration = settings?.crossfadeDuration || 0;
+
+    useEffect(() => {
+        currentTimeRef.current = currentTime;
+    }, [currentTime]);
+
+    useEffect(() => {
+        currentTrackRef.current = currentTrack;
+    }, [currentTrack]);
+
+    useEffect(() => {
+        const activeAudioNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
+        const track = currentTrackRef.current;
+        if (!activeAudioNode || !track || activeAudioNode.src !== track.streamUrl || activeAudioNode.readyState < 1) return;
+        const requestedPosition = currentTimeRef.current;
+        const targetPosition = Number.isFinite(requestedPosition) && requestedPosition > 0
+            ? Math.min(requestedPosition, activeAudioNode.duration > 0 ? activeAudioNode.duration : requestedPosition)
+            : 0;
+        if (Math.abs(activeAudioNode.currentTime - targetPosition) <= 0.5) return;
+        try {
+            activeAudioNode.currentTime = targetPosition;
+        } catch {
+            return;
+        }
+    }, [player.playbackConfirmationId]);
 
     const clearFades = useCallback(() => {
         if (fadeOutIntervalRef.current) clearInterval(fadeOutIntervalRef.current);
@@ -120,7 +147,10 @@ export function PlayerBar() {
 
                 if (isPlaying && !player.isCasting) {
                     nextAudioNode.play().catch(error => {
-                        if (error.name !== 'AbortError') console.error('Playback error:', error);
+                        if (error.name !== 'AbortError') {
+                            window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', false, nextAudioNode.currentTime, true);
+                            console.error('Playback error:', error);
+                        }
                     });
                 } else {
                     nextAudioNode.pause();
@@ -133,7 +163,7 @@ export function PlayerBar() {
             if (audio2Ref.current) audio2Ref.current.src = '';
             clearFades();
         }
-    }, [currentTrack, clearFades, crossfadeDuration, crossfadeEnabled, fadeAudio, isMuted, isPlaying, player.isCasting, volume]);
+    }, [currentTrack, clearFades, crossfadeDuration, crossfadeEnabled, fadeAudio, isMuted, isPlaying, player.isCasting, player.playbackConfirmationId, volume]);
 
     useEffect(() => {
         const activeNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
@@ -142,7 +172,10 @@ export function PlayerBar() {
         if (isPlaying && !player.isCasting) {
             if (activeNode.src) {
                 activeNode.play().catch(e => {
-                    if (e.name !== 'AbortError') console.error('Play error:', e);
+                    if (e.name !== 'AbortError') {
+                        window.electron.player.reportPlaybackStatus(currentTrack?.id || '', player.playbackConfirmationId || '', false, activeNode.currentTime, true);
+                        console.error('Play error:', e);
+                    }
                 });
             }
         } else {
@@ -151,7 +184,7 @@ export function PlayerBar() {
             if (otherNode) otherNode.pause();
             clearFades();
         }
-    }, [isPlaying, player.isCasting, clearFades]);
+    }, [isPlaying, player.isCasting, player.playbackConfirmationId, currentTrack?.id, clearFades]);
 
     useEffect(() => {
         const activeNode = activeAudioRef.current === 1 ? audio1Ref.current : audio2Ref.current;
@@ -170,6 +203,15 @@ export function PlayerBar() {
             const handleTimeUpdate = () => {
                 if (activeAudioRef.current !== nodeNum || player.isCasting) return;
 
+                const pendingSeek = initialSeekRef.current;
+                if (pendingSeek && pendingSeek.trackId === currentTrack?.id && pendingSeek.confirmationId === player.playbackConfirmationId) {
+                    if (Math.abs(audioNode.currentTime - pendingSeek.position) > 3) return;
+                    initialSeekRef.current = null;
+                }
+
+                if (currentTrack?.id) {
+                    window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', !audioNode.paused, audioNode.currentTime);
+                }
                 window.electron.player.updateTime(audioNode.currentTime, audioNode.duration);
 
                 const remaining = audioNode.duration - audioNode.currentTime;
@@ -185,7 +227,48 @@ export function PlayerBar() {
 
             const handleLoadedMetadata = () => {
                 if (activeAudioRef.current !== nodeNum) return;
+                const requestedPosition = currentTimeRef.current;
+                if (Number.isFinite(requestedPosition) && requestedPosition > 0 && Math.abs(audioNode.currentTime - requestedPosition) > 0.5) {
+                    const targetPosition = Number.isFinite(audioNode.duration) && audioNode.duration > 0
+                        ? Math.min(requestedPosition, audioNode.duration)
+                        : requestedPosition;
+                    initialSeekRef.current = {
+                        trackId: currentTrack?.id || '',
+                        confirmationId: player.playbackConfirmationId || '',
+                        position: targetPosition,
+                    };
+                    try {
+                        audioNode.currentTime = targetPosition;
+                    } catch {
+                        return;
+                    }
+                    return;
+                }
                 window.electron.player.updateTime(audioNode.currentTime, audioNode.duration);
+            };
+
+            const handleSeeked = () => {
+                if (activeAudioRef.current !== nodeNum || player.isCasting) return;
+                const pendingSeek = initialSeekRef.current;
+                if (!pendingSeek || pendingSeek.trackId !== currentTrack?.id || pendingSeek.confirmationId !== player.playbackConfirmationId) return;
+                if (Math.abs(audioNode.currentTime - pendingSeek.position) > 3) return;
+                initialSeekRef.current = null;
+                window.electron.player.updateTime(audioNode.currentTime, audioNode.duration);
+                if (currentTrack?.id) {
+                    window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', !audioNode.paused, audioNode.currentTime);
+                }
+            };
+
+            const handlePlaying = () => {
+                if (activeAudioRef.current !== nodeNum || player.isCasting || !currentTrack?.id) return;
+                if (initialSeekRef.current?.trackId === currentTrack.id && initialSeekRef.current.confirmationId === player.playbackConfirmationId) return;
+                window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', true, audioNode.currentTime);
+            };
+
+            const handlePause = () => {
+                if (activeAudioRef.current !== nodeNum || player.isCasting || !currentTrack?.id) return;
+                if (initialSeekRef.current && initialSeekRef.current.confirmationId !== player.playbackConfirmationId) initialSeekRef.current = null;
+                window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', false, audioNode.currentTime);
             };
 
             const handleEnded = () => {
@@ -202,17 +285,26 @@ export function PlayerBar() {
                 if (target.error?.code === 4 && (srcAttr === '' || srcAttr === null)) return;
                 if (target.error?.message?.includes('Empty src')) return;
                 console.error('[PlayerBar] Audio playback error:', target.error, 'src:', srcAttr);
+                if (activeAudioRef.current === nodeNum && !player.isCasting && currentTrack?.id) {
+                    window.electron.player.reportPlaybackStatus(currentTrack.id, player.playbackConfirmationId || '', false, audioNode.currentTime, true);
+                }
                 window.electron.player.reportPlaybackError(currentTrack?.id);
             };
 
             audioNode.addEventListener('timeupdate', handleTimeUpdate);
             audioNode.addEventListener('loadedmetadata', handleLoadedMetadata);
+            audioNode.addEventListener('seeked', handleSeeked);
+            audioNode.addEventListener('playing', handlePlaying);
+            audioNode.addEventListener('pause', handlePause);
             audioNode.addEventListener('ended', handleEnded);
             audioNode.addEventListener('error', handleError);
 
             return () => {
                 audioNode.removeEventListener('timeupdate', handleTimeUpdate);
                 audioNode.removeEventListener('loadedmetadata', handleLoadedMetadata);
+                audioNode.removeEventListener('seeked', handleSeeked);
+                audioNode.removeEventListener('playing', handlePlaying);
+                audioNode.removeEventListener('pause', handlePause);
                 audioNode.removeEventListener('ended', handleEnded);
                 audioNode.removeEventListener('error', handleError);
             };
@@ -225,7 +317,7 @@ export function PlayerBar() {
             cleanup1();
             cleanup2();
         };
-    }, [crossfadeEnabled, crossfadeDuration, queue?.currentIndex, queue?.items?.length, player.repeatMode, player.isCasting, currentTrack?.id]);
+    }, [crossfadeEnabled, crossfadeDuration, queue?.currentIndex, queue?.items?.length, player.repeatMode, player.isCasting, player.playbackConfirmationId, currentTrack?.id]);
 
     useEffect(() => {
         const unsubscribe = window.electron.player.onSeek((time) => {

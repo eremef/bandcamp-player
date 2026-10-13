@@ -327,8 +327,8 @@ When playing a cached album in offline mode:
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`). Changes to sorting or filtering on either platform are synchronized in real-time.
 6. **Paginated Sorting**: When the Mobile app requests a paginated collection view, the `RemoteService` on the Desktop host performs server-side sorting and deduplication based on the synchronized state before returning items.
-7. **Native UI**: Mobile app updates its local background service (`TrackPlayer`) to reflect the Desktop state, ensuring System Media Controls (Lock Screen) stay in sync and functional even when the app is backgrounded.
-8. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host even while the user is in Standalone mode. This ensures that the Remote state is always up-to-date, allowing users to switch back to Remote seamlessly without waiting for a re-connection.
+7. **Native UI**: In Remote mode, the mobile app updates its local background service (`TrackPlayer`) to reflect Desktop playback so System Media Controls (Lock Screen) remain functional. In Standalone mode, desktop state does not replace local playback state.
+8. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host while in Standalone mode. It tracks desktop queue availability for queue handoff, but does not continuously synchronize desktop progress to the local player. This also allows users to switch back to Remote mode without a new connection.
 
 ### Hybrid Remote/Standalone Architecture (Mobile)
 
@@ -339,6 +339,14 @@ The mobile application operates in two distinct modes, managed via a unified `Mo
 3. **Seamless Switching**: When switching modes:
     - **Standalone → Remote**: Local audio stops, and the store resets to Remote mode. If a background WebSocket connection exists, the Remote state is restored instantly.
     - **Remote → Standalone**: Remote playback (if any) is paused on the server, and the mobile app restores its last saved Standalone queue and track position.
+
+### Bidirectional Queue Handoff (Mobile Standalone)
+
+The Queue tab offers **Import** (desktop to phone) and **Export** (phone to desktop) when the phone is in Standalone mode, is connected to a desktop advertising `queue-handoff-v1`, and the source queue has a selected current track. Unsupported desktop versions show an update hint. The desktop's current cast output is treated as its playback output.
+
+Both gestures start the destination at a fresh position from the source. A tap pauses the source after the destination has prepared its current track. A long press leaves source playback unchanged: if the source is playing, it keeps playing; if it is paused, it stays paused. The source queue is retained. Replacing a nonempty destination queue requires an in-app confirmation. Repeat, shuffle, volume, and mute remain local to the destination. Position is matched once; the players then progress independently.
+
+Queue transfer is staged and version-checked before playback changes. Phone-to-desktop queues are sent in bounded chunks, validated, and resolved using desktop cache or Bandcamp media; phone-local file paths and stream URLs are discarded. If preparation fails, the source continues in its prior state and the destination queue is preserved. If the outcome of a desktop commit cannot be confirmed after a connection loss, the phone stays paused until status is checked to avoid playing on both devices unexpectedly.
 
 ### Standalone Mode Persistence (Mobile)
 

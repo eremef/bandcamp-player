@@ -12,37 +12,224 @@ const runAfterInteractions = (callback: () => void) => {
     }
 };
 
-type DesktopQueueContinuationResult = 'confirmation-required' | 'completed' | 'empty' | 'failed' | 'cancelled';
+type QueueHandoffDirection = 'import' | 'export';
+type QueueHandoffStatus = 'idle' | 'awaiting-confirmation' | 'running' | 'error';
+type QueueHandoffResult = 'confirmation-required' | 'completed' | 'empty' | 'failed' | 'cancelled';
 
-const desktopQueueSnapshotRequests = new Map<string, {
-    resolve: (snapshot: unknown) => void;
+interface QueueHandoffSnapshot extends DesktopQueueSnapshot {
+    queueVersion: number;
+    actionVersion: number;
+    isPlaying: boolean;
+    isCasting: boolean;
+    hasActiveTrack: boolean;
+}
+
+interface QueueHandoffRequest {
+    event: string;
+    resolve: (payload: any) => void;
     reject: (error: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
-}>();
-let desktopQueueContinuationGeneration = 0;
-let desktopQueueContinuationModeCancelledGeneration = -1;
-let desktopQueueContinuationOperationId = 0;
-let activeDesktopQueueContinuationId = 0;
+}
 
-function requestDesktopQueueSnapshot(): Promise<unknown> {
+const QUEUE_HANDOFF_MAX_BYTES = 8 * 1024 * 1024;
+const QUEUE_HANDOFF_CHUNK_BYTES = 700 * 1024;
+const queueHandoffRequests = new Map<string, QueueHandoffRequest>();
+let queueHandoffGeneration = 0;
+let queueHandoffRequestId = 0;
+let queueHandoffCapabilityTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingQueueHandoffConfirmation: {
+    direction: QueueHandoffDirection;
+    phoneQueueSignature: string;
+    phoneTrackId: string | null;
+    phoneActionRevision: number;
+    desktopQueueSignature: string;
+} | null = null;
+
+function createQueueHandoffRequestId(): string {
+    queueHandoffRequestId++;
+    return `handoff-${Date.now()}-${queueHandoffRequestId}`;
+}
+
+function requestQueueHandoffResponse(
+    type: string,
+    payload: Record<string, unknown>,
+    responseEvent: string,
+    timeoutMs = 8000,
+): Promise<any> {
     if (!webSocketService.isConnected()) return Promise.reject(new Error('The desktop is disconnected.'));
-    const requestId = `continue-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const requestId = typeof payload.requestId === 'string' ? payload.requestId : createQueueHandoffRequestId();
     return new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
-            desktopQueueSnapshotRequests.delete(requestId);
+            queueHandoffRequests.delete(requestId);
             reject(new Error('The desktop did not respond. Try again.'));
-        }, 8000);
-        desktopQueueSnapshotRequests.set(requestId, { resolve, reject, timeout });
-        webSocketService.send('request-desktop-queue-continuation', { requestId });
+        }, timeoutMs);
+        queueHandoffRequests.set(requestId, { event: responseEvent, resolve, reject, timeout });
+        webSocketService.send(type, { ...payload, requestId });
     });
 }
 
-function cancelDesktopQueueSnapshotRequests(message: string) {
-    for (const [requestId, request] of desktopQueueSnapshotRequests) {
+function cancelQueueHandoffRequests(message: string): void {
+    for (const [requestId, request] of queueHandoffRequests) {
         clearTimeout(request.timeout);
-        desktopQueueSnapshotRequests.delete(requestId);
+        queueHandoffRequests.delete(requestId);
         request.reject(new Error(message));
     }
+}
+
+async function requestQueueHandoffSnapshot(): Promise<QueueHandoffSnapshot> {
+    const response = await requestQueueHandoffResponse(
+        'request-desktop-queue-handoff-snapshot',
+        { requestId: createQueueHandoffRequestId() },
+        'desktop-queue-snapshot',
+    );
+    const snapshot = normalizeQueueHandoffSnapshot(response?.snapshot);
+    if (!snapshot) throw new Error('The desktop returned an invalid queue snapshot.');
+    return snapshot;
+}
+
+interface StagedDesktopQueueTransfer {
+    transferId: string;
+    commitSent: boolean;
+    commitFailed: boolean;
+    commit: (position: number) => Promise<void>;
+    abort: () => void;
+}
+
+type DesktopTransferStatus = 'succeeded' | 'failed' | 'unknown';
+
+let pendingExportOutcome: {
+    transferId: string;
+    phoneQueueSignature: string;
+    pauseSnapshot: { trackId: string; queueItemId: string; position: number; wasPlaying: boolean; actionRevision: number } | null;
+    attempts: number;
+} | null = null;
+
+async function getDesktopTransferStatus(transferId: string): Promise<DesktopTransferStatus> {
+    if (!webSocketService.isConnected()) return 'unknown';
+    try {
+        const response = await requestQueueHandoffResponse(
+            'request-desktop-queue-transfer-status',
+            { transferId },
+            'desktop-queue-transfer-status',
+            3000,
+        );
+        if (response?.transferId !== transferId || response.status !== 'completed') return 'unknown';
+        return response.result?.success === true ? 'succeeded' : 'failed';
+    } catch {
+        return 'unknown';
+    }
+}
+
+interface SerializedDesktopQueueTransfer {
+    chunks: string[];
+    totalBytes: number;
+}
+
+async function stageMobileQueueOnDesktop(
+    transfer: SerializedDesktopQueueTransfer,
+    expectedDestination: QueueHandoffSnapshot,
+    isSourceCurrent: () => boolean,
+): Promise<StagedDesktopQueueTransfer> {
+    const requestId = createQueueHandoffRequestId();
+    const transferId = createQueueHandoffRequestId();
+    let transferStarted = false;
+
+    try {
+        if (!isSourceCurrent()) throw new Error('The phone queue changed during the transfer.');
+        const ready = await requestQueueHandoffResponse(
+            'begin-desktop-queue-transfer',
+            {
+                requestId,
+                transferId,
+                totalBytes: transfer.totalBytes,
+                chunkCount: transfer.chunks.length,
+                expectedQueueVersion: expectedDestination.queueVersion,
+                expectedActionVersion: expectedDestination.actionVersion,
+            },
+            'desktop-queue-transfer-ready',
+        );
+        if (!ready?.success || ready.transferId !== transferId) {
+            throw new Error(ready?.reason || 'The desktop could not prepare the queue transfer.');
+        }
+        transferStarted = true;
+
+        for (let index = 0; index < transfer.chunks.length; index++) {
+            if (!isSourceCurrent()) throw new Error('The phone queue changed during the transfer.');
+            const ack = await requestQueueHandoffResponse(
+                'desktop-queue-transfer-chunk',
+                { requestId, transferId, index, data: transfer.chunks[index] },
+                'desktop-queue-transfer-chunk-ack',
+            );
+            if (!ack?.success || ack.index !== index || ack.transferId !== transferId) {
+                throw new Error(ack?.reason || 'The desktop could not receive the queue transfer.');
+            }
+        }
+
+        if (!isSourceCurrent()) throw new Error('The phone queue changed during the transfer.');
+        const prepared = await requestQueueHandoffResponse(
+            'prepare-desktop-queue-transfer',
+            { requestId, transferId },
+            'desktop-queue-transfer-prepared',
+            30000,
+        );
+        if (!prepared?.success || prepared.transferId !== transferId) {
+            throw new Error(prepared?.reason || 'The desktop could not prepare the transferred queue.');
+        }
+        if (!isSourceCurrent()) throw new Error('The phone queue changed during the transfer.');
+
+        const staged: StagedDesktopQueueTransfer = {
+            transferId,
+            commitSent: false,
+            commitFailed: false,
+            commit: async (position: number) => {
+                if (!isSourceCurrent()) throw new Error('The phone queue changed during the transfer.');
+                staged.commitSent = true;
+                const result = await requestQueueHandoffResponse(
+                    'commit-desktop-queue-transfer',
+                    { requestId, transferId, position },
+                    'desktop-queue-transfer-result',
+                );
+                transferStarted = false;
+                if (result?.success === false && result.transferId === transferId) staged.commitFailed = true;
+                if (!result?.success || result.transferId !== transferId) {
+                    throw new Error(result?.reason || 'The desktop could not start the transferred queue.');
+                }
+            },
+            abort: () => {
+                if (!transferStarted || staged.commitSent || !webSocketService.isConnected()) return;
+                webSocketService.send('abort-desktop-queue-transfer', { requestId, transferId });
+                transferStarted = false;
+            },
+        };
+        return staged;
+    } catch (error) {
+        if (transferStarted && webSocketService.isConnected()) {
+            webSocketService.send('abort-desktop-queue-transfer', { requestId, transferId });
+        }
+        throw error;
+    }
+}
+
+function encodeUtf8(value: string): Uint8Array {
+    const encoded = unescape(encodeURIComponent(value));
+    const bytes = new Uint8Array(encoded.length);
+    for (let index = 0; index < encoded.length; index++) bytes[index] = encoded.charCodeAt(index);
+    return bytes;
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let encoded = '';
+    for (let index = 0; index < bytes.length; index += 3) {
+        const first = bytes[index];
+        const second = bytes[index + 1];
+        const third = bytes[index + 2];
+        encoded += alphabet[first >> 2];
+        encoded += alphabet[((first & 3) << 4) | (second === undefined ? 0 : second >> 4)];
+        encoded += second === undefined ? '=' : alphabet[((second & 15) << 2) | (third === undefined ? 0 : third >> 6)];
+        encoded += third === undefined ? '=' : alphabet[third & 63];
+    }
+    return encoded;
 }
 
 function sanitizeDesktopTrack(track: any): Track | null {
@@ -109,11 +296,92 @@ function desktopQueueSignature(snapshot: DesktopQueueSnapshot): string {
         currentTrackId: snapshot.currentTrack?.id,
         items: snapshot.queue.items.map(item => ({
             id: item.id,
+            source: item.source,
+            sourceId: item.sourceId,
+            radioStationId: item.radioStation?.id,
             trackId: item.track.id,
             title: item.track.title,
+            artist: item.track.artist,
+            album: item.track.album,
+            artworkUrl: item.track.artworkUrl,
             bandcampUrl: item.track.bandcampUrl,
+            duration: item.track.duration,
         })),
     });
+}
+
+function normalizeQueueHandoffSnapshot(value: unknown): QueueHandoffSnapshot | null {
+    if (!value || typeof value !== 'object') return null;
+    const raw = value as any;
+    const snapshot = normalizeDesktopQueueSnapshot(raw);
+    if (!snapshot || !Number.isSafeInteger(raw.queueVersion) || !Number.isSafeInteger(raw.actionVersion) ||
+        typeof raw.isPlaying !== 'boolean') return null;
+    return {
+        ...snapshot,
+        queueVersion: raw.queueVersion,
+        actionVersion: raw.actionVersion,
+        isPlaying: raw.isPlaying,
+        isCasting: raw.isCasting === true,
+        hasActiveTrack: hasRawActiveDesktopTrack(raw),
+    };
+}
+
+function hasRawActiveDesktopTrack(snapshot: any): boolean {
+    if (!snapshot?.queue || !Array.isArray(snapshot.queue.items)) return false;
+    const index = Number.isInteger(snapshot.currentIndex) ? snapshot.currentIndex : snapshot.queue.currentIndex;
+    const item = snapshot.queue.items[index];
+    return !!item?.track?.id && typeof snapshot.currentTrack?.id === 'string' && snapshot.currentTrack.id === item.track.id;
+}
+
+function queueHandoffSignature(queue: Queue): string {
+    return JSON.stringify({
+        currentIndex: queue.currentIndex,
+        items: queue.items.map(item => ({
+            id: item.id,
+            trackId: item.track.id,
+            title: item.track.title,
+            artist: item.track.artist,
+            album: item.track.album,
+            bandcampUrl: item.track.bandcampUrl,
+            duration: item.track.duration,
+            source: item.source,
+            sourceId: item.sourceId,
+            radioStationId: item.radioStation?.id,
+        })),
+    });
+}
+
+function desktopHandoffRevisionSignature(snapshot: QueueHandoffSnapshot): string {
+    return `${desktopQueueSignature(snapshot)}|${snapshot.queueVersion}|${snapshot.actionVersion}`;
+}
+
+function sanitizeMobileQueueForDesktop(queue: Queue): Queue {
+    return {
+        items: queue.items.map(item => ({
+            ...item,
+            track: {
+                ...item.track,
+                streamUrl: '',
+                isCached: false,
+                cachedPath: undefined,
+            },
+            ...(item.radioStation ? { radioStation: { ...item.radioStation, streamUrl: '' } } : {}),
+        })),
+        currentIndex: queue.currentIndex,
+    };
+}
+
+function serializeDesktopQueueTransfer(queue: Queue): SerializedDesktopQueueTransfer {
+    const body = JSON.stringify(sanitizeMobileQueueForDesktop(queue));
+    const bytes = encodeUtf8(body);
+    if (bytes.byteLength > QUEUE_HANDOFF_MAX_BYTES) {
+        throw new Error('This queue is too large to transfer (8 MiB maximum).');
+    }
+    const chunks: string[] = [];
+    for (let offset = 0; offset < bytes.length; offset += QUEUE_HANDOFF_CHUNK_BYTES) {
+        chunks.push(encodeBase64(bytes.subarray(offset, Math.min(offset + QUEUE_HANDOFF_CHUNK_BYTES, bytes.length))));
+    }
+    return { chunks: chunks.length > 0 ? chunks : [''], totalBytes: bytes.byteLength };
 }
 import { DiscoveryService } from '../services/discovery.service';
 import { AppState as RNAppState, ToastAndroid } from 'react-native';
@@ -128,8 +396,10 @@ interface AppState extends PlayerState {
     desktopSocketConnected: boolean;
     desktopQueueAvailability: 'unknown' | 'empty' | 'nonempty';
     desktopQueueAvailabilityRevision: number;
-    isContinuingDesktopQueue: boolean;
-    desktopContinuationError: string | null;
+    desktopQueueHandoffAvailable: boolean;
+    desktopQueueHandoffCapabilityChecked: boolean;
+    desktopQueueCurrentTrackAvailable: boolean;
+    queueHandoff: { status: QueueHandoffStatus; direction: QueueHandoffDirection | null; message: string | null };
     mode: 'remote' | 'standalone';
     hostIp: string;
     auth: { isAuthenticated: boolean; user: BandcampUser | null };
@@ -222,7 +492,9 @@ interface AppState extends PlayerState {
     removeFromQueue: (id: string) => void;
     reorderQueue: (fromIndex: number, toIndex: number, newItemsData?: QueueItem[]) => void;
     clearQueue: (keepTrack?: boolean) => void;
-    continueDesktopQueue: (confirmed?: boolean) => Promise<'confirmation-required' | 'completed' | 'empty' | 'failed' | 'cancelled'>;
+    importDesktopQueue: (pauseDesktop: boolean, confirmed?: boolean) => Promise<QueueHandoffResult>;
+    exportQueueToDesktop: (pausePhone: boolean, confirmed?: boolean) => Promise<QueueHandoffResult>;
+    cancelQueueHandoff: () => void;
 
     // Playlist Actions
     createPlaylist: (name: string, description?: string) => void;
@@ -339,8 +611,10 @@ export const useStore = create<AppState>((set, get) => ({
     desktopSocketConnected: false,
     desktopQueueAvailability: 'unknown',
     desktopQueueAvailabilityRevision: 0,
-    isContinuingDesktopQueue: false,
-    desktopContinuationError: null,
+    desktopQueueHandoffAvailable: false,
+    desktopQueueHandoffCapabilityChecked: false,
+    desktopQueueCurrentTrackAvailable: false,
+    queueHandoff: { status: 'idle', direction: null, message: null },
     storeInitialized: false,
     ignoreRemoteIntentsUntil: 0,
 
@@ -725,19 +999,24 @@ export const useStore = create<AppState>((set, get) => ({
     setMode: async (mode) => {
         const currentMode = get().mode;
         if (currentMode === mode) return;
-        if (get().isContinuingDesktopQueue) {
-            desktopQueueContinuationModeCancelledGeneration = desktopQueueContinuationGeneration;
+        pendingExportOutcome = null;
+        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+        queueHandoffCapabilityTimeout = null;
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        cancelQueueHandoffRequests('The app mode changed.');
+        if (get().queueHandoff.status === 'running' && get().queueHandoff.direction === 'import') {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
             mobilePlayerService.cancelPendingLoad?.();
         }
-        desktopQueueContinuationGeneration++;
-        cancelDesktopQueueSnapshotRequests('The app mode changed.');
         set({
-            isContinuingDesktopQueue: false,
-            desktopContinuationError: null,
             desktopQueueAvailability: 'unknown',
             desktopQueueAvailabilityRevision: get().desktopQueueAvailabilityRevision +
                 (get().desktopQueueAvailability === 'unknown' ? 0 : 1),
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+            queueHandoff: { status: 'idle', direction: null, message: null },
             desktopSocketConnected: webSocketService.isConnected(),
         });
 
@@ -849,6 +1128,11 @@ export const useStore = create<AppState>((set, get) => ({
     connect: async (manualIp?: string, options?: RemoteConnectionOptions) => {
         const ip = manualIp || get().hostIp;
         if (!ip) return;
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        cancelQueueHandoffRequests('The desktop connection changed.');
+        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+        queueHandoffCapabilityTimeout = null;
 
 
         // Add to recent IPs if not exists or move to top
@@ -866,6 +1150,10 @@ export const useStore = create<AppState>((set, get) => ({
             desktopQueueAvailability: 'unknown',
             desktopQueueAvailabilityRevision: get().desktopQueueAvailabilityRevision +
                 (get().desktopQueueAvailability === 'unknown' ? 0 : 1),
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+            queueHandoff: { status: 'idle', direction: null, message: null },
             skipAutoLogin: false,
         });
         await webSocketService.connect(ip, options);
@@ -873,6 +1161,17 @@ export const useStore = create<AppState>((set, get) => ({
 
     disconnect: async () => {
         const { mode } = get();
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        cancelQueueHandoffRequests('The desktop connection was lost.');
+        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+        queueHandoffCapabilityTimeout = null;
+        set({
+            queueHandoff: { status: 'idle', direction: null, message: null },
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+        });
 
         if (mode === 'remote') {
             webSocketService.disconnect();
@@ -2442,17 +2741,32 @@ export const useStore = create<AppState>((set, get) => ({
             // Local queue is already managed in store state
         }
     },
-    continueDesktopQueue: async (confirmed = false): Promise<DesktopQueueContinuationResult> => {
-        if (get().isContinuingDesktopQueue) return 'failed';
-        const generation = ++desktopQueueContinuationGeneration;
-        const operationId = ++desktopQueueContinuationOperationId;
-        activeDesktopQueueContinuationId = operationId;
-        const isCurrent = () => generation === desktopQueueContinuationGeneration &&
-            get().mode === 'standalone' && get().desktopSocketConnected && webSocketService.isConnected();
-        const isCancelled = () => generation !== desktopQueueContinuationGeneration ||
-            get().mode !== 'standalone' || !get().desktopSocketConnected || !webSocketService.isConnected();
-        set({ isContinuingDesktopQueue: true, desktopContinuationError: null });
-
+    cancelQueueHandoff: () => {
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        pendingExportOutcome = null;
+        cancelQueueHandoffRequests('The queue transfer was cancelled.');
+        const state = get();
+        if (state.queueHandoff.status === 'running' && state.queueHandoff.direction === 'import') {
+            const { mobilePlayerService } = require('../services/MobilePlayerService');
+            mobilePlayerService.cancelPendingLoad?.();
+        }
+        if (state.queueHandoff.status !== 'running') {
+            set({ queueHandoff: { status: 'idle', direction: null, message: null } });
+        }
+    },
+    importDesktopQueue: async (pauseDesktop, confirmed = false): Promise<QueueHandoffResult> => {
+        if (get().queueHandoff.status === 'running') return 'failed';
+        const generation = ++queueHandoffGeneration;
+        const before = get();
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneSignatureBefore = queueHandoffSignature(before.queue);
+        const phoneActionRevision = mobilePlayerService.getPlaybackActionRevision?.() ?? 0;
+        const phoneTrackIdBefore = before.queue.items[before.queue.currentIndex]?.track.id || before.currentTrack?.id || null;
+        const isCurrent = () => generation === queueHandoffGeneration && get().mode === 'standalone' &&
+            get().desktopSocketConnected && webSocketService.isConnected() && get().desktopQueueHandoffAvailable;
+        let awaitingConfirmation = false;
+        let desktopPause: { requestId: string; actionVersion: number; trackId: string; position: number; wasPlaying: boolean } | null = null;
         let rollbackState: {
             queue: Queue;
             currentTrack: Track | null;
@@ -2462,19 +2776,20 @@ export const useStore = create<AppState>((set, get) => ({
             userIntendedPause: boolean;
             repeatMode: AppState['repeatMode'];
             isShuffled: boolean;
-            volume: number;
-            collectionError: string | null;
         } | null = null;
+        let stagedQueueSignature = '';
 
-        const restorePhonePlayback = async () => {
-            if (!rollbackState || get().mode !== 'standalone') return;
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            try {
-                await TrackPlayer.pause();
-            } catch {
-                // The native player may already be stopped.
-            }
-            if (get().mode !== 'standalone' || desktopQueueContinuationModeCancelledGeneration === generation) return;
+        const rollbackPhone = async () => {
+            if (!rollbackState || get().mode !== 'standalone' ||
+                mobilePlayerService.getPlaybackActionRevision?.() !== phoneActionRevision ||
+                queueHandoffSignature(get().queue) !== stagedQueueSignature) return;
+
+            try { await TrackPlayer.pause(); } catch { mobilePlayerService.cancelPendingLoad?.(); }
+            if (get().mode !== 'standalone' ||
+                mobilePlayerService.getPlaybackActionRevision?.() !== phoneActionRevision ||
+                queueHandoffSignature(get().queue) !== stagedQueueSignature) return;
+
+            const latest = get();
             set({
                 queue: rollbackState.queue,
                 currentTrack: rollbackState.currentTrack,
@@ -2482,179 +2797,368 @@ export const useStore = create<AppState>((set, get) => ({
                 duration: rollbackState.duration,
                 isPlaying: false,
                 userIntendedPause: rollbackState.userIntendedPause,
-                repeatMode: rollbackState.repeatMode,
-                isShuffled: rollbackState.isShuffled,
-                volume: rollbackState.volume,
-                collectionError: rollbackState.collectionError,
+                repeatMode: latest.repeatMode,
+                isShuffled: latest.isShuffled,
+                collectionError: null,
             });
-
-            let restoredPlaying = false;
             if (rollbackState.currentTrack) {
-                const loaded = await mobilePlayerService.loadTrack(
-                    rollbackState.currentTrack,
-                    rollbackState.currentTime,
-                );
+                const loaded = await mobilePlayerService.loadTrack(rollbackState.currentTrack, rollbackState.currentTime);
                 const mediaId = rollbackState.queue.items[rollbackState.queue.currentIndex]?.id || rollbackState.currentTrack.id;
-                const ready = loaded && (mobilePlayerService.waitForTrackReady
-                    ? await mobilePlayerService.waitForTrackReady(mediaId)
-                    : true);
+                const ready = loaded && (!mobilePlayerService.waitForTrackReady ||
+                    await mobilePlayerService.waitForTrackReady(mediaId));
                 if (ready && mobilePlayerService.waitForResumeReady) await mobilePlayerService.waitForResumeReady();
-                if (get().mode !== 'standalone' || desktopQueueContinuationModeCancelledGeneration === generation) return;
+                if (get().mode !== 'standalone' ||
+                    mobilePlayerService.getPlaybackActionRevision?.() !== phoneActionRevision ||
+                    queueHandoffSignature(get().queue) !== queueHandoffSignature(rollbackState.queue)) return;
                 if (rollbackState.isPlaying && ready) {
-                    TrackPlayer.setVolume(rollbackState.volume);
+                    const latestSettings = get();
+                    TrackPlayer.setRepeatMode(latestSettings.repeatMode as any);
+                    TrackPlayer.setVolume(latestSettings.volume);
                     await TrackPlayer.play();
-                    restoredPlaying = true;
+                    set({ isPlaying: true, userIntendedPause: false });
                 } else {
                     await TrackPlayer.pause();
+                    set({ isPlaying: false, userIntendedPause: rollbackState.userIntendedPause });
                 }
             } else {
                 await TrackPlayer.clear();
             }
-            if (get().mode !== 'standalone' || desktopQueueContinuationModeCancelledGeneration === generation) return;
-
-            set({
-                isPlaying: restoredPlaying,
-                userIntendedPause: rollbackState.userIntendedPause,
-                repeatMode: rollbackState.repeatMode,
-                isShuffled: rollbackState.isShuffled,
-                volume: rollbackState.volume,
-                collectionError: rollbackState.collectionError,
-            });
             await get().saveQueue();
         };
 
-        try {
-            if (!isCurrent()) throw new Error('The desktop is disconnected.');
-            const firstRawSnapshot = await requestDesktopQueueSnapshot();
-            if (!isCurrent()) return 'cancelled';
-            let snapshot = normalizeDesktopQueueSnapshot(firstRawSnapshot);
-            if (!snapshot) {
-                updateDesktopQueueAvailability('unknown');
-                throw new Error('The desktop returned an invalid queue snapshot.');
+        const rollbackDesktop = async () => {
+            if (!desktopPause || !webSocketService.isConnected()) return;
+            try {
+                await requestQueueHandoffResponse(
+                    'request-desktop-queue-resume',
+                    {
+                        requestId: desktopPause.requestId,
+                        expectedActionVersion: desktopPause.actionVersion,
+                        expectedTrackId: desktopPause.trackId,
+                        position: desktopPause.position,
+                        wasPlaying: desktopPause.wasPlaying,
+                    },
+                    'desktop-queue-resume-result',
+                    3000,
+                );
+            } catch {
+                return;
             }
-            updateDesktopQueueAvailability(snapshot.queue.items.length > 0 ? 'nonempty' : 'empty');
-            if (snapshot.queue.items.length === 0) {
-                set({ desktopContinuationError: 'The desktop queue is empty.' });
-                return 'empty';
-            }
-            if (!confirmed && get().queue.items.length > 0) return 'confirmation-required';
+        };
 
-            const before = get();
+        set({ queueHandoff: { status: 'running', direction: 'import', message: null } });
+        try {
+            if (before.mode !== 'standalone' || !before.desktopSocketConnected || !webSocketService.isConnected() ||
+                !before.desktopQueueHandoffAvailable || !before.desktopQueueCurrentTrackAvailable) {
+                throw new Error('Connect to a compatible desktop with an active track to import its queue.');
+            }
+            const firstSnapshot = await requestQueueHandoffSnapshot();
+            if (!isCurrent()) return 'cancelled';
+            if (firstSnapshot.queue.items.length === 0) throw new Error('The desktop queue is empty.');
+            if (!firstSnapshot.hasActiveTrack) throw new Error('The desktop has no active queue track to import.');
+
+            const pending = pendingQueueHandoffConfirmation;
+            const targetSignature = queueHandoffSignature(before.queue);
+            const sourceSignature = desktopHandoffRevisionSignature(firstSnapshot);
+            const confirmationMatches = !!pending && pending.direction === 'import' &&
+                pending.phoneQueueSignature === targetSignature && pending.phoneTrackId === phoneTrackIdBefore &&
+                pending.phoneActionRevision === phoneActionRevision && pending.desktopQueueSignature === sourceSignature;
+            if (before.queue.items.length > 0 && (!confirmed || !confirmationMatches)) {
+                pendingQueueHandoffConfirmation = {
+                    direction: 'import', phoneQueueSignature: targetSignature,
+                    phoneTrackId: phoneTrackIdBefore, phoneActionRevision, desktopQueueSignature: sourceSignature,
+                };
+                awaitingConfirmation = true;
+                return 'confirmation-required';
+            }
+            pendingQueueHandoffConfirmation = null;
+            if (queueHandoffSignature(get().queue) !== phoneSignatureBefore ||
+                (mobilePlayerService.getPlaybackActionRevision?.() ?? 0) !== phoneActionRevision) {
+                throw new Error('The phone queue changed. Review the transfer and try again.');
+            }
+
+            const snapshot = firstSnapshot;
+
+            const currentPhone = get();
+            if (!isCurrent() || queueHandoffSignature(currentPhone.queue) !== phoneSignatureBefore ||
+                (mobilePlayerService.getPlaybackActionRevision?.() ?? 0) !== phoneActionRevision) {
+                throw new Error('The phone queue changed during the transfer.');
+            }
+            let phonePosition = currentPhone.currentTime;
+            try {
+                const nativePosition = TrackPlayer.getProgress().position;
+                if (Number.isFinite(nativePosition)) phonePosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
+            } catch { phonePosition = currentPhone.currentTime; }
+            rollbackState = {
+                queue: currentPhone.queue,
+                currentTrack: currentPhone.currentTrack,
+                currentTime: Number.isFinite(phonePosition) ? Math.max(0, phonePosition) : 0,
+                duration: currentPhone.duration,
+                isPlaying: currentPhone.isPlaying,
+                userIntendedPause: currentPhone.userIntendedPause,
+                repeatMode: currentPhone.repeatMode,
+                isShuffled: currentPhone.isShuffled,
+            };
+
+            stagedQueueSignature = phoneSignatureBefore;
+            await TrackPlayer.pause();
+            if (!isCurrent()) throw new Error('The desktop connection changed.');
+            stagedQueueSignature = queueHandoffSignature(snapshot.queue);
+            const settings = get();
+            set({
+                queue: snapshot.queue,
+                currentTrack: snapshot.currentTrack,
+                currentTime: snapshot.position,
+                duration: snapshot.duration,
+                isPlaying: false,
+                userIntendedPause: true,
+                repeatMode: settings.repeatMode,
+                isShuffled: settings.isShuffled,
+                collectionError: null,
+            });
+
+            const initialItem = snapshot.queue.items[snapshot.currentIndex];
+            if (!initialItem || !snapshot.currentTrack) throw new Error('The desktop current track is unavailable.');
+            const loaded = await mobilePlayerService.loadTrack(initialItem.track, snapshot.position, true);
+            if (!isCurrent()) throw new Error('The desktop connection changed.');
+            if (!loaded) throw new Error(get().collectionError || `Could not prepare "${initialItem.track.title}" on this phone.`);
+            if (mobilePlayerService.waitForTrackReady && !await mobilePlayerService.waitForTrackReady(initialItem.id)) {
+                throw new Error('The phone could not prepare the desktop track. Try again.');
+            }
+            if (mobilePlayerService.waitForResumeReady && !await mobilePlayerService.waitForResumeReady()) {
+                throw new Error('The phone could not seek to the desktop position. Try again.');
+            }
+            if (queueHandoffSignature(get().queue) !== stagedQueueSignature ||
+                (mobilePlayerService.getPlaybackActionRevision?.() ?? 0) !== phoneActionRevision) {
+                throw new Error('The phone playback changed during the transfer.');
+            }
+
+            let latestSnapshot = firstSnapshot;
+            let finalPosition = firstSnapshot.position;
+            if (pauseDesktop) {
+                const pauseRequestId = createQueueHandoffRequestId();
+                const pause = await requestQueueHandoffResponse(
+                    'request-desktop-queue-pause',
+                    {
+                        requestId: pauseRequestId,
+                        expectedTrackId: firstSnapshot.currentTrack?.id,
+                        expectedQueueVersion: firstSnapshot.queueVersion,
+                        expectedActionVersion: firstSnapshot.actionVersion,
+                    },
+                    'desktop-queue-paused',
+                );
+                if (!pause?.success || pause.trackId !== firstSnapshot.currentTrack?.id ||
+                    pause.queueVersion !== firstSnapshot.queueVersion || !Number.isFinite(pause.position) ||
+                    !Number.isSafeInteger(pause.actionVersion)) {
+                    throw new Error(pause?.reason || 'The desktop changed before it could pause for the transfer.');
+                }
+                desktopPause = {
+                    requestId: pauseRequestId,
+                    actionVersion: pause.actionVersion,
+                    trackId: pause.trackId,
+                    position: Math.max(0, pause.position),
+                    wasPlaying: pause.wasPlaying === true,
+                };
+                latestSnapshot = { ...firstSnapshot, position: desktopPause.position, actionVersion: desktopPause.actionVersion, isPlaying: false };
+                finalPosition = desktopPause.position;
+            } else {
+                latestSnapshot = await requestQueueHandoffSnapshot();
+                if (!isCurrent()) throw new Error('The desktop connection changed.');
+                if (latestSnapshot.queueVersion !== firstSnapshot.queueVersion ||
+                    latestSnapshot.actionVersion !== firstSnapshot.actionVersion ||
+                    desktopQueueSignature(latestSnapshot) !== desktopQueueSignature(firstSnapshot) ||
+                    !latestSnapshot.hasActiveTrack) {
+                    throw new Error('The desktop queue changed during the transfer. Try again.');
+                }
+                finalPosition = latestSnapshot.position;
+            }
+
+            const finalItem = latestSnapshot.queue.items[latestSnapshot.currentIndex];
+            const latestPhoneState = get();
+            if (!finalItem || latestPhoneState.queue.items[latestSnapshot.currentIndex]?.id !== finalItem.id ||
+                mobilePlayerService.getPlaybackActionRevision?.() !== phoneActionRevision) {
+                throw new Error('The phone playback changed during the transfer.');
+            }
+            set({ currentTime: finalPosition, duration: latestSnapshot.duration || finalItem.track.duration || 0 });
+            const started = await mobilePlayerService.playPreparedTrack(finalItem.track.id, finalPosition);
+            if (!started) throw new Error('The phone could not start the transferred queue.');
+            if (desktopPause && !webSocketService.isConnected()) {
+                throw new Error('The desktop connection changed before the transfer was confirmed.');
+            }
+            if (desktopPause && !desktopPause.wasPlaying) desktopPause = null;
+            if (desktopPause) {
+                let completion: any;
+                try {
+                    completion = await requestQueueHandoffResponse(
+                        'complete-desktop-queue-pause',
+                        { requestId: desktopPause.requestId, expectedActionVersion: desktopPause.actionVersion },
+                        'desktop-queue-handoff-completed',
+                        3000,
+                    );
+                } catch {
+                    completion = await requestQueueHandoffResponse(
+                        'complete-desktop-queue-pause',
+                        { requestId: desktopPause.requestId, expectedActionVersion: desktopPause.actionVersion },
+                        'desktop-queue-handoff-completed',
+                        3000,
+                    );
+                }
+                if (!completion?.success) throw new Error('The desktop could not confirm the pause for this transfer.');
+                desktopPause = null;
+            }
+            set({ isPlaying: true, userIntendedPause: false, currentTime: finalPosition });
+            set({ queueHandoff: { status: 'idle', direction: null, message: null } });
+            return 'completed';
+        } catch (error) {
+            const cancelled = generation !== queueHandoffGeneration || get().mode !== 'standalone' ||
+                !get().desktopSocketConnected || !webSocketService.isConnected();
+            if (stagedQueueSignature) await rollbackPhone().catch(() => undefined);
+            if (desktopPause) await rollbackDesktop();
+            if (!cancelled) {
+                const message = error instanceof Error ? error.message : 'Could not import the desktop queue.';
+                set({ queueHandoff: { status: 'error', direction: 'import', message } });
+            } else if (get().mode === 'standalone') {
+                set({ queueHandoff: { status: 'idle', direction: null, message: null } });
+            }
+            return cancelled ? 'cancelled' : 'failed';
+        } finally {
+            if (generation === queueHandoffGeneration && !awaitingConfirmation && get().queueHandoff.status !== 'error') {
+                set({ queueHandoff: { status: 'idle', direction: null, message: null } });
+            } else if (generation === queueHandoffGeneration && awaitingConfirmation) {
+                set({ queueHandoff: { status: 'awaiting-confirmation', direction: 'import', message: null } });
+            }
+        }
+    },
+    exportQueueToDesktop: async (pausePhone, confirmed = false): Promise<QueueHandoffResult> => {
+        if (get().queueHandoff.status === 'running') return 'failed';
+        if (pendingExportOutcome) {
+            set({ queueHandoff: { status: 'error', direction: 'export', message: 'Desktop playback is still unconfirmed. Check the desktop before starting another transfer.' } });
+            return 'failed';
+        }
+        const generation = ++queueHandoffGeneration;
+        const before = get();
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneSignatureBefore = queueHandoffSignature(before.queue);
+        const phoneActionRevision = mobilePlayerService.getPlaybackActionRevision?.() ?? 0;
+        const phoneTrackId = before.queue.items[before.queue.currentIndex]?.track.id;
+        const isCurrent = () => generation === queueHandoffGeneration && get().mode === 'standalone' &&
+            get().desktopSocketConnected && webSocketService.isConnected() && get().desktopQueueHandoffAvailable;
+        let awaitingConfirmation = false;
+        let pauseSnapshot: Awaited<ReturnType<typeof mobilePlayerService.pauseForQueueHandoff>> = null;
+        let stagedTransfer: StagedDesktopQueueTransfer | null = null;
+
+        set({ queueHandoff: { status: 'running', direction: 'export', message: null } });
+        try {
+            if (before.mode !== 'standalone' || !before.desktopSocketConnected || !webSocketService.isConnected() ||
+                !before.desktopQueueHandoffAvailable) {
+                throw new Error('Connect to a compatible desktop before exporting the queue.');
+            }
+            const currentItem = before.queue.items[before.queue.currentIndex];
+            if (!currentItem || !phoneTrackId || before.currentTrack?.id !== phoneTrackId) {
+                throw new Error('Start a track from the phone queue before exporting.');
+            }
+            if (mobilePlayerService.isNativeQueueItemActive && !mobilePlayerService.isNativeQueueItemActive(currentItem.id)) {
+                throw new Error('The phone has no active queue track to export.');
+            }
             let phonePosition = before.currentTime;
             try {
                 const nativePosition = TrackPlayer.getProgress().position;
-                if (Number.isFinite(nativePosition)) {
-                    const { mobilePlayerService } = require('../services/MobilePlayerService');
-                    phonePosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
-                }
-            } catch {
-                // Keep the last position reported by the local player.
+                if (Number.isFinite(nativePosition)) phonePosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
+            } catch { phonePosition = before.currentTime; }
+            const transfer = serializeDesktopQueueTransfer(before.queue);
+
+            const desktopSnapshot = await requestQueueHandoffSnapshot();
+            if (!isCurrent()) return 'cancelled';
+            const pending = pendingQueueHandoffConfirmation;
+            const targetSignature = desktopHandoffRevisionSignature(desktopSnapshot);
+            const confirmationMatches = !!pending && pending.direction === 'export' &&
+                pending.phoneQueueSignature === phoneSignatureBefore && pending.phoneTrackId === phoneTrackId &&
+                pending.phoneActionRevision === phoneActionRevision && pending.desktopQueueSignature === targetSignature;
+            if (desktopSnapshot.queue.items.length > 0 && (!confirmed || !confirmationMatches)) {
+                pendingQueueHandoffConfirmation = {
+                    direction: 'export', phoneQueueSignature: phoneSignatureBefore,
+                    phoneTrackId, phoneActionRevision, desktopQueueSignature: targetSignature,
+                };
+                awaitingConfirmation = true;
+                return 'confirmation-required';
             }
-            rollbackState = {
-                queue: before.queue,
-                currentTrack: before.currentTrack,
-                currentTime: Number.isFinite(phonePosition) ? Math.max(0, phonePosition) : 0,
-                duration: before.duration,
-                isPlaying: before.isPlaying,
-                userIntendedPause: before.userIntendedPause,
-                repeatMode: before.repeatMode,
-                isShuffled: before.isShuffled,
-                volume: before.volume,
-                collectionError: before.collectionError,
-            };
-
-            const { mobilePlayerService } = require('../services/MobilePlayerService');
-            await TrackPlayer.pause();
-            set({ isPlaying: false, userIntendedPause: true });
-
-            let preparedTrackId = '';
-            for (let attempt = 0; attempt < 3; attempt++) {
-                if (!isCurrent()) throw new Error('The desktop connection changed.');
-                const queueItem = snapshot.queue.items[snapshot.currentIndex];
-                if (!queueItem || !snapshot.currentTrack) throw new Error('The desktop current track is unavailable.');
-
-                set({
-                    queue: snapshot.queue,
-                    currentTrack: queueItem.track,
-                    currentTime: snapshot.position,
-                    duration: snapshot.duration || queueItem.track.duration || 0,
-                    isPlaying: false,
-                    userIntendedPause: true,
-                    repeatMode: rollbackState.repeatMode,
-                    isShuffled: rollbackState.isShuffled,
-                    collectionError: null,
-                });
-
-                const loaded = await mobilePlayerService.loadTrack(queueItem.track, snapshot.position, true);
-                if (!isCurrent()) throw new Error('The desktop connection changed.');
-                if (!loaded) throw new Error(get().collectionError || `Could not load "${queueItem.track.title}" on this phone.`);
-                if (mobilePlayerService.waitForTrackReady &&
-                    !await mobilePlayerService.waitForTrackReady(queueItem.id)) {
-                    throw new Error('The phone could not prepare the desktop track. Try again.');
-                }
-                if (mobilePlayerService.waitForResumeReady && !await mobilePlayerService.waitForResumeReady()) {
-                    throw new Error('The phone could not seek to the desktop position. Try again.');
-                }
-                preparedTrackId = queueItem.track.id;
-
-                const latestRawSnapshot = await requestDesktopQueueSnapshot();
-                if (!isCurrent()) throw new Error('The desktop connection changed.');
-                const latestSnapshot = normalizeDesktopQueueSnapshot(latestRawSnapshot);
-                if (!latestSnapshot) {
-                    updateDesktopQueueAvailability('unknown');
-                    throw new Error('The desktop returned an invalid queue snapshot.');
-                }
-                updateDesktopQueueAvailability(latestSnapshot.queue.items.length > 0 ? 'nonempty' : 'empty');
-                if (latestSnapshot.queue.items.length === 0) throw new Error('The desktop queue is empty.');
-
-                if (desktopQueueSignature(latestSnapshot) === desktopQueueSignature(snapshot)) {
-                    snapshot = latestSnapshot;
-                    break;
-                }
-                snapshot = latestSnapshot;
-                preparedTrackId = '';
+            pendingQueueHandoffConfirmation = null;
+            if (!isCurrent() || queueHandoffSignature(get().queue) !== phoneSignatureBefore ||
+                (mobilePlayerService.getPlaybackActionRevision?.() ?? 0) !== phoneActionRevision) {
+                throw new Error('The phone queue changed during the transfer.');
             }
 
-            if (!preparedTrackId || !isCurrent()) {
-                throw new Error('The desktop queue kept changing. Tap Continue desktop queue to retry.');
+            const transferIsCurrent = () => isCurrent() && queueHandoffSignature(get().queue) === phoneSignatureBefore &&
+                mobilePlayerService.getPlaybackActionRevision?.() === (pauseSnapshot?.actionRevision ?? phoneActionRevision);
+            stagedTransfer = await stageMobileQueueOnDesktop(transfer, desktopSnapshot, transferIsCurrent);
+            if (!transferIsCurrent()) throw new Error('The phone queue changed during the transfer.');
+
+            if (pausePhone) {
+                pauseSnapshot = await mobilePlayerService.pauseForQueueHandoff();
+                if (!pauseSnapshot || pauseSnapshot.trackId !== phoneTrackId ||
+                    pauseSnapshot.queueItemId !== currentItem.id) {
+                    throw new Error('The phone could not pause at the current track position.');
+                }
+                phonePosition = pauseSnapshot.position;
+            } else {
+                try {
+                    const nativePosition = TrackPlayer.getProgress().position;
+                    if (Number.isFinite(nativePosition)) phonePosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
+                } catch { phonePosition = get().currentTime; }
             }
 
-            const finalItem = snapshot.queue.items[snapshot.currentIndex];
-            if (!finalItem || finalItem.track.id !== preparedTrackId) {
-                throw new Error('The desktop track changed during preparation. Tap Continue desktop queue to retry.');
+            if (!transferIsCurrent()) {
+                throw new Error('The phone queue changed during the transfer.');
             }
-            set({
-                currentTime: snapshot.position,
-                duration: snapshot.duration || finalItem.track.duration || 0,
-            });
-            const started = await mobilePlayerService.playPreparedTrack(preparedTrackId, snapshot.position);
-            if (!started) throw new Error('The phone could not start the prepared desktop track. Tap Continue desktop queue to retry.');
-            set({ desktopContinuationError: null, isPlaying: true, userIntendedPause: false });
+            await stagedTransfer.commit(phonePosition);
+            stagedTransfer = null;
+            pendingQueueHandoffConfirmation = null;
             return 'completed';
         } catch (error) {
-            const cancelled = isCancelled();
-            if (desktopQueueContinuationModeCancelledGeneration !== generation && get().mode === 'standalone' && rollbackState) {
-                await restorePhonePlayback().catch(() => undefined);
+            const cancelled = generation !== queueHandoffGeneration || get().mode !== 'standalone' ||
+                !get().desktopSocketConnected || !webSocketService.isConnected();
+            const commitSent = stagedTransfer?.commitSent === true;
+            const transferId = stagedTransfer?.transferId;
+            stagedTransfer?.abort();
+            const outcome = commitSent && transferId && !stagedTransfer?.commitFailed
+                ? await getDesktopTransferStatus(transferId)
+                : 'failed';
+            if (outcome === 'succeeded') return 'completed';
+            if (outcome === 'unknown' && transferId) {
+                pendingExportOutcome = {
+                    transferId,
+                    phoneQueueSignature: phoneSignatureBefore,
+                    pauseSnapshot,
+                    attempts: 0,
+                };
+                if (get().mode === 'standalone') {
+                    set({ queueHandoff: {
+                        status: 'error',
+                        direction: 'export',
+                        message: pauseSnapshot
+                            ? 'Desktop playback could not be confirmed. The phone remains paused; check the desktop before resuming here.'
+                            : 'Desktop playback could not be confirmed. Check the desktop before starting another transfer.',
+                    } });
+                }
+                if (webSocketService.isConnected()) void reconcilePendingExportOutcome();
+                return 'failed';
+            }
+            if (pauseSnapshot && get().mode === 'standalone' && queueHandoffSignature(get().queue) === phoneSignatureBefore &&
+                mobilePlayerService.getPlaybackActionRevision?.() === pauseSnapshot.actionRevision) {
+                await mobilePlayerService.restoreQueueHandoffPlayback(pauseSnapshot).catch(() => false);
             }
             if (!cancelled) {
-                const message = error instanceof Error ? error.message : 'Could not continue the desktop queue.';
-                if (message === 'The desktop did not respond. Try again.' ||
-                    message === 'The desktop returned an invalid queue snapshot.') {
-                    updateDesktopQueueAvailability('unknown');
-                    if (get().desktopSocketConnected && webSocketService.isConnected()) webSocketService.send('get-state');
-                }
-                if (message === 'The desktop queue is empty.') {
-                    updateDesktopQueueAvailability('empty', { desktopContinuationError: message });
-                } else {
-                    set({ desktopContinuationError: message });
-                }
+                const message = error instanceof Error ? error.message : 'Could not export the phone queue.';
+                set({ queueHandoff: { status: 'error', direction: 'export', message } });
+            } else if (get().mode === 'standalone') {
+                set({ queueHandoff: { status: 'idle', direction: null, message: null } });
             }
-            if (cancelled) return 'cancelled';
-            return error instanceof Error && error.message === 'The desktop queue is empty.' ? 'empty' : 'failed';
+            return cancelled ? 'cancelled' : 'failed';
         } finally {
-            if (activeDesktopQueueContinuationId === operationId) {
-                activeDesktopQueueContinuationId = 0;
-                set({ isContinuingDesktopQueue: false });
+            if (generation === queueHandoffGeneration && !awaitingConfirmation && get().queueHandoff.status !== 'error') {
+                set({ queueHandoff: { status: 'idle', direction: null, message: null } });
+            } else if (generation === queueHandoffGeneration && awaitingConfirmation) {
+                set({ queueHandoff: { status: 'awaiting-confirmation', direction: 'export', message: null } });
             }
         }
     },
@@ -2867,6 +3371,55 @@ export const useStore = create<AppState>((set, get) => ({
 // Initialize Listeners
 let isRemoteTrackLoading = false;
 
+async function reconcilePendingExportOutcome(): Promise<void> {
+    const pending = pendingExportOutcome;
+    if (!pending || !webSocketService.isConnected() || useStore.getState().mode !== 'standalone') return;
+    const outcome = await getDesktopTransferStatus(pending.transferId);
+    if (pendingExportOutcome !== pending || useStore.getState().mode !== 'standalone') return;
+    if (outcome === 'unknown') {
+        if (pending.attempts++ < 4 && webSocketService.isConnected()) {
+            setTimeout(() => {
+                if (pendingExportOutcome === pending) void reconcilePendingExportOutcome();
+            }, 2000);
+        }
+        return;
+    }
+    pendingExportOutcome = null;
+    if (outcome === 'succeeded') {
+        useStore.setState({ queueHandoff: { status: 'idle', direction: null, message: null } });
+        return;
+    }
+    if (pending.pauseSnapshot && queueHandoffSignature(useStore.getState().queue) === pending.phoneQueueSignature) {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        await mobilePlayerService.restoreQueueHandoffPlayback(pending.pauseSnapshot).catch(() => false);
+    }
+    useStore.setState({ queueHandoff: {
+        status: 'error',
+        direction: 'export',
+        message: 'The desktop could not start the transferred queue. Phone playback was restored when possible.',
+    } });
+}
+
+function clearPendingQueueHandoffConfirmation() {
+    pendingQueueHandoffConfirmation = null;
+    if (useStore.getState().queueHandoff.status === 'awaiting-confirmation') {
+        useStore.setState({ queueHandoff: { status: 'idle', direction: null, message: null } });
+    }
+}
+
+useStore.subscribe((state) => {
+    const pending = pendingQueueHandoffConfirmation;
+    if (!pending || state.queueHandoff.status !== 'awaiting-confirmation') return;
+    const { mobilePlayerService } = require('../services/MobilePlayerService');
+    const trackId = state.queue.items[state.queue.currentIndex]?.track.id || state.currentTrack?.id || null;
+    if (state.mode !== 'standalone' || !state.desktopSocketConnected || !webSocketService.isConnected() ||
+        !state.desktopQueueHandoffAvailable || queueHandoffSignature(state.queue) !== pending.phoneQueueSignature ||
+        trackId !== pending.phoneTrackId ||
+        (mobilePlayerService.getPlaybackActionRevision?.() ?? 0) !== pending.phoneActionRevision) {
+        clearPendingQueueHandoffConfirmation();
+    }
+});
+
 function updateDesktopQueueAvailability(
     availability: AppState['desktopQueueAvailability'],
     extra: Partial<AppState> = {},
@@ -2884,17 +3437,41 @@ webSocketService.on('connection-status', (status, isExplicit) => {
     const { mode, connectionStatus: currentStatus } = useStore.getState();
 
     if (status === 'connected' && webSocketService.isConnected()) {
-        updateDesktopQueueAvailability('unknown', { desktopSocketConnected: true });
+        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+        updateDesktopQueueAvailability('unknown', {
+            desktopSocketConnected: true,
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+        });
+        queueHandoffCapabilityTimeout = setTimeout(() => {
+            queueHandoffCapabilityTimeout = null;
+            if (useStore.getState().desktopSocketConnected && !useStore.getState().desktopQueueHandoffCapabilityChecked) {
+                useStore.setState({ desktopQueueHandoffCapabilityChecked: true });
+            }
+        }, 3000);
+        if (pendingExportOutcome) void reconcilePendingExportOutcome();
     } else {
-        if (useStore.getState().isContinuingDesktopQueue) {
+        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+        queueHandoffCapabilityTimeout = null;
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        cancelQueueHandoffRequests('The desktop connection was lost.');
+        const handoffState = useStore.getState();
+        if (handoffState.queueHandoff.status === 'running' && handoffState.queueHandoff.direction === 'import') {
             const { mobilePlayerService } = require('../services/MobilePlayerService');
             mobilePlayerService.cancelPendingLoad?.();
         }
-        desktopQueueContinuationGeneration++;
-        cancelDesktopQueueSnapshotRequests('The desktop connection was lost.');
+        useStore.setState({
+            ...(handoffState.queueHandoff.status === 'running'
+                ? {}
+                : { queueHandoff: { status: 'idle' as const, direction: null, message: null } }),
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+        });
         updateDesktopQueueAvailability('unknown', {
             desktopSocketConnected: false,
-            desktopContinuationError: null,
         });
     }
 
@@ -2937,7 +3514,27 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
     const state = useStore.getState();
     if (state.mode === 'standalone') {
         if (payload.queue && Array.isArray(payload.queue.items)) {
-            updateDesktopQueueAvailability(payload.queue.items.length > 0 ? 'nonempty' : 'empty');
+            const rawSnapshot = {
+                queue: payload.queue,
+                currentTrack: payload.currentTrack,
+                currentIndex: payload.queue.currentIndex,
+                position: payload.currentTime,
+                duration: payload.duration,
+            };
+            const normalized = normalizeDesktopQueueSnapshot(rawSnapshot);
+            updateDesktopQueueAvailability(payload.queue.items.length > 0 ? 'nonempty' : 'empty', {
+                desktopQueueCurrentTrackAvailable: hasRawActiveDesktopTrack(rawSnapshot),
+            });
+            const pending = pendingQueueHandoffConfirmation;
+            if (pending) {
+                const latestSignature = normalized ? desktopQueueSignature(normalized) : '';
+                const expectedSignature = pending.desktopQueueSignature.replace(/\|\d+\|\d+$/, '');
+                if (!normalized || latestSignature !== expectedSignature ||
+                    (pending.direction === 'import' && !hasRawActiveDesktopTrack(rawSnapshot))) {
+                    pendingQueueHandoffConfirmation = null;
+                    useStore.setState({ queueHandoff: { status: 'idle', direction: null, message: null } });
+                }
+            }
         }
         return;
     }
@@ -3020,11 +3617,60 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
 
 webSocketService.on('desktop-queue-snapshot', (payload) => {
     if (!payload || typeof payload.requestId !== 'string') return;
-    const request = desktopQueueSnapshotRequests.get(payload.requestId);
-    if (!request) return;
-    clearTimeout(request.timeout);
-    desktopQueueSnapshotRequests.delete(payload.requestId);
-    request.resolve(payload.snapshot);
+    const handoffRequest = queueHandoffRequests.get(payload.requestId);
+    if (handoffRequest?.event === 'desktop-queue-snapshot') {
+        clearTimeout(handoffRequest.timeout);
+        queueHandoffRequests.delete(payload.requestId);
+        const snapshot = normalizeQueueHandoffSnapshot(payload.snapshot);
+        if (snapshot) {
+            updateDesktopQueueAvailability(snapshot.queue.items.length > 0 ? 'nonempty' : 'empty', {
+                desktopQueueCurrentTrackAvailable: snapshot.hasActiveTrack,
+            });
+            handoffRequest.resolve({ ...payload, snapshot });
+        } else {
+            handoffRequest.resolve(payload);
+        }
+    }
+});
+
+for (const responseEvent of [
+    'desktop-queue-paused',
+    'desktop-queue-resume-result',
+    'desktop-queue-handoff-completed',
+    'desktop-queue-transfer-ready',
+    'desktop-queue-transfer-chunk-ack',
+    'desktop-queue-transfer-prepared',
+    'desktop-queue-transfer-result',
+    'desktop-queue-transfer-status',
+]) {
+    webSocketService.on(responseEvent, (payload) => {
+        if (!payload || typeof payload.requestId !== 'string') return;
+        const request = queueHandoffRequests.get(payload.requestId);
+        if (!request || request.event !== responseEvent) return;
+        clearTimeout(request.timeout);
+        queueHandoffRequests.delete(payload.requestId);
+        request.resolve(payload);
+    });
+}
+
+webSocketService.on('capabilities', (payload) => {
+    const available = Array.isArray(payload?.capabilities) && payload.capabilities.includes('queue-handoff-v1');
+    const current = useStore.getState();
+    if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+    queueHandoffCapabilityTimeout = null;
+    if (available === current.desktopQueueHandoffAvailable && current.desktopQueueHandoffCapabilityChecked) return;
+    if (available !== current.desktopQueueHandoffAvailable) {
+        queueHandoffGeneration++;
+        pendingQueueHandoffConfirmation = null;
+        cancelQueueHandoffRequests('Desktop queue transfer capability changed.');
+    }
+    useStore.setState({
+        desktopQueueHandoffAvailable: available,
+        desktopQueueHandoffCapabilityChecked: true,
+        ...(current.queueHandoff.status === 'running'
+            ? {}
+            : { queueHandoff: { status: 'idle' as const, direction: null, message: null } }),
+    });
 });
 
 webSocketService.on('collection-data', (collectionData) => {

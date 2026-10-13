@@ -14,6 +14,8 @@ import { AuthService } from './auth.service';
 import type {
     AppSettings,
     Track,
+    QueueItem,
+    RadioStation,
     RemoteClient,
     RemotePairingRecord,
     RemotePairedDevice,
@@ -53,6 +55,57 @@ const PLAYLIST_MUTATING_TYPES = new Set([...SERIALIZED_MESSAGE_TYPES].filter(
     t => t !== 'get-playlists' && t !== 'get-playlist-for-export'
 ));
 
+const MAX_QUEUE_TRANSFER_BYTES = 8 * 1024 * 1024;
+const MAX_QUEUE_TRANSFER_CHUNK_BYTES = 700 * 1024;
+const MAX_QUEUE_TRANSFER_CHUNK_TEXT = 960 * 1024;
+const QUEUE_TRANSFER_TIMEOUT_MS = 60_000;
+const PAUSE_LEASE_TIMEOUT_MS = 20_000;
+
+interface StagedDesktopQueueTransfer {
+    clientId: string;
+    ownerId: string;
+    requestId: string;
+    transferId: string;
+    expectedQueueVersion: number;
+    expectedActionVersion: number;
+    totalBytes: number;
+    chunkCount: number;
+    chunks: Map<number, Buffer>;
+    receivedBytes: number;
+    preparedItems?: QueueItem[];
+    currentIndex?: number;
+    committing: boolean;
+    expiresAt: number;
+    timeout: ReturnType<typeof setTimeout>;
+}
+
+interface DesktopQueueTransferOutcome {
+    ownerId: string;
+    requestId: string;
+    transferId: string;
+    status: 'pending' | 'completed';
+    result?: { success: boolean; queueVersion?: number; actionVersion?: number; reason?: string };
+    timeout: ReturnType<typeof setTimeout>;
+}
+
+const QUEUE_TRANSFER_OUTCOME_TTL_MS = 60_000;
+const MAX_QUEUE_TRANSFER_OUTCOMES = 20;
+
+interface DesktopQueuePauseLease {
+    clientId: string;
+    requestId: string;
+    expectedActionVersion: number;
+    trackId: string;
+    position: number;
+    wasPlaying: boolean;
+    timeout: ReturnType<typeof setTimeout>;
+}
+
+interface CompletedDesktopQueuePause {
+    expectedActionVersion: number;
+    timeout: ReturnType<typeof setTimeout>;
+}
+
 export class RemoteControlService extends EventEmitter {
     private server: any;
     private wss: WebSocketServer | null = null;
@@ -80,6 +133,12 @@ export class RemoteControlService extends EventEmitter {
     private handshakeWindows = new Map<string, { startedAt: number; count: number }>();
     private startingPromise: Promise<void> | null = null;
     private stoppingPromise: Promise<void> | null = null;
+    private queueTransfers = new Map<string, StagedDesktopQueueTransfer>();
+    private queueTransferClients = new Map<string, string>();
+    private queueTransferOutcomes = new Map<string, DesktopQueueTransferOutcome>();
+    private queuePauseLeases = new Map<string, DesktopQueuePauseLease>();
+    private completedQueuePauses = new Map<string, CompletedDesktopQueuePause>();
+    private queueHandoffPauseInProgress = false;
 
     constructor(playerService: PlayerService, scraperService: ScraperService, playlistService: PlaylistService, authService: AuthService, database: Database, port: number = 9999) {
         super();
@@ -261,12 +320,14 @@ export class RemoteControlService extends EventEmitter {
             this.clients.set(clientId, client);
 
             if (this.securityMode === 'unsafe') {
+                this.sendQueueHandoffCapabilities(ws);
                 this.sendToClient(ws, 'state-changed', this.playerService.getState());
             } else {
                 const cookie = this.getCookieValue(req.headers.cookie, 'remote_session');
                 const cookieMatch = cookie?.match(/^([0-9a-f-]{36})\.([A-Za-z0-9_-]{40,})$/i);
                 if (cookieMatch && this.authenticateClient(client, cookieMatch[1], cookieMatch[2])) {
                     this.sendToClient(ws, 'authenticated', { deviceId: cookieMatch[1] });
+                    this.sendQueueHandoffCapabilities(ws);
                     this.sendToClient(ws, 'state-changed', this.playerService.getState());
                 } else {
                     this.sendToClient(ws, 'authentication-required', null);
@@ -315,6 +376,8 @@ export class RemoteControlService extends EventEmitter {
 
             ws.on('close', () => {
                 console.log('[RemoteService] Connection closed');
+                this.releaseQueuePauseLeases(clientId);
+                this.clearQueueTransfersForClient(clientId);
                 this.clients.delete(clientId);
                 this.messageWindows.delete(clientId);
                 const pending = this.pairingRequests.get(clientId);
@@ -410,6 +473,17 @@ export class RemoteControlService extends EventEmitter {
                 console.error('[RemoteService] Error terminating client during shutdown:', err);
             }
         });
+        for (const lease of Array.from(this.queuePauseLeases.values())) {
+            this.clearQueuePauseLease(lease.clientId, lease.requestId);
+            await this.playerService.resumeForQueueHandoff(lease.trackId, lease.expectedActionVersion, lease.position, lease.wasPlaying);
+        }
+        for (const stage of this.queueTransfers.values()) clearTimeout(stage.timeout);
+        this.queueTransfers.clear();
+        this.queueTransferClients.clear();
+        for (const outcome of this.queueTransferOutcomes.values()) clearTimeout(outcome.timeout);
+        this.queueTransferOutcomes.clear();
+        for (const completion of this.completedQueuePauses.values()) clearTimeout(completion.timeout);
+        this.completedQueuePauses.clear();
         this.clients.clear();
         this.pairingInvite = null;
         for (const pending of this.pairingRequests.values()) {
@@ -668,6 +742,7 @@ export class RemoteControlService extends EventEmitter {
             token,
             caFingerprint: this.tlsMaterial.caFingerprint,
         });
+        this.sendQueueHandoffCapabilities(client.ws);
         this.sendToClient(client.ws, 'state-changed', this.playerService.getState());
         this.emit('pairing-requests-changed', this.getPairingRequests());
         this.emit('paired-devices-changed', this.getConnectedDevices());
@@ -706,6 +781,7 @@ export class RemoteControlService extends EventEmitter {
                 this.authenticateClient(client, payload.deviceId, payload.token)
             ) {
                 this.sendToClient(ws, 'authenticated', { deviceId: payload.deviceId });
+                this.sendQueueHandoffCapabilities(ws);
                 this.sendToClient(ws, 'state-changed', this.playerService.getState());
                 this.emit('connections-changed', this.getStatus().connections);
                 this.emit('paired-devices-changed', this.getConnectedDevices());
@@ -1285,6 +1361,7 @@ export class RemoteControlService extends EventEmitter {
                     console.error('[RemoteService] Invalid play-album payload:', payload);
                     return;
                 }
+                this.playerService.markHandoffAction();
                 const album = await this.scraperService.getAlbumDetails(payload);
                 if (album) {
                     this.playerService.clearQueue(false);
@@ -1298,6 +1375,7 @@ export class RemoteControlService extends EventEmitter {
                     console.error('[RemoteService] Invalid play-bandcamp-playlist payload:', payload);
                     return;
                 }
+                this.playerService.markHandoffAction();
                 const tracks = await this.scraperService.fetchBandcampPlaylistTracks(payload);
                 if (tracks && tracks.length > 0) {
                     this.playerService.clearQueue(false);
@@ -1325,6 +1403,7 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'play-track': {
+                this.playerService.markHandoffAction();
                 const track = await this.resolveTrack(payload);
                 if (track && track.streamUrl) {
                     // Clear queue and add track, then play - matches desktop behavior
@@ -1337,6 +1416,7 @@ export class RemoteControlService extends EventEmitter {
                 break;
             }
             case 'add-track-to-queue': {
+                this.playerService.markHandoffAction();
                 const track = await this.resolveTrack(payload.track);
                 if (track && track.streamUrl) {
                     this.playerService.addToQueue(track, 'collection', payload.playNext);
@@ -1348,6 +1428,7 @@ export class RemoteControlService extends EventEmitter {
                     this.sendToClient(ws, 'error', { message: 'Invalid album URL' });
                     return;
                 }
+                this.playerService.markHandoffAction();
                 console.log(`[RemoteService] Received add-album-to-queue for ${payload.albumUrl}`);
                 try {
                     let tracks: Track[] | null = null;
@@ -1481,8 +1562,682 @@ export class RemoteControlService extends EventEmitter {
                 this.sendToClient(ws, 'desktop-queue-snapshot', { requestId: payload.requestId, snapshot });
                 break;
             }
+            case 'request-desktop-queue-handoff-snapshot':
+                await this.handleQueueHandoffSnapshot(ws, payload);
+                break;
+            case 'request-desktop-queue-pause':
+                await this.handleQueueHandoffPause(ws, clientId, payload);
+                break;
+            case 'request-desktop-queue-resume':
+                await this.handleQueueHandoffResume(ws, clientId, payload);
+                break;
+            case 'complete-desktop-queue-pause':
+                await this.handleQueueHandoffComplete(ws, clientId, payload);
+                break;
+            case 'begin-desktop-queue-transfer':
+                this.handleQueueTransferBegin(ws, clientId, payload);
+                break;
+            case 'desktop-queue-transfer-chunk':
+                this.handleQueueTransferChunk(ws, clientId, payload);
+                break;
+            case 'prepare-desktop-queue-transfer':
+                await this.handleQueueTransferPrepare(ws, clientId, payload);
+                break;
+            case 'commit-desktop-queue-transfer':
+                await this.handleQueueTransferCommit(ws, clientId, payload);
+                break;
+            case 'request-desktop-queue-transfer-status':
+                this.handleQueueTransferStatus(ws, clientId, payload);
+                break;
+            case 'abort-desktop-queue-transfer':
+                this.handleQueueTransferAbort(ws, clientId, payload);
+                break;
             default:
                 console.warn('[RemoteService] Unknown message type:', type);
+        }
+    }
+
+    private sendQueueHandoffCapabilities(ws: WebSocket): void {
+        this.sendToClient(ws, 'capabilities', { capabilities: ['queue-handoff-v1'] });
+    }
+
+    private async handleQueueHandoffSnapshot(ws: WebSocket, payload: any): Promise<void> {
+        if (!this.isValidRequestId(payload?.requestId)) return;
+        const state = this.playerService.getState();
+        const versions = this.playerService.getHandoffVersions();
+        const actualCastState = state.isCasting ? await this.playerService.getActualCastPlaybackState() : null;
+        const actualPlaying = state.isCasting
+            ? actualCastState === null ? null : !['PAUSED', 'IDLE'].includes(actualCastState)
+            : this.playerService.getActualLocalPlaybackStatus(state.currentTrack?.id);
+        const snapshot = {
+            queue: state.queue,
+            currentTrack: state.currentTrack || null,
+            currentIndex: Number.isInteger(state.queue?.currentIndex) ? state.queue.currentIndex : -1,
+            position: Number.isFinite(state.currentTime) ? Math.max(0, state.currentTime) : 0,
+            duration: Number.isFinite(state.duration) ? Math.max(0, state.duration) : 0,
+            queueVersion: versions.queueVersion,
+            actionVersion: versions.actionVersion,
+            isPlaying: actualPlaying === true,
+            isCasting: state.isCasting,
+            playbackStatusKnown: actualPlaying !== null,
+        };
+        this.sendToClient(ws, 'desktop-queue-snapshot', { requestId: payload.requestId, snapshot });
+    }
+
+    private async handleQueueHandoffPause(ws: WebSocket, clientId: string, payload: any): Promise<void> {
+        if (!this.isValidRequestId(payload?.requestId) || typeof payload?.expectedTrackId !== 'string' ||
+            payload.expectedTrackId.length > 256 || !Number.isSafeInteger(payload?.expectedQueueVersion) ||
+            !Number.isSafeInteger(payload?.expectedActionVersion)) return;
+        const existingLease = this.queuePauseLeases.get(this.queuePauseLeaseKey(clientId, payload.requestId));
+        if (existingLease) {
+            const versions = this.playerService.getHandoffVersions();
+            this.sendToClient(ws, 'desktop-queue-paused', {
+                requestId: payload.requestId,
+                success: versions.actionVersion === existingLease.expectedActionVersion,
+                trackId: existingLease.trackId,
+                position: existingLease.position,
+                queueVersion: versions.queueVersion,
+                actionVersion: existingLease.expectedActionVersion,
+                wasPlaying: true,
+                reason: versions.actionVersion === existingLease.expectedActionVersion
+                    ? undefined
+                    : 'Desktop playback changed after it was paused.',
+            });
+            return;
+        }
+        if (this.queueHandoffPauseInProgress || this.queuePauseLeases.size > 0 || this.queueTransfers.size > 0) {
+            this.sendToClient(ws, 'desktop-queue-paused', {
+                requestId: payload.requestId,
+                success: false,
+                reason: 'Another queue handoff is already in progress.',
+            });
+            return;
+        }
+        this.queueHandoffPauseInProgress = true;
+        try {
+            const result = await this.playerService.pauseForQueueHandoff(
+                payload.expectedTrackId,
+                payload.expectedQueueVersion,
+                payload.expectedActionVersion,
+            );
+            if (result.success && result.wasPlaying) this.createQueuePauseLease(clientId, payload.requestId, result);
+            this.sendToClient(ws, 'desktop-queue-paused', { requestId: payload.requestId, ...result });
+        } finally {
+            this.queueHandoffPauseInProgress = false;
+        }
+    }
+
+    private async handleQueueHandoffResume(ws: WebSocket, clientId: string, payload: any): Promise<void> {
+        if (!this.isValidRequestId(payload?.requestId) || typeof payload?.expectedTrackId !== 'string' ||
+            payload.expectedTrackId.length > 256 || !Number.isSafeInteger(payload?.expectedActionVersion) ||
+            typeof payload?.wasPlaying !== 'boolean' || !Number.isFinite(payload?.position)) return;
+        const success = await this.playerService.resumeForQueueHandoff(
+            payload.expectedTrackId,
+            payload.expectedActionVersion,
+            Math.max(0, payload.position),
+            payload.wasPlaying,
+        );
+        this.clearQueuePauseLease(clientId, payload.requestId);
+        this.sendToClient(ws, 'desktop-queue-resume-result', { requestId: payload.requestId, success });
+    }
+
+    private async handleQueueHandoffComplete(ws: WebSocket, clientId: string, payload: any): Promise<void> {
+        if (!this.isValidRequestId(payload?.requestId) || !Number.isSafeInteger(payload?.expectedActionVersion)) return;
+        const key = this.queuePauseLeaseKey(clientId, payload.requestId);
+        const lease = this.queuePauseLeases.get(key);
+        if (!lease) {
+            const completed = this.completedQueuePauses.get(key);
+            this.sendToClient(ws, 'desktop-queue-handoff-completed', {
+                requestId: payload.requestId,
+                success: completed?.expectedActionVersion === payload.expectedActionVersion,
+            });
+            return;
+        }
+        const state = this.playerService.getState();
+        const versions = this.playerService.getHandoffVersions();
+        const sourceIsPaused = state.isCasting
+            ? (await this.playerService.getActualCastPlaybackState()) === 'PAUSED'
+            : this.playerService.getActualLocalPlaybackStatus(state.currentTrack?.id) === false;
+        const success = lease.expectedActionVersion === payload.expectedActionVersion &&
+            versions.actionVersion === payload.expectedActionVersion && state.currentTrack?.id === lease.trackId &&
+            sourceIsPaused;
+        if (success) {
+            this.clearQueuePauseLease(clientId, payload.requestId);
+            for (const [completedKey, completion] of this.completedQueuePauses) {
+                if (this.completedQueuePauses.size >= 20) {
+                    clearTimeout(completion.timeout);
+                    this.completedQueuePauses.delete(completedKey);
+                    break;
+                }
+            }
+            const timeout = setTimeout(() => this.completedQueuePauses.delete(key), 60_000);
+            this.completedQueuePauses.set(key, { expectedActionVersion: payload.expectedActionVersion, timeout });
+        }
+        this.sendToClient(ws, 'desktop-queue-handoff-completed', { requestId: payload.requestId, success });
+    }
+
+    private handleQueueTransferBegin(ws: WebSocket, clientId: string, payload: any): void {
+        const fail = (reason: string) => this.sendToClient(ws, 'desktop-queue-transfer-ready', {
+            requestId: payload?.requestId,
+            transferId: payload?.transferId,
+            success: false,
+            reason,
+        });
+        if (!this.isValidRequestId(payload?.requestId) || !this.isValidRequestId(payload?.transferId) ||
+            !Number.isSafeInteger(payload?.expectedQueueVersion) || !Number.isSafeInteger(payload?.expectedActionVersion) ||
+            !Number.isSafeInteger(payload?.totalBytes) || payload.totalBytes < 2 || payload.totalBytes > MAX_QUEUE_TRANSFER_BYTES ||
+            !Number.isSafeInteger(payload?.chunkCount) || payload.chunkCount < 1 ||
+            payload.chunkCount > Math.ceil(MAX_QUEUE_TRANSFER_BYTES / MAX_QUEUE_TRANSFER_CHUNK_BYTES) ||
+            payload.chunkCount !== Math.ceil(payload.totalBytes / MAX_QUEUE_TRANSFER_CHUNK_BYTES)) {
+            fail('The queue transfer size or metadata is invalid.');
+            return;
+        }
+        if (this.queueHandoffPauseInProgress || this.queuePauseLeases.size > 0) {
+            fail('Another queue handoff is already in progress.');
+            return;
+        }
+        const versions = this.playerService.getHandoffVersions();
+        if (versions.queueVersion !== payload.expectedQueueVersion || versions.actionVersion !== payload.expectedActionVersion) {
+            fail('Desktop playback changed before the transfer started.');
+            return;
+        }
+        const priorKey = this.queueTransferClients.get(clientId);
+        if (priorKey) this.removeQueueTransfer(priorKey);
+        if (this.queueTransfers.size >= 3) {
+            fail('Another queue transfer is already in progress.');
+            return;
+        }
+        const key = this.queueTransferKey(clientId, payload.transferId);
+        if (this.queueTransferOutcomes.has(payload.transferId)) {
+            fail('This queue transfer ID has already been used.');
+            return;
+        }
+        const timeout = setTimeout(() => this.removeQueueTransfer(key), QUEUE_TRANSFER_TIMEOUT_MS);
+        const stage: StagedDesktopQueueTransfer = {
+            clientId,
+            ownerId: this.queueTransferOwnerId(clientId),
+            requestId: payload.requestId,
+            transferId: payload.transferId,
+            expectedQueueVersion: payload.expectedQueueVersion,
+            expectedActionVersion: payload.expectedActionVersion,
+            totalBytes: payload.totalBytes,
+            chunkCount: payload.chunkCount,
+            chunks: new Map(),
+            receivedBytes: 0,
+            committing: false,
+            expiresAt: Date.now() + QUEUE_TRANSFER_TIMEOUT_MS,
+            timeout,
+        };
+        this.queueTransfers.set(key, stage);
+        this.queueTransferClients.set(clientId, key);
+        this.sendToClient(ws, 'desktop-queue-transfer-ready', {
+            requestId: stage.requestId,
+            transferId: stage.transferId,
+            success: true,
+        });
+    }
+
+    private handleQueueTransferChunk(ws: WebSocket, clientId: string, payload: any): void {
+        const stage = this.getQueueTransferStage(clientId, payload);
+        if (!stage) {
+            this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+                requestId: payload?.requestId,
+                transferId: payload?.transferId,
+                index: payload?.index,
+                success: false,
+                reason: 'The queue transfer is unavailable or expired.',
+            });
+            return;
+        }
+        const index = payload?.index;
+        const encoded = payload?.data;
+        if (!Number.isSafeInteger(index) || index < 0 || index >= stage.chunkCount ||
+            typeof encoded !== 'string' || encoded.length > MAX_QUEUE_TRANSFER_CHUNK_TEXT ||
+            !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+            this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+            this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+                requestId: payload?.requestId,
+                transferId: payload?.transferId,
+                index,
+                success: false,
+                reason: 'The queue transfer chunk is invalid.',
+            });
+            return;
+        }
+        const chunk = Buffer.from(encoded, 'base64');
+        if (chunk.length === 0 || chunk.length > MAX_QUEUE_TRANSFER_CHUNK_BYTES || chunk.toString('base64') !== encoded) {
+            this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+            this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+                requestId: stage.requestId,
+                transferId: stage.transferId,
+                index,
+                success: false,
+                reason: 'The queue transfer chunk is invalid.',
+            });
+            return;
+        }
+        const priorChunk = stage.chunks.get(index);
+        if (priorChunk) {
+            const success = priorChunk.equals(chunk);
+            this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+                requestId: stage.requestId,
+                transferId: stage.transferId,
+                index,
+                success,
+                reason: success ? undefined : 'A different chunk was already received at this index.',
+            });
+            return;
+        }
+        if (index !== stage.chunks.size || stage.receivedBytes + chunk.length > stage.totalBytes) {
+            this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+            this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+                requestId: stage.requestId,
+                transferId: stage.transferId,
+                index,
+                success: false,
+                reason: 'The queue transfer chunks arrived out of order or exceeded the declared size.',
+            });
+            return;
+        }
+        stage.chunks.set(index, chunk);
+        stage.receivedBytes += chunk.length;
+        this.sendToClient(ws, 'desktop-queue-transfer-chunk-ack', {
+            requestId: stage.requestId,
+            transferId: stage.transferId,
+            index,
+            success: true,
+        });
+    }
+
+    private async handleQueueTransferPrepare(ws: WebSocket, clientId: string, payload: any): Promise<void> {
+        const stage = this.getQueueTransferStage(clientId, payload);
+        if (!stage || stage.chunks.size !== stage.chunkCount || stage.receivedBytes !== stage.totalBytes) {
+            this.sendToClient(ws, 'desktop-queue-transfer-prepared', {
+                requestId: payload?.requestId,
+                transferId: payload?.transferId,
+                success: false,
+                reason: 'The complete queue transfer has not arrived.',
+            });
+            return;
+        }
+        try {
+            const bytes = Buffer.concat(Array.from({ length: stage.chunkCount }, (_, index) => stage.chunks.get(index)!));
+            const queueDocument = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
+            const sanitized = this.sanitizeTransferredQueue(queueDocument);
+            if (!sanitized) throw new Error('The transferred queue contains invalid data.');
+            const prepared = await this.playerService.prepareQueueForHandoff(
+                sanitized.items,
+                sanitized.currentIndex,
+                stage.expectedQueueVersion,
+                stage.expectedActionVersion,
+            );
+            if (!prepared.success || !prepared.items) throw new Error(prepared.reason || 'The selected track could not be prepared on desktop.');
+            stage.preparedItems = prepared.items;
+            stage.currentIndex = sanitized.currentIndex;
+            this.sendToClient(ws, 'desktop-queue-transfer-prepared', {
+                requestId: stage.requestId,
+                transferId: stage.transferId,
+                success: true,
+            });
+        } catch (error) {
+            this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+            this.sendToClient(ws, 'desktop-queue-transfer-prepared', {
+                requestId: stage.requestId,
+                transferId: stage.transferId,
+                success: false,
+                reason: error instanceof Error ? error.message : 'The queue transfer could not be prepared.',
+            });
+        }
+    }
+
+    private async handleQueueTransferCommit(ws: WebSocket, clientId: string, payload: any): Promise<void> {
+        if (!this.isValidRequestId(payload?.requestId) || !this.isValidRequestId(payload?.transferId)) return;
+        const ownerId = this.queueTransferOwnerId(clientId);
+        const outcomeKey = this.queueTransferOutcomeKey(ownerId, payload.transferId);
+        const cachedOutcome = this.queueTransferOutcomes.get(outcomeKey);
+        if (cachedOutcome?.ownerId === ownerId && cachedOutcome.requestId === payload.requestId) {
+            if (cachedOutcome.status === 'completed' && cachedOutcome.result) {
+                this.sendToClient(ws, 'desktop-queue-transfer-result', {
+                    requestId: cachedOutcome.requestId,
+                    transferId: cachedOutcome.transferId,
+                    ...cachedOutcome.result,
+                });
+            }
+            return;
+        }
+
+        const stage = this.getQueueTransferStage(clientId, payload);
+        const fail = (reason: string) => this.sendToClient(ws, 'desktop-queue-transfer-result', {
+            requestId: payload?.requestId,
+            transferId: payload?.transferId,
+            success: false,
+            reason,
+        });
+        if (!stage || !stage.preparedItems || !Number.isFinite(payload?.position) || payload.position < 0 || payload.position > 100_000) {
+            fail('The prepared queue transfer is unavailable or the playback position is invalid.');
+            return;
+        }
+        if (stage.committing) return;
+        stage.committing = true;
+        this.storeQueueTransferOutcome(stage, 'pending');
+        const versions = this.playerService.getHandoffVersions();
+        if (versions.queueVersion !== stage.expectedQueueVersion || versions.actionVersion !== stage.expectedActionVersion) {
+            this.storeQueueTransferOutcome(stage, 'completed', {
+                success: false,
+                queueVersion: versions.queueVersion,
+                actionVersion: versions.actionVersion,
+                reason: 'Desktop playback changed before the queue transfer could commit.',
+            });
+            this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+            this.sendQueueTransferOutcome(ws, this.queueTransferOutcomes.get(outcomeKey)!);
+            return;
+        }
+        let result: { success: boolean; queueVersion: number; actionVersion: number; reason?: string };
+        try {
+            result = await this.playerService.replaceQueueForHandoff(
+                stage.preparedItems,
+                stage.currentIndex!,
+                payload.position,
+                stage.expectedQueueVersion,
+                stage.expectedActionVersion,
+                true,
+            );
+        } catch (error) {
+            const latestVersions = this.playerService.getHandoffVersions();
+            result = {
+                success: false,
+                queueVersion: latestVersions.queueVersion,
+                actionVersion: latestVersions.actionVersion,
+                reason: error instanceof Error ? error.message : 'The desktop could not commit the queue transfer.',
+            };
+        }
+        this.storeQueueTransferOutcome(stage, 'completed', result);
+        this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+        this.sendQueueTransferOutcome(ws, this.queueTransferOutcomes.get(outcomeKey)!);
+    }
+
+    private handleQueueTransferStatus(ws: WebSocket, clientId: string, payload: any): void {
+        if (!this.isValidRequestId(payload?.requestId) || !this.isValidRequestId(payload?.transferId)) return;
+        const ownerId = this.queueTransferOwnerId(clientId);
+        const outcome = this.queueTransferOutcomes.get(this.queueTransferOutcomeKey(ownerId, payload.transferId));
+        if (outcome && outcome.ownerId === ownerId) {
+            this.sendToClient(ws, 'desktop-queue-transfer-status', {
+                requestId: payload.requestId,
+                transferId: payload.transferId,
+                status: outcome.status,
+                ...(outcome.result ? { result: outcome.result } : {}),
+            });
+            return;
+        }
+        this.sendToClient(ws, 'desktop-queue-transfer-status', {
+            requestId: payload.requestId,
+            transferId: payload.transferId,
+            status: 'unknown',
+        });
+    }
+
+    private handleQueueTransferAbort(ws: WebSocket, clientId: string, payload: any): void {
+        if (!this.isValidRequestId(payload?.requestId) || !this.isValidRequestId(payload?.transferId)) return;
+        const stage = this.getQueueTransferStage(clientId, payload);
+        if (stage) this.removeQueueTransfer(this.queueTransferKey(clientId, stage.transferId));
+        this.sendToClient(ws, 'desktop-queue-transfer-aborted', {
+            requestId: payload.requestId,
+            transferId: payload.transferId,
+            success: true,
+        });
+    }
+
+    private sanitizeTransferredQueue(value: unknown): { items: QueueItem[]; currentIndex: number } | null {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const document = value as { items?: unknown; currentIndex?: unknown };
+        if (!Array.isArray(document.items) || document.items.length === 0 || document.items.length > 10_000 ||
+            !Number.isSafeInteger(document.currentIndex) || (document.currentIndex as number) < 0 || (document.currentIndex as number) >= document.items.length) return null;
+        const items: QueueItem[] = [];
+        for (const valueItem of document.items) {
+            if (!valueItem || typeof valueItem !== 'object' || Array.isArray(valueItem)) return null;
+            const rawItem = valueItem as Record<string, any>;
+            const id = this.transferText(rawItem.id, 256);
+            const source = rawItem.source;
+            if (!id || !['collection', 'playlist', 'radio', 'search'].includes(source)) return null;
+            const track = this.sanitizeTransferredTrack(rawItem.track);
+            if (!track) return null;
+            const item: QueueItem = { id, source, track };
+            if (rawItem.sourceId !== undefined) {
+                const sourceId = this.transferText(rawItem.sourceId, 256);
+                if (!sourceId) return null;
+                item.sourceId = sourceId;
+            }
+            if (rawItem.radioStation !== undefined) {
+                const station = this.sanitizeTransferredStation(rawItem.radioStation);
+                if (!station) return null;
+                item.radioStation = station;
+            }
+            items.push(item);
+        }
+        return { items, currentIndex: document.currentIndex as number };
+    }
+
+    private sanitizeTransferredTrack(value: unknown): Track | null {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const raw = value as Record<string, any>;
+        const id = this.transferText(raw.id, 256);
+        const title = this.transferText(raw.title, 1000);
+        const artist = this.transferFieldText(raw.artist, 1000);
+        const album = this.transferFieldText(raw.album, 1000);
+        if (!id || !title || artist === null || album === null || !Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > 100_000) return null;
+        const track: Track = {
+            id,
+            title,
+            artist: artist || 'Unknown Artist',
+            album,
+            duration: raw.duration,
+            artworkUrl: this.sanitizeTransferUrl(raw.artworkUrl),
+            streamUrl: this.sanitizeTransferUrl(raw.streamUrl),
+            bandcampUrl: this.isAllowedBandcampUrl(raw.bandcampUrl) ? raw.bandcampUrl : '',
+            isCached: false,
+        };
+        for (const field of ['artistId', 'albumId', 'playlistEntryId', 'radioStationId'] as const) {
+            if (raw[field] !== undefined) {
+                const text = this.transferFieldText(raw[field], 256);
+                if (text === null) return null;
+                track[field] = text;
+            }
+        }
+        if (raw.trackNumber !== undefined) {
+            if (!Number.isSafeInteger(raw.trackNumber) || raw.trackNumber < 0) return null;
+            track.trackNumber = raw.trackNumber;
+        }
+        if (raw.hasStream !== undefined) {
+            if (typeof raw.hasStream !== 'boolean') return null;
+            track.hasStream = raw.hasStream;
+        }
+        if (raw.isPreorderTrack !== undefined) {
+            if (typeof raw.isPreorderTrack !== 'boolean') return null;
+            track.isPreorderTrack = raw.isPreorderTrack;
+        }
+        return track;
+    }
+
+    private sanitizeTransferredStation(value: unknown): RadioStation | null {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+        const raw = value as Record<string, any>;
+        const id = this.transferText(raw.id, 256);
+        const name = this.transferText(raw.name, 500);
+        if (!id || !name) return null;
+        const station: RadioStation = {
+            id,
+            name,
+            streamUrl: this.sanitizeTransferUrl(raw.streamUrl),
+            imageUrl: this.sanitizeTransferUrl(raw.imageUrl),
+        };
+        for (const field of ['description', 'longDescription', 'imageCaption', 'date'] as const) {
+            if (raw[field] !== undefined) {
+                const text = this.transferFieldText(raw[field], 2048);
+                if (text === null) return null;
+                station[field] = text;
+            }
+        }
+        if (raw.duration !== undefined) {
+            if (!Number.isFinite(raw.duration) || raw.duration < 0 || raw.duration > 100_000) return null;
+            station.duration = raw.duration;
+        }
+        return station;
+    }
+
+    private transferText(value: unknown, maxLength: number): string | null {
+        const clean = this.transferFieldText(value, maxLength);
+        return clean?.trim() || null;
+    }
+
+    private transferFieldText(value: unknown, maxLength: number): string | null {
+        if (typeof value !== 'string' || value.length > maxLength) return null;
+        return value.replace(/\p{Cc}/gu, '').trim();
+    }
+
+    private sanitizeTransferUrl(value: unknown): string {
+        if (typeof value !== 'string' || value.length > 2048 || !value) return '';
+        try {
+            const url = new URL(value);
+            const allowedHost = ['bandcamp.com', 'bcbits.com'].some(host => url.hostname === host || url.hostname.endsWith(`.${host}`));
+            if (url.protocol !== 'https:' || !allowedHost || (url.port !== '' && url.port !== '443') || url.username || url.password) return '';
+            return url.toString();
+        } catch {
+            return '';
+        }
+    }
+
+    private isValidRequestId(value: unknown): value is string {
+        return typeof value === 'string' && value.length > 0 && value.length <= 128;
+    }
+
+    private queueTransferKey(clientId: string, transferId: string): string {
+        return `${clientId}:${transferId}`;
+    }
+
+    private queueTransferOwnerId(clientId: string): string {
+        const client = this.clients.get(clientId);
+        if (client?.pairingId) return `paired:${client.pairingId}`;
+        return this.securityMode === 'unsafe' ? 'unsafe' : `connection:${clientId}`;
+    }
+
+    private queueTransferOutcomeKey(ownerId: string, transferId: string): string {
+        return JSON.stringify([ownerId, transferId]);
+    }
+
+    private storeQueueTransferOutcome(
+        stage: StagedDesktopQueueTransfer,
+        status: 'pending' | 'completed',
+        result?: { success: boolean; queueVersion?: number; actionVersion?: number; reason?: string },
+    ): void {
+        const key = this.queueTransferOutcomeKey(stage.ownerId, stage.transferId);
+        const prior = this.queueTransferOutcomes.get(key);
+        if (prior) clearTimeout(prior.timeout);
+        if (!prior && this.queueTransferOutcomes.size >= MAX_QUEUE_TRANSFER_OUTCOMES) {
+            const oldestKey = this.queueTransferOutcomes.keys().next().value;
+            if (oldestKey) {
+                const oldest = this.queueTransferOutcomes.get(oldestKey);
+                if (oldest) clearTimeout(oldest.timeout);
+                this.queueTransferOutcomes.delete(oldestKey);
+            }
+        }
+        const outcome: DesktopQueueTransferOutcome = {
+            ownerId: stage.ownerId,
+            requestId: stage.requestId,
+            transferId: stage.transferId,
+            status,
+            result,
+            timeout: setTimeout(() => {
+                if (this.queueTransferOutcomes.get(key) === outcome) {
+                    this.queueTransferOutcomes.delete(key);
+                }
+            }, QUEUE_TRANSFER_OUTCOME_TTL_MS),
+        };
+        this.queueTransferOutcomes.set(key, outcome);
+    }
+
+    private sendQueueTransferOutcome(ws: WebSocket, outcome: DesktopQueueTransferOutcome): void {
+        if (outcome.status !== 'completed' || !outcome.result) return;
+        this.sendToClient(ws, 'desktop-queue-transfer-result', {
+            requestId: outcome.requestId,
+            transferId: outcome.transferId,
+            ...outcome.result,
+        });
+    }
+
+    private getQueueTransferStage(clientId: string, payload: any): StagedDesktopQueueTransfer | undefined {
+        if (!this.isValidRequestId(payload?.requestId) || !this.isValidRequestId(payload?.transferId)) return undefined;
+        const key = this.queueTransferKey(clientId, payload.transferId);
+        const stage = this.queueTransfers.get(key);
+        if (!stage || stage.expiresAt <= Date.now() || stage.requestId !== payload.requestId) {
+            if (stage) this.removeQueueTransfer(key);
+            return undefined;
+        }
+        return stage;
+    }
+
+    private removeQueueTransfer(key: string): void {
+        const stage = this.queueTransfers.get(key);
+        if (!stage) return;
+        clearTimeout(stage.timeout);
+        this.queueTransfers.delete(key);
+        if (this.queueTransferClients.get(stage.clientId) === key) this.queueTransferClients.delete(stage.clientId);
+    }
+
+    private clearQueueTransfersForClient(clientId: string): void {
+        const key = this.queueTransferClients.get(clientId);
+        const stage = key ? this.queueTransfers.get(key) : undefined;
+        if (key && !stage?.committing) this.removeQueueTransfer(key);
+    }
+
+    private queuePauseLeaseKey(clientId: string, requestId: string): string {
+        return `${clientId}:${requestId}`;
+    }
+
+    private createQueuePauseLease(
+        clientId: string,
+        requestId: string,
+        result: { expectedActionVersion?: number; actionVersion: number; trackId: string; position: number; wasPlaying: boolean },
+    ): void {
+        const key = this.queuePauseLeaseKey(clientId, requestId);
+        const existing = this.queuePauseLeases.get(key);
+        if (existing) clearTimeout(existing.timeout);
+        const timeout = setTimeout(() => {
+            const lease = this.queuePauseLeases.get(key);
+            if (!lease) return;
+            void this.playerService.resumeForQueueHandoff(lease.trackId, lease.expectedActionVersion, lease.position, lease.wasPlaying)
+                .finally(() => {
+                    if (this.queuePauseLeases.get(key) === lease) this.queuePauseLeases.delete(key);
+                });
+        }, PAUSE_LEASE_TIMEOUT_MS);
+        this.queuePauseLeases.set(key, {
+            clientId,
+            requestId,
+            expectedActionVersion: result.actionVersion,
+            trackId: result.trackId,
+            position: result.position,
+            wasPlaying: result.wasPlaying,
+            timeout,
+        });
+    }
+
+    private clearQueuePauseLease(clientId: string, requestId: string): void {
+        const key = this.queuePauseLeaseKey(clientId, requestId);
+        const lease = this.queuePauseLeases.get(key);
+        if (!lease) return;
+        clearTimeout(lease.timeout);
+        this.queuePauseLeases.delete(key);
+    }
+
+    private releaseQueuePauseLeases(clientId: string): void {
+        for (const lease of Array.from(this.queuePauseLeases.values())) {
+            if (lease.clientId !== clientId) continue;
+            clearTimeout(lease.timeout);
+            void this.playerService.resumeForQueueHandoff(lease.trackId, lease.expectedActionVersion, lease.position, lease.wasPlaying)
+                .finally(() => {
+                    if (this.queuePauseLeases.get(this.queuePauseLeaseKey(clientId, lease.requestId)) === lease) {
+                        this.queuePauseLeases.delete(this.queuePauseLeaseKey(clientId, lease.requestId));
+                    }
+                });
         }
     }
 

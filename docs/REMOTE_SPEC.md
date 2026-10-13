@@ -102,6 +102,14 @@ Sent whenever the player state changes (play/pause, volume, shuffle, etc.).
 
 - **Payload**: [`PlayerState`](#playerstate)
 
+### `capabilities`
+
+Sent after a connection is established (after authentication in Safe mode). Mobile clients use this response to identify support for newer remote operations.
+
+- **Payload**: `{ capabilities: string[] }`
+- `queue-handoff-v1` enables the bidirectional queue handoff messages below. A mobile client must not silently fall back when this capability is absent.
+- Standalone Queue controls appear only after capability negotiation and when the relevant source has a selected current track. Older desktop versions do not advertise this capability.
+
 ### `track-changed`
 
 Sent when a new track starts playing.
@@ -231,13 +239,31 @@ Clients send these messages to control the player.
 - `add-station-to-queue`: Adds a radio station to the queue.
   - **Payload**: `{ station: RadioStation, playNext?: boolean }`
 
-### Queue Continuation
+### Legacy Queue Continuation
+
+This snapshot-only command is retained for older mobile clients. It copies the desktop queue to the phone without changing desktop playback. Current mobile versions use the bidirectional handoff protocol below.
 
 - `request-desktop-queue-continuation`: Requests a fresh desktop queue snapshot for the phone's standalone player.
   - **Payload**: `{ requestId: string }`
 - `desktop-queue-snapshot`: Response sent only to the requesting client.
   - **Payload**: `{ requestId: string, snapshot: { queue: Queue, currentTrack: Track | null, currentIndex: number, position: number, duration: number } }`
   - The phone matches the response by `requestId`, copies the queue to its local player, resolves playable media on the phone, and keeps its own repeat and shuffle settings. This request does not change or pause desktop playback.
+
+### Bidirectional Queue Handoff
+
+The `queue-handoff-v1` capability enables queue replacement between the mobile standalone player and the desktop player. The mobile app offers **Import** (desktop to phone) and **Export** (phone to desktop) only when connected and when the source has a selected current track. A tap starts the destination and pauses the source after the destination is prepared. A long press starts the destination and leaves source playback unchanged: playing stays playing, and paused stays paused. The destination starts even if the source was already paused. After either gesture, progress is matched once and then advances independently. The source queue is retained. Replacing a non-empty destination queue requires confirmation in the mobile app. The destination keeps its own repeat, shuffle, volume, and mute settings.
+
+`request-desktop-queue-handoff-snapshot` requests a fresh source or destination snapshot. Its response uses `desktop-queue-snapshot` with `{ requestId, snapshot }`, where the snapshot includes `queue`, `currentTrack`, `currentIndex`, `position`, `duration`, `queueVersion`, `actionVersion`, `isPlaying`, `isCasting`, and `playbackStatusKnown`.
+
+For a tap import, the phone keeps a rollback snapshot, stages the incoming queue, and prepares the selected track before pausing the desktop. It then sends `request-desktop-queue-pause` with `{ requestId, expectedTrackId, expectedQueueVersion, expectedActionVersion }`. The desktop pauses local audio or cast output and replies with `desktop-queue-paused`, including the actual final position, `wasPlaying`, queue version, and an action version. If the desktop was already paused, no pause lease is created and no completion message is required. If phone playback fails after a playing desktop was paused, the phone restores its prior queue and playback state and sends `request-desktop-queue-resume` with `{ requestId, expectedActionVersion, expectedTrackId, position, wasPlaying }`. After successful phone playback when a lease exists, it sends `complete-desktop-queue-pause` with `{ requestId, expectedActionVersion }` and waits for `desktop-queue-handoff-completed` before reporting success. The desktop confirms completion only if the source is still paused at that action version. A pause has a 20-second lease: if the phone disconnects before completion, the desktop resumes the source only when no newer desktop action has occurred.
+
+For export, the mobile client sends `begin-desktop-queue-transfer` with `{ requestId, transferId, totalBytes, chunkCount, expectedQueueVersion, expectedActionVersion }`, then sends `desktop-queue-transfer-chunk` messages in order with `{ requestId, transferId, index, data }`. `data` is base64 encoded UTF-8; each decoded chunk is at most 700 KiB and the complete serialized queue is at most 8 MiB. Each chunk receives `desktop-queue-transfer-chunk-ack`. This keeps each WebSocket frame below the existing 1 MiB inbound limit.
+
+After all chunks arrive, `prepare-desktop-queue-transfer` assembles and validates the queue, resolves the selected track through desktop cache or Bandcamp, and replies with `desktop-queue-transfer-prepared`. Preparation does not alter desktop playback. A tap then pauses the phone and commits with `commit-desktop-queue-transfer` carrying `{ requestId, transferId, position }`; a long press commits with the phone's latest position without pausing it. The desktop rechecks its queue and action versions, commits the full queue, and replies with `desktop-queue-transfer-result` only after local audio or cast playback is confirmed at the requested position. If the track cannot start, the desktop restores its previous queue and playback state when no newer desktop action occurred.
+
+After a commit timeout or reconnect, clients can query `request-desktop-queue-transfer-status` with `{ requestId, transferId }`. `desktop-queue-transfer-status` returns `{ requestId, transferId, status: 'pending' | 'completed' | 'unknown', result? }`. Duplicate commits with the same transfer ID replay the cached final result. Completed outcomes are retained for 60 seconds, up to 20 transfers. If the outcome is `unknown`, the phone must keep its source paused because the desktop may already be playing the transferred queue.
+
+Incoming track and station metadata is validated while preserving queue item IDs, order, duplicate tracks, sources, and radio metadata. Mobile cache paths and local stream URLs are discarded. Only HTTPS Bandcamp and `bcbits.com` origins are accepted for remote media; the desktop resolves the selected item using its own cache or Bandcamp. `abort-desktop-queue-transfer` discards an incomplete or prepared transfer.
 
 ### Playlist Management
 

@@ -18,6 +18,8 @@ jest.mock('@rntp/player', () => ({
     reset: jest.fn().mockResolvedValue(undefined),
     seekTo: jest.fn().mockResolvedValue(undefined),
     setVolume: jest.fn().mockResolvedValue(undefined),
+    setMediaItems: jest.fn().mockResolvedValue(undefined),
+    isPlaying: jest.fn().mockReturnValue(false),
     setMediaItem: jest.fn().mockResolvedValue(undefined),
     getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0 }),
     getPlaybackState: jest.fn().mockReturnValue('ready'),
@@ -100,6 +102,10 @@ jest.mock('../services/MobilePlayerService', () => ({
         waitForResumeReady: jest.fn().mockResolvedValue(true),
         playPreparedTrack: jest.fn().mockResolvedValue(true),
         getPositionForSnapshot: jest.fn((position: number) => position),
+        getPlaybackActionRevision: jest.fn().mockReturnValue(0),
+        isNativeQueueItemActive: jest.fn().mockReturnValue(true),
+        pauseForQueueHandoff: jest.fn().mockResolvedValue(null),
+        restoreQueueHandoffPlayback: jest.fn().mockResolvedValue(true),
         prepareForModeChange: jest.fn(),
     },
 }));
@@ -178,10 +184,44 @@ describe('Mobile useStore', () => {
         currentIndex: 0,
         position,
         duration: 100,
+        queueVersion: 1,
+        actionVersion: 2,
+        isPlaying: true,
+        isCasting: false,
     });
+
+    const makeEmptyDesktopQueueSnapshot = (queueVersion = 1, actionVersion = 2) => ({
+        queue: { items: [], currentIndex: -1 },
+        currentTrack: null,
+        currentIndex: -1,
+        position: 0,
+        duration: 0,
+        queueVersion,
+        actionVersion,
+        isPlaying: false,
+        isCasting: false,
+    });
+
+    const activateQueueHandoff = (send: (type: string, payload: any) => void) => {
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
+        (webSocketService.send as jest.Mock).mockReset().mockImplementation(send);
+        useStore.setState({
+            mode: 'standalone',
+            desktopSocketConnected: true,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueHandoffCapabilityChecked: true,
+            desktopQueueCurrentTrackAvailable: true,
+            queueHandoff: { status: 'idle', direction: null, message: null },
+        });
+    };
+
+    const respondToHandoffSnapshot = (requestId: string, snapshot: any) => {
+        socketListeners['desktop-queue-snapshot']({ requestId, snapshot });
+    };
 
     beforeEach(() => {
         jest.useFakeTimers();
+        useStore.getState().cancelQueueHandoff();
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         mobilePlayerService.getPositionForSnapshot.mockReset().mockImplementation((position: number) => position);
         useStore.setState({
@@ -207,11 +247,21 @@ describe('Mobile useStore', () => {
             playlistSyncMode: 'two-way',
             desktopSocketConnected: false,
             desktopQueueAvailability: 'unknown',
-            isContinuingDesktopQueue: false,
-            desktopContinuationError: null,
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: false,
+            queueHandoff: { status: 'idle', direction: null, message: null },
         });
 
         jest.clearAllMocks();
+        mobilePlayerService.loadTrack.mockReset().mockResolvedValue(true);
+        mobilePlayerService.waitForTrackReady.mockReset().mockResolvedValue(true);
+        mobilePlayerService.waitForResumeReady.mockReset().mockResolvedValue(true);
+        mobilePlayerService.playPreparedTrack.mockReset().mockResolvedValue(true);
+        mobilePlayerService.getPlaybackActionRevision.mockReset().mockReturnValue(0);
+        mobilePlayerService.isNativeQueueItemActive.mockReset().mockReturnValue(true);
+        mobilePlayerService.pauseForQueueHandoff.mockReset().mockResolvedValue(null);
+        mobilePlayerService.restoreQueueHandoffPlayback.mockReset().mockResolvedValue(true);
         AsyncStorage.clear();
     });
 
@@ -237,206 +287,365 @@ describe('Mobile useStore', () => {
         expect(useStore.getState().currentTime).toBe(0);
     });
 
-    it('requests a current snapshot before asking to replace a non-empty phone queue', async () => {
-        const snapshot = makeDesktopQueueSnapshot(0);
-        const send = webSocketService.send as jest.Mock;
-        send.mockReset().mockImplementation((type, payload) => {
-            if (type === 'request-desktop-queue-continuation') {
-                socketListeners['desktop-queue-snapshot']({ requestId: payload.requestId, snapshot });
-            }
-        });
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
-        useStore.setState({
-            mode: 'standalone',
-            desktopSocketConnected: true,
-            queue: { items: [{ id: 'phone-q', track: { id: 'phone-track' } as any, source: 'collection' }], currentIndex: 0 },
-        });
-
-        let result: string | undefined;
-        await act(async () => {
-            result = await useStore.getState().continueDesktopQueue();
-        });
-
-        expect(result).toBe('confirmation-required');
-        expect(send).toHaveBeenCalledTimes(1);
-        expect(require('../services/MobilePlayerService').mobilePlayerService.loadTrack).not.toHaveBeenCalled();
-    });
-
-    it('continues a fresh desktop queue snapshot with phone repeat and shuffle settings', async () => {
+    it('imports on tap after phone preparation, then pauses desktop and uses the pause position', async () => {
         const { mobilePlayerService } = require('../services/MobilePlayerService');
-        const desktopSnapshot = {
-            queue: {
-                items: [{
-                    id: 'desktop-q1',
-                    source: 'playlist',
-                    sourceId: 'desktop-playlist',
-                    track: {
-                        id: 'desktop-track',
-                        title: 'Desktop track',
-                        artist: 'Desktop artist',
-                        album: 'Album',
-                        artworkUrl: 'https://art.example/cover.jpg',
-                        streamUrl: 'file:///desktop/cache/track.mp3',
-                        bandcampUrl: 'https://artist.bandcamp.com/track/song',
-                        isCached: true,
-                        cachedPath: 'C:\\desktop\\cache\\track.mp3',
-                        duration: 180,
-                    },
-                }],
-                currentIndex: 0,
-            },
-            currentTrack: { id: 'desktop-track', title: 'Desktop track' },
-            currentIndex: 0,
-            position: 37,
-            duration: 180,
-        };
-        const send = webSocketService.send as jest.Mock;
-        const responses = [desktopSnapshot, { ...desktopSnapshot, position: 44 }];
-        send.mockImplementation((type, payload) => {
-            if (type === 'request-desktop-queue-continuation') {
-                socketListeners['desktop-queue-snapshot']({ requestId: payload.requestId, snapshot: responses.shift() });
+        const snapshot = makeDesktopQueueSnapshot(10);
+        const order: string[] = [];
+        activateQueueHandoff((type, payload) => {
+            order.push(type);
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, snapshot);
+            } else if (type === 'request-desktop-queue-pause') {
+                socketListeners['desktop-queue-paused']({
+                    requestId: payload.requestId,
+                    success: true,
+                    trackId: 'desktop-track',
+                    position: 29,
+                    queueVersion: 1,
+                    actionVersion: 3,
+                    wasPlaying: true,
+                });
+            } else if (type === 'complete-desktop-queue-pause') {
+                socketListeners['desktop-queue-handoff-completed']({ requestId: payload.requestId, success: true });
             }
         });
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
-        useStore.setState({
-            mode: 'standalone',
-            desktopSocketConnected: true,
-            queue: { items: [{ id: 'phone-q', track: { id: 'phone-track' } as any, source: 'collection' }], currentIndex: 0 },
-            currentTrack: { id: 'phone-track', title: 'Phone track' } as any,
-            repeatMode: 'one',
-            isShuffled: true,
-            currentTime: 12,
+        mobilePlayerService.loadTrack.mockImplementation(async () => {
+            order.push('phone-ready');
+            return true;
         });
+        mobilePlayerService.playPreparedTrack.mockImplementation(async () => {
+            order.push('phone-start');
+            return true;
+        });
+        useStore.setState({ repeatMode: 'one', isShuffled: true, volume: 0.6, isMuted: true });
 
         let result: string | undefined;
         await act(async () => {
-            result = await useStore.getState().continueDesktopQueue(true);
+            result = await useStore.getState().importDesktopQueue(true);
         });
 
         expect(result).toBe('completed');
-        expect(send).toHaveBeenCalledTimes(2);
-        expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(
-            expect.objectContaining({ id: 'desktop-track', streamUrl: '', isCached: false, cachedPath: undefined }),
-            37,
-            true,
-        );
-        expect(mobilePlayerService.playPreparedTrack).toHaveBeenCalledWith('desktop-track', 44);
-        expect(useStore.getState().queue.items[0].id).toBe('desktop-q1');
+        expect(order.indexOf('phone-ready')).toBeLessThan(order.indexOf('request-desktop-queue-pause'));
+        expect(order.indexOf('request-desktop-queue-pause')).toBeLessThan(order.indexOf('phone-start'));
+        expect(mobilePlayerService.playPreparedTrack).toHaveBeenCalledWith('desktop-track', 29);
+        expect(webSocketService.send).toHaveBeenCalledWith('complete-desktop-queue-pause', expect.objectContaining({
+            expectedActionVersion: 3,
+        }));
+        expect(useStore.getState().isPlaying).toBe(true);
         expect(useStore.getState().repeatMode).toBe('one');
         expect(useStore.getState().isShuffled).toBe(true);
-        expect(useStore.getState().isPlaying).toBe(true);
+        expect(useStore.getState().volume).toBe(0.6);
+        expect(useStore.getState().isMuted).toBe(true);
     });
 
-    it('restores the phone queue when its desktop track cannot be loaded', async () => {
+    it('imports on long press without pausing desktop and uses its freshest position', async () => {
         const { mobilePlayerService } = require('../services/MobilePlayerService');
-        const snapshot = makeDesktopQueueSnapshot();
-        const send = webSocketService.send as jest.Mock;
-        send.mockReset().mockImplementation((type, payload) => {
-            if (type === 'request-desktop-queue-continuation') {
-                socketListeners['desktop-queue-snapshot']({ requestId: payload.requestId, snapshot });
+        const initial = makeDesktopQueueSnapshot(10);
+        const latest = { ...initial, position: 24 };
+        const snapshots = [initial, latest];
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, snapshots.shift() || latest);
             }
-        });
-        mobilePlayerService.loadTrack.mockReset().mockResolvedValue(true).mockResolvedValueOnce(false);
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
-        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
-        const phoneQueue = { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 };
-        useStore.setState({
-            mode: 'standalone',
-            desktopSocketConnected: true,
-            queue: phoneQueue,
-            currentTrack: phoneTrack,
-            currentTime: 18,
         });
 
         let result: string | undefined;
         await act(async () => {
-            result = await useStore.getState().continueDesktopQueue(true);
+            result = await useStore.getState().importDesktopQueue(false);
         });
 
-        expect(result).toBe('failed');
-        expect(mobilePlayerService.loadTrack).toHaveBeenCalledTimes(2);
-        expect(useStore.getState().queue).toBe(phoneQueue);
-        expect(useStore.getState().currentTrack).toBe(phoneTrack);
+        expect(result).toBe('completed');
+        expect(webSocketService.send).not.toHaveBeenCalledWith('request-desktop-queue-pause', expect.anything());
+        expect(webSocketService.send).not.toHaveBeenCalledWith('request-desktop-queue-resume', expect.anything());
+        expect(mobilePlayerService.playPreparedTrack).toHaveBeenCalledWith('desktop-track', 24);
+    });
+
+    it('exports on tap only after desktop preparation and strips phone-local media paths', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const order: string[] = [];
+        const chunkData: string[] = [];
+        const phoneTrack = {
+            id: 'phone-track', title: 'Phone track', artist: 'Phone artist', album: 'Album',
+            streamUrl: 'file:///mobile/cache/track.mp3', cachedPath: '/private/cache/track.mp3', isCached: true,
+            bandcampUrl: 'https://artist.bandcamp.com/track/song', duration: 120,
+        } as any;
+        const queue = { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 };
+        useStore.setState({ queue, currentTrack: phoneTrack, currentTime: 12, isPlaying: true, userIntendedPause: false });
+        mobilePlayerService.pauseForQueueHandoff.mockImplementation(async () => {
+            order.push('phone-pause');
+            return { trackId: 'phone-track', queueItemId: 'phone-q', position: 31, wasPlaying: true, actionRevision: 0 };
+        });
+        activateQueueHandoff((type, payload) => {
+            order.push(type);
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeEmptyDesktopQueueSnapshot());
+            } else if (type === 'begin-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-ready']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'desktop-queue-transfer-chunk') {
+                chunkData.push(payload.data);
+                socketListeners['desktop-queue-transfer-chunk-ack']({
+                    requestId: payload.requestId, transferId: payload.transferId, index: payload.index, success: true,
+                });
+            } else if (type === 'prepare-desktop-queue-transfer') {
+                order.push('desktop-prepared');
+                socketListeners['desktop-queue-transfer-prepared']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'commit-desktop-queue-transfer') {
+                expect(payload.position).toBe(31);
+                socketListeners['desktop-queue-transfer-result']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            }
+        });
+
+        let result: string | undefined;
+        await act(async () => {
+            result = await useStore.getState().exportQueueToDesktop(true);
+        });
+
+        const transferred = JSON.parse(Buffer.concat(chunkData.map(chunk => Buffer.from(chunk, 'base64'))).toString('utf8'));
+        expect(result).toBe('completed');
+        expect(transferred.items[0].track.streamUrl).toBe('');
+        expect(transferred.items[0].track.isCached).toBe(false);
+        expect(transferred.items[0].track.cachedPath).toBeUndefined();
+        expect(JSON.stringify(transferred)).not.toContain('/mobile/cache');
+        expect(order.indexOf('desktop-prepared')).toBeLessThan(order.indexOf('phone-pause'));
+        expect(order.indexOf('phone-pause')).toBeLessThan(order.indexOf('commit-desktop-queue-transfer'));
+        expect(useStore.getState().queue).toBe(queue);
+    });
+
+    it('exports on long press without pausing phone and sends the latest position', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneTrack = { id: 'phone-track', title: 'Phone track', streamUrl: 'https://example.com/track.mp3' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+            isPlaying: false,
+        });
+        (TrackPlayer.getProgress as jest.Mock).mockReturnValueOnce({ position: 12 }).mockReturnValueOnce({ position: 44 });
+        let commitPosition = -1;
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeEmptyDesktopQueueSnapshot());
+            } else if (type === 'begin-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-ready']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'desktop-queue-transfer-chunk') {
+                socketListeners['desktop-queue-transfer-chunk-ack']({ requestId: payload.requestId, transferId: payload.transferId, index: payload.index, success: true });
+            } else if (type === 'prepare-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-prepared']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'commit-desktop-queue-transfer') {
+                commitPosition = payload.position;
+                socketListeners['desktop-queue-transfer-result']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            }
+        });
+
+        let result: string | undefined;
+        await act(async () => {
+            result = await useStore.getState().exportQueueToDesktop(false);
+        });
+
+        expect(result).toBe('completed');
+        expect(mobilePlayerService.pauseForQueueHandoff).not.toHaveBeenCalled();
+        expect(commitPosition).toBe(44);
         expect(useStore.getState().isPlaying).toBe(false);
     });
 
-    it('restores the phone queue when the desktop disconnects during media preparation', async () => {
+    it('leaves desktop playing if the phone cannot prepare an import on tap', async () => {
         const { mobilePlayerService } = require('../services/MobilePlayerService');
-        const snapshot = makeDesktopQueueSnapshot();
-        const send = webSocketService.send as jest.Mock;
-        send.mockReset().mockImplementation((type, payload) => {
-            if (type === 'request-desktop-queue-continuation') {
-                socketListeners['desktop-queue-snapshot']({ requestId: payload.requestId, snapshot });
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeDesktopQueueSnapshot());
             }
         });
-        let resolveDesktopTrack!: (ready: boolean) => void;
-        const pendingTrackLoad = new Promise<boolean>(resolve => { resolveDesktopTrack = resolve; });
-        mobilePlayerService.loadTrack.mockReset().mockReturnValueOnce(pendingTrackLoad).mockResolvedValue(true);
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
-        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
-        const phoneQueue = { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 };
-        useStore.setState({ mode: 'standalone', desktopSocketConnected: true, queue: phoneQueue, currentTrack: phoneTrack });
-
-        let operation!: Promise<string>;
-        await act(async () => {
-            operation = useStore.getState().continueDesktopQueue(true);
-            await Promise.resolve();
-        });
-        expect(mobilePlayerService.loadTrack).toHaveBeenCalledTimes(1);
-
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
-        socketListeners['connection-status']('disconnected', false);
-        resolveDesktopTrack(true);
-        let result: string | undefined;
-        await act(async () => {
-            result = await operation;
-        });
-
-        expect(result).toBe('cancelled');
-        expect(useStore.getState().queue).toBe(phoneQueue);
-        expect(useStore.getState().currentTrack).toBe(phoneTrack);
-        expect(useStore.getState().desktopSocketConnected).toBe(false);
-        expect(mobilePlayerService.loadTrack).toHaveBeenCalledTimes(2);
-    });
-
-    it('restores the phone queue when the fresh desktop snapshot times out', async () => {
-        const { mobilePlayerService } = require('../services/MobilePlayerService');
-        const snapshot = makeDesktopQueueSnapshot();
-        const send = webSocketService.send as jest.Mock;
-        let requestCount = 0;
-        send.mockReset().mockImplementation((type, payload) => {
-            if (type !== 'request-desktop-queue-continuation') return;
-            requestCount++;
-            if (requestCount === 1) {
-                socketListeners['desktop-queue-snapshot']({ requestId: payload.requestId, snapshot });
-            }
-        });
-        mobilePlayerService.loadTrack.mockReset().mockResolvedValue(true);
-        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
-        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
-        const phoneQueue = { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 };
-        useStore.setState({ mode: 'standalone', desktopSocketConnected: true, queue: phoneQueue, currentTrack: phoneTrack });
-
-        let operation!: Promise<string>;
-        await act(async () => {
-            operation = useStore.getState().continueDesktopQueue(true);
-            await Promise.resolve();
-            await Promise.resolve();
-        });
-        expect(requestCount).toBe(2);
+        mobilePlayerService.loadTrack.mockResolvedValueOnce(false);
 
         let result: string | undefined;
         await act(async () => {
-            jest.advanceTimersByTime(8000);
-            result = await operation;
+            result = await useStore.getState().importDesktopQueue(true);
         });
 
         expect(result).toBe('failed');
-        expect(useStore.getState().queue).toBe(phoneQueue);
-        expect(useStore.getState().currentTrack).toBe(phoneTrack);
-        expect(useStore.getState().desktopQueueAvailability).toBe('unknown');
-        expect(send).toHaveBeenCalledWith('get-state');
-        expect(mobilePlayerService.loadTrack).toHaveBeenCalledTimes(2);
+        expect(webSocketService.send).not.toHaveBeenCalledWith('request-desktop-queue-pause', expect.anything());
+        expect(useStore.getState().queue.items).toHaveLength(0);
+    });
+
+    it('restores desktop playback if the prepared phone track cannot start', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const snapshot = makeDesktopQueueSnapshot(10);
+        const pauseRequestIds: string[] = [];
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, snapshot);
+            } else if (type === 'request-desktop-queue-pause') {
+                pauseRequestIds.push(payload.requestId);
+                socketListeners['desktop-queue-paused']({
+                    requestId: payload.requestId,
+                    success: true,
+                    trackId: 'desktop-track',
+                    position: 29,
+                    queueVersion: 1,
+                    actionVersion: 3,
+                    wasPlaying: true,
+                });
+            } else if (type === 'request-desktop-queue-resume') {
+                socketListeners['desktop-queue-resume-result']({ requestId: payload.requestId, success: true });
+            }
+        });
+        mobilePlayerService.playPreparedTrack.mockResolvedValue(false);
+
+        let result: string | undefined;
+        await act(async () => { result = await useStore.getState().importDesktopQueue(true); });
+
+        expect(result).toBe('failed');
+        expect(pauseRequestIds).toHaveLength(1);
+        expect(webSocketService.send).toHaveBeenCalledWith('request-desktop-queue-resume', expect.objectContaining({
+            requestId: pauseRequestIds[0],
+            expectedActionVersion: 3,
+            expectedTrackId: 'desktop-track',
+            position: 29,
+            wasPlaying: true,
+        }));
+        expect(useStore.getState().queue.items).toHaveLength(0);
+    });
+
+    it('does not pause phone when desktop rejects queue preparation', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+        });
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeEmptyDesktopQueueSnapshot());
+            } else if (type === 'begin-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-ready']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'desktop-queue-transfer-chunk') {
+                socketListeners['desktop-queue-transfer-chunk-ack']({ requestId: payload.requestId, transferId: payload.transferId, index: payload.index, success: true });
+            } else if (type === 'prepare-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-prepared']({ requestId: payload.requestId, transferId: payload.transferId, success: false, reason: 'prepare failed' });
+            }
+        });
+
+        let result: string | undefined;
+        await act(async () => {
+            result = await useStore.getState().exportQueueToDesktop(true);
+        });
+
+        expect(result).toBe('failed');
+        expect(mobilePlayerService.pauseForQueueHandoff).not.toHaveBeenCalled();
+        expect(webSocketService.send).toHaveBeenCalledWith('abort-desktop-queue-transfer', expect.anything());
+    });
+
+    it('restores phone playback if the desktop rejects export commit', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+            isPlaying: true,
+        });
+        mobilePlayerService.pauseForQueueHandoff.mockResolvedValue({
+            trackId: 'phone-track', queueItemId: 'phone-q', position: 31, wasPlaying: true, actionRevision: 0,
+        });
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeEmptyDesktopQueueSnapshot());
+            } else if (type === 'begin-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-ready']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'desktop-queue-transfer-chunk') {
+                socketListeners['desktop-queue-transfer-chunk-ack']({ requestId: payload.requestId, transferId: payload.transferId, index: payload.index, success: true });
+            } else if (type === 'prepare-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-prepared']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'commit-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-result']({
+                    requestId: payload.requestId, transferId: payload.transferId, success: false, reason: 'start failed',
+                });
+            }
+        });
+
+        let result: string | undefined;
+        await act(async () => { result = await useStore.getState().exportQueueToDesktop(true); });
+
+        expect(result).toBe('failed');
+        expect(mobilePlayerService.restoreQueueHandoffPlayback).toHaveBeenCalledWith(expect.objectContaining({ position: 31 }));
+    });
+
+    it('keeps the phone paused until a lost export commit can be verified', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+            isPlaying: true,
+        });
+        mobilePlayerService.pauseForQueueHandoff.mockResolvedValue({
+            trackId: 'phone-track', queueItemId: 'phone-q', position: 31, wasPlaying: true, actionRevision: 0,
+        });
+        let operation!: Promise<string>;
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeEmptyDesktopQueueSnapshot());
+            } else if (type === 'begin-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-ready']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'desktop-queue-transfer-chunk') {
+                socketListeners['desktop-queue-transfer-chunk-ack']({ requestId: payload.requestId, transferId: payload.transferId, index: payload.index, success: true });
+            } else if (type === 'prepare-desktop-queue-transfer') {
+                socketListeners['desktop-queue-transfer-prepared']({ requestId: payload.requestId, transferId: payload.transferId, success: true });
+            } else if (type === 'request-desktop-queue-transfer-status') {
+                socketListeners['desktop-queue-transfer-status']({
+                    requestId: payload.requestId, transferId: payload.transferId,
+                    status: 'completed', result: { success: true },
+                });
+            }
+        });
+
+        await act(async () => {
+            operation = useStore.getState().exportQueueToDesktop(true);
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        expect(webSocketService.send).toHaveBeenCalledWith('commit-desktop-queue-transfer', expect.anything());
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        socketListeners['connection-status']('disconnected', false);
+
+        let result: string | undefined;
+        await act(async () => { result = await operation; });
+
+        expect(result).toBe('failed');
+        expect(mobilePlayerService.restoreQueueHandoffPlayback).not.toHaveBeenCalled();
+        expect(useStore.getState().queueHandoff.message).toContain('could not be confirmed');
+
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
+        await act(async () => { socketListeners['connection-status']('connected', false); });
+        expect(useStore.getState().queueHandoff.status).toBe('idle');
+        expect(mobilePlayerService.restoreQueueHandoffPlayback).not.toHaveBeenCalled();
+    });
+
+    it('requires the same confirmation token and desktop destination revision before export overwrite', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+        });
+        const snapshots = [
+            { ...makeDesktopQueueSnapshot(), queueVersion: 10 },
+            { ...makeDesktopQueueSnapshot(), queueVersion: 11 },
+        ];
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, snapshots.shift());
+            }
+        });
+
+        let first: string | undefined;
+        let second: string | undefined;
+        await act(async () => { first = await useStore.getState().exportQueueToDesktop(false); });
+        expect(useStore.getState().queueHandoff.status).toBe('awaiting-confirmation');
+        await act(async () => { second = await useStore.getState().exportQueueToDesktop(false, true); });
+
+        expect(first).toBe('confirmation-required');
+        expect(second).toBe('confirmation-required');
+        expect(mobilePlayerService.pauseForQueueHandoff).not.toHaveBeenCalled();
     });
 
     it('should restore volume when switching to standalone mode', async () => {

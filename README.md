@@ -251,6 +251,7 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📂 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
 - 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
 - 📋 **Queue Management** - View and manage the playback queue
+- 🔁 **Queue Handoff** - Move a queue between the phone and desktop, with an option to leave the source playing
 - 🖱️ **Context Menus** - Long-press for Queue and Playlist management
 - 🔁 **Playlist Sync** - Local playlists mirror the desktop's, including edits made offline (see [Playlist Sync](#playlist-sync))
 - 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
@@ -268,6 +269,12 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📦 **Pre-order Album Support** - Distinguishes pre-order albums with badges, dims unreleased tracks, and automatically skips unreleased tracks during standalone playback and queue navigation
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
 - 📜 **Logs** - Logs available in the Player's menu
+
+### Queue Handoff
+
+In Standalone mode, connect the phone to a desktop that supports queue handoff. In the Queue tab, **Import** copies the desktop queue to the phone, and **Export** copies the phone queue to the desktop. The controls appear when the source has a selected track and the desktop advertises handoff support. An older desktop build shows an update hint.
+
+Tap an icon to start playback on the destination and pause the source. Press and hold to start the destination while leaving the source exactly as it is: a playing source keeps playing, and a paused source stays paused. The destination starts even when the source was paused. If the destination already has a queue, the app asks before replacing it. Each handoff matches the current position once; playback then continues independently on each device. The source queue remains in place, and the destination keeps its own repeat, shuffle, volume, and mute settings. If the desktop is casting, handoff uses that cast output.
 
 ### Tech Stack
 

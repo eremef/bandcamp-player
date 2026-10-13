@@ -37,6 +37,18 @@ export class PlayerService extends EventEmitter {
 
     private currentIndex = -1;
     private shuffleOrder: number[] = [];
+    private queueVersion = 0;
+    private actionVersion = 0;
+    private playbackConfirmationSequence = 0;
+    private playbackConfirmationId = '0';
+    private localPlaybackStatuses = new Map<string, { trackId: string; isPlaying: boolean; position: number; failed: boolean }>();
+    private localPlaybackWaiters = new Set<{
+        trackId: string;
+        confirmationId: string;
+        expectedPlaying: boolean;
+        resolve: (success: boolean) => void;
+        timeout: ReturnType<typeof setTimeout>;
+    }>();
 
     // Scrobble tracking
     private scrobbleStartTime: number | null = null;
@@ -89,6 +101,7 @@ export class PlayerService extends EventEmitter {
             this.isCasting = data.status === 'connected';
 
             if (this.isCasting !== wasCasting) {
+                this.markAction();
                 console.log(`[PlayerService] Casting status changed: ${this.isCasting}`);
                 if (this.isCasting && this.isPlaying && this.currentTrack) {
                     // Switch to casting
@@ -151,7 +164,9 @@ export class PlayerService extends EventEmitter {
         return this.database.getSettings()?.offlineMode ?? false;
     }
 
-    async play(track?: Track, clearQueueBefore = !!track): Promise<void> {
+    async play(track?: Track, clearQueueBefore = !!track, exactQueueIndex?: number, startTime = 0, skipStreamRefresh = false): Promise<void> {
+        this.markAction();
+        this.createPlaybackConfirmationId();
         this.error = null;
         console.log(`[PlayerService] play() called. Track: ${track?.title || 'current'}, ClearQueue: ${clearQueueBefore}`);
         if (track) {
@@ -166,8 +181,8 @@ export class PlayerService extends EventEmitter {
                 this.emitQueueUpdate();
             } else {
                 // Ensure track is in the queue without clearing
-                const index = this.queue.findIndex(item => item.track.id === track.id);
-                if (index !== -1) {
+                const index = exactQueueIndex ?? this.queue.findIndex(item => item.track.id === track.id);
+                if (index >= 0 && index < this.queue.length) {
                     this.currentIndex = index;
                 } else {
                     const targetIndex = this.currentIndex >= 0 ? this.currentIndex + 1 : this.queue.length;
@@ -179,7 +194,7 @@ export class PlayerService extends EventEmitter {
 
             // For cached tracks, prefer cached file to avoid network requests
             const isTrackCached = this.cacheService.isCached(track.id);
-            if (isTrackCached) {
+            if (isTrackCached && (!this.isCasting || !skipStreamRefresh)) {
                 const cachedPath = this.cacheService.getCachedPath(track.id);
                 if (cachedPath) {
                     const port = (global as any).cacheServerPort || 0;
@@ -190,7 +205,7 @@ export class PlayerService extends EventEmitter {
             }
 
             // Refresh stream URL only for non-cached tracks (missing stream, radio, casting, or expired stream)
-            if (!isTrackCached && (!track.streamUrl || track.id.startsWith('radio-') || track.radioStationId || this.isCasting)) {
+            if (!isTrackCached && (!track.streamUrl || (!skipStreamRefresh && (track.id.startsWith('radio-') || track.radioStationId || this.isCasting)))) {
                 console.log(`[PlayerService] Refreshing stream URL for: ${track.title}`);
                 try {
                     let streamUrl = track.streamUrl;
@@ -242,12 +257,13 @@ export class PlayerService extends EventEmitter {
                 return;
             }
 
+            if (this.currentTrack?.id !== track.id) this.localPlaybackStatuses.delete(this.playbackConfirmationId);
             this.currentTrack = track;
-            this.currentTime = 0;
+            this.currentTime = Math.max(0, Number.isFinite(startTime) ? startTime : 0);
             this.isPlaying = true;
 
             if (this.isCasting) {
-                this.castService.play(track);
+                this.castService.play(track, this.currentTime);
             }
 
             this.scrobbleStartTime = Date.now();
@@ -282,6 +298,8 @@ export class PlayerService extends EventEmitter {
     }
 
     pause(): void {
+        this.markAction();
+        this.createPlaybackConfirmationId();
         this.isPlaying = false;
         if (this.isCasting) {
             this.castService.pause();
@@ -298,6 +316,8 @@ export class PlayerService extends EventEmitter {
     }
 
     stop(): void {
+        this.markAction();
+        this.createPlaybackConfirmationId();
         this.isPlaying = false;
         this.currentTrack = null;
         this.currentTime = 0;
@@ -315,6 +335,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async playStation(station: RadioStation): Promise<void> {
+        this.markAction();
         this.isRadioActive = true;
         this.currentStation = station;
 
@@ -325,6 +346,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async extractRadioTracksToQueue(station: RadioStation, append: boolean = false): Promise<void> {
+        this.markAction();
         if (!append) {
             this.isRadioActive = true;
             this.currentStation = station;
@@ -428,6 +450,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async next(): Promise<void> {
+        this.markAction();
         if (this.queue.length === 0) return;
 
         let nextIndex: number;
@@ -497,6 +520,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async previous(): Promise<void> {
+        this.markAction();
         if (this.queue.length === 0) return;
 
         // If we're more than 3 seconds into the track, restart it
@@ -571,6 +595,7 @@ export class PlayerService extends EventEmitter {
     }
 
     seek(time: number): void {
+        this.markAction();
         const seekTime = Number(time);
         this.currentTime = Math.max(0, Math.min(seekTime, this.duration));
         if (this.isCasting) {
@@ -582,6 +607,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async setVolume(volume: number): Promise<void> {
+        this.markAction();
         this.volume = Math.max(0, Math.min(1, volume));
         this.isMuted = false;
         if (this.isCasting) {
@@ -601,6 +627,7 @@ export class PlayerService extends EventEmitter {
     }
 
     toggleMute(): void {
+        this.markAction();
         this.isMuted = !this.isMuted;
         if (this.isCasting) {
             this.castService.setMuted(this.isMuted);
@@ -609,11 +636,13 @@ export class PlayerService extends EventEmitter {
     }
 
     setRepeat(mode: RepeatMode): void {
+        this.markAction();
         this.repeatMode = mode;
         this.emitStateChange();
     }
 
     toggleShuffle(): void {
+        this.markAction();
         this.isShuffled = !this.isShuffled;
         if (this.isShuffled) {
             this.generateShuffleOrder();
@@ -628,6 +657,7 @@ export class PlayerService extends EventEmitter {
     // ---- Queue Management ----
 
     addToQueue(track: Track, source: QueueItem['source'] = 'collection', playNext = false, radioStationOrEmitUpdate?: RadioStation | boolean, emitUpdate = true): void {
+        this.markAction();
         // Handle both old signature (emitUpdate: boolean) and new signature (radioStation: RadioStation, emitUpdate?: boolean)
         let radioStation: RadioStation | undefined;
 
@@ -665,6 +695,7 @@ export class PlayerService extends EventEmitter {
     }
 
     addTracksToQueue(tracks: Track[], source: QueueItem['source'] = 'collection', playNext = false): void {
+        this.markAction();
         const tracksToAdd = playNext ? [...tracks].reverse() : tracks;
 
         for (let i = 0; i < tracksToAdd.length; i++) {
@@ -684,6 +715,7 @@ export class PlayerService extends EventEmitter {
     }
 
     removeFromQueue(queueItemId: string): void {
+        this.markAction();
         const index = this.queue.findIndex(item => item.id === queueItemId);
         if (index === -1) return;
 
@@ -712,6 +744,7 @@ export class PlayerService extends EventEmitter {
     }
 
     clearQueue(keepCurrent = true): void {
+        this.markAction();
         const currentItem = this.currentIndex >= 0 ? this.queue[this.currentIndex] : null;
 
         if (keepCurrent && currentItem) {
@@ -731,6 +764,7 @@ export class PlayerService extends EventEmitter {
     }
 
     reorderQueue(fromIndex: number, toIndex: number): void {
+        this.markAction();
         if (fromIndex < 0 || fromIndex >= this.queue.length) return;
         if (toIndex < 0 || toIndex >= this.queue.length) return;
 
@@ -755,6 +789,7 @@ export class PlayerService extends EventEmitter {
     }
 
     async playIndex(index: number): Promise<void> {
+        this.markAction();
         if (index < 0 || index >= this.queue.length) return;
 
         this.currentIndex = index;
@@ -765,9 +800,356 @@ export class PlayerService extends EventEmitter {
             await this.resolveRadioStationTrack(queueItem);
         }
 
-        await this.play(queueItem.track, false);
+        await this.play(queueItem.track, false, index);
         this.persistQueue();
         this.emitQueueUpdate();
+    }
+
+    getHandoffVersions(): { queueVersion: number; actionVersion: number } {
+        return { queueVersion: this.queueVersion, actionVersion: this.actionVersion };
+    }
+
+    getActualLocalPlaybackStatus(trackId: string | undefined): boolean | null {
+        if (!trackId) return null;
+        const status = this.localPlaybackStatuses.get(this.playbackConfirmationId);
+        return status?.trackId === trackId ? status.isPlaying : null;
+    }
+
+    async getActualCastPlaybackState(): Promise<string | null> {
+        return this.castService.getActualPlaybackState();
+    }
+
+    reportLocalPlaybackStatus(trackId: string, confirmationId: string, isPlaying: boolean, position: number, failed = false): void {
+        if (!trackId || !confirmationId || confirmationId !== this.playbackConfirmationId || this.isCasting || this.currentTrack?.id !== trackId) return;
+        const status = {
+            trackId,
+            isPlaying,
+            position: Number.isFinite(position) ? Math.max(0, position) : this.currentTime,
+            failed,
+        };
+        this.localPlaybackStatuses.set(confirmationId, status);
+        if (!isPlaying && !failed) {
+            this.internalUpdateTime(status.position, this.duration);
+        }
+
+        for (const waiter of this.localPlaybackWaiters) {
+            if (waiter.trackId !== trackId || waiter.confirmationId !== confirmationId) continue;
+            if (failed) {
+                clearTimeout(waiter.timeout);
+                this.localPlaybackWaiters.delete(waiter);
+                waiter.resolve(false);
+            } else if (waiter.expectedPlaying === isPlaying) {
+                clearTimeout(waiter.timeout);
+                this.localPlaybackWaiters.delete(waiter);
+                waiter.resolve(true);
+            }
+        }
+    }
+
+    async pauseForQueueHandoff(expectedTrackId: string, expectedQueueVersion: number, expectedActionVersion: number): Promise<{
+        success: boolean;
+        trackId: string;
+        position: number;
+        queueVersion: number;
+        actionVersion: number;
+        wasPlaying: boolean;
+        reason?: string;
+    }> {
+        const trackId = this.currentTrack?.id || '';
+        if (!trackId || trackId !== expectedTrackId || this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                trackId,
+                position: this.currentTime,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                wasPlaying: false,
+                reason: 'Desktop playback changed before it could be paused.',
+            };
+        }
+
+        const actualCastState = this.isCasting ? await this.castService.getActualPlaybackState() : null;
+        const actualPlaying = this.isCasting
+            ? actualCastState === null ? null : !['PAUSED', 'IDLE'].includes(actualCastState)
+            : this.getActualLocalPlaybackStatus(trackId);
+        if (this.currentTrack?.id !== expectedTrackId || this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                trackId: this.currentTrack?.id || '',
+                position: this.currentTime,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                wasPlaying: false,
+                reason: 'Desktop playback changed before it could be paused.',
+            };
+        }
+        const wasPlaying = this.isPlaying || actualPlaying === true;
+        if (!wasPlaying) {
+            return {
+                success: true,
+                trackId,
+                position: this.currentTime,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                wasPlaying: false,
+            };
+        }
+
+        const previousPosition = this.currentTime;
+        const confirmationId = this.createPlaybackConfirmationId();
+        this.markAction();
+        this.isPlaying = false;
+        this.emitStateChange();
+        const pauseActionVersion = this.actionVersion;
+        const paused = this.isCasting
+            ? await this.castService.pauseAndWait()
+            : await this.waitForLocalPlaybackStatus(trackId, confirmationId, false, 5000, false);
+        if (!paused || this.actionVersion !== pauseActionVersion || this.currentTrack?.id !== trackId) {
+            if (this.actionVersion === pauseActionVersion && this.currentTrack?.id === trackId) {
+                this.markAction();
+                this.createPlaybackConfirmationId();
+                this.isPlaying = true;
+                this.currentTime = previousPosition;
+                this.emit('seek-command', previousPosition);
+                this.emitStateChange();
+                if (this.isCasting) {
+                    await this.castService.resumeAndWait();
+                } else {
+                    await this.waitForLocalPlaybackStatus(trackId, this.playbackConfirmationId, true, 5000, false);
+                }
+            }
+            return {
+                success: false,
+                trackId,
+                position: this.currentTime,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                wasPlaying: true,
+                reason: 'Desktop playback could not be paused reliably.',
+            };
+        }
+
+        return {
+            success: true,
+            trackId,
+            position: this.currentTime,
+            queueVersion: this.queueVersion,
+            actionVersion: this.actionVersion,
+            wasPlaying: true,
+        };
+    }
+
+    async resumeForQueueHandoff(expectedTrackId: string, expectedActionVersion: number, position: number, wasPlaying: boolean): Promise<boolean> {
+        if (this.actionVersion !== expectedActionVersion || this.currentTrack?.id !== expectedTrackId) return false;
+        if (!wasPlaying) return true;
+
+        const resumePosition = Number.isFinite(position) ? Math.max(0, position) : this.currentTime;
+        const confirmationId = this.createPlaybackConfirmationId();
+        this.markAction();
+        this.currentTime = resumePosition;
+        this.emitTimeUpdate();
+        this.emit('seek-command', resumePosition);
+        this.isPlaying = true;
+        this.emitStateChange();
+        const resumeActionVersion = this.actionVersion;
+        const resumed = this.isCasting
+            ? await this.castService.resumeAndWait()
+            : await this.waitForLocalPlaybackStatus(expectedTrackId, confirmationId, true, 5000, false);
+        if (!resumed && this.actionVersion === resumeActionVersion) {
+            this.createPlaybackConfirmationId();
+            this.isPlaying = false;
+            this.emitStateChange();
+        }
+        return resumed;
+    }
+
+    async prepareQueueForHandoff(
+        incomingItems: QueueItem[],
+        currentIndex: number,
+        expectedQueueVersion: number,
+        expectedActionVersion: number,
+    ): Promise<{ success: boolean; items?: QueueItem[]; queueVersion: number; actionVersion: number; reason?: string }> {
+        if (this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: 'Desktop playback changed while the queue was transferring.',
+            };
+        }
+        if (!Array.isArray(incomingItems) || incomingItems.length === 0 || currentIndex < 0 || currentIndex >= incomingItems.length) {
+            return { success: false, queueVersion: this.queueVersion, actionVersion: this.actionVersion, reason: 'The transferred queue is invalid.' };
+        }
+
+        const items = JSON.parse(JSON.stringify(incomingItems)) as QueueItem[];
+        const selectedItem = items[currentIndex];
+        try {
+            if (selectedItem.track.radioStationId && (!selectedItem.radioStation || this.isCasting)) {
+                const stream = await this.scraperService.getStationStreamUrl(selectedItem.track.radioStationId);
+                if (!stream?.streamUrl) throw new Error('Could not resolve the selected radio station.');
+                selectedItem.track.streamUrl = stream.streamUrl;
+                selectedItem.track.duration = stream.duration || selectedItem.track.duration;
+            } else if (selectedItem.radioStation && (!this.cacheService.isCached(selectedItem.track.id) || this.isCasting)) {
+                const stream = await this.scraperService.getStationStreamUrl(selectedItem.radioStation.id);
+                if (!stream?.streamUrl) throw new Error('Could not resolve the selected radio station.');
+                selectedItem.track.streamUrl = stream.streamUrl;
+                selectedItem.track.duration = stream.duration || selectedItem.track.duration;
+                selectedItem.radioStation.streamUrl = stream.streamUrl;
+                selectedItem.radioStation.duration = stream.duration || selectedItem.radioStation.duration;
+            } else if (!this.cacheService.isCached(selectedItem.track.id) || this.isCasting) {
+                if (this.isCasting || !selectedItem.track.streamUrl) {
+                    selectedItem.track.streamUrl = await this.scraperService.getTrackStreamUrl(selectedItem.track);
+                }
+                if (!this.isAllowedHandoffStreamUrl(selectedItem.track.streamUrl)) throw new Error('Could not resolve the selected track from Bandcamp.');
+            }
+
+            if ((selectedItem.track.streamUrl && !this.isAllowedHandoffStreamUrl(selectedItem.track.streamUrl)) ||
+                (selectedItem.radioStation?.streamUrl && !this.isAllowedHandoffStreamUrl(selectedItem.radioStation.streamUrl))) {
+                throw new Error('The selected track resolved to an unsupported media origin.');
+            }
+
+            if (this.isOfflineMode() && !this.cacheService.isCached(selectedItem.track.id)) {
+                throw new Error(`Offline mode: "${selectedItem.track.title}" is not available offline`);
+            }
+        } catch (error) {
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: error instanceof Error ? error.message : 'Could not prepare the selected track.',
+            };
+        }
+
+        if (this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: 'Desktop playback changed while the selected track was preparing.',
+            };
+        }
+        return { success: true, items, queueVersion: this.queueVersion, actionVersion: this.actionVersion };
+    }
+
+    async replaceQueueForHandoff(
+        incomingItems: QueueItem[],
+        currentIndex: number,
+        position: number,
+        expectedQueueVersion: number,
+        expectedActionVersion: number,
+        prepared = false,
+    ): Promise<{ success: boolean; queueVersion: number; actionVersion: number; reason?: string }> {
+        if (this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: 'Desktop playback changed while the queue was transferring.',
+            };
+        }
+
+        if (!Array.isArray(incomingItems) || currentIndex < 0 || currentIndex >= incomingItems.length) {
+            return { success: false, queueVersion: this.queueVersion, actionVersion: this.actionVersion, reason: 'The transferred queue is invalid.' };
+        }
+        if (!Number.isFinite(position) || position < 0) {
+            return { success: false, queueVersion: this.queueVersion, actionVersion: this.actionVersion, reason: 'The transferred playback position is invalid.' };
+        }
+
+        const items = JSON.parse(JSON.stringify(incomingItems)) as QueueItem[];
+        let selectedItem = items[currentIndex];
+        const startPosition = selectedItem.track.duration > 0 ? Math.min(position, selectedItem.track.duration) : position;
+        if (prepared && ((!this.cacheService.isCached(selectedItem.track.id) && !selectedItem.track.streamUrl) ||
+            (selectedItem.track.streamUrl && !this.isAllowedHandoffStreamUrl(selectedItem.track.streamUrl)))) {
+            return { success: false, queueVersion: this.queueVersion, actionVersion: this.actionVersion, reason: 'The prepared track is no longer available.' };
+        }
+        if (!prepared) {
+            const preparation = await this.prepareQueueForHandoff(items, currentIndex, expectedQueueVersion, expectedActionVersion);
+            if (!preparation.success || !preparation.items) {
+                return {
+                    success: false,
+                    queueVersion: preparation.queueVersion,
+                    actionVersion: preparation.actionVersion,
+                    reason: preparation.reason,
+                };
+            }
+            items.splice(0, items.length, ...preparation.items);
+            selectedItem = items[currentIndex];
+        }
+
+        if (this.queueVersion !== expectedQueueVersion || this.actionVersion !== expectedActionVersion) {
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: 'Desktop playback changed while the selected track was preparing.',
+            };
+        }
+
+        const previous = {
+            queue: JSON.parse(JSON.stringify(this.queue)) as QueueItem[],
+            currentIndex: this.currentIndex,
+            currentTrack: this.currentTrack ? JSON.parse(JSON.stringify(this.currentTrack)) as Track : null,
+            currentTime: this.currentTime,
+            duration: this.duration,
+            isPlaying: this.isPlaying,
+            isRadioActive: this.isRadioActive,
+            currentStation: this.currentStation ? JSON.parse(JSON.stringify(this.currentStation)) as RadioStation : null,
+            error: this.error,
+            shuffleOrder: [...this.shuffleOrder],
+        };
+
+        this.queue = items;
+        this.currentIndex = currentIndex;
+        this.isRadioActive = !!selectedItem.radioStation;
+        this.currentStation = selectedItem.radioStation || null;
+        this.error = null;
+        this.markAction();
+        if (this.isShuffled) this.generateShuffleOrder();
+        else this.shuffleOrder = [];
+        this.emitQueueUpdate();
+
+        try {
+            const startRequestedAt = Date.now();
+            await this.play(selectedItem.track, false, currentIndex, startPosition, true);
+            const operationActionVersion = expectedActionVersion + 2;
+            const castStatus = this.isCasting ? await this.castService.waitForPlaybackState('PLAYING') : null;
+            const started = this.isCasting
+                ? !!castStatus
+                : await this.waitForLocalPlaybackStatus(selectedItem.track.id, this.playbackConfirmationId, true, 8000, false);
+            const localStatus = this.localPlaybackStatuses.get(this.playbackConfirmationId);
+            const actualPosition = this.isCasting ? castStatus?.currentTime : localStatus?.position;
+            const positionTolerance = Math.max(3, (Date.now() - startRequestedAt) / 1000 + 2);
+            const positionReady = this.isCasting
+                ? Number.isFinite(actualPosition) && actualPosition >= startPosition - 1 && actualPosition <= startPosition + positionTolerance
+                : !!localStatus && Number.isFinite(actualPosition) && actualPosition >= startPosition - 1 && actualPosition <= startPosition + positionTolerance;
+            if (started && positionReady && this.currentTrack?.id === selectedItem.track.id && this.isPlaying) {
+                return { success: true, queueVersion: this.queueVersion, actionVersion: this.actionVersion };
+            }
+
+            if (this.actionVersion !== operationActionVersion) {
+                return {
+                    success: false,
+                    queueVersion: this.queueVersion,
+                    actionVersion: this.actionVersion,
+                    reason: 'Desktop playback changed while the transferred track was starting.',
+                };
+            }
+            await this.restoreQueueHandoffSnapshot(previous);
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: 'The transferred track could not start on desktop.',
+            };
+        } catch (error) {
+            if (this.actionVersion === expectedActionVersion + 2) await this.restoreQueueHandoffSnapshot(previous);
+            return {
+                success: false,
+                queueVersion: this.queueVersion,
+                actionVersion: this.actionVersion,
+                reason: error instanceof Error ? error.message : 'The transferred queue could not start on desktop.',
+            };
+        }
     }
 
     /**
@@ -912,6 +1294,7 @@ export class PlayerService extends EventEmitter {
                 shuffleOrder: this.isShuffled ? this.shuffleOrder : undefined,
             },
             isCasting: this.isCasting,
+            playbackConfirmationId: this.playbackConfirmationId,
             castDevice: this.castService.getConnectedDevice() || undefined,
             error: this.error,
         };
@@ -966,6 +1349,102 @@ export class PlayerService extends EventEmitter {
         this.updatePowerSaveBlocker();
     }
 
+    private markAction(): void {
+        this.actionVersion++;
+    }
+
+    markHandoffAction(): void {
+        this.markAction();
+    }
+
+    private isAllowedHandoffStreamUrl(value: string): boolean {
+        try {
+            const url = new URL(value);
+            const allowedHost = ['bandcamp.com', 'bcbits.com'].some(host => url.hostname === host || url.hostname.endsWith(`.${host}`));
+            return url.protocol === 'https:' && allowedHost && (url.port === '' || url.port === '443') && !url.username && !url.password;
+        } catch {
+            return false;
+        }
+    }
+
+    private createPlaybackConfirmationId(): string {
+        this.playbackConfirmationSequence++;
+        this.playbackConfirmationId = String(this.playbackConfirmationSequence);
+        this.localPlaybackStatuses.clear();
+        for (const waiter of this.localPlaybackWaiters) {
+            clearTimeout(waiter.timeout);
+            this.localPlaybackWaiters.delete(waiter);
+            waiter.resolve(false);
+        }
+        return this.playbackConfirmationId;
+    }
+
+    private waitForLocalPlaybackStatus(trackId: string, confirmationId: string, expectedPlaying: boolean, timeoutMs: number, allowKnownStatus: boolean): Promise<boolean> {
+        const known = this.localPlaybackStatuses.get(confirmationId);
+        if (allowKnownStatus && known) {
+            if (known.trackId === trackId && known.failed) return Promise.resolve(false);
+            if (known.trackId === trackId && known.isPlaying === expectedPlaying) return Promise.resolve(true);
+        }
+
+        return new Promise(resolve => {
+            const waiter = {
+                trackId,
+                confirmationId,
+                expectedPlaying,
+                resolve,
+                timeout: setTimeout(() => {
+                    this.localPlaybackWaiters.delete(waiter);
+                    resolve(false);
+                }, timeoutMs),
+            };
+            this.localPlaybackWaiters.add(waiter);
+        });
+    }
+
+    private async restoreQueueHandoffSnapshot(snapshot: {
+        queue: QueueItem[];
+        currentIndex: number;
+        currentTrack: Track | null;
+        currentTime: number;
+        duration: number;
+        isPlaying: boolean;
+        isRadioActive: boolean;
+        currentStation: RadioStation | null;
+        error: string | null;
+        shuffleOrder: number[];
+    }): Promise<void> {
+        if (snapshot.currentTrack?.id !== this.currentTrack?.id && snapshot.currentTrack) this.localPlaybackStatuses.delete(this.playbackConfirmationId);
+        this.queue = snapshot.queue;
+        this.currentIndex = snapshot.currentIndex;
+        this.currentTrack = snapshot.currentTrack;
+        this.currentTime = snapshot.currentTime;
+        this.duration = snapshot.duration;
+        this.isPlaying = snapshot.isPlaying;
+        this.isRadioActive = snapshot.isRadioActive;
+        this.currentStation = snapshot.currentStation;
+        this.error = snapshot.error;
+        this.shuffleOrder = snapshot.shuffleOrder;
+        this.markAction();
+        const confirmationId = this.createPlaybackConfirmationId();
+        this.emitQueueUpdate();
+        this.persistQueue();
+        this.emitStateChange();
+        this.emitTrackChange();
+        this.emitRadioStateChange();
+
+        const trackId = snapshot.currentTrack?.id;
+        if (!trackId) return;
+        if (snapshot.isPlaying) {
+            if (this.isCasting) {
+                await this.castService.playAndWait(snapshot.currentTrack!, snapshot.currentTime);
+            } else {
+                await this.waitForLocalPlaybackStatus(trackId, confirmationId, true, 5000, false);
+            }
+        } else if (this.isCasting) {
+            await this.castService.pauseAndWait();
+        }
+    }
+
     private updatePowerSaveBlocker(): void {
         if (this.isPlaying && this.powerSaveBlockerId === null) {
             this.powerSaveBlockerId = powerSaveBlocker.start('prevent-app-suspension');
@@ -988,6 +1467,7 @@ export class PlayerService extends EventEmitter {
     }
 
     private emitQueueUpdate(): void {
+        this.queueVersion++;
         this.emit('queue-updated', this.getQueue());
     }
 

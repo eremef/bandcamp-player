@@ -22,7 +22,10 @@ test.describe('Web Remote Connectivity', () => {
             await remoteEnabled.evaluate((checkbox: HTMLInputElement) => checkbox.click());
         }
         await expect(remoteEnabled).toBeChecked();
-        await expect(window.getByText('Safe connection is active')).toBeVisible({ timeout: 15000 });
+        await expect(window.getByText('Scan with the mobile app to pair.', { exact: false })).toBeVisible({ timeout: 15000 });
+        await expect(window.locator('canvas')).toBeVisible();
+
+        await window.getByText("Can't scan? Enter details manually").click();
 
         const url = window.getByText(/^https:\/\//);
         await expect(url).toBeVisible();
@@ -30,8 +33,7 @@ test.describe('Web Remote Connectivity', () => {
         expect(urlValue.protocol).toBe('https:');
         expect(Number(urlValue.port)).toBeGreaterThan(0);
 
-        await expect(window.getByText('Manual pairing code', { exact: false })).toBeVisible({ timeout: 15000 });
+        await expect(window.getByText('Pairing code', { exact: true })).toBeVisible({ timeout: 15000 });
         await expect(window.locator('code').first()).not.toBeEmpty();
-        await expect(window.locator('canvas')).toBeVisible();
     });
 });

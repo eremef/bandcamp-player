@@ -5,7 +5,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical, ListX, ChevronsDown, Import } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ListX, ChevronsDown, Import, Upload } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
 
@@ -27,12 +27,15 @@ export default function QueueScreen() {
     const clearQueue = useStore((state) => state.clearQueue);
     const desktopSocketConnected = useStore((state) => state.desktopSocketConnected);
     const desktopQueueAvailability = useStore((state) => state.desktopQueueAvailability);
-    const desktopQueueAvailabilityRevision = useStore((state) => state.desktopQueueAvailabilityRevision);
-    const isContinuingDesktopQueue = useStore((state) => state.isContinuingDesktopQueue);
-    const desktopContinuationError = useStore((state) => state.desktopContinuationError);
-    const continueDesktopQueue = useStore((state) => state.continueDesktopQueue);
-    const [showReplaceQueueModal, setShowReplaceQueueModal] = useState(false);
-    const [confirmationAvailabilityRevision, setConfirmationAvailabilityRevision] = useState<number | null>(null);
+    const desktopQueueHandoffAvailable = useStore((state) => state.desktopQueueHandoffAvailable);
+    const desktopQueueHandoffCapabilityChecked = useStore((state) => state.desktopQueueHandoffCapabilityChecked);
+    const desktopQueueCurrentTrackAvailable = useStore((state) => state.desktopQueueCurrentTrackAvailable);
+    const queueHandoff = useStore((state) => state.queueHandoff);
+    const importDesktopQueue = useStore((state) => state.importDesktopQueue);
+    const exportQueueToDesktop = useStore((state) => state.exportQueueToDesktop);
+    const cancelQueueHandoff = useStore((state) => state.cancelQueueHandoff);
+    const [showHandoffConfirmation, setShowHandoffConfirmation] = useState(false);
+    const [confirmationPauseSource, setConfirmationPauseSource] = useState(true);
 
     const insets = useSafeAreaInsets();
 
@@ -195,20 +198,66 @@ export default function QueueScreen() {
         }, 1500);
     }, [refreshQueue]);
 
-    const handleContinueDesktopQueue = useCallback(async (confirmed = false) => {
-        const result = await continueDesktopQueue(confirmed);
-        if (result === 'confirmation-required') {
-            setConfirmationAvailabilityRevision(useStore.getState().desktopQueueAvailabilityRevision);
-            setShowReplaceQueueModal(true);
-        } else {
-            setShowReplaceQueueModal(false);
-        }
-    }, [continueDesktopQueue]);
+    const hasPhoneCurrentTrack = Number.isInteger(queue.currentIndex) &&
+        queue.currentIndex >= 0 && queue.currentIndex < queue.items.length &&
+        typeof queue.items[queue.currentIndex]?.track?.id === 'string' &&
+        queue.items[queue.currentIndex].track.id.trim().length > 0;
+    const canHandoff = mode === 'standalone' && desktopSocketConnected && desktopQueueHandoffAvailable;
+    const canImportDesktopQueue = canHandoff && desktopQueueAvailability === 'nonempty' &&
+        desktopQueueCurrentTrackAvailable;
+    const canExportPhoneQueue = canHandoff && queue.items.length > 0 && hasPhoneCurrentTrack;
+    const showDesktopUpdateHint = mode === 'standalone' && desktopSocketConnected &&
+        desktopQueueHandoffCapabilityChecked && !desktopQueueHandoffAvailable;
+    const isHandoffRunning = queueHandoff?.status === 'running';
 
-    const showContinueDesktopQueue = mode === 'standalone' && desktopSocketConnected &&
-        desktopQueueAvailability === 'nonempty';
-    const showReplaceQueueConfirmation = showReplaceQueueModal && showContinueDesktopQueue &&
-        confirmationAvailabilityRevision === desktopQueueAvailabilityRevision;
+    const runHandoff = useCallback(async (direction: 'import' | 'export', pauseSource: boolean, confirmed = false) => {
+        setConfirmationPauseSource(pauseSource);
+        const result = direction === 'import'
+            ? await importDesktopQueue(pauseSource, confirmed)
+            : await exportQueueToDesktop(pauseSource, confirmed);
+        if (result === 'confirmation-required') {
+            setShowHandoffConfirmation(true);
+        } else {
+            setShowHandoffConfirmation(false);
+        }
+    }, [exportQueueToDesktop, importDesktopQueue]);
+
+    const cancelHandoffConfirmation = useCallback(() => {
+        setShowHandoffConfirmation(false);
+        cancelQueueHandoff();
+    }, [cancelQueueHandoff]);
+
+    const handleHandoffPress = useCallback((direction: 'import' | 'export') => {
+        void runHandoff(direction, true);
+    }, [runHandoff]);
+
+    const handleHandoffLongPress = useCallback((direction: 'import' | 'export') => {
+        void runHandoff(direction, false);
+    }, [runHandoff]);
+
+    const handleHandoffAccessibilityAction = useCallback((direction: 'import' | 'export', actionName: string) => {
+        if (actionName === 'longpress') {
+            void runHandoff(direction, false);
+        } else if (actionName === 'activate') {
+            void runHandoff(direction, true);
+        }
+    }, [runHandoff]);
+
+    const confirmationDirection = queueHandoff?.direction;
+    const showHandoffConfirmationModal = showHandoffConfirmation &&
+        queueHandoff?.status === 'awaiting-confirmation' && confirmationDirection !== null;
+    const confirmationIsImport = confirmationDirection === 'import';
+    const confirmationTitle = confirmationIsImport
+        ? (confirmationPauseSource ? 'Move desktop playback to phone?' : 'Play desktop queue on phone too?')
+        : (confirmationPauseSource ? 'Move phone playback to desktop?' : 'Play phone queue on desktop too?');
+    const confirmationMessage = confirmationIsImport
+        ? confirmationPauseSource
+            ? 'This replaces the phone queue, starts the desktop’s current track on your phone, and pauses desktop playback.'
+            : 'This replaces the phone queue and starts the desktop’s current track on your phone. Desktop playback stays as it is.'
+        : confirmationPauseSource
+            ? 'This replaces the desktop queue, starts the phone’s current track on desktop, and pauses phone playback.'
+            : 'This replaces the desktop queue and starts the phone’s current track on desktop. Phone playback stays as it is.';
+    const confirmationActionLabel = confirmationPauseSource ? 'Move' : 'Play on both';
 
     const keyExtractor = useCallback((item: QueueItem) => item.id, []);
 
@@ -222,35 +271,64 @@ export default function QueueScreen() {
 
     return (
         <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
-            {desktopContinuationError && (
+            {queueHandoff?.status === 'error' && queueHandoff.message && (
                 <Text accessibilityRole="alert" style={[styles.continuationError, { color: colors.textSecondary }]}>
-                    {desktopContinuationError}
+                    {queueHandoff.message}
                 </Text>
             )}
-            {(queue.items.length > 0 || showContinueDesktopQueue) && (
+            {(queue.items.length > 0 || canImportDesktopQueue || canExportPhoneQueue || showDesktopUpdateHint) && (
                 <View style={styles.header}>
-                    <Text style={[styles.headerText, { color: colors.textSecondary }]}>
-                        {queue.items.length > 0
-                            ? `${queue.items.length} ${queue.items.length === 1 ? 'track' : 'tracks'}`
-                            : 'Desktop queue'}
-                    </Text>
-                    <View style={styles.clearBtnContainer}>
-                        {showContinueDesktopQueue && (
+                    <View style={styles.headerTopRow}>
+                        <Text style={[styles.headerText, { color: colors.textSecondary }]}>
+                            {queue.items.length > 0
+                                ? `${queue.items.length} ${queue.items.length === 1 ? 'track' : 'tracks'}`
+                                : 'Queue'}
+                        </Text>
+                        <View style={styles.headerActions}>
+                        {canImportDesktopQueue && (
                             <TouchableOpacity
-                                testID="continue-desktop-queue"
-                                onPress={() => { void handleContinueDesktopQueue(); }}
+                                testID="import-desktop-queue"
+                                onPress={() => handleHandoffPress('import')}
+                                onLongPress={() => handleHandoffLongPress('import')}
+                                delayLongPress={450}
                                 style={styles.clearBtn}
-                                disabled={isContinuingDesktopQueue}
-                                accessibilityState={{ disabled: isContinuingDesktopQueue, busy: isContinuingDesktopQueue }}
+                                disabled={isHandoffRunning}
+                                accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
                                 accessibilityRole="button"
-                                accessibilityLabel={isContinuingDesktopQueue ? 'Preparing desktop queue' : 'Continue desktop queue on phone'}
-                                accessibilityHint={isContinuingDesktopQueue
-                                    ? 'Preparing the desktop queue for playback on this phone.'
-                                    : 'Replaces the phone queue with the desktop queue and starts playback on this phone.'}
+                                accessibilityLabel="Import desktop queue to phone"
+                                accessibilityHint="Tap to move playback and pause desktop. Press and hold to start on phone while leaving desktop playback unchanged."
+                                accessibilityActions={[
+                                    { name: 'activate', label: 'Move playback to phone and pause desktop' },
+                                    { name: 'longpress', label: 'Play on phone and leave desktop playback unchanged' },
+                                ]}
+                                onAccessibilityAction={(event) => handleHandoffAccessibilityAction('import', event.nativeEvent.actionName)}
                             >
-                                {isContinuingDesktopQueue
-                                    ? <ActivityIndicator testID="desktop-queue-loading-indicator" size="small" color={colors.textSecondary} />
+                                {isHandoffRunning && queueHandoff?.direction === 'import'
+                                    ? <ActivityIndicator testID="import-handoff-loading-indicator" size="small" color={colors.textSecondary} />
                                     : <Import size={20} color={colors.textSecondary} />}
+                            </TouchableOpacity>
+                        )}
+                        {canExportPhoneQueue && (
+                            <TouchableOpacity
+                                testID="export-phone-queue"
+                                onPress={() => handleHandoffPress('export')}
+                                onLongPress={() => handleHandoffLongPress('export')}
+                                delayLongPress={450}
+                                style={styles.clearBtn}
+                                disabled={isHandoffRunning}
+                                accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Export phone queue to desktop"
+                                accessibilityHint="Tap to move playback and pause phone. Press and hold to start on desktop while leaving phone playback unchanged."
+                                accessibilityActions={[
+                                    { name: 'activate', label: 'Move playback to desktop and pause phone' },
+                                    { name: 'longpress', label: 'Play on desktop and leave phone playback unchanged' },
+                                ]}
+                                onAccessibilityAction={(event) => handleHandoffAccessibilityAction('export', event.nativeEvent.actionName)}
+                            >
+                                {isHandoffRunning && queueHandoff?.direction === 'export'
+                                    ? <ActivityIndicator testID="export-handoff-loading-indicator" size="small" color={colors.textSecondary} />
+                                    : <Upload size={20} color={colors.textSecondary} />}
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity
@@ -279,7 +357,18 @@ export default function QueueScreen() {
                         >
                             <ListX size={20} color={colors.error} />
                         </TouchableOpacity>
+                        </View>
                     </View>
+                    {(canImportDesktopQueue || canExportPhoneQueue) && (
+                        <Text style={[styles.handoffHint, { color: colors.textSecondary }]}>
+                            Tap moves and pauses source · Hold leaves source playback unchanged
+                        </Text>
+                    )}
+                    {showDesktopUpdateHint && (
+                        <Text testID="desktop-handoff-update-hint" style={[styles.updateHint, { color: colors.textSecondary }]}>
+                            Update desktop to enable queue handoff
+                        </Text>
+                    )}
                 </View>
             )}
             <DraggableFlatList
@@ -303,33 +392,37 @@ export default function QueueScreen() {
                 }
             />
             <Modal
-                visible={showReplaceQueueConfirmation}
+                visible={showHandoffConfirmationModal}
                 transparent
                 animationType="fade"
-                onRequestClose={() => setShowReplaceQueueModal(false)}
+                onRequestClose={cancelHandoffConfirmation}
             >
                 <View style={styles.modalBackdrop}>
                     <View style={[styles.modalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        <Text style={[styles.modalTitle, { color: colors.text }]}>Replace phone queue?</Text>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>{confirmationTitle}</Text>
                         <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-                            Continue the desktop queue on this phone and replace its current queue?
+                            {confirmationMessage}
                         </Text>
                         <View style={styles.modalActions}>
                             <TouchableOpacity
-                                testID="cancel-continue-desktop-queue"
+                                testID="cancel-queue-handoff"
                                 style={styles.modalAction}
-                                onPress={() => setShowReplaceQueueModal(false)}
-                                disabled={isContinuingDesktopQueue}
+                                onPress={cancelHandoffConfirmation}
+                                disabled={isHandoffRunning}
                             >
                                 <Text style={{ color: colors.textSecondary }}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                testID="confirm-continue-desktop-queue"
+                                testID="confirm-queue-handoff"
                                 style={styles.modalAction}
-                                onPress={() => { void handleContinueDesktopQueue(true); }}
-                                disabled={isContinuingDesktopQueue}
+                                onPress={() => {
+                                    if (confirmationDirection) {
+                                        void runHandoff(confirmationDirection, confirmationPauseSource, true);
+                                    }
+                                }}
+                                disabled={isHandoffRunning}
                             >
-                                <Text style={{ color: colors.accent }}>Continue</Text>
+                                <Text style={{ color: colors.accent }}>{confirmationActionLabel}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -344,14 +437,25 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#0a0a0a',
     },
-    clearBtnContainer: {
+    headerActions: {
         flexDirection: 'row',
+        alignItems: 'center',
         gap: 4,
     },
-    header: {
+    headerTopRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+    },
+    handoffHint: {
+        fontSize: 10,
+        marginTop: 2,
+    },
+    updateHint: {
+        fontSize: 10,
+        marginTop: 2,
+    },
+    header: {
         paddingHorizontal: 16,
         paddingVertical: 8,
     },

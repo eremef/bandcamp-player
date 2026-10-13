@@ -134,6 +134,8 @@ const electronAPI = {
     onSeek: createEventSubscriber<number>(PLAYER_CHANNELS.ON_SEEK),
     updateTime: (currentTime: number, duration: number): Promise<void> =>
       ipcRenderer.invoke(PLAYER_CHANNELS.UPDATE_TIME, currentTime, duration),
+    reportPlaybackStatus: (trackId: string, confirmationId: string, isPlaying: boolean, position: number, failed = false): Promise<void> =>
+      ipcRenderer.invoke(PLAYER_CHANNELS.REPORT_PLAYBACK_STATUS, trackId, confirmationId, isPlaying, position, failed),
     trackEnded: (): Promise<void> =>
       ipcRenderer.invoke(PLAYER_CHANNELS.TRACK_ENDED),
     reportPlaybackError: (trackId?: string): Promise<void> =>

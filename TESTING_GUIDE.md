@@ -3,11 +3,13 @@
 ## 1. Testing Philosophy & Frameworks
 
 ### The Testing Pyramid
-- **E2E Tests (Playwright):** Few, focused on critical user journeys (playback, settings, offline mode). Framework: Playwright 1.58.2
+
+- **E2E Tests (Playwright):** Few, focused on critical user journeys (playback, settings, offline mode). Use the version installed by the project.
 - **Integration Tests:** More, testing component interactions (e.g., Zustand store interacting with IPC services).
 - **Unit Tests (Vitest/Jest):** Many, fast, isolated tests for pure functions and individual services.
 
 ### Core Principles
+
 - **Test User Behavior, Not Implementation:** Click, type, see. Do not rely on internal React states or CSS classes.
 - **Keep Tests Independent:** Each test should run in isolation and clean up after itself.
 - **Make Tests Deterministic:** Avoid fixed timeouts (`waitForTimeout`). Rely on auto-waiting and explicit web assertions.
@@ -15,19 +17,23 @@
 ## 2. Test Environments & Run Commands
 
 **Desktop (Vitest):**
+
 - Config: `vitest.config.ts`
 - Environment: `happy-dom` for renderer, `node` for main process
 - Setup file: `src/test/setup.ts`
 
 **Mobile (Jest):**
+
 - Location: `mobile/__tests__/` (required to avoid Expo Router bundling)
 - Config: Jest config in `mobile/package.json` or jest.config.js
 
 **E2E (Playwright):**
+
 - Location: `e2e/*.spec.ts`
 - Fixtures: `e2e/fixtures.ts`
 
 ### Commands
+
 ```bash
 # Desktop Tests (Vitest)
 npm test                             # Run all desktop tests
@@ -43,13 +49,14 @@ cd mobile && npx jest -t "should connect"            # Single test by name
 
 # E2E Tests (Playwright)
 npm run test:e2e                     # Run all E2E tests
-npx playwright test
+npx playwright test --workers=1
 npx playwright test e2e/player.spec.ts               # Single spec file
 ```
 
 ## 3. Test File Organization
 
 **Naming Conventions:**
+
 - Unit tests: `*.test.ts` or `*.test.tsx`
 - Integration tests: `*.integration.test.ts`
 - Snapshots: `*.snapshot.test.ts`
@@ -58,6 +65,7 @@ npx playwright test e2e/player.spec.ts               # Single spec file
 ## 4. E2E Testing with Playwright
 
 ### Stable Selectors & React Components
+
 **Always use `data-testid`** (`getByTestId`) or accessible roles (`getByRole`, `getByLabel`) for element selection.
 *Never* use brittle CSS selectors (`.btn.btn-primary.submit-button`) or complex XPath queries.
 
@@ -66,9 +74,11 @@ npx playwright test e2e/player.spec.ts               # Single spec file
 - **Use Native Playwright Actions:** In your Playwright specs, always use `locator.click()` matching those strict Test IDs.
 
 ### Waiting Strategies
+
 Do not use fixed timeouts. Playwright automatically waits for elements to be actionable before clicking. For custom waits, use `waitForLoadState`, `waitForURL`, or `expect().toBeVisible()`.
 
 ### Dealing with Hidden/Obstructed Inputs (React Checkboxes)
+
 In this app, settings checkboxes are often visually hidden (opacity: 0, width: 0) and replaced with custom switch UI. Standard `click()` or `setChecked()` will fail with "Element is outside of the viewport".
 If standard Playwright clicks fail because elements are structurally obstructed, use `evaluate` directly on the Playwright locator, but ensure it's still selecting the correct bound element:
 
@@ -77,12 +87,12 @@ If standard Playwright clicks fail because elements are structurally obstructed,
 await page.getByTestId('settings-wishlist-toggle').evaluate(el => el.click());
 ```
 
-### Page Objects and Helpers
 Encapsulate complex, repeated UI interactions (like opening settings, modifying collections, or cleaning up states via `resetCollectionState`) into helper functions or Page Object Models to keep tests clean. (See `e2e/test-helpers.ts`).
 
 ## 5. Desktop Testing (Vitest)
 
 **Test Structure & Mocking Pattern:**
+
 ```typescript
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { PlayerService } from "./player.service";
@@ -118,6 +128,7 @@ describe("PlayerService", () => {
 ```
 
 **What to Mock:**
+
 - External dependencies (other services)
 - Database operations
 - File system access
@@ -125,6 +136,7 @@ describe("PlayerService", () => {
 - Electron APIs (use `vi.mock('electron', ...)`)
 
 **Specific Vitest Nuances:**
+
 - **Node Environment:** Set `/** @vitest-environment node */` at the top of tests involving Node modules (`http`, `ws`, `dgram`, `fs`).
 - **Audio Element:** Mock `<audio>` duration explicitly if needed: `Object.defineProperty(audio, 'duration', { value: 100 });`
 
@@ -134,6 +146,18 @@ describe("PlayerService", () => {
 - Use `waitFor()` for async state assertions.
 - Use `mockReturnValue()` instead of `mockReturnValueOnce()` unless explicitly testing sequences.
 
+### Standalone Queue Handoff
+
+The bidirectional queue handoff spans the mobile store/native player and desktop WebSocket/player layers. Focused tests live in:
+
+- `mobile/store/index.test.ts`: capability/current-track gating, Import and Export tap/hold semantics, destination replacement confirmation, chunk transfer, uncertain commit recovery, and rollback.
+- `mobile/__tests__/MobilePlayerService.test.ts`: native pause position and playback readiness/restoration.
+- `mobile/__tests__/app/(tabs)/queue.test.tsx`: icon visibility, tap versus long press, capability hints, and modal state.
+- `src/main/services/remote.test.ts`: capability negotiation, queue chunk validation, transfer status, and pause leases.
+- `src/main/services/player.test.ts`, `src/main/services/cast.service.test.ts`, and `src/renderer/components/Layout/PlayerBar.test.tsx`: destination replacement and playback acknowledgements.
+
+Run the mobile files through the repository Jest config (for example, `npm test --prefix mobile -- --runInBand --silent --coverage=false --runTestsByPath store/index.test.ts __tests__/MobilePlayerService.test.ts '__tests__/app/(tabs)/queue.test.tsx'`). Desktop protocol tests use Vitest. Run Electron E2E sequentially with `npx playwright test --workers=1`; the current fixture does not create a paired mobile client, so it does not exercise the complete mobile handoff transaction. On a device, verify both directions with a playing and paused source, a destination queue that requires confirmation, and the long-press path. If desktop casting is used, verify cast playback separately.
+
 ## 7. Common Patterns & Best Practices
 
 **Modifying Components for Testability:**
@@ -141,6 +165,7 @@ When modifying React components, if a button, input, or container is critical fo
 
 **Fixtures and Factories:**
 Use helper functions for complex objects in unit tests:
+
 ```typescript
 const createMockTrack = (overrides = {}): Track => ({
   id: "1",
@@ -151,5 +176,6 @@ const createMockTrack = (overrides = {}): Track => ({
 ```
 
 **Coverage Notes:**
+
 - We use the V8 coverage provider.
 - E2E coverage requires merging hits from all runs: `npm run test:e2e:coverage`
