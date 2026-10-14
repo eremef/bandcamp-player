@@ -23,6 +23,7 @@ const BOOTSTRAP_KEY = 'playlist_sync_bootstrapped';
 const RPC_TIMEOUT_MS = 5000;
 /** The outbox is re-checked after each cycle; cap the loop so constant editing can't spin. */
 const MAX_CYCLES = 3;
+const PLAYLIST_PULL_CONCURRENCY = 4;
 
 type Summary = { id: string; updatedAt: string; trackCount: number; fromDesktop: boolean };
 
@@ -154,20 +155,30 @@ class PlaylistSyncService {
             (await mobileDatabase.getPlaylistSummaries()).map(s => [s.id, s])
         );
 
-        for (const remote of snapshot) {
+        const changed = snapshot.filter((remote) => {
             const mirrored = local.get(remote.id);
-            const unchanged =
-                mirrored &&
-                mirrored.updatedAt === remote.updatedAt &&
-                mirrored.trackCount === (remote.trackCount ?? 0);
-            if (unchanged) continue;
-
-            const full = await this.request<Playlist>(
-                'get-playlist-for-export',
-                remote.id,
-                'export-playlist-data',
-                (data) => data?.id === remote.id
-            );
+            return !mirrored || mirrored.updatedAt !== remote.updatedAt ||
+                mirrored.trackCount !== (remote.trackCount ?? 0);
+        });
+        const hydrated = new Array<Playlist | null>(changed.length);
+        let nextIndex = 0;
+        const hydrateNext = async () => {
+            while (nextIndex < changed.length) {
+                const index = nextIndex++;
+                const remote = changed[index];
+                hydrated[index] = await this.request<Playlist>(
+                    'get-playlist-for-export',
+                    remote.id,
+                    'export-playlist-data',
+                    (data) => data?.id === remote.id
+                );
+            }
+        };
+        await Promise.all(Array.from(
+            { length: Math.min(PLAYLIST_PULL_CONCURRENCY, changed.length) },
+            () => hydrateNext(),
+        ));
+        for (const full of hydrated) {
             if (full) await mobileDatabase.importPlaylist(full, true);
         }
 

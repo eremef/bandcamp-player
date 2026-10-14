@@ -219,6 +219,45 @@ describe('queue handoff capability across mode changes', () => {
         });
     });
 
+    it('updates eligibility from compact status without replacing phone playback and switches subscriptions', async () => {
+        socket.setConnected(true);
+        socket.emit('connection-status', 'connected');
+        useStore.setState({ queue: phoneQueue as any, currentTrack: phoneQueue.items[0].track as any });
+        const status = { queueNonempty: true, hasActiveTrack: true, queueVersion: 3, actionVersion: 7 };
+        socket.emit('capabilities', {
+            capabilities: ['queue-handoff-v1', 'queue-handoff-status-v1'], queueHandoffStatus: status,
+        });
+        expect(useStore.getState()).toMatchObject({
+            desktopQueueAvailability: 'nonempty', desktopQueueCurrentTrackAvailable: true,
+            desktopQueueHandoffAvailable: true,
+        });
+        expect(useStore.getState().queue).toBe(phoneQueue);
+        expect(webSocketService.send).toHaveBeenCalledWith('set-state-subscription', { mode: 'standalone' });
+        expect(webSocketService.send).not.toHaveBeenCalledWith('get-state');
+        socket.emit('queue-handoff-status', { ...status, queueNonempty: false });
+        expect(useStore.getState().desktopQueueAvailability).toBe('nonempty');
+        socket.emit('queue-handoff-status', { ...status, queueNonempty: false, hasActiveTrack: false });
+        expect(useStore.getState().desktopQueueAvailability).toBe('empty');
+        await useStore.getState().setMode('remote');
+        expect(webSocketService.send).toHaveBeenCalledWith('set-state-subscription', { mode: 'remote' });
+        await useStore.getState().setMode('standalone');
+        expect(webSocketService.send).toHaveBeenLastCalledWith('set-state-subscription', { mode: 'standalone' });
+        socket.setConnected(false);
+        socket.emit('connection-status', 'disconnected');
+        socket.emit('queue-handoff-status', status);
+        expect(useStore.getState().desktopQueueAvailability).toBe('unknown');
+    });
+
+    it('uses full state refreshes when the desktop has the older handoff capability', () => {
+        socket.setConnected(true);
+        socket.emit('connection-status', 'connected');
+        socket.emit('capabilities', { capabilities: ['queue-handoff-v1'] });
+        expect(webSocketService.send).toHaveBeenCalledWith('get-state');
+        expect(webSocketService.send).not.toHaveBeenCalledWith('set-state-subscription', expect.anything());
+        socket.emit('state-changed', desktopQueueState);
+        expect(useStore.getState().desktopQueueCurrentTrackAvailable).toBe(true);
+    });
+
     it('requires a fresh capability announcement after reconnecting to another desktop', () => {
         socket.setConnected(true);
         useStore.setState({ mode: 'standalone' });

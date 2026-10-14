@@ -23,6 +23,7 @@ import type {
     RemoteNetworkInterface,
     RemoteControlStatus,
     RemoteSecurityMode,
+    DesktopQueueHandoffStatus,
 } from '../../shared/types';
 import { Database } from '../database/database';
 import {
@@ -117,7 +118,7 @@ export class RemoteControlService extends EventEmitter {
     private playlistService: PlaylistService;
     private authService: AuthService;
     private database: Database;
-    private clients: Map<string, { ws: WebSocket; authenticated: boolean; pairingId?: string; failedAuthAttempts: number } & RemoteClient> = new Map();
+    private clients: Map<string, { ws: WebSocket; authenticated: boolean; pairingId?: string; failedAuthAttempts: number; stateSubscription?: 'remote' | 'standalone' } & RemoteClient> = new Map();
     private readonly tlsService = new RemoteTlsService();
     private tlsMaterial: RemoteTlsMaterial | null = null;
     private securityMode: RemoteSecurityMode = 'safe';
@@ -1065,6 +1066,17 @@ export class RemoteControlService extends EventEmitter {
         }
 
         switch (type) {
+            case 'set-state-subscription': {
+                const client = this.clients.get(clientId);
+                if (!client?.authenticated || (payload?.mode !== 'remote' && payload?.mode !== 'standalone')) break;
+                client.stateSubscription = payload.mode;
+                if (payload.mode === 'standalone') {
+                    this.sendToClient(ws, 'queue-handoff-status', this.getQueueHandoffStatus());
+                } else {
+                    this.sendToClient(ws, 'state-changed', this.playerService.getState());
+                }
+                break;
+            }
             case 'identify': {
                 const client = this.clients.get(clientId);
                 if (client && payload) {
@@ -1598,7 +1610,19 @@ export class RemoteControlService extends EventEmitter {
     }
 
     private sendQueueHandoffCapabilities(ws: WebSocket): void {
-        this.sendToClient(ws, 'capabilities', { capabilities: ['queue-handoff-v1'] });
+        this.sendToClient(ws, 'capabilities', {
+            capabilities: ['queue-handoff-v1', 'queue-handoff-status-v1'],
+            queueHandoffStatus: this.getQueueHandoffStatus(),
+        });
+    }
+
+    private getQueueHandoffStatus(state = this.playerService.getState()): DesktopQueueHandoffStatus {
+        const selectedTrack = state.queue?.items?.[state.queue.currentIndex]?.track;
+        return {
+            queueNonempty: !!state.queue?.items?.length,
+            hasActiveTrack: !!selectedTrack?.id && state.currentTrack?.id === selectedTrack.id,
+            ...this.playerService.getHandoffVersions(),
+        };
     }
 
     private async handleQueueHandoffSnapshot(ws: WebSocket, payload: any): Promise<void> {
@@ -2244,12 +2268,16 @@ export class RemoteControlService extends EventEmitter {
     private broadcast(type: string, payload: any): void {
         if (!this.wss) return;
         try {
-            const data = JSON.stringify({ type, payload });
+            let data: string | undefined;
+            let statusData: string | undefined;
 
             this.clients.forEach((client) => {
                 if (client.authenticated && client.ws.readyState === WebSocket.OPEN) {
+                    const outgoing = type === 'state-changed' && client.stateSubscription === 'standalone'
+                        ? (statusData ??= JSON.stringify({ type: 'queue-handoff-status', payload: this.getQueueHandoffStatus(payload) }))
+                        : (data ??= JSON.stringify({ type, payload }));
                     try {
-                        client.ws.send(data);
+                        client.ws.send(outgoing);
                     } catch (err) {
                         console.error('[RemoteService] Error sending to client:', err);
                     }

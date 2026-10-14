@@ -221,6 +221,8 @@ describe('Mobile useStore', () => {
 
     beforeEach(() => {
         jest.useFakeTimers();
+        (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
+        socketListeners['connection-status']('disconnected', false);
         useStore.getState().cancelQueueHandoff();
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         mobilePlayerService.getPositionForSnapshot.mockReset().mockImplementation((position: number) => position);
@@ -365,11 +367,17 @@ describe('Mobile useStore', () => {
         const order: string[] = [];
         const chunkData: string[] = [];
         const phoneTrack = {
-            id: 'phone-track', title: 'Phone track', artist: 'Phone artist', album: 'Album',
+            id: 'phone-track', title: 'Zażółć 🎵 東京', artist: 'Phone artist', album: 'Album',
             streamUrl: 'file:///mobile/cache/track.mp3', cachedPath: '/private/cache/track.mp3', isCached: true,
             bandcampUrl: 'https://artist.bandcamp.com/track/song', duration: 120,
         } as any;
-        const queue = { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 };
+        const queue = {
+            items: Array.from({ length: 3000 }, (_, index) => ({
+                id: index === 0 ? 'phone-q' : `phone-q-${index}`,
+                track: { ...phoneTrack }, source: 'collection' as const,
+            })),
+            currentIndex: 0,
+        };
         useStore.setState({ queue, currentTrack: phoneTrack, currentTime: 12, isPlaying: true, userIntendedPause: false });
         mobilePlayerService.pauseForQueueHandoff.mockImplementation(async () => {
             order.push('phone-pause');
@@ -402,6 +410,8 @@ describe('Mobile useStore', () => {
 
         const transferred = JSON.parse(Buffer.concat(chunkData.map(chunk => Buffer.from(chunk, 'base64'))).toString('utf8'));
         expect(result).toBe('completed');
+        expect(chunkData.length).toBeGreaterThan(1);
+        expect(transferred.items[0].track.title).toBe(phoneTrack.title);
         expect(transferred.items[0].track.streamUrl).toBe('');
         expect(transferred.items[0].track.isCached).toBe(false);
         expect(transferred.items[0].track.cachedPath).toBeUndefined();
@@ -646,6 +656,51 @@ describe('Mobile useStore', () => {
         expect(first).toBe('confirmation-required');
         expect(second).toBe('confirmation-required');
         expect(mobilePlayerService.pauseForQueueHandoff).not.toHaveBeenCalled();
+    });
+
+    it('invalidates overwrite confirmation from compact desktop revisions', async () => {
+        const phoneTrack = { id: 'phone-track', title: 'Phone track' } as any;
+        useStore.setState({
+            queue: { items: [{ id: 'phone-q', track: phoneTrack, source: 'collection' as const }], currentIndex: 0 },
+            currentTrack: phoneTrack,
+        });
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, makeDesktopQueueSnapshot());
+            }
+        });
+        socketListeners['capabilities']({
+            capabilities: ['queue-handoff-v1', 'queue-handoff-status-v1'],
+            queueHandoffStatus: { queueNonempty: true, hasActiveTrack: true, queueVersion: 1, actionVersion: 2 },
+        });
+        expect(await useStore.getState().exportQueueToDesktop(false)).toBe('confirmation-required');
+        socketListeners['queue-handoff-status']({ queueNonempty: true, hasActiveTrack: true, queueVersion: 2, actionVersion: 2 });
+        expect(useStore.getState().queueHandoff.status).toBe('idle');
+        expect(await useStore.getState().exportQueueToDesktop(false, true)).toBe('confirmation-required');
+    });
+
+    it('does not turn a queued track into an active desktop track while normalizing a snapshot', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, { ...makeDesktopQueueSnapshot(), currentTrack: null });
+            }
+        });
+        expect(await useStore.getState().importDesktopQueue(true)).toBe('failed');
+        expect(useStore.getState().queueHandoff.message).toContain('no active queue track');
+        expect(mobilePlayerService.loadTrack).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed handoff snapshots before touching phone playback', async () => {
+        const { mobilePlayerService } = require('../services/MobilePlayerService');
+        activateQueueHandoff((type, payload) => {
+            if (type === 'request-desktop-queue-handoff-snapshot') {
+                respondToHandoffSnapshot(payload.requestId, { ...makeDesktopQueueSnapshot(), currentTrack: { id: 'missing-track', title: 'Missing' } });
+            }
+        });
+        expect(await useStore.getState().importDesktopQueue(true)).toBe('failed');
+        expect(useStore.getState().queueHandoff.message).toContain('invalid queue snapshot');
+        expect(mobilePlayerService.loadTrack).not.toHaveBeenCalled();
     });
 
     it('should restore volume when switching to standalone mode', async () => {
@@ -1329,6 +1384,7 @@ describe('Mobile useStore', () => {
         it('should refreshPlaylists from the mirror in both modes', () => {
             const { mobileDatabase } = require('../services/MobileDatabase');
             const { playlistSyncService } = require('../services/PlaylistSyncService');
+            (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
 
             // Remote: the mirror is still the read source, and the desktop is synced into it
             // rather than queried for a list to display.

@@ -106,9 +106,18 @@ Sent whenever the player state changes (play/pause, volume, shuffle, etc.).
 
 Sent after a connection is established (after authentication in Safe mode). Mobile clients use this response to identify support for newer remote operations.
 
-- **Payload**: `{ capabilities: string[] }`
+- **Payload**: `{ capabilities: string[], queueHandoffStatus?: DesktopQueueHandoffStatus }`
 - `queue-handoff-v1` enables the bidirectional queue handoff messages below. A mobile client must not silently fall back when this capability is absent.
+- `queue-handoff-status-v1` enables compact background eligibility updates. Its initial `queueHandoffStatus` describes availability before the full initial player state arrives.
 - Standalone Queue controls appear only after capability negotiation and when the relevant source has a selected current track. Older desktop versions do not advertise this capability.
+
+### `set-state-subscription` and `queue-handoff-status`
+
+After negotiating `queue-handoff-status-v1`, mobile sends `set-state-subscription` with `{ mode: 'standalone' | 'remote' }` on connection and mode changes. Standalone receives `queue-handoff-status` instead of subsequent full `state-changed` broadcasts. Remote resumes full player-state broadcasts immediately. Clients that do not subscribe retain the existing full-state stream; mobile connected to an older desktop uses `get-state` and full-state updates.
+
+`DesktopQueueHandoffStatus` is `{ queueNonempty: boolean, hasActiveTrack: boolean, queueVersion: number, actionVersion: number }`. It controls button visibility and invalidates pending confirmations when versions change. It never replaces the fresh full snapshot, version checks, destination preparation, or playback acknowledgements required for an actual handoff. Invalid or disconnected status updates are ignored.
+
+During fresh pairing, mobile retains only the latest capability, initial state, and compact status messages until the token is successfully saved to secure storage. They are dispatched after `connected`; storage failure or a connection change discards them.
 
 ### `track-changed`
 

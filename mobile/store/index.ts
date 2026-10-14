@@ -1,6 +1,7 @@
 import type { PlayerState, Collection, CollectionItem, Playlist, RadioStation, Track, QueueItem, Artist, Theme, BandcampUser, Album, LastfmState, SortKey, SortDirection, PlaylistSyncMode, DesktopQueueSnapshot, Queue } from '@shared/types';
 import { dedupeCollectionItems } from '@shared/utils/collection-utils';
 import { create } from 'zustand';
+import { fromUint8Array } from 'js-base64';
 import { webSocketService } from '../services/WebSocketService';
 import type { RemoteConnectionOptions } from '../services/WebSocketService';
 
@@ -37,6 +38,7 @@ const queueHandoffRequests = new Map<string, QueueHandoffRequest>();
 let queueHandoffGeneration = 0;
 let queueHandoffRequestId = 0;
 let queueHandoffCapabilityTimeout: ReturnType<typeof setTimeout> | null = null;
+let desktopQueueHandoffStatusSupported = false;
 let pendingQueueHandoffConfirmation: {
     direction: QueueHandoffDirection;
     phoneQueueSignature: string;
@@ -77,14 +79,12 @@ function cancelQueueHandoffRequests(message: string): void {
 }
 
 async function requestQueueHandoffSnapshot(): Promise<QueueHandoffSnapshot> {
-    const response = await requestQueueHandoffResponse(
+    const response: { snapshot: QueueHandoffSnapshot } = await requestQueueHandoffResponse(
         'request-desktop-queue-handoff-snapshot',
         { requestId: createQueueHandoffRequestId() },
         'desktop-queue-snapshot',
     );
-    const snapshot = normalizeQueueHandoffSnapshot(response?.snapshot);
-    if (!snapshot) throw new Error('The desktop returned an invalid queue snapshot.');
-    return snapshot;
+    return response.snapshot;
 }
 
 interface StagedDesktopQueueTransfer {
@@ -215,21 +215,6 @@ function encodeUtf8(value: string): Uint8Array {
     const bytes = new Uint8Array(encoded.length);
     for (let index = 0; index < encoded.length; index++) bytes[index] = encoded.charCodeAt(index);
     return bytes;
-}
-
-function encodeBase64(bytes: Uint8Array): string {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    let encoded = '';
-    for (let index = 0; index < bytes.length; index += 3) {
-        const first = bytes[index];
-        const second = bytes[index + 1];
-        const third = bytes[index + 2];
-        encoded += alphabet[first >> 2];
-        encoded += alphabet[((first & 3) << 4) | (second === undefined ? 0 : second >> 4)];
-        encoded += second === undefined ? '=' : alphabet[((second & 15) << 2) | (third === undefined ? 0 : third >> 6)];
-        encoded += third === undefined ? '=' : alphabet[third & 63];
-    }
-    return encoded;
 }
 
 function sanitizeDesktopTrack(track: any): Track | null {
@@ -379,7 +364,7 @@ function serializeDesktopQueueTransfer(queue: Queue): SerializedDesktopQueueTran
     }
     const chunks: string[] = [];
     for (let offset = 0; offset < bytes.length; offset += QUEUE_HANDOFF_CHUNK_BYTES) {
-        chunks.push(encodeBase64(bytes.subarray(offset, Math.min(offset + QUEUE_HANDOFF_CHUNK_BYTES, bytes.length))));
+        chunks.push(fromUint8Array(bytes.subarray(offset, Math.min(offset + QUEUE_HANDOFF_CHUNK_BYTES, bytes.length))));
     }
     return { chunks: chunks.length > 0 ? chunks : [''], totalBytes: bytes.byteLength };
 }
@@ -1002,6 +987,7 @@ export const useStore = create<AppState>((set, get) => ({
         const desktopConnected = webSocketService.isConnected();
         pendingExportOutcome = null;
         if (!desktopConnected) {
+            desktopQueueHandoffStatusSupported = false;
             if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
             queueHandoffCapabilityTimeout = null;
         }
@@ -1065,10 +1051,10 @@ export const useStore = create<AppState>((set, get) => ({
         // Set mode early so WebSocket event guards (e.g. state-changed)
         // block remote updates during the async transition below
         set({ mode });
+        syncDesktopStateSubscription();
 
         if (mode === 'standalone') {
             await get().restoreStandaloneState();
-            if (webSocketService.isConnected()) webSocketService.send('get-state');
         } else {
             // Remote mode: only reset data collections, NOT playback state.
             // The server will provide playback state via state-changed event.
@@ -1133,6 +1119,7 @@ export const useStore = create<AppState>((set, get) => ({
     connect: async (manualIp?: string, options?: RemoteConnectionOptions) => {
         const ip = manualIp || get().hostIp;
         if (!ip) return;
+        desktopQueueHandoffStatusSupported = false;
         queueHandoffGeneration++;
         pendingQueueHandoffConfirmation = null;
         cancelQueueHandoffRequests('The desktop connection changed.');
@@ -1165,6 +1152,7 @@ export const useStore = create<AppState>((set, get) => ({
     },
 
     disconnect: async () => {
+        desktopQueueHandoffStatusSupported = false;
         const { mode } = get();
         queueHandoffGeneration++;
         pendingQueueHandoffConfirmation = null;
@@ -3070,8 +3058,6 @@ export const useStore = create<AppState>((set, get) => ({
                 const nativePosition = TrackPlayer.getProgress().position;
                 if (Number.isFinite(nativePosition)) phonePosition = mobilePlayerService.getPositionForSnapshot(nativePosition);
             } catch { phonePosition = before.currentTime; }
-            const transfer = serializeDesktopQueueTransfer(before.queue);
-
             const desktopSnapshot = await requestQueueHandoffSnapshot();
             if (!isCurrent()) return 'cancelled';
             const pending = pendingQueueHandoffConfirmation;
@@ -3093,6 +3079,7 @@ export const useStore = create<AppState>((set, get) => ({
                 throw new Error('The phone queue changed during the transfer.');
             }
 
+            const transfer = serializeDesktopQueueTransfer(before.queue);
             const transferIsCurrent = () => isCurrent() && queueHandoffSignature(get().queue) === phoneSignatureBefore &&
                 mobilePlayerService.getPlaybackActionRevision?.() === (pauseSnapshot?.actionRevision ?? phoneActionRevision);
             stagedTransfer = await stageMobileQueueOnDesktop(transfer, desktopSnapshot, transferIsCurrent);
@@ -3438,8 +3425,38 @@ function updateDesktopQueueAvailability(
     });
 }
 
+function syncDesktopStateSubscription(): void {
+    if (!webSocketService.isConnected()) return;
+    const { mode } = useStore.getState();
+    if (desktopQueueHandoffStatusSupported) {
+        webSocketService.send('set-state-subscription', { mode });
+    } else if (mode === 'standalone') {
+        webSocketService.send('get-state');
+    }
+}
+
+function applyDesktopQueueHandoffStatus(payload: unknown): void {
+    if (!payload || typeof payload !== 'object' || !desktopQueueHandoffStatusSupported ||
+        !webSocketService.isConnected() || !useStore.getState().desktopSocketConnected) return;
+    const status = payload as Record<string, unknown>;
+    if (typeof status.queueNonempty !== 'boolean' || typeof status.hasActiveTrack !== 'boolean' ||
+        (status.hasActiveTrack && !status.queueNonempty) || !Number.isSafeInteger(status.queueVersion) ||
+        !Number.isSafeInteger(status.actionVersion) || (status.queueVersion as number) < 0 ||
+        (status.actionVersion as number) < 0) return;
+    updateDesktopQueueAvailability(status.queueNonempty ? 'nonempty' : 'empty', {
+        desktopQueueCurrentTrackAvailable: status.hasActiveTrack,
+    });
+    const pending = pendingQueueHandoffConfirmation;
+    if (pending && !pending.desktopQueueSignature.endsWith(`|${status.queueVersion}|${status.actionVersion}`)) {
+        clearPendingQueueHandoffConfirmation();
+    }
+}
+
+webSocketService.on('queue-handoff-status', applyDesktopQueueHandoffStatus);
+
 webSocketService.on('connection-status', (status, isExplicit) => {
     const { mode, connectionStatus: currentStatus } = useStore.getState();
+    desktopQueueHandoffStatusSupported = false;
 
     if (status === 'connected' && webSocketService.isConnected()) {
         if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
@@ -3453,6 +3470,7 @@ webSocketService.on('connection-status', (status, isExplicit) => {
             queueHandoffCapabilityTimeout = null;
             if (useStore.getState().desktopSocketConnected && !useStore.getState().desktopQueueHandoffCapabilityChecked) {
                 useStore.setState({ desktopQueueHandoffCapabilityChecked: true });
+                syncDesktopStateSubscription();
             }
         }, 3000);
         if (pendingExportOutcome) void reconcilePendingExportOutcome();
@@ -3508,9 +3526,6 @@ webSocketService.on('connection-status', (status, isExplicit) => {
         webSocketService.send('get-radio-stations');
         webSocketService.send('get-artists');
     }
-    if (status === 'connected' && useStore.getState().mode === 'standalone') {
-        webSocketService.send('get-state');
-    }
 });
 
 let lastReorderTime = 0;
@@ -3526,12 +3541,12 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
                 position: payload.currentTime,
                 duration: payload.duration,
             };
-            const normalized = normalizeDesktopQueueSnapshot(rawSnapshot);
             updateDesktopQueueAvailability(payload.queue.items.length > 0 ? 'nonempty' : 'empty', {
                 desktopQueueCurrentTrackAvailable: hasRawActiveDesktopTrack(rawSnapshot),
             });
             const pending = pendingQueueHandoffConfirmation;
             if (pending) {
+                const normalized = normalizeDesktopQueueSnapshot(rawSnapshot);
                 const latestSignature = normalized ? desktopQueueSignature(normalized) : '';
                 const expectedSignature = pending.desktopQueueSignature.replace(/\|\d+\|\d+$/, '');
                 if (!normalized || latestSignature !== expectedSignature ||
@@ -3633,7 +3648,7 @@ webSocketService.on('desktop-queue-snapshot', (payload) => {
             });
             handoffRequest.resolve({ ...payload, snapshot });
         } else {
-            handoffRequest.resolve(payload);
+            handoffRequest.reject(new Error('The desktop returned an invalid queue snapshot.'));
         }
     }
 });
@@ -3660,10 +3675,12 @@ for (const responseEvent of [
 
 webSocketService.on('capabilities', (payload) => {
     const available = Array.isArray(payload?.capabilities) && payload.capabilities.includes('queue-handoff-v1');
+    const statusSupported = available && payload.capabilities.includes('queue-handoff-status-v1');
+    const subscriptionChanged = statusSupported !== desktopQueueHandoffStatusSupported;
+    desktopQueueHandoffStatusSupported = statusSupported;
     const current = useStore.getState();
     if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
     queueHandoffCapabilityTimeout = null;
-    if (available === current.desktopQueueHandoffAvailable && current.desktopQueueHandoffCapabilityChecked) return;
     if (available !== current.desktopQueueHandoffAvailable) {
         queueHandoffGeneration++;
         pendingQueueHandoffConfirmation = null;
@@ -3676,6 +3693,10 @@ webSocketService.on('capabilities', (payload) => {
             ? {}
             : { queueHandoff: { status: 'idle' as const, direction: null, message: null } }),
     });
+    if (statusSupported) applyDesktopQueueHandoffStatus(payload.queueHandoffStatus);
+    if (subscriptionChanged || !current.desktopQueueHandoffCapabilityChecked || available !== current.desktopQueueHandoffAvailable) {
+        syncDesktopStateSubscription();
+    }
 });
 
 webSocketService.on('collection-data', (collectionData) => {

@@ -120,6 +120,13 @@ export interface Queue {
   shuffleOrder?: number[]; // Indices for shuffle mode
 }
 
+export interface DesktopQueueHandoffStatus {
+  queueNonempty: boolean;
+  hasActiveTrack: boolean;
+  queueVersion: number;
+  actionVersion: number;
+}
+
 export interface DesktopQueueSnapshot {
   queue: Queue;
   currentTrack: Track | null;

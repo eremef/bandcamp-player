@@ -287,6 +287,48 @@ describe('RemoteControlService', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
         };
 
+        it('advertises initial eligibility before the full state and preserves legacy clients', async () => {
+            const initial = mockWs.send.mock.calls.map(([data]: [string]) => JSON.parse(data));
+            expect(initial[0]).toMatchObject({ type: 'capabilities', payload: {
+                capabilities: ['queue-handoff-v1', 'queue-handoff-status-v1'],
+                queueHandoffStatus: { queueNonempty: false, hasActiveTrack: false, queueVersion: 0, actionVersion: 0 },
+            } });
+            expect(initial[1].type).toBe('state-changed');
+            const legacyWs = new EventEmitter() as any;
+            Object.assign(legacyWs, { send: vi.fn(), close: vi.fn(), readyState: 1 });
+            mockWss.emit('connection', legacyWs, { socket: { remoteAddress: '127.0.0.1' }, headers: {} });
+            const state = { queue: { items: [{ id: 'q1', track: { id: 't1', title: 'Track' } }], currentIndex: 0 }, currentTrack: { id: 't1' } };
+            mockPlayerService.getState.mockReturnValue(state);
+            mockPlayerService.getHandoffVersions.mockReturnValue({ queueVersion: 4, actionVersion: 9 });
+            mockWs.send.mockClear();
+            legacyWs.send.mockClear();
+            await sendMessage('set-state-subscription', { mode: 'standalone' });
+            expect(JSON.parse(mockWs.send.mock.calls[0][0])).toEqual({ type: 'queue-handoff-status', payload: {
+                queueNonempty: true, hasActiveTrack: true, queueVersion: 4, actionVersion: 9,
+            } });
+            mockWs.send.mockClear();
+            mockPlayerService.emit('state-changed', state);
+            expect(mockWs.send.mock.calls).toHaveLength(1);
+            expect(JSON.parse(mockWs.send.mock.calls[0][0]).type).toBe('queue-handoff-status');
+            expect(JSON.parse(legacyWs.send.mock.calls[0][0])).toEqual({ type: 'state-changed', payload: state });
+            await sendMessage('set-state-subscription', { mode: 'remote' });
+            mockWs.send.mockClear();
+            mockPlayerService.emit('state-changed', state);
+            expect(JSON.parse(mockWs.send.mock.calls[0][0])).toEqual({ type: 'state-changed', payload: state });
+        });
+
+        it('rejects invalid and unauthenticated state subscriptions', async () => {
+            const clientId = Array.from((remoteService as any).clients.keys())[0];
+            const client = (remoteService as any).clients.get(clientId);
+            await sendMessage('set-state-subscription', { mode: 'invalid' });
+            expect(client.stateSubscription).toBeUndefined();
+            client.authenticated = false;
+            mockWs.send.mockClear();
+            await (remoteService as any).handleMessage(mockWs, { type: 'set-state-subscription', payload: { mode: 'standalone' } }, clientId);
+            expect(client.stateSubscription).toBeUndefined();
+            expect(mockWs.send).not.toHaveBeenCalled();
+        });
+
         it('should handle get-collection', async () => {
             mockAuthService.getUser.mockReturnValue({ isAuthenticated: true });
             mockScraperService.fetchCollection.mockResolvedValue({ items: [], totalCount: 0 });
