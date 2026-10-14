@@ -5,7 +5,7 @@ import { FlatList } from 'react-native-gesture-handler';
 import { useFocusEffect } from 'expo-router';
 import { useStore } from '../../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Play, Trash2, GripVertical, ListX, ChevronsDown, Import, Upload } from 'lucide-react-native';
+import { Play, Trash2, GripVertical, ListX, ChevronsDown, Upload, Download } from 'lucide-react-native';
 import { QueueItem } from '@shared/types';
 import { useTheme } from '../../theme';
 
@@ -257,7 +257,7 @@ export default function QueueScreen() {
         : confirmationPauseSource
             ? 'This replaces the desktop queue, starts the phone’s current track on desktop, and pauses phone playback.'
             : 'This replaces the desktop queue and starts the phone’s current track on desktop. Phone playback stays as it is.';
-    const confirmationActionLabel = confirmationPauseSource ? 'Move' : 'Play on both';
+    const confirmationActionLabel = confirmationPauseSource ? 'Move' : 'Play';
 
     const keyExtractor = useCallback((item: QueueItem) => item.id, []);
 
@@ -285,85 +285,85 @@ export default function QueueScreen() {
                                 : 'Queue'}
                         </Text>
                         <View style={styles.headerActions}>
-                        {canImportDesktopQueue && (
+                            {canImportDesktopQueue && (
+                                <TouchableOpacity
+                                    testID="import-desktop-queue"
+                                    onPress={() => handleHandoffPress('import')}
+                                    onLongPress={() => handleHandoffLongPress('import')}
+                                    delayLongPress={450}
+                                    style={styles.clearBtn}
+                                    disabled={isHandoffRunning}
+                                    accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Import desktop queue to phone"
+                                    accessibilityHint="Tap to move playback and pause desktop. Press and hold to start on phone while leaving desktop playback unchanged."
+                                    accessibilityActions={[
+                                        { name: 'activate', label: 'Move playback to phone and pause desktop' },
+                                        { name: 'longpress', label: 'Play on phone and leave desktop playback unchanged' },
+                                    ]}
+                                    onAccessibilityAction={(event) => handleHandoffAccessibilityAction('import', event.nativeEvent.actionName)}
+                                >
+                                    {isHandoffRunning && queueHandoff?.direction === 'import'
+                                        ? <ActivityIndicator testID="import-handoff-loading-indicator" size="small" color={colors.textSecondary} />
+                                        : <Download size={20} color={colors.textSecondary} />}
+                                </TouchableOpacity>
+                            )}
+                            {canExportPhoneQueue && (
+                                <TouchableOpacity
+                                    testID="export-phone-queue"
+                                    onPress={() => handleHandoffPress('export')}
+                                    onLongPress={() => handleHandoffLongPress('export')}
+                                    delayLongPress={450}
+                                    style={styles.clearBtn}
+                                    disabled={isHandoffRunning}
+                                    accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Export phone queue to desktop"
+                                    accessibilityHint="Tap to move playback and pause phone. Press and hold to start on desktop while leaving phone playback unchanged."
+                                    accessibilityActions={[
+                                        { name: 'activate', label: 'Move playback to desktop and pause phone' },
+                                        { name: 'longpress', label: 'Play on desktop and leave phone playback unchanged' },
+                                    ]}
+                                    onAccessibilityAction={(event) => handleHandoffAccessibilityAction('export', event.nativeEvent.actionName)}
+                                >
+                                    {isHandoffRunning && queueHandoff?.direction === 'export'
+                                        ? <ActivityIndicator testID="export-handoff-loading-indicator" size="small" color={colors.textSecondary} />
+                                        : <Upload size={20} color={colors.textSecondary} />}
+                                </TouchableOpacity>
+                            )}
                             <TouchableOpacity
-                                testID="import-desktop-queue"
-                                onPress={() => handleHandoffPress('import')}
-                                onLongPress={() => handleHandoffLongPress('import')}
-                                delayLongPress={450}
+                                testID="scroll-to-current-track"
+                                onPress={() => scrollToIndexSafe(currentIndexRef.current, false)}
                                 style={styles.clearBtn}
-                                disabled={isHandoffRunning}
-                                accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                disabled={queue.items.length === 0}
+                                accessibilityState={{ disabled: queue.items.length === 0 }}
                                 accessibilityRole="button"
-                                accessibilityLabel="Import desktop queue to phone"
-                                accessibilityHint="Tap to move playback and pause desktop. Press and hold to start on phone while leaving desktop playback unchanged."
-                                accessibilityActions={[
-                                    { name: 'activate', label: 'Move playback to phone and pause desktop' },
-                                    { name: 'longpress', label: 'Play on phone and leave desktop playback unchanged' },
-                                ]}
-                                onAccessibilityAction={(event) => handleHandoffAccessibilityAction('import', event.nativeEvent.actionName)}
+                                accessibilityLabel="Scroll to current track"
+                                accessibilityHint="Moves the queue list to the track currently playing on this phone."
                             >
-                                {isHandoffRunning && queueHandoff?.direction === 'import'
-                                    ? <ActivityIndicator testID="import-handoff-loading-indicator" size="small" color={colors.textSecondary} />
-                                    : <Import size={20} color={colors.textSecondary} />}
+                                <ChevronsDown size={20} color={colors.textSecondary} />
                             </TouchableOpacity>
-                        )}
-                        {canExportPhoneQueue && (
                             <TouchableOpacity
-                                testID="export-phone-queue"
-                                onPress={() => handleHandoffPress('export')}
-                                onLongPress={() => handleHandoffLongPress('export')}
-                                delayLongPress={450}
+                                testID="clear-phone-queue"
+                                onPress={handleClearQueue}
                                 style={styles.clearBtn}
-                                disabled={isHandoffRunning}
-                                accessibilityState={{ disabled: isHandoffRunning, busy: isHandoffRunning }}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                disabled={queue.items.length === 0}
+                                accessibilityState={{ disabled: queue.items.length === 0 }}
                                 accessibilityRole="button"
-                                accessibilityLabel="Export phone queue to desktop"
-                                accessibilityHint="Tap to move playback and pause phone. Press and hold to start on desktop while leaving phone playback unchanged."
-                                accessibilityActions={[
-                                    { name: 'activate', label: 'Move playback to desktop and pause phone' },
-                                    { name: 'longpress', label: 'Play on desktop and leave phone playback unchanged' },
-                                ]}
-                                onAccessibilityAction={(event) => handleHandoffAccessibilityAction('export', event.nativeEvent.actionName)}
+                                accessibilityLabel="Clear phone queue"
+                                accessibilityHint="Removes all tracks from the phone's queue."
                             >
-                                {isHandoffRunning && queueHandoff?.direction === 'export'
-                                    ? <ActivityIndicator testID="export-handoff-loading-indicator" size="small" color={colors.textSecondary} />
-                                    : <Upload size={20} color={colors.textSecondary} />}
+                                <ListX size={20} color={colors.error} />
                             </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                            testID="scroll-to-current-track"
-                            onPress={() => scrollToIndexSafe(currentIndexRef.current, false)}
-                            style={styles.clearBtn}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            disabled={queue.items.length === 0}
-                            accessibilityState={{ disabled: queue.items.length === 0 }}
-                            accessibilityRole="button"
-                            accessibilityLabel="Scroll to current track"
-                            accessibilityHint="Moves the queue list to the track currently playing on this phone."
-                        >
-                            <ChevronsDown size={20} color={colors.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            testID="clear-phone-queue"
-                            onPress={handleClearQueue}
-                            style={styles.clearBtn}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                            disabled={queue.items.length === 0}
-                            accessibilityState={{ disabled: queue.items.length === 0 }}
-                            accessibilityRole="button"
-                            accessibilityLabel="Clear phone queue"
-                            accessibilityHint="Removes all tracks from the phone's queue."
-                        >
-                            <ListX size={20} color={colors.error} />
-                        </TouchableOpacity>
                         </View>
                     </View>
-                    {(canImportDesktopQueue || canExportPhoneQueue) && (
+                    {/* {(canImportDesktopQueue || canExportPhoneQueue) && (
                         <Text style={[styles.handoffHint, { color: colors.textSecondary }]}>
                             Tap moves and pauses source · Hold leaves source playback unchanged
                         </Text>
-                    )}
+                    )} */}
                     {showDesktopUpdateHint && (
                         <Text testID="desktop-handoff-update-hint" style={[styles.updateHint, { color: colors.textSecondary }]}>
                             Update desktop to enable queue handoff
@@ -448,16 +448,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     handoffHint: {
+        textAlign: 'center',
         fontSize: 10,
-        marginTop: 2,
     },
     updateHint: {
         fontSize: 10,
-        marginTop: 2,
     },
     header: {
         paddingHorizontal: 16,
-        paddingVertical: 8,
+        paddingVertical: 0,
     },
     headerText: {
         fontSize: 13,

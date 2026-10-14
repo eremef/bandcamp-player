@@ -999,9 +999,12 @@ export const useStore = create<AppState>((set, get) => ({
     setMode: async (mode) => {
         const currentMode = get().mode;
         if (currentMode === mode) return;
+        const desktopConnected = webSocketService.isConnected();
         pendingExportOutcome = null;
-        if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
-        queueHandoffCapabilityTimeout = null;
+        if (!desktopConnected) {
+            if (queueHandoffCapabilityTimeout) clearTimeout(queueHandoffCapabilityTimeout);
+            queueHandoffCapabilityTimeout = null;
+        }
         queueHandoffGeneration++;
         pendingQueueHandoffConfirmation = null;
         cancelQueueHandoffRequests('The app mode changed.');
@@ -1013,11 +1016,13 @@ export const useStore = create<AppState>((set, get) => ({
             desktopQueueAvailability: 'unknown',
             desktopQueueAvailabilityRevision: get().desktopQueueAvailabilityRevision +
                 (get().desktopQueueAvailability === 'unknown' ? 0 : 1),
-            desktopQueueHandoffAvailable: false,
-            desktopQueueHandoffCapabilityChecked: false,
+            ...(!desktopConnected ? {
+                desktopQueueHandoffAvailable: false,
+                desktopQueueHandoffCapabilityChecked: false,
+            } : {}),
             desktopQueueCurrentTrackAvailable: false,
             queueHandoff: { status: 'idle', direction: null, message: null },
-            desktopSocketConnected: webSocketService.isConnected(),
+            desktopSocketConnected: desktopConnected,
         });
 
         // ── STEP 1: Snapshot before any mutations ──

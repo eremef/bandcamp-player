@@ -14,7 +14,7 @@ jest.mock('lucide-react-native', () => {
         GripVertical: () => <Text>GripIcon</Text>,
         ChevronsDown: () => <Text>ChevronsDownIcon</Text>,
         ListX: () => <Text>ListXIcon</Text>,
-        Import: () => <Text>ImportIcon</Text>,
+        Download: () => <Text>DownloadIcon</Text>,
         Upload: () => <Text>UploadIcon</Text>,
     };
 });
@@ -137,6 +137,34 @@ describe('QueueScreen', () => {
         expect(getByText('Track Two')).toBeTruthy();
     });
 
+    it('shows both handoff buttons again when standalone mode returns with the live capability', () => {
+        const connectedStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
+        const { getByTestId, queryByTestId, rerender } = render(<QueueScreen />);
+
+        expect(getByTestId('import-desktop-queue')).toBeTruthy();
+        expect(getByTestId('export-phone-queue')).toBeTruthy();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...connectedStore,
+            mode: 'remote',
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
+        rerender(<QueueScreen />);
+        expect(getByTestId('import-desktop-queue')).toBeTruthy();
+        expect(getByTestId('export-phone-queue')).toBeTruthy();
+    });
+
     it('shows import only for a connected compatible desktop with a known current track', () => {
         const availableStore = {
             ...mockStore,
@@ -176,7 +204,7 @@ describe('QueueScreen', () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
         const { getByTestId, getByText } = render(<QueueScreen />);
 
-        expect(getByText('ImportIcon')).toBeTruthy();
+        expect(getByText('DownloadIcon')).toBeTruthy();
         expect(getByText('ChevronsDownIcon')).toBeTruthy();
         expect(getByText('ListXIcon')).toBeTruthy();
         expect(getByTestId('import-desktop-queue').props.accessibilityLabel).toBe('Import desktop queue to phone');
@@ -186,7 +214,6 @@ describe('QueueScreen', () => {
         }
         expect(getByTestId('scroll-to-current-track').props.accessibilityState.disabled).toBe(true);
         expect(getByTestId('clear-phone-queue').props.accessibilityState.disabled).toBe(true);
-        expect(getByText('Tap moves and pauses source · Hold leaves source playback unchanged')).toBeTruthy();
     });
 
     it('shows the active handoff spinner and disables both handoff icons while busy', () => {
@@ -202,7 +229,7 @@ describe('QueueScreen', () => {
         const { getByTestId, queryByText, rerender } = render(<QueueScreen />);
 
         expect(getByTestId('import-handoff-loading-indicator')).toBeTruthy();
-        expect(queryByText('ImportIcon')).toBeNull();
+        expect(queryByText('DownloadIcon')).toBeNull();
         expect(getByTestId('import-desktop-queue').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
         expect(getByTestId('export-phone-queue').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
 
@@ -316,7 +343,7 @@ describe('QueueScreen', () => {
         expect(exportQueueToDesktop).toHaveBeenCalledWith(false, false);
         expect(getByText('Play phone queue on desktop too?')).toBeTruthy();
         expect(getByText(/phone playback stays as it is/i)).toBeTruthy();
-        expect(getByText('Play on both')).toBeTruthy();
+        expect(getByText('Play')).toBeTruthy();
     });
 
     it('hides handoff actions and shows an update hint for an older desktop', () => {
