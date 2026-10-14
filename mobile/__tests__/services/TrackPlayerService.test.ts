@@ -150,6 +150,18 @@ describe('TrackPlayerService (PlaybackService)', () => {
             expect(mockPrevious).toHaveBeenCalled();
         });
 
+        it('keeps explicit native Next and Previous controls working in remote mode', async () => {
+            useStore.setState({ mode: 'remote' });
+
+            await PlaybackService({ type: Event.RemoteNext });
+            await PlaybackService({ type: Event.RemotePrevious });
+            await triggerForegroundEvent(Event.RemoteNext);
+            await triggerForegroundEvent(Event.RemotePrevious);
+
+            expect(mockNext).toHaveBeenCalledTimes(2);
+            expect(mockPrevious).toHaveBeenCalledTimes(2);
+        });
+
         it('calls seek on RemoteSeek', async () => {
             await PlaybackService({ type: Event.RemoteSeek, position: 50 });
             expect(mockSeek).toHaveBeenCalledWith(50);
@@ -217,6 +229,23 @@ describe('TrackPlayerService (PlaybackService)', () => {
                     queue: { items: [{ id: '1' }, { id: '2' }], currentIndex: 0 },
                     syncNativeTransition: syncNativeTransitionMock,
                 } as any);
+            });
+
+            it.each([true, false])('keeps desktop progress when the remote mirror transitions (playing=%s)', async (isPlaying) => {
+                const playQueueIndex = jest.fn();
+                useStore.setState({
+                    mode: 'remote',
+                    isPlaying,
+                    currentTime: 45,
+                    queue: { items: [{ id: '1' }, { id: '2' }], currentIndex: 1 },
+                    playQueueIndex,
+                } as any);
+
+                await PlaybackService({ type: Event.MediaItemTransition, index: 0, item: { mediaId: '1' } });
+                await triggerForegroundEvent(Event.MediaItemTransition, { index: 0, item: { mediaId: '1' } });
+
+                expect(playQueueIndex).not.toHaveBeenCalled();
+                expect(useStore.getState()).toMatchObject({ currentTime: 45, isPlaying, queue: { currentIndex: 1 } });
             });
 
             it('ignores transition if isLoadingTrack is true', async () => {

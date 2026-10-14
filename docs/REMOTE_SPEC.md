@@ -61,6 +61,8 @@ The mobile companion application implements a **Hybrid Connectivity** model to e
 2. **Background Queue Awareness**: While in Standalone mode, the mobile app reads desktop queue availability from `state-changed` messages but does not apply desktop playback state to its local player. This lets the phone offer to continue a known non-empty desktop queue without replacing standalone playback state.
 3. **Instant Transition**: Because the connection is kept alive, switching from Standalone back to Remote mode happens instantly without requiring a new WebSocket handshake or discovery scan.
 
+Switching modes preserves desktop playback and its position. In Remote mode, native phone media-item transitions only reflect the muted playback mirror and do not send desktop queue-play commands. Explicit lock-screen Next and Previous commands still control the desktop.
+
 ## Message Format
 
 All messages are exchanged as JSON strings.

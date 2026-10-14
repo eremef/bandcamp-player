@@ -172,14 +172,6 @@ async function handleMediaItemTransition(event: any) {
         }
         return;
     }
-
-    // Remote mode logic
-    if (store.mode === 'remote') {
-        if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
-            console.log(`[RemoteMode] Native transitioned to index: ${event.index}, sending to desktop`);
-            await store.playQueueIndex(event.index);
-        }
-    }
 }
 
 async function handleProgressUpdated(event: any) {
