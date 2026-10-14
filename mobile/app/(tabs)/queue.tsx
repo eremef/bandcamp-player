@@ -270,7 +270,7 @@ export default function QueueScreen() {
     ), [colors]);
 
     return (
-        <View style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: colors.background }]}>
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
             {queueHandoff?.status === 'error' && queueHandoff.message && (
                 <Text accessibilityRole="alert" style={[styles.continuationError, { color: colors.textSecondary }]}>
                     {queueHandoff.message}

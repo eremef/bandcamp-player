@@ -28,34 +28,34 @@ Feature-rich Electron desktop application for playing Bandcamp music with fan ac
 ### Features
 
 - 🎵 **Collection Browser** - Browse and play your purchased Bandcamp music
-- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
-- 📝 **Playlist Management** - Browse your saved Bandcamp playlists, create local playlists, and export/import them
-- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
-- 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
-- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with dedicated episode tracklists
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
-- ↕️ **Sorting** - Persistent sorting (Date, Title, Artist)
-- 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
-- 🎛️ **OS & Media Session Integration** - Full integration with Windows System Media Transport Controls (SMTC) & macOS Now Playing, supporting media keys, position scrubbing, artwork display, Taskbar thumbnail buttons (Thumbar), and third-party scrobblers (Pano Scrobbler, etc.)
-- 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 📋 **Queue Management** - Manage your playback queue with drag-and-drop reordering
 - 🔀 **Shuffle & Repeat** - Various playback modes
-- 🎧 **Last.fm Scrobbling** - Track your listening history
-- 🎮 **Discord Rich Presence** - Show what you're listening to on your Discord profile
+- 🔊 **Natural Volume Control** - Exponential volume scaling for precise control at lower levels
 - 🔗 **Gapless Playback** - Uninterrupted transitions between tracks
 - 🎼 **Crossfade Support** - Smoothly blend tracks with adjustable duration
+- ↕️ **Sorting** - Persistent sorting (Date, Title, Artist)
+- 📝 **Playlist Management** - Browse your saved Bandcamp playlists, create local playlists, and export/import them
+- 📥 **Offline Caching** - Download entire albums or tracks for offline playback with cache management UI
+- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection
 - ⚡ **Persistent Caching** - Blazing fast startup with database-backed collection caching
-- 🔄 **Auto-Refresh** - Collection automatically updates in the background every 4 hours when idle
 - ⏳ **Smart Buffering** - Smooth loading for large collections with visual feedback
+- 🎛️ **OS & Media Session Integration** - Full integration with Windows System Media Transport Controls (SMTC) & macOS Now Playing, supporting media keys, position scrubbing, artwork display, Taskbar thumbnail buttons (Thumbar), and third-party scrobblers (Pano Scrobbler, etc.)
+- 💾 **System Tray** - Minimize to tray with quick controls
+- 🖥️ **Mini Player** - Compact floating player window
+- 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
+- 📻 **Bandcamp Radio** - Listen to curated Bandcamp radio shows with dedicated episode tracklists
+- 📦 **Pre-order Album Support** - Properly distinguishes pre-order albums and pre-release tracks. Displays PRE-ORDER badges, dims unreleased tracks, and seamlessly plays available preview
 - 🔁 **Playlist Sync** - Keep local playlists in step with the mobile app, with the direction set on the desktop (see [Playlist Sync](#playlist-sync))
+- 📦 **Bulk Operations** - Play, Queue, Download, or Add to Playlist entire filtered results at once
+- 🔄 **Auto-Refresh** - Collection automatically updates in the background every 4 hours when idle
+- 🎧 **Last.fm Scrobbling** - Track your listening history
+- 🎮 **Discord Rich Presence** - Show what you're listening to on your Discord profile
+- 📺 **Chromecast Support** - Cast music to Google Cast-enabled devices
 - 🌐 **Web Remote Control** - Control playback via any web browser on the local network
 - 📡 **Connection Management** - Manage remote sessions with device identification
-- 🖥️ **Mini Player** - Compact floating player window
-- 💾 **System Tray** - Minimize to tray with quick controls
 - 🔄 **Auto-Updates** - Stay updated with the latest versions
-- 📦 **Pre-order Album Support** - Properly distinguishes pre-order albums and pre-release tracks. Displays PRE-ORDER badges, dims unreleased tracks, and seamlessly plays available preview
 - 📜 **Daily Logging & Retention** - Automatically logs main and renderer process outputs to daily log files (`main-YYYY-MM-DD.log`, `renderer-YYYY-MM-DD.log`) with automated 14-day retention cleanup
-- 🎨 **Theme Support** - Persistent System/Light/Dark and also High-Contrast (WCAG 2.2 AAA) theme modes
 
 > **Note**: The applications have been tested primarily on Windows 11 and Android 14. Linux, and macOS builds are available but experimental.
 >
@@ -249,25 +249,25 @@ The project includes a companion mobile application (Android/iOS) in the `mobile
 - 📱 **Hybrid Mode** - Seamlessly switch between Remote Control and Standalone playback
 - 🎵 **Standalone Player** - Use the mobile app as an independent Bandcamp player with background audio
 - 📂 **Collection Browser** - Browse and play from Collection, Playlists, and Radio
-- 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
-- 📋 **Queue Management** - View and manage the playback queue
-- 🔁 **Queue Handoff** - Move a queue between the phone and desktop, with an option to leave the source playing
-- 🖱️ **Context Menus** - Long-press for Queue and Playlist management
-- 🔁 **Playlist Sync** - Local playlists mirror the desktop's, including edits made offline (see [Playlist Sync](#playlist-sync))
-- 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
-- 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
-- 🔍 **Auto Discovery & Sync** - Automatic local network discovery with real-time sorting/filtering synchronization with Host
-- ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist)
 - 🔍 **Smart Search & Filters** - Filter by title/artist and toggle between Albums, Tracks, Wishlist, and Downloaded only
+- 📋 **Queue Management** - View and manage the playback queue
 - 🔊 **Volume Sync** - Uses device hardware volume in Remote mode and independent volume in Standalone
-- 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
+- ↕️ **Flexible Sorting** - View and change Host sorting (Date, Title, Artist)
+- 🎤 **Artists Tab** - Browse your collection by Artist with cached SQLite performance
+- 🔁 **Queue Handoff** - Move a queue between the phone's standalone mode and desktop, with an option to leave the source playing
+- 🔁 **Playlist Sync** - Local playlists mirror the desktop's, including edits made offline (see [Playlist Sync](#playlist-sync))
+- 📥 **Music Caching & Downloads** - Download entire albums or individual tracks for offline listening with background download progress tracking
+- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection and connectivity-aware switching
+- 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
 - 🔗 **Gapless Playback** - Uninterrupted audio transitions in standalone mode
 - 🎼 **Simulated Crossfade** - Smooth volume fading between tracks for a continuous mix
-- 🚫 **Offline Mode** - Seamless offline playback with automatic cache detection and connectivity-aware switching
-- 📥 **Music Caching & Downloads** - Download entire albums or individual tracks for offline listening with background download progress tracking
-- 🗂️ **Cache Management** - View cache usage, clear cache, and toggle Wi-Fi-only downloading from Settings
-- 📦 **Pre-order Album Support** - Distinguishes pre-order albums with badges, dims unreleased tracks, and automatically skips unreleased tracks during standalone playback and queue navigation
+- 🔍 **Auto Discovery & Sync** - Automatic local network discovery with real-time sorting/filtering synchronization with Host
+- 🖱️ **Context Menus** - Long-press for Queue and Playlist management
+- 🔄 **Swipe to Refresh** - Pull-to-refresh support for all main tabs
+- 📜 **Infinite Scroll** - Efficiently browse large collections with paginated SQLite storage
 - 🎨 **Theme Support** - Persistent System/Light/Dark theme modes
+- 📦 **Pre-order Album Support** - Distinguishes pre-order albums with badges, dims unreleased tracks, and automatically skips unreleased tracks during standalone playback and queue navigation
+- 🎧 **Last.FM Scrobbling** - Track your listening history with native scrobbling in standalone mode (do not use Last.FM's *Scrobble from...* as it might behave unstably)
 - 📜 **Logs** - Logs available in the Player's menu
 
 ### Queue Handoff

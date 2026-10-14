@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     title: {
-        fontSize: 24,
+        fontSize: 18,
         fontWeight: 'bold',
     },
     headerButton: {
@@ -623,7 +623,6 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingHorizontal: 16,
-        paddingBottom: 1,
     },
     center: {
         flex: 1,
