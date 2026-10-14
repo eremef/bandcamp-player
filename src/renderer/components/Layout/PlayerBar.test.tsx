@@ -39,7 +39,8 @@ describe('PlayerBar', () => {
     beforeEach(() => {
         mockStore = {
             player: {
-                currentTrack: { title: 'Test Track', artist: 'Test Artist', duration: 100, streamUrl: 'http://example.com' },
+                currentTrack: { id: 'track-1', title: 'Test Track', artist: 'Test Artist', duration: 100, streamUrl: 'http://example.com' },
+                playbackConfirmationId: 'attempt-1',
                 isPlaying: false,
                 currentTime: 0,
                 duration: 100,
@@ -93,6 +94,7 @@ describe('PlayerBar', () => {
         (window as any).electron = {
             player: {
                 updateTime: vi.fn(),
+                reportPlaybackStatus: vi.fn(),
                 onSeek: vi.fn(() => () => { }),
                 trackEnded: vi.fn(),
                 reportPlaybackError: vi.fn(),
@@ -184,6 +186,25 @@ describe('PlayerBar', () => {
         // Error (non-critical)
         fireEvent.error(audio); // Should log console.error but not crash
         expect(window.electron.player.reportPlaybackError).toHaveBeenCalled();
+    });
+
+    it('reports actual playback after seeking to the handoff position', () => {
+        mockStore.player.currentTime = 37;
+        const { container } = render(<PlayerBar />);
+        const activeAudio = container.querySelectorAll('audio')[1];
+        Object.defineProperty(activeAudio, 'duration', { value: 100, configurable: true });
+
+        fireEvent.loadedMetadata(activeAudio);
+        expect(activeAudio.currentTime).toBe(37);
+        fireEvent.timeUpdate(activeAudio);
+
+        fireEvent.playing(activeAudio);
+        expect(window.electron.player.reportPlaybackStatus).toHaveBeenCalledWith(
+            'track-1',
+            'attempt-1',
+            true,
+            37,
+        );
     });
 
     it('handles Media Session API actions and status synchronization', () => {

@@ -14,6 +14,8 @@ jest.mock('lucide-react-native', () => {
         GripVertical: () => <Text>GripIcon</Text>,
         ChevronsDown: () => <Text>ChevronsDownIcon</Text>,
         ListX: () => <Text>ListXIcon</Text>,
+        Download: () => <Text>DownloadIcon</Text>,
+        Upload: () => <Text>UploadIcon</Text>,
     };
 });
 
@@ -101,12 +103,22 @@ describe('QueueScreen', () => {
         reorderQueue: jest.fn(),
         refreshQueue: jest.fn(),
         clearQueue: jest.fn(),
+        desktopSocketConnected: false,
+        desktopQueueAvailability: 'unknown',
+        desktopQueueHandoffAvailable: false,
+        desktopQueueHandoffCapabilityChecked: false,
+        desktopQueueCurrentTrackAvailable: false,
+        queueHandoff: { status: 'idle', direction: null, message: null },
+        importDesktopQueue: jest.fn().mockResolvedValue('completed'),
+        exportQueueToDesktop: jest.fn().mockResolvedValue('completed'),
+        cancelQueueHandoff: jest.fn(),
     };
 
     beforeEach(() => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             return selector(mockStore);
         });
+        (useStore as any).getState = jest.fn(() => mockStore);
         jest.clearAllMocks();
     });
 
@@ -123,6 +135,321 @@ describe('QueueScreen', () => {
         const { getByText } = render(<QueueScreen />);
         expect(getByText('Track One')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
+    });
+
+    it('shows both handoff buttons again when standalone mode returns with the live capability', () => {
+        const connectedStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
+        const { getByTestId, queryByTestId, rerender } = render(<QueueScreen />);
+
+        expect(getByTestId('import-desktop-queue')).toBeTruthy();
+        expect(getByTestId('export-phone-queue')).toBeTruthy();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...connectedStore,
+            mode: 'remote',
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
+        rerender(<QueueScreen />);
+        expect(getByTestId('import-desktop-queue')).toBeTruthy();
+        expect(getByTestId('export-phone-queue')).toBeTruthy();
+    });
+
+    it('shows import only for a connected compatible desktop with a known current track', () => {
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId, rerender, queryByTestId } = render(<QueueScreen />);
+        expect(getByTestId('import-desktop-queue')).toBeTruthy();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...availableStore,
+            desktopQueueAvailability: 'unknown',
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...availableStore,
+            desktopQueueCurrentTrackAvailable: false,
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+    });
+
+    it('keeps the scroll and clear controls when the phone queue is empty and desktop queue is available', () => {
+        const availableStore = {
+            ...mockStore,
+            queue: { items: [], currentIndex: -1 },
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId, getByText } = render(<QueueScreen />);
+
+        expect(getByText('DownloadIcon')).toBeTruthy();
+        expect(getByText('ChevronsDownIcon')).toBeTruthy();
+        expect(getByText('ListXIcon')).toBeTruthy();
+        expect(getByTestId('import-desktop-queue').props.accessibilityLabel).toBe('Import desktop queue to phone');
+        for (const testID of ['import-desktop-queue', 'scroll-to-current-track', 'clear-phone-queue']) {
+            expect(getByTestId(testID).props.accessibilityHint).toBeTruthy();
+            expect(StyleSheet.flatten(getByTestId(testID).props.style)).toMatchObject({ width: 44, height: 44 });
+        }
+        expect(getByTestId('scroll-to-current-track').props.accessibilityState.disabled).toBe(true);
+        expect(getByTestId('clear-phone-queue').props.accessibilityState.disabled).toBe(true);
+    });
+
+    it('shows the active handoff spinner and disables both handoff icons while busy', () => {
+        const preparingStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            queueHandoff: { status: 'running', direction: 'import', message: null },
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(preparingStore));
+        const { getByTestId, queryByText, rerender } = render(<QueueScreen />);
+
+        expect(getByTestId('import-handoff-loading-indicator')).toBeTruthy();
+        expect(queryByText('DownloadIcon')).toBeNull();
+        expect(getByTestId('import-desktop-queue').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+        expect(getByTestId('export-phone-queue').props.accessibilityState).toMatchObject({ disabled: true, busy: true });
+
+        const exportingStore = {
+            ...preparingStore,
+            queueHandoff: { status: 'running', direction: 'export', message: null },
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(exportingStore));
+        rerender(<QueueScreen />);
+        expect(getByTestId('export-handoff-loading-indicator')).toBeTruthy();
+        expect(queryByText('UploadIcon')).toBeNull();
+    });
+
+    it('shows a direction and gesture specific confirmation before replacing the phone queue', async () => {
+        const importDesktopQueue = jest.fn().mockResolvedValueOnce('confirmation-required').mockResolvedValueOnce('completed');
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            queueHandoff: { status: 'awaiting-confirmation', direction: 'import', message: null },
+            importDesktopQueue,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId, getByText } = render(<QueueScreen />);
+
+        await act(async () => {
+            fireEvent.press(getByTestId('import-desktop-queue'));
+        });
+
+        expect(importDesktopQueue).toHaveBeenCalledWith(true, false);
+        expect(getByText('Move desktop playback to phone?')).toBeTruthy();
+        expect(getByText(/replaces the phone queue.*pauses desktop playback/i)).toBeTruthy();
+        expect(getByTestId('confirm-queue-handoff')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(getByTestId('confirm-queue-handoff'));
+        });
+        expect(importDesktopQueue).toHaveBeenLastCalledWith(true, true);
+    });
+
+    it('maps tap and long press to the corresponding handoff modes', async () => {
+        const importDesktopQueue = jest.fn().mockResolvedValue('completed');
+        const exportQueueToDesktop = jest.fn().mockResolvedValue('completed');
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            importDesktopQueue,
+            exportQueueToDesktop,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId } = render(<QueueScreen />);
+
+        await act(async () => {
+            fireEvent.press(getByTestId('import-desktop-queue'));
+            fireEvent(getByTestId('export-phone-queue'), 'longPress');
+        });
+
+        expect(importDesktopQueue).toHaveBeenCalledTimes(1);
+        expect(importDesktopQueue).toHaveBeenCalledWith(true, false);
+        expect(exportQueueToDesktop).toHaveBeenCalledTimes(1);
+        expect(exportQueueToDesktop).toHaveBeenCalledWith(false, false);
+        expect(StyleSheet.flatten(getByTestId('export-phone-queue').props.style)).toMatchObject({ width: 44, height: 44 });
+        expect(getByTestId('export-phone-queue').props.accessibilityActions.map((action: any) => action.label)).toEqual([
+            'Move playback to desktop and pause phone',
+            'Play on desktop and leave phone playback unchanged',
+        ]);
+    });
+
+    it('allows a tap immediately after a completed long press', async () => {
+        const exportQueueToDesktop = jest.fn().mockResolvedValue('completed');
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueHandoffAvailable: true,
+            exportQueueToDesktop,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId } = render(<QueueScreen />);
+
+        await act(async () => {
+            fireEvent(getByTestId('export-phone-queue'), 'longPress');
+            fireEvent.press(getByTestId('export-phone-queue'));
+        });
+
+        expect(exportQueueToDesktop).toHaveBeenNthCalledWith(1, false, false);
+        expect(exportQueueToDesktop).toHaveBeenNthCalledWith(2, true, false);
+    });
+
+    it('shows the play-on-both confirmation for a long-press export', async () => {
+        const exportQueueToDesktop = jest.fn().mockResolvedValue('confirmation-required');
+        const availableStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            queueHandoff: { status: 'awaiting-confirmation', direction: 'export', message: null },
+            exportQueueToDesktop,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
+        const { getByTestId, getByText } = render(<QueueScreen />);
+
+        await act(async () => {
+            fireEvent(getByTestId('export-phone-queue'), 'longPress');
+        });
+
+        expect(exportQueueToDesktop).toHaveBeenCalledWith(false, false);
+        expect(getByText('Play phone queue on desktop too?')).toBeTruthy();
+        expect(getByText(/phone playback stays as it is/i)).toBeTruthy();
+        expect(getByText('Play')).toBeTruthy();
+    });
+
+    it('hides handoff actions and shows an update hint for an older desktop', () => {
+        const oldDesktopStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(oldDesktopStore));
+        const { getByTestId, queryByTestId } = render(<QueueScreen />);
+
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+        expect(getByTestId('desktop-handoff-update-hint')).toBeTruthy();
+        expect(getByTestId('scroll-to-current-track')).toBeTruthy();
+        expect(getByTestId('clear-phone-queue')).toBeTruthy();
+    });
+
+    it('waits for capability negotiation before showing an update hint', () => {
+        const handshakeStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: false,
+            desktopQueueHandoffCapabilityChecked: false,
+            desktopQueueCurrentTrackAvailable: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(handshakeStore));
+        const { getByTestId, queryByTestId, rerender } = render(<QueueScreen />);
+
+        expect(queryByTestId('desktop-handoff-update-hint')).toBeNull();
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+        expect(getByTestId('scroll-to-current-track')).toBeTruthy();
+        expect(getByTestId('clear-phone-queue')).toBeTruthy();
+
+        const supportedStore = {
+            ...handshakeStore,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueHandoffCapabilityChecked: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(supportedStore));
+        rerender(<QueueScreen />);
+
+        expect(queryByTestId('desktop-handoff-update-hint')).toBeNull();
+        expect(queryByTestId('import-desktop-queue')).toBeTruthy();
+        expect(queryByTestId('export-phone-queue')).toBeTruthy();
+
+        const unsupportedStore = {
+            ...handshakeStore,
+            desktopQueueHandoffCapabilityChecked: true,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(unsupportedStore));
+        rerender(<QueueScreen />);
+
+        expect(queryByTestId('desktop-handoff-update-hint')).toBeTruthy();
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+        expect(getByTestId('scroll-to-current-track')).toBeTruthy();
+        expect(getByTestId('clear-phone-queue')).toBeTruthy();
+    });
+
+    it('hides handoff actions without a compatible desktop or a valid phone current track', () => {
+        const noHandoffStore = {
+            ...mockStore,
+            desktopSocketConnected: true,
+            desktopQueueAvailability: 'nonempty',
+            desktopQueueHandoffAvailable: false,
+            desktopQueueCurrentTrackAvailable: false,
+        };
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(noHandoffStore));
+        const { queryByTestId, rerender } = render(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...noHandoffStore,
+            desktopSocketConnected: false,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...noHandoffStore,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            mode: 'remote',
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeNull();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
+
+        (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
+            ...noHandoffStore,
+            desktopQueueHandoffAvailable: true,
+            desktopQueueCurrentTrackAvailable: true,
+            queue: { ...mockQueue, currentIndex: -1 },
+        }));
+        rerender(<QueueScreen />);
+        expect(queryByTestId('import-desktop-queue')).toBeTruthy();
+        expect(queryByTestId('export-phone-queue')).toBeNull();
     });
 
     it('highlights current playing track', () => {

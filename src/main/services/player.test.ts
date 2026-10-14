@@ -39,7 +39,7 @@ describe("PlayerService", () => {
     album: "Test Album",
     duration: 100,
     artworkUrl: "",
-    streamUrl: "http://test.com/stream",
+    streamUrl: "https://t4.bcbits.com/stream/test",
     bandcampUrl: "",
     isCached: false,
   };
@@ -66,6 +66,11 @@ describe("PlayerService", () => {
       play: vi.fn(),
       pause: vi.fn(),
       resume: vi.fn(),
+      playAndWait: vi.fn().mockResolvedValue(true),
+      pauseAndWait: vi.fn().mockResolvedValue(true),
+      resumeAndWait: vi.fn().mockResolvedValue(true),
+      waitForPlaybackState: vi.fn().mockResolvedValue({ playerState: "PLAYING", currentTime: 37 }),
+      getActualPlaybackState: vi.fn().mockResolvedValue("PLAYING"),
       stop: vi.fn(),
       seek: vi.fn(),
       setVolume: vi.fn(),
@@ -93,6 +98,84 @@ describe("PlayerService", () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('commits the exact duplicate queue occurrence after a fresh local playback acknowledgement', async () => {
+    playerService.setRepeat('all');
+    playerService.toggleShuffle();
+    const versions = playerService.getHandoffVersions();
+    const incoming = [
+      { id: 'queue-1', track: { ...mockTrack }, source: 'collection' as const },
+      { id: 'queue-2', track: { ...mockTrack }, source: 'playlist' as const },
+    ];
+
+    const transfer = playerService.replaceQueueForHandoff(incoming, 1, 37, versions.queueVersion, versions.actionVersion, true);
+    await vi.waitFor(() => expect((playerService as any).localPlaybackWaiters.size).toBe(1));
+    const confirmationId = playerService.getState().playbackConfirmationId!;
+    playerService.reportLocalPlaybackStatus(mockTrack.id, confirmationId, true, 37);
+
+    await expect(transfer).resolves.toMatchObject({ success: true });
+    expect(playerService.getQueue()).toMatchObject({
+      currentIndex: 1,
+      items: [{ id: 'queue-1' }, { id: 'queue-2' }],
+    });
+    expect(playerService.getState()).toMatchObject({
+      currentTrack: { id: mockTrack.id },
+      currentTime: 37,
+      isPlaying: true,
+      repeatMode: 'all',
+      isShuffled: true,
+    });
+  });
+
+  it('still pauses when local output is briefly false but main playback remains active', async () => {
+    await playerService.play(mockTrack, true);
+    const versions = playerService.getHandoffVersions();
+    const currentToken = playerService.getState().playbackConfirmationId!;
+    playerService.reportLocalPlaybackStatus(mockTrack.id, currentToken, false, 12);
+
+    const pause = playerService.pauseForQueueHandoff(mockTrack.id, versions.queueVersion, versions.actionVersion);
+    await vi.waitFor(() => expect((playerService as any).localPlaybackWaiters.size).toBe(1));
+    const pauseToken = playerService.getState().playbackConfirmationId!;
+    playerService.reportLocalPlaybackStatus(mockTrack.id, pauseToken, false, 17);
+
+    await expect(pause).resolves.toMatchObject({ success: true, wasPlaying: true, position: 17 });
+  });
+
+  it('requires a cast pause acknowledgement and restores the queue when cast start is not confirmed', async () => {
+    await playerService.play(mockTrack, true);
+    mockCastService.emit('status-changed', { status: 'connected' });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const versions = playerService.getHandoffVersions();
+    mockCastService.getActualPlaybackState.mockResolvedValue('PLAYING');
+    mockCastService.pauseAndWait.mockResolvedValue(true);
+    const pause = await playerService.pauseForQueueHandoff(mockTrack.id, versions.queueVersion, versions.actionVersion);
+    expect(pause).toMatchObject({ success: true, wasPlaying: true, trackId: mockTrack.id });
+
+    mockCastService.waitForPlaybackState.mockResolvedValue(null);
+    mockCastService.playAndWait.mockResolvedValue(true);
+    const incomingTrack = {
+      ...mockTrack,
+      id: 'track-2',
+      title: 'Track Two',
+      streamUrl: 'https://t4.bcbits.com/stream/track-2',
+    };
+    const transferVersions = playerService.getHandoffVersions();
+    const result = await playerService.replaceQueueForHandoff(
+      [{ id: 'incoming-1', source: 'collection', track: incomingTrack }],
+      0,
+      37,
+      transferVersions.queueVersion,
+      transferVersions.actionVersion,
+      true,
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockCastService.play).toHaveBeenCalledWith(incomingTrack, 37);
+    expect(mockCastService.pauseAndWait).toHaveBeenCalledTimes(2);
+    expect(playerService.getQueue().items).toMatchObject([{ track: { id: mockTrack.id } }]);
+    expect(playerService.getState()).toMatchObject({ currentTrack: { id: mockTrack.id }, isPlaying: false });
   });
 
   describe("Cast Listeners", () => {

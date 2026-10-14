@@ -113,6 +113,18 @@ describe('RemoteControlService', () => {
         Object.assign(mockPlayerService, {
             off: vi.fn(),
             getState: vi.fn().mockReturnValue({ isPlaying: false, currentTime: 0, duration: 0, volume: 1 }),
+            getHandoffVersions: vi.fn().mockReturnValue({ queueVersion: 0, actionVersion: 0 }),
+            markHandoffAction: vi.fn(),
+            getActualLocalPlaybackStatus: vi.fn().mockReturnValue(null),
+            getActualCastPlaybackState: vi.fn().mockResolvedValue(null),
+            prepareQueueForHandoff: vi.fn().mockImplementation(async (items, _index, queueVersion, actionVersion) => ({
+                success: true, items, queueVersion, actionVersion,
+            })),
+            replaceQueueForHandoff: vi.fn().mockResolvedValue({ success: true, queueVersion: 1, actionVersion: 1 }),
+            pauseForQueueHandoff: vi.fn().mockResolvedValue({
+                success: true, trackId: 'track-1', position: 18, queueVersion: 0, actionVersion: 1, wasPlaying: true,
+            }),
+            resumeForQueueHandoff: vi.fn().mockResolvedValue(true),
             play: vi.fn(),
             pause: vi.fn(),
             next: vi.fn(),
@@ -275,6 +287,48 @@ describe('RemoteControlService', () => {
             await new Promise(resolve => setTimeout(resolve, 0));
         };
 
+        it('advertises initial eligibility before the full state and preserves legacy clients', async () => {
+            const initial = mockWs.send.mock.calls.map(([data]: [string]) => JSON.parse(data));
+            expect(initial[0]).toMatchObject({ type: 'capabilities', payload: {
+                capabilities: ['queue-handoff-v1', 'queue-handoff-status-v1'],
+                queueHandoffStatus: { queueNonempty: false, hasActiveTrack: false, queueVersion: 0, actionVersion: 0 },
+            } });
+            expect(initial[1].type).toBe('state-changed');
+            const legacyWs = new EventEmitter() as any;
+            Object.assign(legacyWs, { send: vi.fn(), close: vi.fn(), readyState: 1 });
+            mockWss.emit('connection', legacyWs, { socket: { remoteAddress: '127.0.0.1' }, headers: {} });
+            const state = { queue: { items: [{ id: 'q1', track: { id: 't1', title: 'Track' } }], currentIndex: 0 }, currentTrack: { id: 't1' } };
+            mockPlayerService.getState.mockReturnValue(state);
+            mockPlayerService.getHandoffVersions.mockReturnValue({ queueVersion: 4, actionVersion: 9 });
+            mockWs.send.mockClear();
+            legacyWs.send.mockClear();
+            await sendMessage('set-state-subscription', { mode: 'standalone' });
+            expect(JSON.parse(mockWs.send.mock.calls[0][0])).toEqual({ type: 'queue-handoff-status', payload: {
+                queueNonempty: true, hasActiveTrack: true, queueVersion: 4, actionVersion: 9,
+            } });
+            mockWs.send.mockClear();
+            mockPlayerService.emit('state-changed', state);
+            expect(mockWs.send.mock.calls).toHaveLength(1);
+            expect(JSON.parse(mockWs.send.mock.calls[0][0]).type).toBe('queue-handoff-status');
+            expect(JSON.parse(legacyWs.send.mock.calls[0][0])).toEqual({ type: 'state-changed', payload: state });
+            await sendMessage('set-state-subscription', { mode: 'remote' });
+            mockWs.send.mockClear();
+            mockPlayerService.emit('state-changed', state);
+            expect(JSON.parse(mockWs.send.mock.calls[0][0])).toEqual({ type: 'state-changed', payload: state });
+        });
+
+        it('rejects invalid and unauthenticated state subscriptions', async () => {
+            const clientId = Array.from((remoteService as any).clients.keys())[0];
+            const client = (remoteService as any).clients.get(clientId);
+            await sendMessage('set-state-subscription', { mode: 'invalid' });
+            expect(client.stateSubscription).toBeUndefined();
+            client.authenticated = false;
+            mockWs.send.mockClear();
+            await (remoteService as any).handleMessage(mockWs, { type: 'set-state-subscription', payload: { mode: 'standalone' } }, clientId);
+            expect(client.stateSubscription).toBeUndefined();
+            expect(mockWs.send).not.toHaveBeenCalled();
+        });
+
         it('should handle get-collection', async () => {
             mockAuthService.getUser.mockReturnValue({ isAuthenticated: true });
             mockScraperService.fetchCollection.mockResolvedValue({ items: [], totalCount: 0 });
@@ -287,6 +341,216 @@ describe('RemoteControlService', () => {
             mockScraperService.fetchCollection.mockResolvedValue({ items: [{ type: 'album', album: { artistId: 'a1' } }] });
             await sendMessage('get-artist-collection', 'a1');
             expect(mockWs.send).toHaveBeenCalledWith(expect.stringContaining('artist-collection-data'));
+        });
+
+        it('returns a request-id matched desktop queue continuation snapshot to the requesting client', async () => {
+            const desktopState = {
+                isPlaying: false,
+                currentTrack: { id: 't2', title: 'Track Two' },
+                currentTime: 37,
+                duration: 180,
+                queue: {
+                    items: [
+                        { id: 'q1', track: { id: 't1' }, source: 'collection' },
+                        { id: 'q2', track: { id: 't2' }, source: 'playlist' },
+                    ],
+                    currentIndex: 1,
+                },
+            };
+            mockPlayerService.getState.mockReturnValue(desktopState);
+            const priorStateBroadcasts = mockWs.send.mock.calls.filter((call: [string]) => call[0].includes('state-changed')).length;
+
+            await sendMessage('request-desktop-queue-continuation', { requestId: 'continue-request-1' });
+
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-snapshot',
+                payload: {
+                    requestId: 'continue-request-1',
+                    snapshot: {
+                        queue: desktopState.queue,
+                        currentTrack: desktopState.currentTrack,
+                        currentIndex: 1,
+                        position: 37,
+                        duration: 180,
+                    },
+                },
+            }));
+            expect(mockWs.send.mock.calls.filter((call: [string]) => call[0].includes('state-changed'))).toHaveLength(priorStateBroadcasts);
+        });
+
+        it('receives a base64 queue transfer through prepare and atomic commit', async () => {
+            const track = {
+                id: 'track-1',
+                title: 'Track One',
+                artist: 'Artist',
+                album: '',
+                duration: 90,
+                artworkUrl: 'file:///mobile/cache/cover.jpg',
+                streamUrl: 'file:///mobile/cache/track.mp3',
+                bandcampUrl: 'https://artist.bandcamp.com/track/track-one',
+                isCached: true,
+                cachedPath: '/mobile/cache/track.mp3',
+            };
+            const queueDocument = {
+                items: [
+                    {
+                        id: 'queue-item-1',
+                        source: 'radio',
+                        sourceId: 'station-1',
+                        radioStation: {
+                            id: 'station-1',
+                            name: 'Station One',
+                            streamUrl: 'file:///mobile/radio.mp3',
+                            imageUrl: 'https://f4.bcbits.com/img/cover.jpg',
+                        },
+                        track: { ...track, radioStationId: 'station-1' },
+                    },
+                    { id: 'queue-item-2', source: 'playlist', sourceId: 'playlist-1', track },
+                ],
+                currentIndex: 1,
+            };
+            const bytes = Buffer.from(JSON.stringify(queueDocument), 'utf8');
+            const requestId = 'handoff-request-1';
+            const transferId = 'handoff-transfer-1';
+
+            await sendMessage('begin-desktop-queue-transfer', {
+                requestId,
+                transferId,
+                totalBytes: bytes.length,
+                chunkCount: 1,
+                expectedQueueVersion: 0,
+                expectedActionVersion: 0,
+            });
+            await sendMessage('desktop-queue-transfer-chunk', {
+                requestId,
+                transferId,
+                index: 0,
+                data: bytes.toString('base64'),
+            });
+            await sendMessage('prepare-desktop-queue-transfer', { requestId, transferId });
+
+            const preparedItems = mockPlayerService.prepareQueueForHandoff.mock.calls[0][0];
+            expect(preparedItems).toHaveLength(2);
+            expect(preparedItems[0]).toMatchObject({
+                id: 'queue-item-1',
+                source: 'radio',
+                sourceId: 'station-1',
+                track: { id: 'track-1', streamUrl: '', artworkUrl: '', isCached: false },
+                radioStation: { id: 'station-1', streamUrl: '', imageUrl: 'https://f4.bcbits.com/img/cover.jpg' },
+            });
+            expect(preparedItems[1]).toMatchObject({
+                id: 'queue-item-2',
+                source: 'playlist',
+                sourceId: 'playlist-1',
+                track: { id: 'track-1', bandcampUrl: 'https://artist.bandcamp.com/track/track-one' },
+            });
+            expect(preparedItems[0].track.cachedPath).toBeUndefined();
+            expect(mockPlayerService.replaceQueueForHandoff).not.toHaveBeenCalled();
+
+            const originalSend = mockWs.send;
+            mockWs.send = vi.fn((data: string) => {
+                if (JSON.parse(data).type !== 'desktop-queue-transfer-result') originalSend(data);
+            });
+            await sendMessage('commit-desktop-queue-transfer', { requestId, transferId, position: 42.5 });
+
+            expect(mockPlayerService.replaceQueueForHandoff).toHaveBeenCalledWith(preparedItems, 1, 42.5, 0, 0, true);
+            expect(originalSend.mock.calls.some((call: [string]) => call[0].includes('desktop-queue-transfer-result'))).toBe(false);
+            mockWs.send = originalSend;
+
+            await sendMessage('request-desktop-queue-transfer-status', {
+                requestId: 'status-request-1',
+                transferId,
+            });
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-transfer-status',
+                payload: {
+                    requestId: 'status-request-1',
+                    transferId,
+                    status: 'completed',
+                    result: { success: true, queueVersion: 1, actionVersion: 1 },
+                },
+            }));
+
+            await sendMessage('commit-desktop-queue-transfer', { requestId, transferId, position: 42.5 });
+            expect(mockPlayerService.replaceQueueForHandoff).toHaveBeenCalledTimes(1);
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-transfer-result',
+                payload: { requestId, transferId, success: true, queueVersion: 1, actionVersion: 1 },
+            }));
+        });
+
+        it('keeps transfer outcomes from different paired owners separate', () => {
+            const service = remoteService as any;
+            const first = { ownerId: 'paired:first', requestId: 'request-1', transferId: 'shared-id' };
+            const second = { ownerId: 'paired:second', requestId: 'request-2', transferId: 'shared-id' };
+
+            service.storeQueueTransferOutcome(first, 'completed', { success: true });
+            service.storeQueueTransferOutcome(second, 'completed', { success: false });
+
+            const firstOutcome = service.queueTransferOutcomes.get(service.queueTransferOutcomeKey(first.ownerId, first.transferId));
+            const secondOutcome = service.queueTransferOutcomes.get(service.queueTransferOutcomeKey(second.ownerId, second.transferId));
+            expect(firstOutcome?.result?.success).toBe(true);
+            expect(secondOutcome?.result?.success).toBe(false);
+            expect(service.queueTransferOutcomes.size).toBe(2);
+            clearTimeout(firstOutcome.timeout);
+            clearTimeout(secondOutcome.timeout);
+            service.queueTransferOutcomes.clear();
+        });
+
+        it('rejects a second client pause while another queue handoff lease is active', async () => {
+            const firstRequest = {
+                requestId: 'pause-request-1',
+                expectedTrackId: 'track-1',
+                expectedQueueVersion: 0,
+                expectedActionVersion: 0,
+            };
+            await sendMessage('request-desktop-queue-pause', firstRequest);
+
+            const secondWs = new EventEmitter() as any;
+            secondWs.send = vi.fn();
+            secondWs.close = vi.fn();
+            secondWs.terminate = vi.fn();
+            secondWs.readyState = 1;
+            mockWss.emit('connection', secondWs, { socket: { remoteAddress: '127.0.0.1' }, headers: { 'user-agent': 'Second device' } });
+            secondWs.emit('message', JSON.stringify({
+                type: 'request-desktop-queue-pause',
+                payload: { ...firstRequest, requestId: 'pause-request-2' },
+            }));
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            expect(mockPlayerService.pauseForQueueHandoff).toHaveBeenCalledTimes(1);
+            expect(secondWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-paused',
+                payload: {
+                    requestId: 'pause-request-2',
+                    success: false,
+                    reason: 'Another queue handoff is already in progress.',
+                },
+            }));
+        });
+
+        it('resumes the desktop when a pause lease expires without phone completion', async () => {
+            vi.useFakeTimers();
+            const clientId = Array.from((remoteService as any).clients.keys())[0];
+
+            await (remoteService as any).handleQueueHandoffPause(mockWs, clientId, {
+                requestId: 'pause-expiring',
+                expectedTrackId: 'track-1',
+                expectedQueueVersion: 0,
+                expectedActionVersion: 0,
+            });
+            await vi.advanceTimersByTimeAsync(20_000);
+
+            expect(mockPlayerService.resumeForQueueHandoff).toHaveBeenCalledWith('track-1', 1, 18, true);
+            await (remoteService as any).handleQueueHandoffComplete(mockWs, clientId, {
+                requestId: 'pause-expiring',
+                expectedActionVersion: 1,
+            });
+            expect(mockWs.send).toHaveBeenCalledWith(JSON.stringify({
+                type: 'desktop-queue-handoff-completed',
+                payload: { requestId: 'pause-expiring', success: false },
+            }));
+            vi.useRealTimers();
         });
 
         it('should handle playlist CRUD', async () => {

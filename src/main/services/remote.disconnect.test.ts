@@ -56,6 +56,7 @@ describe('RemoteControlService Disconnect Flow', () => {
             on: vi.fn(),
             off: vi.fn(),
             getState: vi.fn().mockReturnValue({ isPlaying: false }),
+            getHandoffVersions: vi.fn().mockReturnValue({ queueVersion: 0, actionVersion: 0 }),
         } as unknown as PlayerService;
 
         mockScraperService = {} as unknown as ScraperService;

@@ -12,6 +12,33 @@ import * as Clipboard from 'expo-clipboard';
 
 const LOGIN_URL = 'https://bandcamp.com/login';
 
+function getBandcampConfirmationUrl(text: string): string | null {
+    const links = text.match(/https?:\/\/[^\s<>"'()[\]]+/gi) ?? [];
+
+    for (const link of links) {
+        try {
+            const url = new URL(link.replace(/[.,!?;:]+$/, ''));
+            const hostname = url.hostname.toLowerCase();
+            const isBandcampHost = hostname === 'bandcamp.com' || hostname === 'www.bandcamp.com';
+            const isConfirmationPath = url.pathname === '/login_confirmed' || url.pathname.startsWith('/login/confirm');
+            if (
+                url.protocol === 'https:' &&
+                isBandcampHost &&
+                !url.username &&
+                !url.password &&
+                !url.port &&
+                isConfirmationPath
+            ) {
+                return url.toString();
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    return null;
+}
+
 export default function BandcampLoginScreen({ silentProp }: { silentProp?: boolean }) {
     const router = useRouter();
     const params = useLocalSearchParams<{ silent?: string }>();
@@ -30,7 +57,8 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                 const hasString = await Clipboard.hasStringAsync();
                 if (hasString) {
                     const text = await Clipboard.getStringAsync();
-                    if (text && text.includes('bandcamp.com/login/confirm')) {
+                    const confirmationUrl = text ? getBandcampConfirmationUrl(text) : null;
+                    if (confirmationUrl) {
                         Alert.alert(
                             'Bandcamp Confirmation Link Found',
                             'We found a Bandcamp confirmation link in your clipboard. Do you want to use it to log in?',
@@ -40,7 +68,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                                     text: 'Use Link',
                                     onPress: () => {
                                         if (webViewRef.current) {
-                                            const js = `window.location.href = "${text}"; true;`;
+                                            const js = `window.location.href = ${JSON.stringify(confirmationUrl)}; true;`;
                                             webViewRef.current.injectJavaScript(js);
                                         }
                                     }
@@ -350,8 +378,9 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                             const hasString = await Clipboard.hasStringAsync();
                             if (hasString) {
                                 const text = await Clipboard.getStringAsync();
-                                if (text && text.includes('bandcamp.com/login/confirm')) {
-                                    webViewRef.current?.injectJavaScript(`window.location.href = "${text}"; true;`);
+                                const confirmationUrl = text ? getBandcampConfirmationUrl(text) : null;
+                                if (confirmationUrl) {
+                                    webViewRef.current?.injectJavaScript(`window.location.href = ${JSON.stringify(confirmationUrl)}; true;`);
                                     setShowPasteUI(false);
                                 } else {
                                     Alert.alert('Invalid Link', 'No valid Bandcamp confirmation link found in clipboard.');

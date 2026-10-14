@@ -120,6 +120,26 @@ export interface Queue {
   shuffleOrder?: number[]; // Indices for shuffle mode
 }
 
+export interface DesktopQueueHandoffStatus {
+  queueNonempty: boolean;
+  hasActiveTrack: boolean;
+  queueVersion: number;
+  actionVersion: number;
+}
+
+export interface DesktopQueueSnapshot {
+  queue: Queue;
+  currentTrack: Track | null;
+  currentIndex: number;
+  position: number;
+  duration: number;
+  queueVersion?: number;
+  actionVersion?: number;
+  isPlaying?: boolean;
+  isCasting?: boolean;
+  playbackStatusKnown?: boolean;
+}
+
 // ============================================================================
 // Player State Types
 // ============================================================================
@@ -145,6 +165,7 @@ export interface PlayerState {
   isShuffled: boolean;
   queue: Queue;
   isCasting: boolean;
+  playbackConfirmationId?: string;
   castDevice?: CastDevice;
   error?: string | null;
 }

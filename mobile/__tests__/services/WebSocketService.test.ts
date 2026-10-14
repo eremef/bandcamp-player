@@ -242,6 +242,49 @@ describe('WebSocketService', () => {
         expect(wsInstance.send).toHaveBeenCalledWith(expect.stringContaining('"type":"identify"'));
     });
 
+    it.each(['saved', 'failed', 'closed'])('keeps initial pairing messages behind secure storage: %s', async (outcome) => {
+        let finishSave!: () => void;
+        let failSave!: (error: Error) => void;
+        const saving = new Promise<void>((resolve, reject) => {
+            finishSave = resolve;
+            failSave = reject;
+        });
+        (SecureStore.getItemAsync as any).mockResolvedValue(null);
+        (SecureStore.setItemAsync as any).mockReturnValueOnce(saving);
+        const events: string[] = [];
+        const statusSpy = jest.fn((status: string) => events.push(status));
+        webSocketService.on('connection-status', statusSpy);
+        for (const type of ['capabilities', 'state-changed', 'queue-handoff-status']) {
+            webSocketService.on(type, () => events.push(type));
+        }
+        await webSocketService.connect('192.168.1.10', {
+            mode: 'safe', pairingCode: 'A'.repeat(24), caFingerprint: 'ab'.repeat(32),
+        });
+        jest.advanceTimersByTime(20);
+        const ws = (webSocketService as any).ws;
+        ws.onmessage({ data: JSON.stringify({ type: 'paired', payload: {
+            deviceId: 'paired-device', token: 'token', caFingerprint: 'ab'.repeat(32),
+        } }) });
+        for (const type of ['capabilities', 'state-changed', 'queue-handoff-status']) {
+            ws.onmessage({ data: JSON.stringify({ type, payload: {} }) });
+        }
+        expect(events).toEqual(['connecting']);
+        expect(webSocketService.isConnected()).toBe(false);
+        if (outcome === 'closed') webSocketService.disconnect();
+        if (outcome === 'failed') failSave(new Error('Storage unavailable'));
+        else finishSave();
+        await saving.catch(() => undefined);
+        await Promise.resolve();
+        if (outcome === 'saved') {
+            expect(events).toEqual(['connecting', 'connected', 'capabilities', 'state-changed', 'queue-handoff-status']);
+            expect(webSocketService.isConnected()).toBe(true);
+        } else {
+            expect(statusSpy).not.toHaveBeenCalledWith('connected');
+            expect(events).not.toContain('capabilities');
+            expect(webSocketService.isConnected()).toBe(false);
+        }
+    });
+
     it('authenticates with credentials saved from a previous pairing', async () => {
         const credentials = {
             deviceId: 'paired-device',

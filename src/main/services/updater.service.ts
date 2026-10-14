@@ -20,7 +20,7 @@ export class UpdaterService extends EventEmitter {
         this.setupListeners();
 
         // Disable auto-download - we want to notify first (optional, but better UX)
-        autoUpdater.autoDownload = true;
+        autoUpdater.autoDownload = false;
 
         // Enable logging in production too to help with debugging
         autoUpdater.logger = console;
@@ -145,7 +145,9 @@ export class UpdaterService extends EventEmitter {
 
         try {
             const settings = this.database?.getSettings();
+            autoUpdater.channel = settings?.allowBetaUpdates ? 'beta' : 'latest';
             autoUpdater.allowPrerelease = settings?.allowBetaUpdates ?? false;
+            autoUpdater.allowDowngrade = false;
             return await autoUpdater.checkForUpdates();
         } catch (error) {
             console.error('Error checking for updates:', error);

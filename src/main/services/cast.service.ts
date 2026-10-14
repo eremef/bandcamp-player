@@ -318,6 +318,55 @@ export class CastService extends EventEmitter {
         }
     }
 
+    async getActualPlaybackState(): Promise<string | null> {
+        if (!this.mediaController || !this.hasActiveSession) return null;
+        try {
+            const result = await this.mediaController.getStatus();
+            const unwrapped = result.unwrapWithErr();
+            if (!unwrapped.isOk) return null;
+            this.handleDeviceStatus(unwrapped.value);
+            return typeof unwrapped.value?.playerState === 'string' ? unwrapped.value.playerState : null;
+        } catch (err) {
+            this.log('[CastService] Playback status query failed:', err);
+            return null;
+        }
+    }
+
+    async waitForPlaybackState(expectedState: string, timeoutMs = 8000): Promise<any | null> {
+        const deadline = Date.now() + timeoutMs;
+        while (Date.now() < deadline) {
+            if (!this.mediaController || !this.hasActiveSession) return null;
+            try {
+                const result = await this.mediaController.getStatus();
+                const unwrapped = result.unwrapWithErr();
+                if (unwrapped.isOk) {
+                    this.handleDeviceStatus(unwrapped.value);
+                    if (unwrapped.value?.playerState === expectedState) return unwrapped.value;
+                }
+            } catch (err) {
+                this.log('[CastService] Playback status wait failed:', err);
+                return null;
+            }
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+        return null;
+    }
+
+    async playAndWait(track: Track, startTime = 0, timeoutMs = 8000): Promise<boolean> {
+        await this.play(track, startTime);
+        return (await this.waitForPlaybackState('PLAYING', timeoutMs)) !== null;
+    }
+
+    async pauseAndWait(timeoutMs = 8000): Promise<boolean> {
+        await this.pause();
+        return (await this.waitForPlaybackState('PAUSED', timeoutMs)) !== null;
+    }
+
+    async resumeAndWait(timeoutMs = 8000): Promise<boolean> {
+        await this.resume();
+        return (await this.waitForPlaybackState('PLAYING', timeoutMs)) !== null;
+    }
+
     async pause() {
         if (!this.mediaController || !this.hasActiveSession) return;
         try {

@@ -54,6 +54,7 @@ export const PLAYER_CHANNELS = {
   ON_TRACK_CHANGED: "player:on-track-changed",
   ON_TIME_UPDATE: "player:on-time-update",
   UPDATE_TIME: "player:update-time",
+  REPORT_PLAYBACK_STATUS: "player:report-playback-status",
   ON_SEEK: "player:on-seek", // Command from main to renderer to seek audio
   TRACK_ENDED: "player:track-ended",
   REPORT_PLAYBACK_ERROR: "player:report-playback-error",

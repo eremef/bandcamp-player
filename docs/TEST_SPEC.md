@@ -117,60 +117,43 @@ Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
 - `src/test/setup.ts`: Mocks `window.electron` methods (`invoke`, `on`, `removeListener`).
 - `mobile/jest.setup.js`: Mocks `react-native-track-player`, `AsyncStorage`, and Expo modules (including `@expo/vector-icons`).
 
-## Current Test Coverage
+## Coverage Map
 
-The project has comprehensive coverage across core logic, stores, critical UI paths, and end-to-end user flows.
+Test inventories and coverage percentages change as suites evolve, so this section lists representative coverage areas rather than fixed per-file counts.
 
 ### Desktop (`npm test` - Vitest)
 
-**Overall Coverage:** ~71%
-
-| Test File | Description | Tests | Coverage Highlight |
-| ----------- | ------------- | ------- | ------------------ |
-| `src/main/database/database.test.ts` | Database CRUD operations | 20 | ~70% |
-| `src/main/services/auth.test.ts` | Authentication & Cookies | 7 | ~64% |
-| `src/main/services/playlist.test.ts` | Playlist Management | 9 | 100% |
-| `src/main/services/scrobbler.test.ts` | Last.fm Scrobbling | 8 | ~68% |
-| `src/main/services/scraper.test.ts` | HTML Parsing & Pagination | 17 | ~85% |
-| `src/main/services/player.test.ts` | Audio & Queue Logic | 19 | ~58% |
-| `src/main/services/cache.test.ts` | Download & File Mgmt | 14 | ~89% |
-| `src/main/services/remote.test.ts` | Remote Interface Logic | 10 | ~85% |
-| `src/renderer/store/store.test.ts` | Zustand State & IPC | 28 | ~95% |
-| `src/renderer/components/Collection/CollectionView.test.tsx` | Grid, Search, Bulk Actions | 12 | ~92% |
-| `src/renderer/components/Playlist/PlaylistsView.test.tsx` | List, Create, Delete | 6 | ~90% |
-| `src/renderer/components/Player/QueuePanel.test.tsx` | Queue Management UI | 7 | ~86% |
-| `src/renderer/components/Layout/PlayerBar.test.tsx` | Playback Controls UI | 9 | ~59% |
-| `src/renderer/components/Radio/RadioView.test.tsx` | Radio Station UI | 3 | ~62% |
-| `src/renderer/components/Settings/ConnectedDevicesModal.test.tsx` | Connected Devices UI | 5 | ~90% |
+| Test File | Coverage Focus |
+| --- | --- |
+| `src/main/services/player.test.ts` | Queue replacement, playback position, action-version guards, and rollback |
+| `src/main/services/remote.test.ts` | Capability negotiation, queue chunks, prepare/commit/status, pause leases, and URL validation |
+| `src/main/services/cast.service.test.ts` | Cast PLAYING/PAUSED acknowledgements and failures |
+| `src/renderer/components/Layout/PlayerBar.test.tsx` | Local audio seek and playback acknowledgements |
+| `src/renderer/store/store.test.ts` | Renderer state and IPC integration |
 
 ### E2E (`npx playwright test` - Playwright)
 
-**38 tests** across 17 spec files. Tests run against the built Electron app with mock authentication (no real Bandcamp account needed).
+E2E tests run against the built Electron application with mock desktop authentication. The fixture does not create an authenticated mobile WebSocket client, so queue handoff protocol and audio acknowledgements are covered by Vitest/Jest. `e2e/remote.spec.ts` covers the QR-first pairing screen and collapsed manual pairing details.
 
-| Spec File | Description | Tests |
-| --- | --- | --- |
-| `e2e/album.spec.ts` | Album detail navigation, search→detail→back | 2 |
-| `e2e/album-detail.spec.ts` | Track table display, Add to Queue button | 2 |
-| `e2e/artist-bulk-actions.spec.ts` | Bulk Play, Queue, Playlist from Artist view | 4 |
-| `e2e/artist-view.spec.ts` | Artist list + search, detail navigation + back | 2 |
-| `e2e/auth.spec.ts` | Login prompt or authenticated state | 1 |
-| `e2e/collection-bulk-actions.spec.ts` | Multi-selection, Bulk Play/Queue/Download | 5 |
-| `e2e/collection-search.spec.ts` | Filter, clear, nonexistent query (0 results) | 3 |
-| `e2e/navigation.spec.ts` | Sidebar navigation between all 4 views | 1 |
-| `e2e/player-controls.spec.ts` | Shuffle toggle, Repeat cycling, Mute/Unmute, Queue toggle | 4 |
-| `e2e/player-state.spec.ts` | Empty state ("No track playing"), controls, Cast/Mini Player | 3 |
-| `e2e/playlist.spec.ts` | Create playlist + add album via context menu | 1 |
-| `e2e/playlist-management.spec.ts` | Empty view, create/rename/delete with confirm dialog | 2 |
-| `e2e/queue.spec.ts` | Empty state, add via context menu, clear | 3 |
-| `e2e/radio.spec.ts` | Radio search input | 1 |
-| `e2e/radio-player.spec.ts` | Radio station listing | 1 |
-| `e2e/remote.spec.ts` | Remote control toggle, URL + QR code, sync status | 2 |
-| `e2e/settings.spec.ts` | Open/close modal, setting persistence across sessions | 2 |
-| `e2e/sidebar.spec.ts` | Nav items, user info, playlists section, inline create | 4 |
-| `e2e/theme.spec.ts` | Dark/Light/System theme switching via dropdown | 1 |
-| `e2e/updater.spec.ts` | Check for updates, download progress, release info | 3 |
+| Spec File | Coverage Focus |
+| --- | --- |
+| `e2e/player-controls.spec.ts` | Shuffle, repeat, mute, and queue controls |
+| `e2e/player.spec.ts` | Playback controls and selected-track playback |
+| `e2e/cast.spec.ts` | Cast menu, discovery, and device selection |
+| `e2e/remote.spec.ts` | Secure remote settings and QR/manual pairing UI |
 
-#### E2E Best Practices
+### Mobile (`npm run test:mobile` - Jest)
+
+| Test File | Coverage Focus |
+| --- | --- |
+| `mobile/store/index.test.ts` | Capability gating, both handoff directions, source pause semantics, chunk/status recovery, confirmation, and rollback |
+| `mobile/__tests__/MobilePlayerService.test.ts` | Native queue readiness, final paused position, and playback restoration |
+| `mobile/__tests__/app/(tabs)/queue.test.tsx` | Import/Export visibility, tap/hold actions, confirmation UI, and loading state |
+| `mobile/__tests__/services/WebSocketService.test.ts` | Connection and message event handling |
+
+The latest full unit runs for this update reported 30 desktop test files / 471 tests and 34 mobile suites / 448 tests. These are run snapshots, not fixed project totals.
+
+### E2E Best Practices
 
 - **Use role-based locators**: Prefer `getByRole`, `getByTitle`, `getByPlaceholder` over CSS class selectors (CSS modules generate dynamic class names).
 - **Hidden toggle switches**: Settings checkboxes have `opacity: 0; width: 0; height: 0`. Use `evaluate(el => el.click())` instead of `setChecked()`.
@@ -179,29 +162,6 @@ The project has comprehensive coverage across core logic, stores, critical UI pa
 - **Audio streaming**: Real Bandcamp audio doesn't work in E2E. Test UI state instead of actual playback.
 - **Fixture teardown**: `fixtures.ts` wraps `electronApp.close()` in try/catch to handle persistence tests that close and relaunch the app.
 - **App relaunch**: When relaunching, reuse the same `--user-data-dir`, `NODE_ENV`, `E2E_TEST`, and `REMOTE_PORT`. Always handle potential login flow again after relaunch.
-
-### Mobile (`npm run test:mobile` - Jest)
-
-**Overall Coverage:** ~25% (Store Logic: ~95%)
-
-| Test File | Description | Tests | Coverage Highlight |
-| ----------- | ------------- | ------- | ------------------ |
-| `mobile/store/index.test.ts` | State, WebSocket, Playback | 28 | ~95% |
-| `mobile/services/WebSocketService.test.ts` | Connection & Events | 12 | ~95% |
-| `mobile/services/discovery.service.test.ts` | mDNS Discovery | 4 | ~90% |
-| `mobile/__tests__/MobilePlayerService.test.ts` | Player Loading & Persistence | 5 | ~85% |
-| `mobile/services/player.test.ts` | TrackPlayer Integration | 6 | 100% |
-| `mobile/services/TrackPlayerService.test.ts` | Remote Event Handlers | 9 | 100% |
-| `mobile/app/(tabs)/player.test.tsx` | Player Screen UI | 14 | ~70% |
-| `mobile/app/(tabs)/collection.test.tsx` | Collection Screen UI | 6 | ~70% |
-| `mobile/app/album_detail.test.tsx` | Album Detail UI | 4 | ~50% |
-| `mobile/components/PlaylistSelectionModal.test.tsx` | Playlist Modal UI | 3 | 100% |
-| `mobile/app/about.test.tsx` | About Screen UI | 5 | 100% |
-| `mobile/app/license.test.tsx` | License Screen UI | 3 | 100% |
-| `mobile/__tests__/app/(tabs)/artists.test.tsx` | Artists Screen UI | 4 | 100% |
-| `mobile/__tests__/app/artist/[id].test.tsx` | Artist Detail & Nav | 5 | 100% |
-
-**Total:** 348 tests across all platforms (167 Desktop unit + 38 E2E + 108 Mobile + 35 Android).
 
 ## Specialized Testing
 

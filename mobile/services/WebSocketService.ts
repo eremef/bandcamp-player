@@ -34,6 +34,8 @@ class WebSocketService {
     private isExplicitlyClosed = false;
     private socketOpen = false;
     private isAuthenticated = false;
+    private connectionGeneration = 0;
+    private pendingPairing: Map<string, unknown> | null = null;
     private nativeSubscriptions: Array<{ remove: () => void }> = [];
 
     constructor() {
@@ -156,6 +158,7 @@ class WebSocketService {
                 return;
             }
             if (message.type === 'authenticated') {
+                if (this.pendingPairing) return;
                 this.isAuthenticated = true;
                 this.emit('connection-status', 'connected');
                 this.sendIdentify();
@@ -191,6 +194,11 @@ class WebSocketService {
                 this.emit('connection-status', 'disconnected', true);
                 return;
             }
+            if (['capabilities', 'state-changed', 'queue-handoff-status'].includes(message.type) &&
+                this.mode === 'safe' && !this.isAuthenticated) {
+                this.pendingPairing?.set(message.type, message.payload);
+                return;
+            }
             this.emit(message.type, message.payload);
         } catch (error) {
             console.error('Failed to parse remote message', error);
@@ -202,16 +210,29 @@ class WebSocketService {
             this.failClosed('The desktop returned an incomplete pairing response.');
             return;
         }
-        this.credentials = payload;
-        this.caFingerprint = payload.caFingerprint.replace(/:/g, '').toLowerCase();
+        if (this.pendingPairing) return;
+        const generation = this.connectionGeneration;
+        const host = this.host;
+        const messages = new Map<string, unknown>();
+        this.pendingPairing = messages;
         try {
-            await SecureStore.setItemAsync(getCredentialKey(this.host), JSON.stringify(this.credentials));
+            await SecureStore.setItemAsync(getCredentialKey(host), JSON.stringify(payload));
+            if (generation !== this.connectionGeneration || !this.socketOpen || this.isExplicitlyClosed) return;
+            this.pendingPairing = null;
+            this.credentials = payload;
+            this.caFingerprint = payload.caFingerprint.replace(/:/g, '').toLowerCase();
             this.isAuthenticated = true;
             this.emit('connection-status', 'connected');
             this.sendIdentify();
-            this.emit('paired-device', { host: this.host });
+            for (const type of ['capabilities', 'state-changed', 'queue-handoff-status']) {
+                if (generation !== this.connectionGeneration || !this.isAuthenticated) return;
+                if (messages.has(type)) this.emit(type, messages.get(type));
+            }
+            this.emit('paired-device', { host });
         } catch {
-            this.failClosed('The pairing token could not be saved in secure storage.');
+            if (generation === this.connectionGeneration) {
+                this.failClosed('The pairing token could not be saved in secure storage.');
+            }
         }
     }
 
@@ -228,6 +249,8 @@ class WebSocketService {
     }
 
     private handleClose(_code: number, _reason: string): void {
+        this.connectionGeneration++;
+        this.pendingPairing = null;
         this.socketOpen = false;
         if (this.isExplicitlyClosed) return;
         this.emit('connection-status', 'disconnected', false);
@@ -310,6 +333,8 @@ class WebSocketService {
     }
 
     private closeSocket(): void {
+        this.connectionGeneration++;
+        this.pendingPairing = null;
         if (Platform.OS !== 'web') {
             PinnedWebSocket?.close();
         } else if (this.ws) {
