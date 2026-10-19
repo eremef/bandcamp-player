@@ -5,7 +5,22 @@
 </div>
 
 <div align="center">
-<div>Like the app?</div>
+  
+<strong>Like the app?</strong>
+
+Share it on:
+
+[![Share on X/Twitter](https://img.shields.io/badge/X%2FTwitter-000000?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!&url=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player)
+[![Share on LinkedIn](https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player)
+[![Share on Reddit](https://img.shields.io/badge/Reddit-FF4500?style=for-the-badge&logo=reddit&logoColor=white)](https://reddit.com/submit?url=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player&title=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!)
+[![Share on Facebook](https://img.shields.io/badge/Facebook-1877F2?style=for-the-badge&logo=facebook&logoColor=white)](https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player)
+[![Share on Telegram](https://img.shields.io/badge/Telegram-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/share/url?url=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player&text=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!)
+[![Share on WhatsApp](https://img.shields.io/badge/WhatsApp-25D366?style=for-the-badge&logo=whatsapp&logoColor=white)](https://api.whatsapp.com/send?text=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!%20https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player)
+[![Share on Hacker News](https://img.shields.io/badge/Hacker%20News-FF6600?style=for-the-badge&logo=y-combinator&logoColor=white)](https://news.ycombinator.com/submitlink?u=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player&t=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!)
+[![Share on Pinterest](https://img.shields.io/badge/Pinterest-BD081C?style=for-the-badge&logo=pinterest&logoColor=white)](https://pinterest.com/pin/create/button/?url=https%3A%2F%2Fgithub.com%2Feremef%2Fbandcamp-player&description=Check%20out%20Beta%20Player%20on%20GitHub%20-%20Unofficial%20Bandcamp%20desktop%20and%20mobile%20player!)
+
+<strong>or</strong>
+
 <a href="https://www.buymeacoffee.com/eremef.xyz"><img src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=eremef.xyz&button_colour=1da0c3&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00&v=1" alt="Buy me a coffee" title="Buy me a coffee" /></a> <a href="https://buycoffee.to/eremef.xyz" target="_blank"><img src="https://buycoffee.to/static/img/share/share-button-primary.png" style="width: 195px; height: 51px" alt="Postaw kawę dla eremef.xyz na buycoffee.to" title="Postaw kawę dla eremef.xyz na buycoffee.to"></a>
 </div>
 
