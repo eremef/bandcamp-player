@@ -15,11 +15,16 @@ jest.mock('react-native-safe-area-context', () => ({
     SafeAreaView: ({ children }: any) => <>{children}</>,
 }));
 
-jest.mock('lucide-react-native', () => ({
-    ArrowLeft: () => 'ArrowLeft',
-    Play: () => 'Play',
-    MoreVertical: () => 'MoreVertical',
-}));
+jest.mock('lucide-react-native', () => {
+    const { Text } = jest.requireActual('react-native');
+    const { createElement } = jest.requireActual('react');
+    const icon = (name: string) => () => createElement(Text, null, name);
+    return {
+        ArrowLeft: icon('ArrowLeft'),
+        Play: icon('Play'),
+        MoreVertical: icon('MoreVertical'),
+    };
+});
 
 jest.mock('../../services/WebSocketService', () => ({
     webSocketService: {
@@ -123,16 +128,16 @@ describe('AlbumDetailScreen', () => {
         jest.clearAllMocks();
     });
 
-    it('renders loading state initially', () => {
-        const { getByText } = render(<AlbumDetailScreen />);
+    it('renders loading state initially', async () => {
+        const { getByText } = await render(<AlbumDetailScreen />);
         expect(getByText('Loading Album...')).toBeTruthy();
         expect(webSocketService.send).toHaveBeenCalledWith('get-album', 'http://bc.com/album/1');
     });
 
-    it('renders album details when data arrives', () => {
-        const { getByText, queryByText } = render(<AlbumDetailScreen />);
+    it('renders album details when data arrives', async () => {
+        const { getByText, queryByText } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
@@ -143,18 +148,18 @@ describe('AlbumDetailScreen', () => {
         expect(getByText('Track 2')).toBeTruthy();
     });
 
-    it('navigates back when back button is pressed', () => {
-        const { getByTestId } = render(<AlbumDetailScreen />);
+    it('navigates back when back button is pressed', async () => {
+        const { getByTestId } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
-        fireEvent.press(getByTestId('back-button'));
+        await fireEvent.press(getByTestId('back-button'));
         expect(mockRouter.back).toHaveBeenCalled();
     });
 
-    it('opens artist details when the album artist is in the collection', () => {
+    it('opens artist details when the album artist is in the collection', async () => {
         (useStore.getState() as any).collection = {
             items: [{
                 id: 'album-1',
@@ -169,13 +174,13 @@ describe('AlbumDetailScreen', () => {
                 },
             }],
         };
-        const { getByText } = render(<AlbumDetailScreen />);
+        const { getByText } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
-        fireEvent.press(getByText('Test Artist'));
+        await fireEvent.press(getByText('Test Artist'));
         expect(mockRouter.push).toHaveBeenCalledWith({
             pathname: '/artist/artist_detail',
             params: {
@@ -187,24 +192,24 @@ describe('AlbumDetailScreen', () => {
         });
     });
 
-    it('does not link to artist details when the artist is not in the database or collection', () => {
-        const { queryByLabelText } = render(<AlbumDetailScreen />);
+    it('does not link to artist details when the artist is not in the database or collection', async () => {
+        const { queryByLabelText } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
         expect(queryByLabelText('View artist Test Artist')).toBeNull();
     });
 
-    it('plays album when Play Album button is pressed', () => {
-        const { getByText } = render(<AlbumDetailScreen />);
+    it('plays album when Play Album button is pressed', async () => {
+        const { getByText } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
-        fireEvent.press(getByText('Play Album'));
+        await fireEvent.press(getByText('Play Album'));
         expect(useStore.getState().playAlbum).toHaveBeenCalledWith(
             'http://bc.com/album/1',
             expect.objectContaining({ title: 'Test Album', artist: 'Test Artist' })
@@ -212,14 +217,14 @@ describe('AlbumDetailScreen', () => {
 
     });
 
-    it('plays track when track is pressed', () => {
-        const { getByText } = render(<AlbumDetailScreen />);
+    it('plays track when track is pressed', async () => {
+        const { getByText } = await render(<AlbumDetailScreen />);
 
-        act(() => {
+        await act(() => {
             socketCallback(mockAlbum);
         });
 
-        fireEvent.press(getByText('Track 1'));
+        await fireEvent.press(getByText('Track 1'));
         expect(useStore.getState().playTrack).toHaveBeenCalledWith(
             expect.objectContaining({ id: 't1', title: 'Track 1', artist: 'Test Artist' })
         );
@@ -251,13 +256,13 @@ describe('AlbumDetailScreen', () => {
         }]);
         (mobileCacheService.isCached as jest.Mock).mockResolvedValue(true);
 
-        const { getByText } = render(<AlbumDetailScreen />);
+        const { getByText } = await render(<AlbumDetailScreen />);
         await act(async () => {
             await new Promise(resolve => setTimeout(resolve, 0));
         });
 
         expect(getByText('Cached Track')).toBeTruthy();
-        fireEvent.press(getByText('Cached Track'));
+        await fireEvent.press(getByText('Cached Track'));
         expect(useStore.getState().playTrack).toHaveBeenCalledWith(expect.objectContaining({
             id: 'cached-1',
             isCached: true,

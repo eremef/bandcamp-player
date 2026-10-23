@@ -304,6 +304,7 @@ export default function RadioScreen() {
             </View>
 
             <FlatList
+                testID="radio-list"
                 data={filteredStations}
                 renderItem={renderItem}
                 keyExtractor={(item) => item.id}

@@ -10,22 +10,27 @@ jest.mock('expo-router', () => ({
 }));
 
 // Mock Lucide icons
-jest.mock('lucide-react-native', () => ({
-    RefreshCw: () => 'RefreshCw',
-    MoreVertical: () => 'MoreVertical',
-    Search: () => 'Search',
-    ListEnd: () => 'ListEnd',
-    ListPlus: () => 'ListPlus',
-    ListMusic: () => 'ListMusic',
-    Play: () => 'Play',
-    MoreHorizontal: () => 'MoreHorizontal',
-    ArrowUpDown: () => 'ArrowUpDown',
-    Check: () => 'Check',
-    SlidersHorizontal: () => 'SlidersHorizontal',
-    Disc: () => 'Disc',
-    Music: () => 'Music',
-    Heart: () => 'Heart',
-}));
+jest.mock('lucide-react-native', () => {
+    const { Text } = jest.requireActual('react-native');
+    const { createElement } = jest.requireActual('react');
+    const icon = (name: string) => () => createElement(Text, null, name);
+    return {
+        RefreshCw: icon('RefreshCw'),
+        MoreVertical: icon('MoreVertical'),
+        Search: icon('Search'),
+        ListEnd: icon('ListEnd'),
+        ListPlus: icon('ListPlus'),
+        ListMusic: icon('ListMusic'),
+        Play: icon('Play'),
+        MoreHorizontal: icon('MoreHorizontal'),
+        ArrowUpDown: icon('ArrowUpDown'),
+        Check: icon('Check'),
+        SlidersHorizontal: icon('SlidersHorizontal'),
+        Disc: icon('Disc'),
+        Music: icon('Music'),
+        Heart: icon('Heart'),
+    };
+});
 
 // Mock WebSocketService
 jest.mock('../../../services/WebSocketService', () => ({
@@ -166,17 +171,17 @@ describe('CollectionScreen', () => {
         jest.clearAllMocks();
     });
 
-    it('renders loading state when collection is null', () => {
+    it('renders loading state when collection is null', async () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = { ...mockStore, collection: null };
             return selector(state);
         });
-        const { getByText } = render(<CollectionScreen />);
+        const { getByText } = await render(<CollectionScreen />);
         expect(getByText('Loading Your Music')).toBeTruthy();
     });
 
-    it('renders collection items', () => {
-        const { getByText } = render(<CollectionScreen />);
+    it('renders collection items', async () => {
+        const { getByText } = await render(<CollectionScreen />);
         expect(getByText('Album One')).toBeTruthy();
         expect(getByText('Artist A')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
@@ -185,7 +190,7 @@ describe('CollectionScreen', () => {
 
 
 
-    it('navigates to album detail on press if album has multiple tracks', () => {
+    it('navigates to album detail on press if album has multiple tracks', async () => {
         const multiTrackCollection = {
             items: [
                 {
@@ -201,8 +206,8 @@ describe('CollectionScreen', () => {
             return selector(state);
         });
 
-        const { getByText } = render(<CollectionScreen />);
-        fireEvent.press(getByText('Album Multi'));
+        const { getByText } = await render(<CollectionScreen />);
+        await fireEvent.press(getByText('Album Multi'));
 
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/album_detail',
@@ -212,10 +217,10 @@ describe('CollectionScreen', () => {
     });
 
     it('plays item directly on press if it is a single track or single-track album', async () => {
-        const { getByText } = render(<CollectionScreen />);
+        const { getByText } = await render(<CollectionScreen />);
 
         // Album One is a single-track album (trackCount: 1)
-        fireEvent.press(getByText('Album One'));
+        await fireEvent.press(getByText('Album One'));
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/album_detail',
             params: expect.objectContaining({ url: 'burl1', title: 'Album One' })
@@ -225,13 +230,13 @@ describe('CollectionScreen', () => {
         jest.clearAllMocks();
 
         // Track Two is a single track
-        fireEvent.press(getByText('Track Two'));
+        await fireEvent.press(getByText('Track Two'));
         expect(mockStore.playTrack).toHaveBeenCalledWith(mockCollection.items[1].track);
     });
 
     it('shows context menu on long press', async () => {
-        const { getByText, getByTestId } = render(<CollectionScreen />);
-        fireEvent(getByTestId('item-1'), 'longPress');
+        const { getByText, getByTestId } = await render(<CollectionScreen />);
+        await fireEvent(getByTestId('item-1'), 'longPress');
 
         await waitFor(() => {
             expect(getByText('ActionSheet: Album One - Artist A')).toBeTruthy();
@@ -239,7 +244,7 @@ describe('CollectionScreen', () => {
     });
 
     it('refreshes collection on pull to refresh', async () => {
-        const { getByTestId } = render(<CollectionScreen />);
+        const { getByTestId } = await render(<CollectionScreen />);
         const list = getByTestId('collection-list');
         const { refreshControl } = list.props;
 
@@ -253,10 +258,10 @@ describe('CollectionScreen', () => {
     });
 
     it('triggers search with debounce', async () => {
-        const { getByPlaceholderText } = render(<CollectionScreen />);
+        const { getByPlaceholderText } = await render(<CollectionScreen />);
         const searchInput = getByPlaceholderText('Search collection...');
 
-        fireEvent.changeText(searchInput, 'New Search');
+        await fireEvent.changeText(searchInput, 'New Search');
 
         // Should not be called immediately due to debounce
         expect(mockStore.refreshCollection).not.toHaveBeenCalledWith(true, 'New Search', false);
@@ -268,43 +273,43 @@ describe('CollectionScreen', () => {
         expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, 'New Search', false);
     });
 
-    it('renders error state and handles retry', () => {
+    it('renders error state and handles retry', async () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = { ...mockStore, collection: null, collectionError: 'Network Error' };
             return selector(state);
         });
 
-        const { getByText } = render(<CollectionScreen />);
+        const { getByText } = await render(<CollectionScreen />);
         expect(getByText('Error: Network Error')).toBeTruthy();
 
-        fireEvent.press(getByText('Retry'));
+        await fireEvent.press(getByText('Retry'));
         expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);
     });
 
-    it('renders loading status if available', () => {
+    it('renders loading status if available', async () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = { ...mockStore, collection: null, collectionLoadingStatus: 'Fetching items...' };
             return selector(state);
         });
 
-        const { getByText } = render(<CollectionScreen />);
+        const { getByText } = await render(<CollectionScreen />);
         expect(getByText('Fetching items...')).toBeTruthy();
     });
 
-    it('prompts before refresh if collection is large', () => {
+    it('prompts before refresh if collection is large', async () => {
         const largeCollection = { ...mockCollection, totalCount: 2000 };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             const state = { ...mockStore, collection: largeCollection };
             return selector(state);
         });
 
-        const { getByTestId } = render(<CollectionScreen />);
+        const { getByTestId } = await render(<CollectionScreen />);
         const list = getByTestId('collection-list');
 
         const { Alert } = require('react-native');
         const alertSpy = jest.spyOn(Alert, 'alert');
 
-        act(() => {
+        await act(() => {
             list.props.refreshControl.props.onRefresh();
         });
 
@@ -316,30 +321,30 @@ describe('CollectionScreen', () => {
 
         // Trigger Proceed
         const proceedButton = (alertSpy.mock.calls[0][2] as any[])?.[1];
-        act(() => {
+        await act(() => {
             proceedButton?.onPress?.();
         });
         expect(mockStore.refreshCollection).toHaveBeenCalledWith(true, '', true);
         alertSpy.mockRestore();
     });
 
-    it('calls loadMoreCollection on end reached', () => {
-        const { getByTestId } = render(<CollectionScreen />);
+    it('calls loadMoreCollection on end reached', async () => {
+        const { getByTestId } = await render(<CollectionScreen />);
         const list = getByTestId('collection-list');
 
-        fireEvent(list, 'onEndReached');
+        await fireEvent(list, 'onEndReached');
         expect(mockStore.loadMoreCollection).toHaveBeenCalled();
     });
 
     it('handles "Play Next" from context menu', async () => {
-        const { getByTestId, getByText } = render(<CollectionScreen />);
+        const { getByTestId, getByText } = await render(<CollectionScreen />);
 
         // Long press first item (Album One)
-        fireEvent(getByTestId('item-1'), 'longPress');
+        await fireEvent(getByTestId('item-1'), 'longPress');
 
         await waitFor(() => expect(getByText('Play Next')).toBeTruthy());
 
-        fireEvent.press(getByText('Play Next'));
+        await fireEvent.press(getByText('Play Next'));
         expect(mockStore.addAlbumToQueue).toHaveBeenCalledWith('burl1', true, expect.any(Array), expect.any(String));
     });
 
@@ -349,51 +354,51 @@ describe('CollectionScreen', () => {
             return selector(state);
         });
 
-        const { getByTestId, getByText } = render(<CollectionScreen />);
+        const { getByTestId, getByText } = await render(<CollectionScreen />);
 
         // Long press first item
-        fireEvent(getByTestId('item-1'), 'longPress');
+        await fireEvent(getByTestId('item-1'), 'longPress');
 
         await waitFor(() => expect(getByText('Add to Playlist')).toBeTruthy());
-        fireEvent.press(getByText('Add to Playlist'));
+        await fireEvent.press(getByText('Add to Playlist'));
 
         // Modal should appear (we mock PlaylistSelectionModal or check its content)
         await waitFor(() => expect(getByText('My Playlist')).toBeTruthy());
 
-        fireEvent.press(getByText('My Playlist'));
+        await fireEvent.press(getByText('My Playlist'));
         expect(mockStore.addAlbumToPlaylist).toHaveBeenCalledWith('p1', 'burl1');
     });
 
     it('handles track context menu actions', async () => {
-        const { getByTestId, getByText } = render(<CollectionScreen />);
+        const { getByTestId, getByText } = await render(<CollectionScreen />);
 
         // Long press second item (Track Two)
-        fireEvent(getByTestId('item-2'), 'longPress');
+        await fireEvent(getByTestId('item-2'), 'longPress');
 
         await waitFor(() => expect(getByText('Play Next')).toBeTruthy());
-        fireEvent.press(getByText('Play Next'));
+        await fireEvent.press(getByText('Play Next'));
         expect(mockStore.addTrackToQueue).toHaveBeenCalledWith(mockCollection.items[1].track, true);
 
         // Re-open for Add to Queue
-        fireEvent(getByTestId('item-2'), 'longPress');
+        await fireEvent(getByTestId('item-2'), 'longPress');
         await waitFor(() => expect(getByText('Add to Queue')).toBeTruthy());
-        fireEvent.press(getByText('Add to Queue'));
+        await fireEvent.press(getByText('Add to Queue'));
         expect(mockStore.addTrackToQueue).toHaveBeenCalledWith(mockCollection.items[1].track, false);
     });
 
     it('handles create playlist from modal', async () => {
-        const { getByTestId, getByText, getByPlaceholderText } = render(<CollectionScreen />);
+        const { getByTestId, getByText, getByPlaceholderText } = await render(<CollectionScreen />);
 
-        fireEvent(getByTestId('item-1'), 'longPress');
+        await fireEvent(getByTestId('item-1'), 'longPress');
         await waitFor(() => expect(getByText('Add to Playlist')).toBeTruthy());
-        fireEvent.press(getByText('Add to Playlist'));
+        await fireEvent.press(getByText('Add to Playlist'));
 
         await waitFor(() => expect(getByText('Create New')).toBeTruthy());
-        fireEvent.press(getByText('Create New'));
+        await fireEvent.press(getByText('Create New'));
 
         const input = getByPlaceholderText('Playlist Name');
-        fireEvent.changeText(input, 'Super Hits');
-        fireEvent.press(getByText('Create'));
+        await fireEvent.changeText(input, 'Super Hits');
+        await fireEvent.press(getByText('Create'));
 
         expect(mockStore.createPlaylist).toHaveBeenCalledWith('Super Hits');
     });
@@ -437,9 +442,9 @@ describe('CollectionScreen', () => {
             });
         };
 
-        it('sorts by Purchase Date (Newest First) by default', () => {
+        it('sorts by Purchase Date (Newest First) by default', async () => {
             setupSortingStore('default', 'desc');
-            const { getAllByText } = render(<CollectionScreen />);
+            const { getAllByText } = await render(<CollectionScreen />);
             const items = getAllByText(/Album/).filter(el => el.props.children !== 'Album' && el.props.children !== 'Albums');
             // Dates DESC: 03-01 (Alpha), 02-01 (Beta), 01-01 (Zeta)
             expect(items[0].props.children).toBe('Alpha Album');
@@ -447,9 +452,9 @@ describe('CollectionScreen', () => {
             expect(items[2].props.children).toBe('Zeta Album');
         });
 
-        it('sorts by Artist Name', () => {
+        it('sorts by Artist Name', async () => {
             setupSortingStore('artist', 'asc');
-            const { getByTestId } = render(<CollectionScreen />);
+            const { getByTestId } = await render(<CollectionScreen />);
             const list = getByTestId('collection-list');
             const items = within(list).getAllByText(/Artist/);
             // Artists: Artist A (Zeta), Artist B (Beta), Artist C (Alpha)
@@ -458,9 +463,9 @@ describe('CollectionScreen', () => {
             expect(items[2].props.children).toBe('Artist C');
         });
 
-        it('sorts by Album Title', () => {
+        it('sorts by Album Title', async () => {
             setupSortingStore('album', 'asc');
-            const { getByTestId } = render(<CollectionScreen />);
+            const { getByTestId } = await render(<CollectionScreen />);
             const list = getByTestId('collection-list');
             const items = within(list).getAllByText(/Album/);
             // Titles: Alpha Album, Beta Album, Zeta Album
@@ -469,9 +474,9 @@ describe('CollectionScreen', () => {
             expect(items[2].props.children).toBe('Zeta Album');
         });
 
-        it('reverses order when direction is desc', () => {
+        it('reverses order when direction is desc', async () => {
             setupSortingStore('album', 'desc');
-            const { getByTestId } = render(<CollectionScreen />);
+            const { getByTestId } = await render(<CollectionScreen />);
             const list = getByTestId('collection-list');
             const items = within(list).getAllByText(/Album/);
             // Titles DESC: Zeta Album, Beta Album, Alpha Album
@@ -492,15 +497,15 @@ describe('CollectionScreen', () => {
                 return selector(state);
             });
 
-            const { getByText, getByTestId } = render(<CollectionScreen />);
+            const { getByText, getByTestId } = await render(<CollectionScreen />);
             
             // Open ActionSheet
-            fireEvent.press(getByTestId('sort-button'));
+            await fireEvent.press(getByTestId('sort-button'));
 
             await waitFor(() => expect(getByText('ActionSheet: Sort Options')).toBeTruthy());
 
             // Press Descending option
-            fireEvent.press(getByText('Descending (Z-A)'));
+            await fireEvent.press(getByText('Descending (Z-A)'));
             expect(setDirection).toHaveBeenCalledWith('desc');
         });
     });

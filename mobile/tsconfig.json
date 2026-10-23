@@ -6,6 +6,9 @@
     "jsx": "react-native",
     "baseUrl": ".",
     "paths": {
+      "react-native/Libraries/Types/CodegenTypes": [
+        "./node_modules/react-native/types_generated/Libraries/Types/CodegenTypes"
+      ],
       "@shared/*": [
         "./src/shared/*"
       ]

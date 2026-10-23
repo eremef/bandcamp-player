@@ -38,7 +38,7 @@ describe('LogsModal', () => {
     });
 
     it('renders logs and handles search filtering', async () => {
-        const { getByText, getByPlaceholderText, queryByText } = render(
+        const { getByText, getByPlaceholderText, queryByText } = await render(
             <LogsModal visible={true} onClose={mockOnClose} />
         );
 
@@ -48,7 +48,7 @@ describe('LogsModal', () => {
             expect(getByText(/Network timeout/)).toBeTruthy();
         });
 
-        fireEvent.changeText(getByPlaceholderText('Search logs...'), 'Network');
+        await fireEvent.changeText(getByPlaceholderText('Search logs...'), 'Network');
 
         expect(queryByText(/App initialized/)).toBeNull();
         expect(getByText(/Network timeout/)).toBeTruthy();
@@ -57,7 +57,7 @@ describe('LogsModal', () => {
     it('handles share action', async () => {
         (mobileLoggerService.shareLogs as jest.Mock).mockResolvedValue(true);
 
-        const { getByLabelText } = render(
+        const { getByLabelText } = await render(
             <LogsModal visible={true} onClose={mockOnClose} />
         );
 
@@ -65,7 +65,7 @@ describe('LogsModal', () => {
             expect(mobileLoggerService.getLogs).toHaveBeenCalled();
         });
 
-        fireEvent.press(getByLabelText('Share logs'));
+        await fireEvent.press(getByLabelText('Share logs'));
 
         await waitFor(() => {
             expect(mobileLoggerService.shareLogs).toHaveBeenCalled();
@@ -75,7 +75,7 @@ describe('LogsModal', () => {
     it('handles copy action', async () => {
         (mobileLoggerService.copyLogs as jest.Mock).mockResolvedValue(true);
 
-        const { getByLabelText } = render(
+        const { getByLabelText } = await render(
             <LogsModal visible={true} onClose={mockOnClose} />
         );
 
@@ -83,7 +83,7 @@ describe('LogsModal', () => {
             expect(mobileLoggerService.getLogs).toHaveBeenCalled();
         });
 
-        fireEvent.press(getByLabelText('Copy logs'));
+        await fireEvent.press(getByLabelText('Copy logs'));
 
         await waitFor(() => {
             expect(mobileLoggerService.copyLogs).toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe('LogsModal', () => {
         jest.spyOn(Alert, 'alert');
         (mobileLoggerService.clearLogs as jest.Mock).mockResolvedValue(undefined);
 
-        const { getByLabelText, getByText } = render(
+        const { getByLabelText, getByText } = await render(
             <LogsModal visible={true} onClose={mockOnClose} />
         );
 
@@ -102,7 +102,7 @@ describe('LogsModal', () => {
             expect(getByText(/App initialized/)).toBeTruthy();
         });
 
-        fireEvent.press(getByLabelText('Clear logs'));
+        await fireEvent.press(getByLabelText('Clear logs'));
 
         expect(Alert.alert).toHaveBeenCalledWith(
             'Clear Logs',
@@ -121,11 +121,11 @@ describe('LogsModal', () => {
     });
 
     it('triggers onClose when close button is pressed', async () => {
-        const { getByLabelText } = render(
+        const { getByLabelText } = await render(
             <LogsModal visible={true} onClose={mockOnClose} />
         );
 
-        fireEvent.press(getByLabelText('Close logs'));
+        await fireEvent.press(getByLabelText('Close logs'));
         expect(mockOnClose).toHaveBeenCalled();
     });
 });

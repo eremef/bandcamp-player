@@ -103,7 +103,7 @@ describe('RadioDetailScreen', () => {
     });
 
     it('renders station header details correctly', async () => {
-        const { getAllByText, findByText } = render(<RadioDetailScreen />);
+        const { getAllByText, findByText } = await render(<RadioDetailScreen />);
 
         expect(await findByText('First cool station description')).toBeTruthy();
         expect(getAllByText('Cool Station 1').length).toBeGreaterThan(0);
@@ -112,7 +112,7 @@ describe('RadioDetailScreen', () => {
     });
 
     it('fetches and displays tracks using playlist-style layout', async () => {
-        const { findByText } = render(<RadioDetailScreen />);
+        const { findByText } = await render(<RadioDetailScreen />);
 
         expect(await findByText('Extracted Track 1')).toBeTruthy();
         expect(await findByText('Artist One')).toBeTruthy();
@@ -121,11 +121,11 @@ describe('RadioDetailScreen', () => {
     });
 
     it('plays full mix when Play Mix is pressed', async () => {
-        const { getByTestId, findByText } = render(<RadioDetailScreen />);
+        const { getByTestId, findByText } = await render(<RadioDetailScreen />);
         await findByText('Play Mix');
         const playBtn = getByTestId('play-mix-btn');
         await act(async () => {
-            fireEvent.press(playBtn);
+            await fireEvent.press(playBtn);
         });
 
         expect(mockPlayStation).toHaveBeenCalledWith(expect.objectContaining({
@@ -135,11 +135,11 @@ describe('RadioDetailScreen', () => {
     });
 
     it('extracts tracks when Play Tracks is pressed', async () => {
-        const { getByTestId, findByText } = render(<RadioDetailScreen />);
+        const { getByTestId, findByText } = await render(<RadioDetailScreen />);
         await findByText('Play Tracks');
         const extractBtn = getByTestId('play-extracted-btn');
         await act(async () => {
-            fireEvent.press(extractBtn);
+            await fireEvent.press(extractBtn);
         });
 
         expect(mockExtractRadioTracksToQueue).toHaveBeenCalledWith(

@@ -54,8 +54,8 @@ describe('ArtistsScreen', () => {
         });
     });
 
-    it('renders correctly and lists artists', () => {
-        const { getByText, getAllByText } = render(<ArtistsScreen />);
+    it('renders correctly and lists artists', async () => {
+        const { getByText, getAllByText } = await render(<ArtistsScreen />);
 
         // Removed header check as it was moved to layout or removed
         expect(getAllByText('A')).toBeTruthy(); // Section A
@@ -68,11 +68,11 @@ describe('ArtistsScreen', () => {
         expect(getByText('Zebra')).toBeTruthy();
     });
 
-    it('filters artists by search query and shows empty state', () => {
-        const { getByPlaceholderText, queryByText, getByText } = render(<ArtistsScreen />);
+    it('filters artists by search query and shows empty state', async () => {
+        const { getByPlaceholderText, queryByText, getByText } = await render(<ArtistsScreen />);
 
         const searchInput = getByPlaceholderText('Search artists..');
-        fireEvent.changeText(searchInput, 'NothingMatchesThis');
+        await fireEvent.changeText(searchInput, 'NothingMatchesThis');
 
         expect(queryByText('Abba')).toBeNull();
         expect(getByText('No artists found')).toBeTruthy();
@@ -93,7 +93,7 @@ describe('ArtistsScreen', () => {
             return selector ? selector(state) : state;
         });
 
-        const { findByText, queryByText, getAllByText } = render(<ArtistsScreen />);
+        const { findByText, queryByText, getAllByText } = await render(<ArtistsScreen />);
 
         // headers and numeric artist
         expect(getAllByText('#').length).toBeGreaterThan(0);
@@ -104,7 +104,7 @@ describe('ArtistsScreen', () => {
         expect(await findByText('Abba')).toBeTruthy();
 
         // Navigate
-        fireEvent.press(await findByText('Abba'));
+        await fireEvent.press(await findByText('Abba'));
         expect(mockPush).toHaveBeenCalledWith({
             pathname: '/artist/artist_detail',
             params: { id: '1' }
@@ -129,25 +129,25 @@ describe('ArtistsScreen', () => {
             return selector ? selector(state) : state;
         });
 
-        const { findByText, getAllByText } = render(<ArtistsScreen />);
+        const { findByText, getAllByText } = await render(<ArtistsScreen />);
         expect(getAllByText('A').length).toBeGreaterThan(0);
         expect(getAllByText('#').length).toBeGreaterThan(0);
         expect(await findByText('123')).toBeTruthy();
         expect(await findByText('!!!')).toBeTruthy();
     });
 
-    it('navigates to artist detail on press', () => {
-        const { getByText } = render(<ArtistsScreen />);
+    it('navigates to artist detail on press', async () => {
+        const { getByText } = await render(<ArtistsScreen />);
 
-        fireEvent.press(getByText('Abba'));
+        await fireEvent.press(getByText('Abba'));
         expect(mockPush).toHaveBeenCalledWith({
             pathname: '/artist/artist_detail',
             params: { id: '1' }
         });
     });
 
-    it('renders artists with and without images (placeholder)', () => {
-        const { getByText } = render(<ArtistsScreen />);
+    it('renders artists with and without images (placeholder)', async () => {
+        const { getByText } = await render(<ArtistsScreen />);
 
         // Abba has image, Beatles does not.
         // We can't easily check for Image vs View in this shallow render 
@@ -156,14 +156,14 @@ describe('ArtistsScreen', () => {
         expect(getByText('Beatles')).toBeTruthy();
     });
 
-    it('chunks artists into rows based on COLUMN_COUNT', () => {
+    it('chunks artists into rows based on COLUMN_COUNT', async () => {
         // COLUMN_COUNT is 3. mockArtists has 4 items.
         // A: Abba, AC/DC (2 items) -> 1 row
         // B: Beatles (1 item) -> 1 row
         // Z: Zebra (1 item) -> 1 row
         // Total rows: 3
 
-        const { getByText } = render(<ArtistsScreen />);
+        const { getByText } = await render(<ArtistsScreen />);
         expect(getByText('Abba')).toBeTruthy();
     });
 });

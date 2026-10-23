@@ -72,8 +72,8 @@ export default function QueueScreen() {
     }, [scrollToIndexSafe]));
 
     // DFL wraps its own viewability handler and forwards to ours (DraggableFlatList.tsx:366).
-    const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
-        const indices = viewableItems.map((v) => v.index).filter((i): i is number => i !== null);
+    const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: { index?: number | null }[] }) => {
+        const indices = viewableItems.map((v) => v.index).filter((i): i is number => typeof i === 'number');
         if (!indices.length) return;
         viewableRangeRef.current = { min: Math.min(...indices), max: Math.max(...indices) };
     }, []);

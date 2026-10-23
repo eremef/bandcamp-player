@@ -45,7 +45,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
     const isSilent = silentProp || params.silent === 'true';
     const colors = useTheme();
     const [isLoading, setIsLoading] = useState(true);
-    const webViewRef = useRef<WebView>(null);
+    const webViewRef = useRef<WebView<object>>(null);
     const setMode = useStore((state) => state.setMode);
     const [credentialsJS, setCredentialsJS] = useState<string>('');
     const [isReady, setIsReady] = useState(false);
@@ -331,7 +331,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
     if (isSilent) {
         return (
             <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
-                <WebView
+                <WebView<object>
                     ref={webViewRef}
                     source={{ uri: LOGIN_URL }}
                     onLoadEnd={() => {
@@ -358,7 +358,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
     return (
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
+                <TouchableOpacity testID="bandcamp-login-close-button" onPress={() => router.back()} style={styles.closeButton}>
                     <X color={colors.text} size={24} />
                 </TouchableOpacity>
                 <Text style={[styles.title, { color: colors.text }]}>Login to Bandcamp</Text>
@@ -395,7 +395,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
                 </View>
             )}
 
-            <WebView
+            <WebView<object>
                 ref={webViewRef}
                 source={{ uri: LOGIN_URL }}
                 style={styles.webview}
@@ -413,7 +413,7 @@ export default function BandcampLoginScreen({ silentProp }: { silentProp?: boole
 
             {isLoading && (
                 <View style={[styles.loadingOverlay, { backgroundColor: colors.background }]}>
-                    <ActivityIndicator size="large" color={colors.accent} />
+                    <ActivityIndicator testID="bandcamp-login-loading-indicator" size="large" color={colors.accent} />
                 </View>
             )}
         </SafeAreaView>
