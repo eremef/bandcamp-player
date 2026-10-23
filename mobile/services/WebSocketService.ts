@@ -101,7 +101,7 @@ class WebSocketService {
                 return;
             }
             void PinnedWebSocket.connect(this.url, this.mode === 'safe' ? this.caFingerprint : null)
-                .catch((error) => this.failClosed(error instanceof Error ? error.message : 'Could not connect securely.'));
+                .catch((error: unknown) => this.failClosed(error instanceof Error ? error.message : 'Could not connect securely.'));
             return;
         }
 

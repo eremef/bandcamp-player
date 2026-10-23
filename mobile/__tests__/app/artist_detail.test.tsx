@@ -104,17 +104,17 @@ describe('ArtistDetailScreen', () => {
         jest.clearAllMocks();
     });
 
-    it('renders correctly', () => {
-        const { getByText, getAllByText } = render(<ArtistDetailScreen />);
+    it('renders correctly', async () => {
+        const { getByText, getAllByText } = await render(<ArtistDetailScreen />);
         expect(getAllByText('Test Artist')).toBeTruthy();
         expect(getByText('Album 1')).toBeTruthy();
         expect(getByText('Track 1')).toBeTruthy();
         expect(mockRefreshArtistCollection).toHaveBeenCalledWith(mockArtistId);
     });
 
-    it('handles interaction with album - navigates to detail', () => {
-        const { getByText } = render(<ArtistDetailScreen />);
-        fireEvent.press(getByText('Album 1'));
+    it('handles interaction with album - navigates to detail', async () => {
+        const { getByText } = await render(<ArtistDetailScreen />);
+        await fireEvent.press(getByText('Album 1'));
         expect(mockRouterPush).toHaveBeenCalledWith({
             pathname: '/album_detail',
             params: {
@@ -126,17 +126,17 @@ describe('ArtistDetailScreen', () => {
         });
     });
 
-    it('handles interaction with track - plays album url', () => {
-        const { getByText } = render(<ArtistDetailScreen />);
-        fireEvent.press(getByText('Track 1'));
+    it('handles interaction with track - plays album url', async () => {
+        const { getByText } = await render(<ArtistDetailScreen />);
+        await fireEvent.press(getByText('Track 1'));
         expect(mockPlayAlbum).toHaveBeenCalledWith('trackUrl1');
     });
 
     it('shows action sheet on long press', async () => {
-        const { getByText } = render(<ArtistDetailScreen />);
+        const { getByText } = await render(<ArtistDetailScreen />);
 
         // Long press on album title
-        fireEvent(getByText('Album 1'), 'longPress');
+        await fireEvent(getByText('Album 1'), 'longPress');
 
         // Action sheet options should appear
         expect(getByText('Play Next')).toBeTruthy();
@@ -144,11 +144,11 @@ describe('ArtistDetailScreen', () => {
         expect(getByText('Add to Playlist')).toBeTruthy();
     });
 
-    it('adds to queue from action sheet', () => {
-        const { getByText } = render(<ArtistDetailScreen />);
+    it('adds to queue from action sheet', async () => {
+        const { getByText } = await render(<ArtistDetailScreen />);
 
-        fireEvent(getByText('Album 1'), 'longPress');
-        fireEvent.press(getByText('Add to Queue'));
+        await fireEvent(getByText('Album 1'), 'longPress');
+        await fireEvent.press(getByText('Add to Queue'));
 
         expect(mockAddAlbumToQueue).toHaveBeenCalled();
     });

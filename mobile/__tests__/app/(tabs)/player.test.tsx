@@ -182,24 +182,24 @@ describe('PlayerScreen', () => {
         jest.spyOn(Alert, 'alert').mockImplementation(() => { });
     });
 
-    afterEach(() => {
-        cleanup();
+    afterEach(async () => {
+        await cleanup();
         jest.clearAllTimers();
         jest.useRealTimers();
     });
 
-    it('renders track info correctly', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
+    it('renders track info correctly', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
         expect(getByText('Test Song')).toBeTruthy();
         expect(getByText('Test Artist')).toBeTruthy();
         expect(getByText('Test Album')).toBeTruthy();
-        unmount();
+        await unmount();
     });
 
-    it('opens the current artist details from the artist name', () => {
-        const { getByText } = render(<PlayerScreen />);
+    it('opens the current artist details from the artist name', async () => {
+        const { getByText } = await render(<PlayerScreen />);
 
-        fireEvent.press(getByText('Test Artist'));
+        await fireEvent.press(getByText('Test Artist'));
 
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/artist/artist_detail',
@@ -212,10 +212,10 @@ describe('PlayerScreen', () => {
         });
     });
 
-    it('opens album details using the matching collection album URL', () => {
-        const { getByText } = render(<PlayerScreen />);
+    it('opens album details using the matching collection album URL', async () => {
+        const { getByText } = await render(<PlayerScreen />);
 
-        fireEvent.press(getByText('Test Album'));
+        await fireEvent.press(getByText('Test Album'));
 
         expect(router.push).toHaveBeenCalledWith({
             pathname: '/album_detail',
@@ -229,12 +229,12 @@ describe('PlayerScreen', () => {
         });
     });
 
-    it('uses the current track artist ID when the collection confirms the artist', () => {
+    it('uses the current track artist ID when the collection confirms the artist', async () => {
         mockStore.mode = 'remote';
         mockStore.artists = [];
-        const { getByText } = render(<PlayerScreen />);
+        const { getByText } = await render(<PlayerScreen />);
 
-        fireEvent.press(getByText('Test Artist'));
+        await fireEvent.press(getByText('Test Artist'));
 
         expect(router.push).toHaveBeenCalledWith(expect.objectContaining({
             pathname: '/artist/artist_detail',
@@ -242,116 +242,116 @@ describe('PlayerScreen', () => {
         }));
     });
 
-    it('does not link to artist details when the artist is not in the database or collection', () => {
+    it('does not link to artist details when the artist is not in the database or collection', async () => {
         mockStore.artists = [];
         mockStore.collection = { items: [] };
-        const { queryByLabelText } = render(<PlayerScreen />);
+        const { queryByLabelText } = await render(<PlayerScreen />);
 
         expect(queryByLabelText('View artist Test Artist')).toBeNull();
     });
 
-    it('renders placeholder when no track', () => {
+    it('renders placeholder when no track', async () => {
         (useStore as unknown as jest.Mock).mockReturnValue({ ...mockStore, currentTrack: null });
-        const { getByText, unmount } = render(<PlayerScreen />);
+        const { getByText, unmount } = await render(<PlayerScreen />);
         expect(getByText('No Track')).toBeTruthy();
-        unmount();
+        await unmount();
     });
 
-    it('calls play when button is pressed while paused', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('PlayIcon'));
+    it('calls play when button is pressed while paused', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('PlayIcon'));
         expect(mockStore.play).toHaveBeenCalled();
-        unmount();
+        await unmount();
     });
 
-    it('calls pause when button is pressed while playing', () => {
+    it('calls pause when button is pressed while playing', async () => {
         mockStore.isPlaying = true;
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('PauseIcon'));
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('PauseIcon'));
         expect(mockStore.pause).toHaveBeenCalled();
-        unmount();
+        await unmount();
     });
 
-    it('Toggles shuffle', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('ShuffleIcon'));
+    it('Toggles shuffle', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('ShuffleIcon'));
         expect(mockStore.toggleShuffle).toHaveBeenCalled();
-        unmount();
+        await unmount();
     });
 
-    it('cycles repeat mode', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('RepeatIcon'));
+    it('cycles repeat mode', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('RepeatIcon'));
         expect(mockStore.setRepeat).toHaveBeenCalledWith('one');
-        unmount();
+        await unmount();
     });
 
 
 
-    it('opens the playlist modal from the artwork button', () => {
+    it('opens the playlist modal from the artwork button', async () => {
         mockStore.playlists = [{ id: 'p1', name: 'Late Drives', tracks: [] }];
-        const { getByTestId, getByText, queryByText, unmount } = render(<PlayerScreen />);
+        const { getByTestId, getByText, queryByText, unmount } = await render(<PlayerScreen />);
 
         expect(queryByText('PlaylistSelectionModal')).toBeNull();
-        fireEvent.press(getByTestId('player-add-to-playlist-btn'));
+        await fireEvent.press(getByTestId('player-add-to-playlist-btn'));
         expect(getByText('PlaylistSelectionModal')).toBeTruthy();
 
-        fireEvent.press(getByText('Late Drives'));
+        await fireEvent.press(getByText('Late Drives'));
         expect(mockStore.addTrackToPlaylist).toHaveBeenCalledWith('p1', mockStore.currentTrack);
-        unmount();
+        await unmount();
     });
 
-    it('hides the artwork button when no track is playing', () => {
+    it('hides the artwork button when no track is playing', async () => {
         (useStore as unknown as jest.Mock).mockReturnValue({ ...mockStore, currentTrack: null });
-        const { queryByTestId, unmount } = render(<PlayerScreen />);
+        const { queryByTestId, unmount } = await render(<PlayerScreen />);
         expect(queryByTestId('player-add-to-playlist-btn')).toBeNull();
-        unmount();
+        await unmount();
     });
 
-    it('creates a playlist from the selection modal', () => {
-        const { getByTestId, getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByTestId('player-add-to-playlist-btn'));
-        fireEvent.press(getByText('Create New'));
-        fireEvent.press(getByText('Create'));
+    it('creates a playlist from the selection modal', async () => {
+        const { getByTestId, getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByTestId('player-add-to-playlist-btn'));
+        await fireEvent.press(getByText('Create New'));
+        await fireEvent.press(getByText('Create'));
         expect(mockStore.createPlaylist).toHaveBeenCalledWith('New Playlist');
-        unmount();
+        await unmount();
     });
 
-    it('handles volume modal', () => {
-        const { getByText, getAllByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('Volume2Icon'));
+    it('handles volume modal', async () => {
+        const { getByText, getAllByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('Volume2Icon'));
         expect(getAllByText('80%').length).toBeGreaterThan(0);
-        unmount();
+        await unmount();
     });
 
-    it('switches mode to remote', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('Standalone'));
+    it('switches mode to remote', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('Standalone'));
         expect(mockStore.setMode).toHaveBeenCalledWith('remote');
-        unmount();
+        await unmount();
     });
 
-    it('switches mode back to standalone', () => {
+    it('switches mode back to standalone', async () => {
         mockStore.mode = 'remote';
-        const { getByText, unmount } = render(<PlayerScreen />);
+        const { getByText, unmount } = await render(<PlayerScreen />);
         expect(getByText('Remote')).toBeTruthy();
-        fireEvent.press(getByText('Remote'));
+        await fireEvent.press(getByText('Remote'));
         expect(mockStore.setMode).toHaveBeenCalledWith('standalone');
-        unmount();
+        await unmount();
     });
 
-    it('handles disconnect', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('Exit'));
+    it('handles disconnect', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('MoreVerticalIcon'));
+        await fireEvent.press(getByText('Exit'));
         expect(mockStore.disconnect).toHaveBeenCalled();
-        unmount();
+        await unmount();
     });
 
     it('handles logout with confirmation', async () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('Logout'));
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('MoreVerticalIcon'));
+        await fireEvent.press(getByText('Logout'));
 
         await act(async () => {
             jest.runAllTimers();
@@ -365,30 +365,30 @@ describe('PlayerScreen', () => {
             await logoutBtn?.onPress();
         });
         expect(mockStore.logoutBandcamp).toHaveBeenCalled();
-        unmount();
+        await unmount();
     });
 
-    it('navigates to settings', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('SettingsIcon'));
+    it('navigates to settings', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('MoreVerticalIcon'));
+        await fireEvent.press(getByText('SettingsIcon'));
         expect(router.push).toHaveBeenCalledWith('/settings');
-        unmount();
+        await unmount();
     });
 
-    it('navigates to about', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('About'));
+    it('navigates to about', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('MoreVerticalIcon'));
+        await fireEvent.press(getByText('About'));
         expect(router.push).toHaveBeenCalledWith('/about');
-        unmount();
+        await unmount();
     });
 
-    it('opens logs modal from 3-dots menu', () => {
-        const { getByText, unmount } = render(<PlayerScreen />);
-        fireEvent.press(getByText('MoreVerticalIcon'));
-        fireEvent.press(getByText('Logs'));
+    it('opens logs modal from 3-dots menu', async () => {
+        const { getByText, unmount } = await render(<PlayerScreen />);
+        await fireEvent.press(getByText('MoreVerticalIcon'));
+        await fireEvent.press(getByText('Logs'));
         expect(getByText('LogsModal')).toBeTruthy();
-        unmount();
+        await unmount();
     });
 });

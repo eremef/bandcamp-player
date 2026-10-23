@@ -177,6 +177,7 @@ export default function PlaylistsScreen() {
     return (
         <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>
             <SectionList
+                testID="playlists-list"
                 sections={sections}
                 renderItem={renderItem}
                 renderSectionHeader={renderSectionHeader}

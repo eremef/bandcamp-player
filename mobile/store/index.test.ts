@@ -715,7 +715,7 @@ describe('Mobile useStore', () => {
         expect(mobilePlayerService.setVolume).toHaveBeenCalledWith(0.8);
 
         // Fast-forward timers for refresh actions
-        act(() => {
+        await act(() => {
             jest.advanceTimersByTime(200);
         });
     });
@@ -877,43 +877,43 @@ describe('Mobile useStore', () => {
     });
 
     describe('Playback Controls', () => {
-        it('should send play command', () => {
-            act(() => useStore.getState().play());
+        it('should send play command', async () => {
+            await act(() => useStore.getState().play());
             expect(webSocketService.send).toHaveBeenCalledWith('play');
         });
 
-        it('should send pause command', () => {
-            act(() => useStore.getState().pause());
+        it('should send pause command', async () => {
+            await act(() => useStore.getState().pause());
             expect(webSocketService.send).toHaveBeenCalledWith('pause');
         });
 
-        it('should send next command', () => {
-            act(() => useStore.getState().next());
+        it('should send next command', async () => {
+            await act(() => useStore.getState().next());
             expect(webSocketService.send).toHaveBeenCalledWith('next');
         });
 
-        it('should send previous command', () => {
-            act(() => useStore.getState().previous());
+        it('should send previous command', async () => {
+            await act(() => useStore.getState().previous());
             expect(webSocketService.send).toHaveBeenCalledWith('previous');
         });
 
-        it('should send seek command', () => {
-            act(() => useStore.getState().seek(30));
+        it('should send seek command', async () => {
+            await act(() => useStore.getState().seek(30));
             expect(webSocketService.send).toHaveBeenCalledWith('seek', 30);
         });
 
-        it('should send setVolume command', () => {
-            act(() => useStore.getState().setVolume(0.5));
+        it('should send setVolume command', async () => {
+            await act(() => useStore.getState().setVolume(0.5));
             expect(webSocketService.send).toHaveBeenCalledWith('set-volume', 0.5);
         });
 
-        it('should send toggleShuffle command', () => {
-            act(() => useStore.getState().toggleShuffle());
+        it('should send toggleShuffle command', async () => {
+            await act(() => useStore.getState().toggleShuffle());
             expect(webSocketService.send).toHaveBeenCalledWith('toggle-shuffle');
         });
 
-        it('should send setRepeat command', () => {
-            act(() => useStore.getState().setRepeat('one'));
+        it('should send setRepeat command', async () => {
+            await act(() => useStore.getState().setRepeat('one'));
             expect(webSocketService.send).toHaveBeenCalledWith('set-repeat', 'one');
         });
     });
@@ -922,62 +922,62 @@ describe('Mobile useStore', () => {
         const mockTrack = { id: 't1' } as any;
         const mockStation = { name: 'Radio' } as any;
 
-        it('should play track', () => {
-            act(() => useStore.getState().playTrack(mockTrack));
+        it('should play track', async () => {
+            await act(() => useStore.getState().playTrack(mockTrack));
             expect(webSocketService.send).toHaveBeenCalledWith('play-track', mockTrack);
         });
 
-        it('should play album', () => {
-            act(() => useStore.getState().playAlbum('url'));
+        it('should play album', async () => {
+            await act(() => useStore.getState().playAlbum('url'));
             expect(webSocketService.send).toHaveBeenCalledWith('play-album', 'url');
         });
 
-        it('should play playlist', () => {
-            act(() => useStore.getState().playPlaylist('p1'));
+        it('should play playlist', async () => {
+            await act(() => useStore.getState().playPlaylist('p1'));
             expect(webSocketService.send).toHaveBeenCalledWith('play-playlist', 'p1');
         });
 
-        it('should play station', () => {
-            act(() => useStore.getState().playStation(mockStation));
+        it('should play station', async () => {
+            await act(() => useStore.getState().playStation(mockStation));
             expect(webSocketService.send).toHaveBeenCalledWith('play-station', mockStation);
         });
 
-        it('should add station to queue', () => {
-            act(() => useStore.getState().addStationToQueue(mockStation, true));
+        it('should add station to queue', async () => {
+            await act(() => useStore.getState().addStationToQueue(mockStation, true));
             expect(webSocketService.send).toHaveBeenCalledWith('add-station-to-queue', { station: mockStation, playNext: true });
         });
 
-        it('should add track to queue', () => {
-            act(() => useStore.getState().addTrackToQueue(mockTrack, false));
+        it('should add track to queue', async () => {
+            await act(() => useStore.getState().addTrackToQueue(mockTrack, false));
             expect(webSocketService.send).toHaveBeenCalledWith('add-track-to-queue', { track: mockTrack, playNext: false });
         });
 
-        it('should add album to queue', () => {
-            act(() => useStore.getState().addAlbumToQueue('url', true));
+        it('should add album to queue', async () => {
+            await act(() => useStore.getState().addAlbumToQueue('url', true));
             expect(webSocketService.send).toHaveBeenCalledWith('add-album-to-queue', { albumUrl: 'url', playNext: true });
         });
 
-        it('should add track to playlist', () => {
-            act(() => useStore.getState().addTrackToPlaylist('p1', mockTrack));
+        it('should add track to playlist', async () => {
+            await act(() => useStore.getState().addTrackToPlaylist('p1', mockTrack));
             expect(webSocketService.send).toHaveBeenCalledWith('add-track-to-playlist', { playlistId: 'p1', track: mockTrack });
         });
 
-        it('should add album to playlist', () => {
-            act(() => useStore.getState().addAlbumToPlaylist('p1', 'url'));
+        it('should add album to playlist', async () => {
+            await act(() => useStore.getState().addAlbumToPlaylist('p1', 'url'));
             expect(webSocketService.send).toHaveBeenCalledWith('add-album-to-playlist', { playlistId: 'p1', albumUrl: 'url' });
         });
 
-        it('should add station to playlist', () => {
-            act(() => useStore.getState().addStationToPlaylist('p1', mockStation));
+        it('should add station to playlist', async () => {
+            await act(() => useStore.getState().addStationToPlaylist('p1', mockStation));
             expect(webSocketService.send).toHaveBeenCalledWith('add-station-to-playlist', { playlistId: 'p1', station: mockStation });
         });
 
-        it('should play queue index', () => {
-            act(() => useStore.getState().playQueueIndex(5));
+        it('should play queue index', async () => {
+            await act(() => useStore.getState().playQueueIndex(5));
             expect(webSocketService.send).toHaveBeenCalledWith('play-queue-index', 5);
         });
 
-        it('should remove from queue', () => {
+        it('should remove from queue', async () => {
             // Setup initial queue
             useStore.setState({
                 queue: {
@@ -986,13 +986,13 @@ describe('Mobile useStore', () => {
                 }
             });
 
-            act(() => useStore.getState().removeFromQueue('q1'));
+            await act(() => useStore.getState().removeFromQueue('q1'));
 
             expect(webSocketService.send).toHaveBeenCalledWith('remove-from-queue', 'q1');
             expect(useStore.getState().queue.items).toHaveLength(0);
         });
 
-        it('should clear queue', () => {
+        it('should clear queue', async () => {
             // Setup initial queue
             useStore.setState({
                 queue: {
@@ -1001,7 +1001,7 @@ describe('Mobile useStore', () => {
                 }
             });
 
-            act(() => useStore.getState().clearQueue(true));
+            await act(() => useStore.getState().clearQueue(true));
 
             // clearQueue keeps current item if playing
             expect(useStore.getState().queue.items).toHaveLength(1);
@@ -1026,13 +1026,13 @@ describe('Mobile useStore', () => {
             expect(addTrack).toHaveBeenCalled();
         });
 
-        it('should handle collection-data event', () => {
+        it('should handle collection-data event', async () => {
             const callback = socketListeners['collection-data'];
             expect(callback).toBeDefined();
 
             const mockCollection = { items: [], totalCount: 0, lastUpdated: new Date().toISOString() };
 
-            act(() => callback(mockCollection));
+            await act(() => callback(mockCollection));
             expect(useStore.getState().collection).toEqual(mockCollection);
         });
 
@@ -1068,13 +1068,13 @@ describe('Mobile useStore', () => {
             expect(playlistSyncService.sync).toHaveBeenCalled();
         });
 
-        it('should handle radio-data event', () => {
+        it('should handle radio-data event', async () => {
             const callback = socketListeners['radio-data'];
             expect(callback).toBeDefined();
 
             const mockStations = [{ name: 'Radio' }];
 
-            act(() => callback(mockStations));
+            await act(() => callback(mockStations));
             expect(useStore.getState().radioStations).toBe(mockStations);
         });
 
@@ -1103,12 +1103,12 @@ describe('Mobile useStore', () => {
             expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
         });
 
-        it('should handle connection-status event', () => {
+        it('should handle connection-status event', async () => {
             const callback = socketListeners['connection-status'];
             expect(callback).toBeDefined();
 
             // Test connected
-            act(() => callback('connected'));
+            await act(() => callback('connected'));
             expect(useStore.getState().connectionStatus).toBe('connected');
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', expect.anything());
             expect(webSocketService.send).toHaveBeenCalledWith('get-bandcamp-playlists');
@@ -1117,7 +1117,7 @@ describe('Mobile useStore', () => {
             jest.clearAllMocks();
 
             // Test disconnected (implicit/network error)
-            act(() => callback('disconnected'));
+            await act(() => callback('disconnected'));
             expect(useStore.getState().connectionStatus).toBe('disconnected');
             expect(webSocketService.send).not.toHaveBeenCalled();
             // Checking if removeItem was NOT called with 'last_ip'
@@ -1130,7 +1130,7 @@ describe('Mobile useStore', () => {
             expect(AsyncStorage.removeItem).not.toHaveBeenCalledWith('last_ip');
 
             // Test disconnected (explicit)
-            act(() => callback('disconnected', true));
+            await act(() => callback('disconnected', true));
             expect(useStore.getState().connectionStatus).toBe('disconnected');
             expect(AsyncStorage.removeItem).toHaveBeenCalledWith('last_ip');
         });
@@ -1151,9 +1151,9 @@ describe('Mobile useStore', () => {
             consoleSpy.mockRestore();
         });
 
-        it('refresh collection with force server refresh', () => {
+        it('refresh collection with force server refresh', async () => {
             // Default refresh (reset=false)
-            act(() => useStore.getState().refreshCollection());
+            await act(() => useStore.getState().refreshCollection());
             expect(useStore.getState().isCollectionLoading).toBe(true);
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: false,
@@ -1172,7 +1172,7 @@ describe('Mobile useStore', () => {
             jest.clearAllMocks();
 
             // Force refresh (pull-to-refresh, reset=true)
-            act(() => useStore.getState().refreshCollection(true, '', true));
+            await act(() => useStore.getState().refreshCollection(true, '', true));
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: true,
                 offset: 0,
@@ -1190,7 +1190,7 @@ describe('Mobile useStore', () => {
             jest.clearAllMocks();
 
             // Search refresh (use cache, reset=true)
-            act(() => useStore.getState().refreshCollection(true, 'test', false));
+            await act(() => useStore.getState().refreshCollection(true, 'test', false));
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: false,
                 offset: 0,
@@ -1351,7 +1351,7 @@ describe('Mobile useStore', () => {
 
             const station = { id: 10, name: 'Err Radio' } as any;
 
-            act(() => {
+            await act(() => {
                 useStore.getState().playStation(station);
             });
 
@@ -1363,9 +1363,9 @@ describe('Mobile useStore', () => {
     });
 
     describe('Local Refresh Actions', () => {
-        it('should call loadMoreCollection', () => {
+        it('should call loadMoreCollection', async () => {
             useStore.setState({ mode: 'remote' });
-            act(() => useStore.getState().loadMoreCollection());
+            await act(() => useStore.getState().loadMoreCollection());
             expect(webSocketService.send).toHaveBeenCalledWith('get-collection', {
                 forceRefresh: false,
                 offset: 0,
@@ -1381,7 +1381,7 @@ describe('Mobile useStore', () => {
             });
         });
 
-        it('should refreshPlaylists from the mirror in both modes', () => {
+        it('should refreshPlaylists from the mirror in both modes', async () => {
             const { mobileDatabase } = require('../services/MobileDatabase');
             const { playlistSyncService } = require('../services/PlaylistSyncService');
             (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
@@ -1389,7 +1389,7 @@ describe('Mobile useStore', () => {
             // Remote: the mirror is still the read source, and the desktop is synced into it
             // rather than queried for a list to display.
             useStore.setState({ mode: 'remote' });
-            act(() => useStore.getState().refreshPlaylists());
+            await act(() => useStore.getState().refreshPlaylists());
             expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
             expect(playlistSyncService.sync).toHaveBeenCalled();
 
@@ -1400,7 +1400,7 @@ describe('Mobile useStore', () => {
             useStore.setState({ mode: 'standalone' });
             (webSocketService.isConnected as jest.Mock).mockReturnValue(true);
             mobileDatabase.getAllPlaylists.mockResolvedValueOnce([{ id: 'p1' }]);
-            act(() => useStore.getState().refreshPlaylists());
+            await act(() => useStore.getState().refreshPlaylists());
             expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
             expect(playlistSyncService.sync).toHaveBeenCalled();
 
@@ -1408,14 +1408,14 @@ describe('Mobile useStore', () => {
 
             // Socket down: the mirror still reads, nothing tries to sync.
             (webSocketService.isConnected as jest.Mock).mockReturnValue(false);
-            act(() => useStore.getState().refreshPlaylists());
+            await act(() => useStore.getState().refreshPlaylists());
             expect(mobileDatabase.getAllPlaylists).toHaveBeenCalled();
             expect(playlistSyncService.sync).not.toHaveBeenCalled();
         });
 
-        it('should refreshRadio remotely and locally', () => {
+        it('should refreshRadio remotely and locally', async () => {
             useStore.setState({ mode: 'remote' });
-            act(() => useStore.getState().refreshRadio());
+            await act(() => useStore.getState().refreshRadio());
             expect(webSocketService.send).toHaveBeenCalledWith('get-radio-stations');
 
             jest.clearAllMocks();
@@ -1423,20 +1423,20 @@ describe('Mobile useStore', () => {
             useStore.setState({ mode: 'standalone' });
             const { mobileScraperService } = require('../services/MobileScraperService');
             mobileScraperService.getRadioStations.mockResolvedValueOnce([{ id: 1 }]);
-            act(() => useStore.getState().refreshRadio());
+            await act(() => useStore.getState().refreshRadio());
             expect(mobileScraperService.getRadioStations).toHaveBeenCalled();
         });
 
-        it('should refreshArtists remotely and locally', () => {
+        it('should refreshArtists remotely and locally', async () => {
             useStore.setState({ mode: 'remote' });
-            act(() => useStore.getState().refreshArtists());
+            await act(() => useStore.getState().refreshArtists());
             expect(webSocketService.send).toHaveBeenCalledWith('get-artists');
 
             jest.clearAllMocks();
 
             useStore.setState({ mode: 'standalone', auth: { isAuthenticated: true, user: { id: 'u1' } as any } });
             const { mobileDatabase } = require('../services/MobileDatabase');
-            act(() => useStore.getState().refreshArtists());
+            await act(() => useStore.getState().refreshArtists());
             expect(mobileDatabase.getArtists).toHaveBeenCalled();
         });
 
@@ -1507,7 +1507,7 @@ describe('Mobile useStore', () => {
                 tracks: [{ id: 't1', title: 'T1' }, { id: 't2', title: 'T2' }]
             });
 
-            act(() => {
+            await act(() => {
                 useStore.getState().addAlbumToQueue('album-url', false);
             });
 
@@ -1517,7 +1517,7 @@ describe('Mobile useStore', () => {
             expect(mobileScraperService.getAlbumDetails).toHaveBeenCalledWith('album-url');
         });
 
-        it('removeFromQueue should adjust currentIndex', () => {
+        it('removeFromQueue should adjust currentIndex', async () => {
             useStore.setState({
                 queue: {
                     items: [
@@ -1529,11 +1529,11 @@ describe('Mobile useStore', () => {
                 }
             });
 
-            act(() => useStore.getState().removeFromQueue('1'));
+            await act(() => useStore.getState().removeFromQueue('1'));
             expect(useStore.getState().queue.currentIndex).toBe(1);
             expect(useStore.getState().queue.items.length).toBe(2);
 
-            act(() => useStore.getState().removeFromQueue('3'));
+            await act(() => useStore.getState().removeFromQueue('3'));
             expect(useStore.getState().queue.currentIndex).toBe(0);
         });
 

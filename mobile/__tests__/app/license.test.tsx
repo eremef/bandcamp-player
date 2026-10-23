@@ -24,9 +24,13 @@ jest.mock('expo-router', () => ({
     },
 }));
 
-jest.mock('lucide-react-native', () => ({
-    ArrowLeft: () => 'ArrowLeft',
-}));
+jest.mock('lucide-react-native', () => {
+    const { Text } = jest.requireActual('react-native');
+    const { createElement } = jest.requireActual('react');
+    return {
+        ArrowLeft: () => createElement(Text, null, 'ArrowLeft'),
+    };
+});
 
 describe('LicenseScreen', () => {
     beforeEach(() => {
@@ -42,7 +46,7 @@ describe('LicenseScreen', () => {
 
         (Asset.fromModule as jest.Mock).mockReturnValue(mockAsset);
 
-        const { getByText } = render(<LicenseScreen />);
+        const { getByText } = await render(<LicenseScreen />);
 
         await waitFor(() => {
             expect(getByText(mockLicenseText)).toBeTruthy();
@@ -58,18 +62,18 @@ describe('LicenseScreen', () => {
             throw new Error('Load failed');
         });
 
-        const { getByText } = render(<LicenseScreen />);
+        const { getByText } = await render(<LicenseScreen />);
 
         await waitFor(() => {
             expect(getByText('Failed to load license text.')).toBeTruthy();
         });
     });
 
-    it('navigates back on arrow press', () => {
+    it('navigates back on arrow press', async () => {
         const { router: mockRouter } = jest.requireMock('expo-router');
-        const { getByTestId } = render(<LicenseScreen />);
+        const { getByTestId } = await render(<LicenseScreen />);
 
-        fireEvent.press(getByTestId('back-button'));
+        await fireEvent.press(getByTestId('back-button'));
         expect(mockRouter.back).toHaveBeenCalled();
     });
 });

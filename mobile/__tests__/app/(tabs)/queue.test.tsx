@@ -122,22 +122,22 @@ describe('QueueScreen', () => {
         jest.clearAllMocks();
     });
 
-    it('renders empty queue state', () => {
+    it('renders empty queue state', async () => {
         (useStore as unknown as jest.Mock).mockImplementation((selector) => {
             return selector({ ...mockStore, queue: { items: [], currentIndex: -1 } });
         });
 
-        const { getByText } = render(<QueueScreen />);
+        const { getByText } = await render(<QueueScreen />);
         expect(getByText('Queue is empty')).toBeTruthy();
     });
 
-    it('renders queue items', () => {
-        const { getByText } = render(<QueueScreen />);
+    it('renders queue items', async () => {
+        const { getByText } = await render(<QueueScreen />);
         expect(getByText('Track One')).toBeTruthy();
         expect(getByText('Track Two')).toBeTruthy();
     });
 
-    it('shows both handoff buttons again when standalone mode returns with the live capability', () => {
+    it('shows both handoff buttons again when standalone mode returns with the live capability', async () => {
         const connectedStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -146,7 +146,7 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
-        const { getByTestId, queryByTestId, rerender } = render(<QueueScreen />);
+        const { getByTestId, queryByTestId, rerender } = await render(<QueueScreen />);
 
         expect(getByTestId('import-desktop-queue')).toBeTruthy();
         expect(getByTestId('export-phone-queue')).toBeTruthy();
@@ -155,17 +155,17 @@ describe('QueueScreen', () => {
             ...connectedStore,
             mode: 'remote',
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
         expect(queryByTestId('export-phone-queue')).toBeNull();
 
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(connectedStore));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(getByTestId('import-desktop-queue')).toBeTruthy();
         expect(getByTestId('export-phone-queue')).toBeTruthy();
     });
 
-    it('shows import only for a connected compatible desktop with a known current track', () => {
+    it('shows import only for a connected compatible desktop with a known current track', async () => {
         const availableStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -174,25 +174,25 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId, rerender, queryByTestId } = render(<QueueScreen />);
+        const { getByTestId, rerender, queryByTestId } = await render(<QueueScreen />);
         expect(getByTestId('import-desktop-queue')).toBeTruthy();
 
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
             ...availableStore,
             desktopQueueAvailability: 'unknown',
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
 
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector({
             ...availableStore,
             desktopQueueCurrentTrackAvailable: false,
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
     });
 
-    it('keeps the scroll and clear controls when the phone queue is empty and desktop queue is available', () => {
+    it('keeps the scroll and clear controls when the phone queue is empty and desktop queue is available', async () => {
         const availableStore = {
             ...mockStore,
             queue: { items: [], currentIndex: -1 },
@@ -202,7 +202,7 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId, getByText } = render(<QueueScreen />);
+        const { getByTestId, getByText } = await render(<QueueScreen />);
 
         expect(getByText('DownloadIcon')).toBeTruthy();
         expect(getByText('ChevronsDownIcon')).toBeTruthy();
@@ -216,7 +216,7 @@ describe('QueueScreen', () => {
         expect(getByTestId('clear-phone-queue').props.accessibilityState.disabled).toBe(true);
     });
 
-    it('shows the active handoff spinner and disables both handoff icons while busy', () => {
+    it('shows the active handoff spinner and disables both handoff icons while busy', async () => {
         const preparingStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -226,7 +226,7 @@ describe('QueueScreen', () => {
             queueHandoff: { status: 'running', direction: 'import', message: null },
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(preparingStore));
-        const { getByTestId, queryByText, rerender } = render(<QueueScreen />);
+        const { getByTestId, queryByText, rerender } = await render(<QueueScreen />);
 
         expect(getByTestId('import-handoff-loading-indicator')).toBeTruthy();
         expect(queryByText('DownloadIcon')).toBeNull();
@@ -238,7 +238,7 @@ describe('QueueScreen', () => {
             queueHandoff: { status: 'running', direction: 'export', message: null },
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(exportingStore));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(getByTestId('export-handoff-loading-indicator')).toBeTruthy();
         expect(queryByText('UploadIcon')).toBeNull();
     });
@@ -255,10 +255,10 @@ describe('QueueScreen', () => {
             importDesktopQueue,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId, getByText } = render(<QueueScreen />);
+        const { getByTestId, getByText } = await render(<QueueScreen />);
 
         await act(async () => {
-            fireEvent.press(getByTestId('import-desktop-queue'));
+            await fireEvent.press(getByTestId('import-desktop-queue'));
         });
 
         expect(importDesktopQueue).toHaveBeenCalledWith(true, false);
@@ -267,7 +267,7 @@ describe('QueueScreen', () => {
         expect(getByTestId('confirm-queue-handoff')).toBeTruthy();
 
         await act(async () => {
-            fireEvent.press(getByTestId('confirm-queue-handoff'));
+            await fireEvent.press(getByTestId('confirm-queue-handoff'));
         });
         expect(importDesktopQueue).toHaveBeenLastCalledWith(true, true);
     });
@@ -285,11 +285,11 @@ describe('QueueScreen', () => {
             exportQueueToDesktop,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId } = render(<QueueScreen />);
+        const { getByTestId } = await render(<QueueScreen />);
 
         await act(async () => {
-            fireEvent.press(getByTestId('import-desktop-queue'));
-            fireEvent(getByTestId('export-phone-queue'), 'longPress');
+            await fireEvent.press(getByTestId('import-desktop-queue'));
+            await fireEvent(getByTestId('export-phone-queue'), 'longPress');
         });
 
         expect(importDesktopQueue).toHaveBeenCalledTimes(1);
@@ -312,11 +312,11 @@ describe('QueueScreen', () => {
             exportQueueToDesktop,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId } = render(<QueueScreen />);
+        const { getByTestId } = await render(<QueueScreen />);
 
         await act(async () => {
-            fireEvent(getByTestId('export-phone-queue'), 'longPress');
-            fireEvent.press(getByTestId('export-phone-queue'));
+            await fireEvent(getByTestId('export-phone-queue'), 'longPress');
+            await fireEvent.press(getByTestId('export-phone-queue'));
         });
 
         expect(exportQueueToDesktop).toHaveBeenNthCalledWith(1, false, false);
@@ -334,10 +334,10 @@ describe('QueueScreen', () => {
             exportQueueToDesktop,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(availableStore));
-        const { getByTestId, getByText } = render(<QueueScreen />);
+        const { getByTestId, getByText } = await render(<QueueScreen />);
 
         await act(async () => {
-            fireEvent(getByTestId('export-phone-queue'), 'longPress');
+            await fireEvent(getByTestId('export-phone-queue'), 'longPress');
         });
 
         expect(exportQueueToDesktop).toHaveBeenCalledWith(false, false);
@@ -346,7 +346,7 @@ describe('QueueScreen', () => {
         expect(getByText('Play')).toBeTruthy();
     });
 
-    it('hides handoff actions and shows an update hint for an older desktop', () => {
+    it('hides handoff actions and shows an update hint for an older desktop', async () => {
         const oldDesktopStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -355,7 +355,7 @@ describe('QueueScreen', () => {
             desktopQueueHandoffCapabilityChecked: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(oldDesktopStore));
-        const { getByTestId, queryByTestId } = render(<QueueScreen />);
+        const { getByTestId, queryByTestId } = await render(<QueueScreen />);
 
         expect(queryByTestId('import-desktop-queue')).toBeNull();
         expect(queryByTestId('export-phone-queue')).toBeNull();
@@ -364,7 +364,7 @@ describe('QueueScreen', () => {
         expect(getByTestId('clear-phone-queue')).toBeTruthy();
     });
 
-    it('waits for capability negotiation before showing an update hint', () => {
+    it('waits for capability negotiation before showing an update hint', async () => {
         const handshakeStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -374,7 +374,7 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(handshakeStore));
-        const { getByTestId, queryByTestId, rerender } = render(<QueueScreen />);
+        const { getByTestId, queryByTestId, rerender } = await render(<QueueScreen />);
 
         expect(queryByTestId('desktop-handoff-update-hint')).toBeNull();
         expect(queryByTestId('import-desktop-queue')).toBeNull();
@@ -388,7 +388,7 @@ describe('QueueScreen', () => {
             desktopQueueHandoffCapabilityChecked: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(supportedStore));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
 
         expect(queryByTestId('desktop-handoff-update-hint')).toBeNull();
         expect(queryByTestId('import-desktop-queue')).toBeTruthy();
@@ -399,7 +399,7 @@ describe('QueueScreen', () => {
             desktopQueueHandoffCapabilityChecked: true,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(unsupportedStore));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
 
         expect(queryByTestId('desktop-handoff-update-hint')).toBeTruthy();
         expect(queryByTestId('import-desktop-queue')).toBeNull();
@@ -408,7 +408,7 @@ describe('QueueScreen', () => {
         expect(getByTestId('clear-phone-queue')).toBeTruthy();
     });
 
-    it('hides handoff actions without a compatible desktop or a valid phone current track', () => {
+    it('hides handoff actions without a compatible desktop or a valid phone current track', async () => {
         const noHandoffStore = {
             ...mockStore,
             desktopSocketConnected: true,
@@ -417,7 +417,7 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: false,
         };
         (useStore as unknown as jest.Mock).mockImplementation((selector) => selector(noHandoffStore));
-        const { queryByTestId, rerender } = render(<QueueScreen />);
+        const { queryByTestId, rerender } = await render(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
         expect(queryByTestId('export-phone-queue')).toBeNull();
 
@@ -427,7 +427,7 @@ describe('QueueScreen', () => {
             desktopQueueHandoffAvailable: true,
             desktopQueueCurrentTrackAvailable: true,
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
         expect(queryByTestId('export-phone-queue')).toBeNull();
 
@@ -437,7 +437,7 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
             mode: 'remote',
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeNull();
         expect(queryByTestId('export-phone-queue')).toBeNull();
 
@@ -447,37 +447,37 @@ describe('QueueScreen', () => {
             desktopQueueCurrentTrackAvailable: true,
             queue: { ...mockQueue, currentIndex: -1 },
         }));
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
         expect(queryByTestId('import-desktop-queue')).toBeTruthy();
         expect(queryByTestId('export-phone-queue')).toBeNull();
     });
 
-    it('highlights current playing track', () => {
-        const { getByText } = render(<QueueScreen />);
+    it('highlights current playing track', async () => {
+        const { getByText } = await render(<QueueScreen />);
         expect(getByText('PlayIcon')).toBeTruthy();
     });
 
-    it('calls playQueueIndex on item press', () => {
-        const { getByText } = render(<QueueScreen />);
-        fireEvent.press(getByText('Track Two'));
+    it('calls playQueueIndex on item press', async () => {
+        const { getByText } = await render(<QueueScreen />);
+        await fireEvent.press(getByText('Track Two'));
         expect(mockStore.playQueueIndex).toHaveBeenCalledWith(1);
     });
 
-    it('calls removeFromQueue on remove button press', () => {
-        const { getAllByText } = render(<QueueScreen />);
+    it('calls removeFromQueue on remove button press', async () => {
+        const { getAllByText } = await render(<QueueScreen />);
         const removeButtons = getAllByText('TrashIcon');
-        fireEvent.press(removeButtons[0]);
+        await fireEvent.press(removeButtons[0]);
         expect(mockStore.removeFromQueue).toHaveBeenCalledWith('q1');
     });
 
-    it('renders drag handle icons', () => {
-        const { getAllByText } = render(<QueueScreen />);
+    it('renders drag handle icons', async () => {
+        const { getAllByText } = await render(<QueueScreen />);
         const gripIcons = getAllByText('GripIcon');
         expect(gripIcons.length).toBe(3);
     });
 
-    it('calls reorderQueue when drag ends', () => {
-        render(<QueueScreen />);
+    it('calls reorderQueue when drag ends', async () => {
+        await render(<QueueScreen />);
 
         expect(dragEndRef.current).toBeDefined();
         dragEndRef.current({ from: 0, to: 2, data: mockQueue.items });
@@ -485,23 +485,23 @@ describe('QueueScreen', () => {
         expect(mockStore.reorderQueue).toHaveBeenCalledWith(0, 2, mockQueue.items);
     });
 
-    it('does not call reorderQueue when drag ends at same position', () => {
-        render(<QueueScreen />);
+    it('does not call reorderQueue when drag ends at same position', async () => {
+        await render(<QueueScreen />);
 
         dragEndRef.current({ from: 1, to: 1, data: mockQueue.items });
 
         expect(mockStore.reorderQueue).not.toHaveBeenCalled();
     });
 
-    it('renders unique position numbers for all items', () => {
-        const { getAllByText } = render(<QueueScreen />);
+    it('renders unique position numbers for all items', async () => {
+        const { getAllByText } = await render(<QueueScreen />);
         expect(getAllByText('1.').length).toBe(1);
         expect(getAllByText('2.').length).toBe(1);
         expect(getAllByText('3.').length).toBe(1);
     });
 
-    it('updates position numbers correctly after queue reorder without duplicates', () => {
-        const { rerender, getAllByText } = render(<QueueScreen />);
+    it('updates position numbers correctly after queue reorder without duplicates', async () => {
+        const { rerender, getAllByText } = await render(<QueueScreen />);
 
         // Simulate the store reflecting a reordered queue (q3 moved to front)
         const reorderedQueue = {
@@ -517,7 +517,7 @@ describe('QueueScreen', () => {
             return selector({ ...mockStore, queue: reorderedQueue });
         });
 
-        rerender(<QueueScreen />);
+        await rerender(<QueueScreen />);
 
         // Each position number must appear exactly once (no doubles)
         expect(getAllByText('1.').length).toBe(1);
@@ -526,25 +526,25 @@ describe('QueueScreen', () => {
     });
 
     describe('current-track highlight', () => {
-        it('marks the current row with the accent bar and highlight tint', () => {
-            const { getByTestId } = render(<QueueScreen />);
+        it('marks the current row with the accent bar and highlight tint', async () => {
+            const { getByTestId } = await render(<QueueScreen />);
             const style = StyleSheet.flatten(getByTestId('queue-item-0').props.style);
             expect(style.backgroundColor).toBe(Colors.dark.highlight);
             expect(style.borderLeftColor).toBe(Colors.dark.accent);
         });
 
-        it('leaves other rows unmarked', () => {
-            const { getByTestId } = render(<QueueScreen />);
+        it('leaves other rows unmarked', async () => {
+            const { getByTestId } = await render(<QueueScreen />);
             const style = StyleSheet.flatten(getByTestId('queue-item-1').props.style);
             expect(style.backgroundColor).toBeUndefined();
             expect(style.borderLeftColor).toBe('transparent');
         });
 
-        it('stays visible in the high-contrast theme', () => {
+        it('stays visible in the high-contrast theme', async () => {
             (useStore as unknown as jest.Mock).mockImplementation((selector) =>
                 selector({ ...mockStore, theme: 'high-contrast' })
             );
-            const { getByTestId } = render(<QueueScreen />);
+            const { getByTestId } = await render(<QueueScreen />);
             const style = StyleSheet.flatten(getByTestId('queue-item-0').props.style);
             // Regression guard: `input` equals `background` in this palette, so reusing it made
             // the current row indistinguishable from the page.
@@ -554,22 +554,22 @@ describe('QueueScreen', () => {
     });
 
     describe('auto-scroll', () => {
-        const renderAt = (currentIndex: number) => {
+        const renderAt = async (currentIndex: number) => {
             (useStore as unknown as jest.Mock).mockImplementation((selector) =>
                 selector({ ...mockStore, queue: { ...mockQueue, currentIndex } })
             );
-            return render(<QueueScreen />);
+            return await render(<QueueScreen />);
         };
 
-        const advanceTo = (rerender: (ui: React.ReactElement) => void, currentIndex: number) => {
+        const advanceTo = async (rerender: (ui: React.ReactElement) => void, currentIndex: number) => {
             (useStore as unknown as jest.Mock).mockImplementation((selector) =>
                 selector({ ...mockStore, queue: { ...mockQueue, currentIndex } })
             );
-            rerender(<QueueScreen />);
+            await rerender(<QueueScreen />);
         };
 
-        it('scrolls to the current track when the screen gains focus', () => {
-            renderAt(1);
+        it('scrolls to the current track when the screen gains focus', async () => {
+            await renderAt(1);
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 1,
                 animated: false,
@@ -577,11 +577,11 @@ describe('QueueScreen', () => {
             });
         });
 
-        it('follows the track when it advances', () => {
-            const { rerender } = renderAt(0);
+        it('follows the track when it advances', async () => {
+            const { rerender } = await renderAt(0);
             mockScrollSpy.scrollToIndex.mockClear();
 
-            advanceTo(rerender, 2);
+            await advanceTo(rerender, 2);
 
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 2,
@@ -590,38 +590,38 @@ describe('QueueScreen', () => {
             });
         });
 
-        it('does not follow when the playing track has been scrolled out of view', () => {
-            const { rerender } = renderAt(0);
+        it('does not follow when the playing track has been scrolled out of view', async () => {
+            const { rerender } = await renderAt(0);
             mockScrollSpy.scrollToIndex.mockClear();
 
-            act(() => {
+            await act(() => {
                 mockListProps.current.onViewableItemsChanged({
                     viewableItems: [{ index: 2 }],
                     changed: [],
                 });
             });
-            advanceTo(rerender, 1);
+            await advanceTo(rerender, 1);
 
             expect(mockScrollSpy.scrollToIndex).not.toHaveBeenCalled();
         });
 
-        it('does not yank the list while a row is being dragged', () => {
-            const { rerender } = renderAt(0);
+        it('does not yank the list while a row is being dragged', async () => {
+            const { rerender } = await renderAt(0);
             mockScrollSpy.scrollToIndex.mockClear();
 
-            act(() => { mockListProps.current.onDragBegin(0); });
-            advanceTo(rerender, 2);
+            await act(() => { mockListProps.current.onDragBegin(0); });
+            await advanceTo(rerender, 2);
 
             expect(mockScrollSpy.scrollToIndex).not.toHaveBeenCalled();
         });
 
-        it('resumes following after a drag ends', () => {
-            const { rerender } = renderAt(0);
-            act(() => { mockListProps.current.onDragBegin(0); });
-            act(() => { dragEndRef.current({ from: 0, to: 0, data: mockQueue.items }); });
+        it('resumes following after a drag ends', async () => {
+            const { rerender } = await renderAt(0);
+            await act(() => { mockListProps.current.onDragBegin(0); });
+            await act(() => { dragEndRef.current({ from: 0, to: 0, data: mockQueue.items }); });
             mockScrollSpy.scrollToIndex.mockClear();
 
-            advanceTo(rerender, 2);
+            await advanceTo(rerender, 2);
 
             expect(mockScrollSpy.scrollToIndex).toHaveBeenCalledWith({
                 index: 2,
@@ -630,17 +630,17 @@ describe('QueueScreen', () => {
             });
         });
 
-        it('does not scroll when nothing is playing', () => {
-            const { rerender } = renderAt(0);
+        it('does not scroll when nothing is playing', async () => {
+            const { rerender } = await renderAt(0);
             mockScrollSpy.scrollToIndex.mockClear();
 
-            advanceTo(rerender, -1);
+            await advanceTo(rerender, -1);
 
             expect(mockScrollSpy.scrollToIndex).not.toHaveBeenCalled();
         });
 
-        it('reports a row geometry matching the rendered row height', () => {
-            renderAt(0);
+        it('reports a row geometry matching the rendered row height', async () => {
+            await renderAt(0);
             expect(mockListProps.current.getItemLayout(null, 3)).toEqual({
                 length: 65,
                 offset: 195,

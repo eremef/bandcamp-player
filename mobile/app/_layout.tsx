@@ -51,13 +51,13 @@ export default function RootLayout() {
         // Save queue when app goes to background
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (
-                appState.current.match(/active/) &&
+                appState.current?.match(/active/) &&
                 nextAppState.match(/inactive|background/)
             ) {
                 console.log('[RootLayout] App moved to background, saving queue...');
                 saveQueue();
             } else if (
-                appState.current.match(/inactive|background/) &&
+                appState.current?.match(/inactive|background/) &&
                 nextAppState === 'active'
             ) {
                 // App coming to foreground - check if we should navigate to player

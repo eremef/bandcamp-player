@@ -58,8 +58,8 @@ describe('PlaylistsScreen', () => {
         } as any);
     });
 
-    it('renders list of playlists correctly', () => {
-        const { getByText } = render(<PlaylistsScreen />);
+    it('renders list of playlists correctly', async () => {
+        const { getByText } = await render(<PlaylistsScreen />);
 
         expect(getByText('Chill Vibes')).toBeTruthy();
         expect(getByText(/1h 0m/)).toBeTruthy(); // formatDuration check
@@ -68,37 +68,37 @@ describe('PlaylistsScreen', () => {
         expect(getByText(/30 min/)).toBeTruthy(); // formatDuration check
     });
 
-    it('shows empty state when no playlists', () => {
+    it('shows empty state when no playlists', async () => {
         useStore.setState({ playlists: [] } as any);
-        const { getByText } = render(<PlaylistsScreen />);
+        const { getByText } = await render(<PlaylistsScreen />);
         expect(getByText('No playlists found')).toBeTruthy();
         expect(getByText('Create Playlist')).toBeTruthy();
     });
 
-    it('creates a playlist from empty state', () => {
+    it('creates a playlist from empty state', async () => {
         useStore.setState({ playlists: [] } as any);
-        const { getByText, getByPlaceholderText } = render(<PlaylistsScreen />);
+        const { getByText, getByPlaceholderText } = await render(<PlaylistsScreen />);
 
-        fireEvent.press(getByText('Create Playlist'));
+        await fireEvent.press(getByText('Create Playlist'));
 
         const input = getByPlaceholderText('Playlist Name');
-        fireEvent.changeText(input, 'My First Playlist');
-        fireEvent.press(getByText('Create'));
+        await fireEvent.changeText(input, 'My First Playlist');
+        await fireEvent.press(getByText('Create'));
 
         expect(mockCreatePlaylist).toHaveBeenCalledWith('My First Playlist');
     });
 
-    it('navigates to playlist detail on press', () => {
+    it('navigates to playlist detail on press', async () => {
         const mockPush = jest.fn();
         jest.spyOn(require('expo-router'), 'useRouter').mockReturnValue({ push: mockPush, back: jest.fn() } as any);
-        const { getByText } = render(<PlaylistsScreen />);
-        fireEvent.press(getByText('Chill Vibes'));
+        const { getByText } = await render(<PlaylistsScreen />);
+        await fireEvent.press(getByText('Chill Vibes'));
         expect(mockPush).toHaveBeenCalledWith('/playlists/pl-1');
     });
 
-    it('long press opens ActionSheet', () => {
-        const { getByText } = render(<PlaylistsScreen />);
-        fireEvent(getByText('Chill Vibes'), 'onLongPress');
+    it('long press opens ActionSheet', async () => {
+        const { getByText } = await render(<PlaylistsScreen />);
+        await fireEvent(getByText('Chill Vibes'), 'onLongPress');
 
         expect(getByText('Rename')).toBeTruthy();
         expect(getByText('Delete')).toBeTruthy();
@@ -106,11 +106,11 @@ describe('PlaylistsScreen', () => {
     });
 
     it('handles pull to refresh', async () => {
-        const { UNSAFE_getByType } = render(<PlaylistsScreen />);
-        const sectionList = UNSAFE_getByType(require('react-native').SectionList);
+        const { getByTestId } = await render(<PlaylistsScreen />);
+        const list = getByTestId('playlists-list');
 
         await act(async () => {
-            sectionList.props.refreshControl.props.onRefresh();
+            await list.props.refreshControl.props.onRefresh();
         });
 
         expect(mockRefreshPlaylists).toHaveBeenCalled();
@@ -118,20 +118,20 @@ describe('PlaylistsScreen', () => {
 
     it('renames a playlist', async () => {
         jest.useFakeTimers();
-        const { getByText, getByPlaceholderText } = render(<PlaylistsScreen />);
+        const { getByText, getByPlaceholderText } = await render(<PlaylistsScreen />);
 
         // Open action sheet
-        fireEvent(getByText('Chill Vibes'), 'onLongPress');
+        await fireEvent(getByText('Chill Vibes'), 'onLongPress');
         // Select rename
-        fireEvent.press(getByText('Rename'));
+        await fireEvent.press(getByText('Rename'));
 
-        act(() => {
+        await act(() => {
             jest.runAllTimers(); // Advance timers to open modal (setTimeout)
         });
 
         const input = getByPlaceholderText('Playlist Name');
-        fireEvent.changeText(input, 'Super Chill');
-        fireEvent.press(getByText('Save'));
+        await fireEvent.changeText(input, 'Super Chill');
+        await fireEvent.press(getByText('Save'));
 
         expect(mockRenamePlaylist).toHaveBeenCalledWith('pl-1', 'Super Chill');
         jest.useRealTimers();
@@ -139,12 +139,12 @@ describe('PlaylistsScreen', () => {
 
     it('deletes a playlist', async () => {
         jest.useFakeTimers();
-        const { getByText } = render(<PlaylistsScreen />);
+        const { getByText } = await render(<PlaylistsScreen />);
 
-        fireEvent(getByText('Chill Vibes'), 'onLongPress');
-        fireEvent.press(getByText('Delete'));
+        await fireEvent(getByText('Chill Vibes'), 'onLongPress');
+        await fireEvent.press(getByText('Delete'));
 
-        act(() => {
+        await act(() => {
             jest.runAllTimers(); // Advance setTimeout before Alert
         });
 

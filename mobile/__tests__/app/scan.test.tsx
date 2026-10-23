@@ -54,10 +54,10 @@ describe('PairingQrScannerScreen', () => {
         ]);
     });
 
-    it('routes a Beta Player pairing ticket to the pairing screen', () => {
-        const { getByTestId } = render(<PairingQrScannerScreen />);
+    it('routes a Beta Player pairing ticket to the pairing screen', async () => {
+        const { getByTestId } = await render(<PairingQrScannerScreen />);
 
-        fireEvent(getByTestId('camera-view'), 'barcodeScanned', {
+        await fireEvent(getByTestId('camera-view'), 'barcodeScanned', {
             data: 'beta-app://pair?ticket=encoded-ticket',
         });
 
@@ -67,15 +67,15 @@ describe('PairingQrScannerScreen', () => {
         });
     });
 
-    it('shows an error and can resume scanning for an unrelated QR code', () => {
-        const { getByTestId, getByText } = render(<PairingQrScannerScreen />);
+    it('shows an error and can resume scanning for an unrelated QR code', async () => {
+        const { getByTestId, getByText } = await render(<PairingQrScannerScreen />);
 
-        fireEvent(getByTestId('camera-view'), 'barcodeScanned', {
+        await fireEvent(getByTestId('camera-view'), 'barcodeScanned', {
             data: 'https://example.com/qr',
         });
 
         expect(getByText('This QR code is not a Beta Player pairing code.')).toBeTruthy();
-        fireEvent.press(getByText('Try again'));
+        await fireEvent.press(getByText('Try again'));
         expect(getByText('Point your camera at the QR code in desktop Settings.')).toBeTruthy();
         expect(mockRouter.replace).not.toHaveBeenCalled();
     });

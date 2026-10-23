@@ -4,8 +4,16 @@ import { PlaylistSelectionModal } from './PlaylistSelectionModal';
 
 // Mock Lucide icons
 jest.mock('lucide-react-native', () => ({
-    X: () => 'X-Icon',
-    Plus: () => 'Plus-Icon',
+    X: () => {
+        const { Text } = jest.requireActual('react-native');
+        const { createElement } = jest.requireActual('react');
+        return createElement(Text, null, 'X-Icon');
+    },
+    Plus: () => {
+        const { Text } = jest.requireActual('react-native');
+        const { createElement } = jest.requireActual('react');
+        return createElement(Text, null, 'Plus-Icon');
+    },
 }));
 
 describe('PlaylistSelectionModal', () => {
@@ -40,8 +48,8 @@ describe('PlaylistSelectionModal', () => {
         jest.clearAllMocks();
     });
 
-    it('renders correctly when visible', () => {
-        const { getByText } = render(
+    it('renders correctly when visible', async () => {
+        const { getByText } = await render(
             <PlaylistSelectionModal
                 visible={true}
                 onClose={mockOnClose}
@@ -59,8 +67,8 @@ describe('PlaylistSelectionModal', () => {
         expect(getByText('0 tracks')).toBeTruthy();
     });
 
-    it('renders empty state message', () => {
-        const { getByText } = render(
+    it('renders empty state message', async () => {
+        const { getByText } = await render(
             <PlaylistSelectionModal
                 visible={true}
                 onClose={mockOnClose}
@@ -73,8 +81,8 @@ describe('PlaylistSelectionModal', () => {
         expect(getByText('No playlists available')).toBeTruthy();
     });
 
-    it('calls onSelect when a playlist is pressed', () => {
-        const { getByText } = render(
+    it('calls onSelect when a playlist is pressed', async () => {
+        const { getByText } = await render(
             <PlaylistSelectionModal
                 visible={true}
                 onClose={mockOnClose}
@@ -84,12 +92,12 @@ describe('PlaylistSelectionModal', () => {
             />
         );
 
-        fireEvent.press(getByText('Chill Vibes'));
+        await fireEvent.press(getByText('Chill Vibes'));
         expect(mockOnSelect).toHaveBeenCalledWith('1');
     });
 
-    it('calls onCreateNew when Create New Playlist is pressed', () => {
-        const { getByText } = render(
+    it('calls onCreateNew when Create New Playlist is pressed', async () => {
+        const { getByText } = await render(
             <PlaylistSelectionModal
                 visible={true}
                 onClose={mockOnClose}
@@ -99,7 +107,7 @@ describe('PlaylistSelectionModal', () => {
             />
         );
 
-        fireEvent.press(getByText('Create New Playlist'));
+        await fireEvent.press(getByText('Create New Playlist'));
         expect(mockOnCreateNew).toHaveBeenCalled();
     });
 });

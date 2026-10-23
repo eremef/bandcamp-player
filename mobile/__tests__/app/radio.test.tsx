@@ -78,8 +78,8 @@ describe('RadioScreen', () => {
         } as any);
     });
 
-    it('renders list of radio stations correctly', () => {
-        const { getByText } = render(<RadioScreen />);
+    it('renders list of radio stations correctly', async () => {
+        const { getByText } = await render(<RadioScreen />);
 
         expect(getByText('Cool Station 1')).toBeTruthy();
         expect(getByText('Awesome Station 2')).toBeTruthy();
@@ -88,23 +88,23 @@ describe('RadioScreen', () => {
         expect(getByText(/2h 0m/)).toBeTruthy();
     });
 
-    it('shows empty state when no stations', () => {
+    it('shows empty state when no stations', async () => {
         useStore.setState({ radioStations: [] } as any);
-        const { getByText } = render(<RadioScreen />);
+        const { getByText } = await render(<RadioScreen />);
         expect(getByText('No radio stations found')).toBeTruthy();
     });
 
-    it('filters stations by search query', () => {
+    it('filters stations by search query', async () => {
         useStore.setState({ radioSearchQuery: 'awesome' } as any);
-        const { getByText, queryByText } = render(<RadioScreen />);
+        const { getByText, queryByText } = await render(<RadioScreen />);
 
         expect(getByText('Awesome Station 2')).toBeTruthy();
         expect(queryByText('Cool Station 1')).toBeNull();
     });
 
-    it('navigates to radio_detail on press', () => {
-        const { getByText } = render(<RadioScreen />);
-        fireEvent.press(getByText('Cool Station 1'));
+    it('navigates to radio_detail on press', async () => {
+        const { getByText } = await render(<RadioScreen />);
+        await fireEvent.press(getByText('Cool Station 1'));
         const { mockPush } = require('expo-router');
         expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({
             pathname: '/radio_detail',
@@ -112,11 +112,11 @@ describe('RadioScreen', () => {
         }));
     });
 
-    it('long press opens ActionSheet with correct options', () => {
-        const { getByText, getAllByText } = render(<RadioScreen />);
+    it('long press opens ActionSheet with correct options', async () => {
+        const { getByText, getAllByText } = await render(<RadioScreen />);
 
         // Trigger long press
-        fireEvent(getByText('Cool Station 1'), 'onLongPress');
+        await fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
         // We should see action sheet options
         expect(getByText('Play Next')).toBeTruthy();
@@ -125,69 +125,69 @@ describe('RadioScreen', () => {
         expect(getByText('Cancel')).toBeTruthy();
     });
 
-    it('Add to Queue works from ActionSheet', () => {
-        const { getByText, getAllByText } = render(<RadioScreen />);
-        fireEvent(getByText('Cool Station 1'), 'onLongPress');
+    it('Add to Queue works from ActionSheet', async () => {
+        const { getByText, getAllByText } = await render(<RadioScreen />);
+        await fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
         // Target the Mix "Add to Queue" option (first occurrence)
-        fireEvent.press(getAllByText('Add to Queue')[0]);
+        await fireEvent.press(getAllByText('Add to Queue')[0]);
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], false);
     });
 
-    it('Play Next works from ActionSheet', () => {
-        const { getByText } = render(<RadioScreen />);
-        fireEvent(getByText('Cool Station 1'), 'onLongPress');
+    it('Play Next works from ActionSheet', async () => {
+        const { getByText } = await render(<RadioScreen />);
+        await fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
-        fireEvent.press(getByText('Play Next'));
+        await fireEvent.press(getByText('Play Next'));
         expect(mockAddStationToQueue).toHaveBeenCalledWith(mockStations[0], true);
     });
 
-    it('Add to Playlist flow', () => {
-        const { getByText, getAllByText } = render(<RadioScreen />);
-        fireEvent(getByText('Cool Station 1'), 'onLongPress');
+    it('Add to Playlist flow', async () => {
+        const { getByText, getAllByText } = await render(<RadioScreen />);
+        await fireEvent(getByText('Cool Station 1'), 'onLongPress');
 
         // Click Mix "Add to Playlist" (first occurrence)
-        fireEvent.press(getAllByText('Add to Playlist')[0]);
+        await fireEvent.press(getAllByText('Add to Playlist')[0]);
 
         // Playlist selection modal should open
         expect(getByText('My Playlist')).toBeTruthy();
         expect(getByText('Create New Playlist')).toBeTruthy(); // verify button exists
 
-        fireEvent.press(getByText('My Playlist'));
+        await fireEvent.press(getByText('My Playlist'));
         expect(mockAddStationToPlaylist).toHaveBeenCalledWith('pl-1', mockStations[0]);
         expect(Alert.alert).toHaveBeenCalledWith('Success', 'Added to playlist');
     });
 
-    it('Create new playlist flow', () => {
-        const { getByText, getAllByText, getByPlaceholderText } = render(<RadioScreen />);
-        fireEvent(getByText('Cool Station 1'), 'onLongPress');
-        fireEvent.press(getAllByText('Add to Playlist')[0]);
+    it('Create new playlist flow', async () => {
+        const { getByText, getAllByText, getByPlaceholderText } = await render(<RadioScreen />);
+        await fireEvent(getByText('Cool Station 1'), 'onLongPress');
+        await fireEvent.press(getAllByText('Add to Playlist')[0]);
 
-        fireEvent.press(getByText('Create New Playlist'));
+        await fireEvent.press(getByText('Create New Playlist'));
 
         const input = getByPlaceholderText('Playlist Name');
-        fireEvent.changeText(input, 'New PL');
-        fireEvent.press(getByText('Create'));
+        await fireEvent.changeText(input, 'New PL');
+        await fireEvent.press(getByText('Create'));
 
         expect(mockCreatePlaylist).toHaveBeenCalledWith('New PL');
     });
 
     it('handles pull to refresh', async () => {
-        const { UNSAFE_getByType } = render(<RadioScreen />);
-        const flatList = UNSAFE_getByType(require('react-native').FlatList);
+        const { getByTestId } = await render(<RadioScreen />);
+        const list = getByTestId('radio-list');
 
         await act(async () => {
-            flatList.props.refreshControl.props.onRefresh();
+            await list.props.refreshControl.props.onRefresh();
         });
 
         expect(mockRefreshRadio).toHaveBeenCalled();
     });
 
-    it('updates search query on text change', () => {
-        const { getByPlaceholderText } = render(<RadioScreen />);
+    it('updates search query on text change', async () => {
+        const { getByPlaceholderText } = await render(<RadioScreen />);
         const searchInput = getByPlaceholderText('Search radio shows...');
 
-        fireEvent.changeText(searchInput, 'test query');
+        await fireEvent.changeText(searchInput, 'test query');
         expect(mockSetRadioSearchQuery).toHaveBeenCalledWith('test query');
     });
 });

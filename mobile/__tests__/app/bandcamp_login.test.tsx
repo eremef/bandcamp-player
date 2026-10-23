@@ -65,17 +65,17 @@ describe('BandcampLoginScreen', () => {
     });
 
     it('renders correctly and shows loading indicator initally', async () => {
-        const { getByText, UNSAFE_queryByType } = render(<BandcampLoginScreen />);
+        const { getByText, getByTestId } = await render(<BandcampLoginScreen />);
         await waitFor(() => {
             expect(getByText('Login to Bandcamp')).toBeTruthy();
         });
 
         // It starts with isLoading = true after it becomes ready
-        expect(UNSAFE_queryByType(require('react-native').ActivityIndicator)).toBeTruthy();
+        expect(getByTestId('bandcamp-login-loading-indicator')).toBeTruthy();
     });
 
     it('handles WebView onLoadEnd and checks native session', async () => {
-        const { getByTestId, UNSAFE_queryByType } = render(<BandcampLoginScreen />);
+        const { getByTestId, queryByTestId } = await render(<BandcampLoginScreen />);
 
         let webview: any;
         await waitFor(() => {
@@ -84,7 +84,7 @@ describe('BandcampLoginScreen', () => {
         });
 
         // Trigger onLoadEnd
-        fireEvent(webview, 'onLoadEnd');
+        await fireEvent(webview, 'onLoadEnd');
 
         // Wait for Native Session check to run (fetch)
         await waitFor(() => {
@@ -95,22 +95,12 @@ describe('BandcampLoginScreen', () => {
         });
 
         // Loading indicator should be removed
-        expect(UNSAFE_queryByType(require('react-native').ActivityIndicator)).toBeNull();
+        expect(queryByTestId('bandcamp-login-loading-indicator')).toBeNull();
     });
 
     it('navigates back when close button is pressed', async () => {
-        const { UNSAFE_queryAllByType } = render(<BandcampLoginScreen />);
-
-        let touchables: any[] = [];
-        await waitFor(() => {
-            touchables = UNSAFE_queryAllByType(require('react-native').TouchableOpacity);
-            expect(touchables.length).toBeGreaterThan(0);
-        });
-
-        // First touchable is the close button
-        if (touchables && touchables.length > 0) {
-            fireEvent.press(touchables[0]);
-        }
+        const { getByTestId } = await render(<BandcampLoginScreen />);
+        await fireEvent.press(getByTestId('bandcamp-login-close-button'));
 
         expect(mockBack).toHaveBeenCalled();
     });
@@ -126,7 +116,7 @@ describe('BandcampLoginScreen', () => {
             ok: true,
             json: jest.fn().mockResolvedValueOnce({ user: mockUser })
         });
-        const { getByTestId } = render(<BandcampLoginScreen />);
+        const { getByTestId } = await render(<BandcampLoginScreen />);
 
         let webview: any;
         await waitFor(() => {
@@ -134,7 +124,7 @@ describe('BandcampLoginScreen', () => {
             expect(webview).toBeTruthy();
         });
 
-        fireEvent(webview, 'onLoadEnd');
+        await fireEvent(webview, 'onLoadEnd');
 
         await waitFor(() => {
             // Check if cookies were extracted
@@ -155,7 +145,7 @@ describe('BandcampLoginScreen', () => {
     });
 
     it('handles page_scrape fallback from WebView injected JS', async () => {
-        const { getByTestId } = render(<BandcampLoginScreen />);
+        const { getByTestId } = await render(<BandcampLoginScreen />);
 
         let webview: any;
         await waitFor(() => {
@@ -182,7 +172,7 @@ describe('BandcampLoginScreen', () => {
             }
         };
 
-        fireEvent(webview, 'onMessage', mockMessage);
+        await fireEvent(webview, 'onMessage', mockMessage);
 
         await waitFor(() => {
             expect(mobileAuthService.setCookies).toHaveBeenCalledWith('scraped_cookie=123');
