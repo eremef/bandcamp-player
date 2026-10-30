@@ -1459,9 +1459,10 @@ export class RemoteControlService extends EventEmitter {
                     }
 
                     if (tracks && tracks.length > 0) {
+                        const shouldStartPlayback = this.playerService.getQueue?.().items.length === 0;
                         this.playerService.addTracksToQueue(tracks, 'collection', payload.playNext);
                         console.log('[RemoteService] Tracks added to player service');
-                        if (!payload.playNext) {
+                        if (!payload.playNext && shouldStartPlayback) {
                             this.playerService.playIndex(0);
                         }
                     } else {
