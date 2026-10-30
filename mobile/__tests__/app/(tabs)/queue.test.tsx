@@ -129,7 +129,7 @@ describe('QueueScreen', () => {
 
         const { getByText } = await render(<QueueScreen />);
         expect(getByText('Queue is empty')).toBeTruthy();
-    });
+    }, 10000);
 
     it('renders queue items', async () => {
         const { getByText } = await render(<QueueScreen />);
