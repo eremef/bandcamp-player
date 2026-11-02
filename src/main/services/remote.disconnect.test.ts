@@ -80,7 +80,7 @@ describe('RemoteControlService Disconnect Flow', () => {
         // Mock WebSocket Server
         mockWss = new EventEmitter();
         mockWss.clients = new Set();
-        mockWss.close = vi.fn();
+        mockWss.close = vi.fn((cb) => cb?.());
         (WebSocketServer as any).mockImplementation(function () { return mockWss; });
 
         remoteService = new RemoteControlService(
@@ -110,6 +110,24 @@ describe('RemoteControlService Disconnect Flow', () => {
     afterEach(async () => {
         vi.clearAllMocks();
         await remoteService.stop();
+    });
+
+    it('waits for WebSocket clients to close before completing shutdown', async () => {
+        let finishClosing: (() => void) | undefined;
+        mockWss.close.mockImplementation((callback: () => void) => {
+            finishClosing = callback;
+        });
+
+        let stopped = false;
+        const stopping = remoteService.stop().then(() => { stopped = true; });
+        await Promise.resolve();
+        expect(stopped).toBe(false);
+        expect(mockWs.terminate).toHaveBeenCalled();
+
+        mockWs.emit('close');
+        finishClosing?.();
+        await stopping;
+        expect(stopped).toBe(true);
     });
 
     it('should send disconnect message before closing socket', () => {

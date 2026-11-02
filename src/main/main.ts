@@ -53,6 +53,8 @@ let mainWindow: BrowserWindow | null = null;
 let miniPlayerWindow: BrowserWindow | null = null;
 let trayService: TrayService | null = null;
 let appIsQuitting = false;
+let shutdownStarted = false;
+let shutdownComplete = false;
 
 // Services
 let database: Database;
@@ -532,40 +534,46 @@ if (!gotTheLock) {
     }
   });
 
-  app.on("before-quit", () => {
-    if (appIsQuitting && process.platform === 'win32') {
-      // Fallback: if we are already quitting but something is taking too long,
-      // force exit after a timeout to prevent the process from hanging and blocking installers.
-      (setTimeout(() => {
-        console.log("[Main] Shutdown timeout reached. Forcing exit.");
-        process.exit(0);
-      }, 2000) as any).unref(); // unref() so the timer itself doesn't keep the process alive
-    }
+  app.on("will-quit", () => {
+    database?.close();
+  });
 
+  app.on("before-quit", (event) => {
+    if (shutdownComplete) return;
+    event.preventDefault();
+    if (shutdownStarted) return;
+    shutdownStarted = true;
     appIsQuitting = true;
 
-    console.log("[Main] Shutting down services...");
-
-    // Stop all services and servers for a clean exit
-    // This prevents the process from hanging and blocking uninstallation
-    try {
-      playerService?.destroy();
-      remoteService?.stop();
-      castService?.stop();
-      updaterService?.stop();
-      if (cacheServer) {
-        cacheServer.close();
-        if (typeof (cacheServer as any).closeAllConnections === 'function') {
-          (cacheServer as any).closeAllConnections();
-        }
-        cacheServer = null;
-      }
-    } catch (err) {
-      console.error("Error during clean shutdown:", err);
+    if (process.platform === 'win32') {
+      setTimeout(() => {
+        console.log("[Main] Shutdown timeout reached. Forcing exit.");
+        app.exit(0);
+      }, 2000).unref();
     }
 
-    trayService?.destroy();
-    database?.close();
+    console.log("[Main] Shutting down services...");
+    void (async () => {
+      try {
+        await remoteService?.stop();
+        playerService?.destroy();
+        castService?.stop();
+        updaterService?.stop();
+        if (cacheServer) {
+          cacheServer.close();
+          if (typeof cacheServer.closeAllConnections === 'function') {
+            cacheServer.closeAllConnections();
+          }
+          cacheServer = null;
+        }
+        trayService?.destroy();
+      } catch (err) {
+        console.error("Error during clean shutdown:", err);
+      } finally {
+        shutdownComplete = true;
+        app.quit();
+      }
+    })();
   });
 }
 

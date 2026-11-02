@@ -494,7 +494,8 @@ export class RemoteControlService extends EventEmitter {
 
         // Close WebSocket server
         if (this.wss) {
-            this.wss.close();
+            const wss = this.wss;
+            await new Promise<void>((resolve) => wss.close(() => resolve()));
             this.wss = null;
         }
 

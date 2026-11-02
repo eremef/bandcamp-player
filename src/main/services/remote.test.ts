@@ -89,7 +89,7 @@ vi.mock('ws', async () => {
         wss.clients.add(ws);
         ws.on('close', () => wss.clients.delete(ws));
     });
-    wss.close = vi.fn(() => wss.clients.clear());
+    wss.close = vi.fn((callback) => { wss.clients.clear(); callback?.(); });
 
     return {
         WebSocketServer: function () { return wss; },
