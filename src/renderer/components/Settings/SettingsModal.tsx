@@ -43,6 +43,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         updateStatus,
         checkForUpdates,
         installUpdate,
+        downloadUpdate,
         remoteConfig,
         fetchRemoteConfig,
         refreshRemoteConfig,
@@ -218,7 +219,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                     <div className={styles.updateStatus}>
                         <Download size={16} />
                         <span>Update available: {info?.version}</span>
-                        <button className={styles.updateBtn} disabled>Downloading...</button>
+                        <button className={styles.updateBtn} onClick={downloadUpdate}>Download</button>
                     </div>
                 );
             case 'downloading':
@@ -298,10 +299,10 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                             </div>
                             <button
                                 className={updateStatus.status === 'downloaded' ? styles.installBtnInline : styles.downloadBtnInline}
-                                onClick={updateStatus.status === 'downloaded' ? installUpdate : undefined}
-                                disabled={updateStatus.status !== 'downloaded'}
+                                onClick={updateStatus.status === 'downloaded' ? installUpdate : downloadUpdate}
+                                disabled={updateStatus.status === 'downloading'}
                             >
-                                {updateStatus.status === 'downloaded' ? 'Restart & Install' : 'Downloading...'}
+                                {updateStatus.status === 'downloaded' ? 'Restart & Install' : updateStatus.status === 'downloading' ? 'Downloading...' : 'Download'}
                             </button>
                         </div>
                     )}

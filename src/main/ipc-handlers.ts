@@ -570,6 +570,7 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(UPDATE_CHANNELS.CHECK, (_, isManual: boolean) =>
     updaterService.checkForUpdates(isManual),
   );
+  ipcMain.handle(UPDATE_CHANNELS.DOWNLOAD, () => updaterService.downloadUpdate());
   ipcMain.handle(UPDATE_CHANNELS.INSTALL, () =>
     updaterService.quitAndInstall(),
   );

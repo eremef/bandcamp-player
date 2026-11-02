@@ -215,6 +215,7 @@ export const SYSTEM_CHANNELS = {
 
 export const UPDATE_CHANNELS = {
   CHECK: "update:check",
+  DOWNLOAD: "update:download",
   INSTALL: "update:install",
   ON_CHECKING: "update:on-checking",
   ON_AVAILABLE: "update:on-available",

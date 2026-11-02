@@ -5,6 +5,7 @@ import { autoUpdater } from 'electron-updater';
 vi.mock('../../shared/ipc-channels', () => ({
     UPDATE_CHANNELS: {
         CHECK: 'update:check',
+        DOWNLOAD: 'update:download',
         INSTALL: 'update:install',
         ON_CHECKING: 'update:on-checking',
         ON_AVAILABLE: 'update:on-available',
@@ -25,6 +26,7 @@ vi.mock('electron-updater', () => {
             return mockAutoUpdater;
         }),
         checkForUpdates: vi.fn().mockResolvedValue({}),
+        downloadUpdate: vi.fn().mockResolvedValue([]),
         quitAndInstall: vi.fn(),
         autoDownload: false,
         logger: null,
@@ -166,25 +168,32 @@ describe('UpdaterService', () => {
         });
     });
 
-    describe('Update Available & Debouncing', () => {
-        it('should only notify once for the same version', () => {
-            const emitSpy = vi.spyOn(updaterService, 'emit');
-            const info = { files: [], path: 'path', sha512: 'sha512', version: '1.7.6', releaseDate: '2022-01-01' };
+    describe('Download', () => {
+        it('starts the updater download and allows another attempt after a failure', async () => {
+            vi.mocked(autoUpdater.downloadUpdate).mockRejectedValueOnce(new Error('network error'));
+            await expect(updaterService.downloadUpdate()).rejects.toThrow('network error');
+            await updaterService.downloadUpdate();
+            expect(autoUpdater.downloadUpdate).toHaveBeenCalledTimes(2);
+        });
 
-            // First notification
+        it('reports a missing download asset even after a background check', async () => {
+            let rejectDownload: (error: Error) => void = () => {};
+            vi.mocked(autoUpdater.downloadUpdate).mockImplementationOnce(() => new Promise((_, reject) => { rejectDownload = reject; }));
+            const emitSpy = vi.spyOn(updaterService, 'emit');
+            const download = updaterService.downloadUpdate();
+            autoUpdater.emit('error', new Error('404 Not Found'));
+            rejectDownload(new Error('404 Not Found'));
+            await expect(download).rejects.toThrow();
+            expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_ERROR, expect.any(String));
+        });
+
+        it('notifies again when the same version is checked manually', async () => {
+            const info = { version: '1.8.0', files: [], path: 'path', sha512: 'sha512', releaseDate: '2022-01-01' };
+            autoUpdater.emit('update-available', info);
+            await updaterService.checkForUpdates(true);
+            const emitSpy = vi.spyOn(updaterService, 'emit');
             autoUpdater.emit('update-available', info);
             expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_AVAILABLE, info);
-
-            emitSpy.mockClear();
-
-            // Second notification for same version
-            autoUpdater.emit('update-available', info);
-            expect(emitSpy).not.toHaveBeenCalled();
-
-            // Notification for NEW version
-            const nextInfo = { files: [], path: 'path', sha512: 'sha512', version: '1.7.7', releaseDate: '2023-01-01' };;
-            autoUpdater.emit('update-available', nextInfo);
-            expect(emitSpy).toHaveBeenCalledWith(UPDATE_CHANNELS.ON_AVAILABLE, nextInfo);
         });
     });
 

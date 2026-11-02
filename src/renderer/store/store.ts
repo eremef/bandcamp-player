@@ -211,6 +211,7 @@ interface UpdateSlice {
     error?: string;
   };
   checkForUpdates: (isManual?: boolean) => Promise<void>;
+  downloadUpdate: () => Promise<void>;
   installUpdate: () => Promise<void>;
 }
 
@@ -1179,6 +1180,14 @@ export const useStore = create<StoreState>()((set, get) => ({
     set({ updateStatus: { status: "checking" } });
     await window.electron.update.check(isManual);
   },
+  downloadUpdate: async () => {
+    set((state) => ({ updateStatus: { ...state.updateStatus, status: "downloading" } }));
+    try {
+      await window.electron.update.download();
+    } catch (error) {
+      set({ updateStatus: { status: "error", error: `Failed to download update: ${error instanceof Error ? error.message : String(error)}` } });
+    }
+  },
   installUpdate: async () => {
     await window.electron.update.install();
   },
@@ -1460,7 +1469,7 @@ export async function initializeStoreSubscriptions() {
     useStore.setState({ updateStatus: { status: "error", error } });
   });
   window.electron.update.onProgress((progress) => {
-    useStore.setState({ updateStatus: { status: "downloading", progress } });
+    useStore.setState((state) => ({ updateStatus: { ...state.updateStatus, status: "downloading", progress } }));
   });
   window.electron.update.onDownloaded((info) => {
     useStore.setState({ updateStatus: { status: "downloaded", info } });

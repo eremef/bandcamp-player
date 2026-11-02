@@ -79,3 +79,5 @@ scratch/
 mobile/modules/pinned-websocket/android/.gradle/
 mobile/modules/pinned-websocket/android/build/
 mobile/.jest-cache/
+.tmp-electron-builder-check/
+.tmp-eb-x64-check/

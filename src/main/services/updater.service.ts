@@ -5,8 +5,7 @@ import type { Database } from '../database/database';
 
 export class UpdaterService extends EventEmitter {
     private isChecking = false;
-    private notifiedOnce = false;
-    private lastNotifiedVersion = '';
+    private isDownloading = false;
     private isManualCheck = false;
     private checkInterval: ReturnType<typeof setInterval> | null = null;
     private readonly CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -54,13 +53,6 @@ export class UpdaterService extends EventEmitter {
         autoUpdater.on('update-available', (info) => {
             this.isChecking = false;
 
-            // Only notify once per version to avoid spamming the renderer
-            if (this.notifiedOnce && this.lastNotifiedVersion === info.version) {
-                return;
-            }
-
-            this.notifiedOnce = true;
-            this.lastNotifiedVersion = info.version;
             this.emit(UPDATE_CHANNELS.ON_AVAILABLE, info);
         });
 
@@ -76,14 +68,14 @@ export class UpdaterService extends EventEmitter {
             // Fallback: silence 404/NotFound errors during background checks.
             // The pre-check in checkForUpdates() should prevent this, but guard here in case
             // latest.yml is missing from a Release (e.g., partial upload or deleted asset).
-            if (!this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
+            if (!this.isDownloading && !this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
                 console.log('[Updater] Background check: Update metadata not found on GitHub (404). Silencing error.');
                 this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
                 return;
             }
 
             // Map technical errors to user-friendly messages for manual checks
-            const friendlyMessage = this.getFriendlyErrorMessage(message);
+            const friendlyMessage = this.isDownloading ? `Failed to download update: ${message}` : this.getFriendlyErrorMessage(message);
             this.emit(UPDATE_CHANNELS.ON_ERROR, friendlyMessage);
         });
 
@@ -130,7 +122,8 @@ export class UpdaterService extends EventEmitter {
             this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
             return;
         }
-        if (this.isChecking) return;
+        if (this.isChecking || this.isDownloading) return;
+        this.isChecking = true;
 
         this.isManualCheck = isManual;
 
@@ -139,6 +132,7 @@ export class UpdaterService extends EventEmitter {
         const releaseExists = await this.hasPublishedRelease();
         if (!releaseExists) {
             console.log('[Updater] No published GitHub Release found. Skipping update check.');
+            this.isChecking = false;
             this.emit(UPDATE_CHANNELS.ON_NOT_AVAILABLE, { version: 'unknown' });
             return;
         }
@@ -148,16 +142,28 @@ export class UpdaterService extends EventEmitter {
             autoUpdater.channel = settings?.allowBetaUpdates ? 'beta' : 'latest';
             autoUpdater.allowPrerelease = settings?.allowBetaUpdates ?? false;
             autoUpdater.allowDowngrade = false;
-            return await autoUpdater.checkForUpdates();
+            await autoUpdater.checkForUpdates();
         } catch (error) {
             console.error('Error checking for updates:', error);
             const message = error instanceof Error ? error.message : String(error);
 
-            if (!this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
+            if (!this.isDownloading && !this.isManualCheck && (message.includes('404') || message.includes('NotFound') || message.includes('not found'))) {
                 return;
             }
 
             this.emit(UPDATE_CHANNELS.ON_ERROR, this.getFriendlyErrorMessage(message));
+        } finally {
+            this.isChecking = false;
+        }
+    }
+
+    public async downloadUpdate() {
+        if (this.forceDisable || this.isDownloading) return;
+        this.isDownloading = true;
+        try {
+            await autoUpdater.downloadUpdate();
+        } finally {
+            this.isDownloading = false;
         }
     }
 
