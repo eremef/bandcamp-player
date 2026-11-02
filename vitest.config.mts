@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import path from 'path';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
     plugins: [react()],
@@ -11,8 +11,8 @@ export default defineConfig({
         globals: true,
         setupFiles: ['./src/test/setup.ts'],
         alias: {
-            '@shared': path.resolve(__dirname, 'src/shared'),
-            '@renderer': path.resolve(__dirname, 'src/renderer'),
+            '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
+            '@renderer': fileURLToPath(new URL('./src/renderer', import.meta.url)),
         },
         coverage: {
             provider: 'v8',

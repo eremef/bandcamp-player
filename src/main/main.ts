@@ -546,10 +546,11 @@ if (!gotTheLock) {
     appIsQuitting = true;
 
     if (process.platform === 'win32') {
-      setTimeout(() => {
+      const shutdownTimer = setTimeout(() => {
         console.log("[Main] Shutdown timeout reached. Forcing exit.");
         app.exit(0);
-      }, 2000).unref();
+      }, 2000);
+      (shutdownTimer as unknown as NodeJS.Timeout).unref();
     }
 
     console.log("[Main] Shutting down services...");

@@ -266,6 +266,8 @@ export interface AppSettings {
 
   // UI settings
   startMinimized: boolean;
+  startAtLogin?: boolean;
+  startAtLoginAvailable?: boolean;
   minimizeToTray: boolean;
   showNotifications: boolean;
   remoteEnabled: boolean;

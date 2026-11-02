@@ -36,6 +36,7 @@ import { CastService } from "./services/cast.service";
 import { Database } from "./database/database";
 import { simulationService } from "./services/simulation.service";
 import { remoteConfigService } from "../shared/remote-config.service";
+import { getAutostart, setAutostart } from "./services/autostart.service";
 import { loggerService } from "./services/logger";
 
 // ============================================================================
@@ -434,9 +435,18 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   });
 
   // ---- Settings ----
-  ipcMain.handle(SETTINGS_CHANNELS.GET, () => database.getSettings());
+  const withAutostart = (settings: ReturnType<Database["getSettings"]>) => ({
+    ...settings,
+    startAtLogin: getAutostart(),
+    startAtLoginAvailable: app.isPackaged && ["win32", "darwin", "linux"].includes(process.platform),
+  });
+  ipcMain.handle(SETTINGS_CHANNELS.GET, () => withAutostart(database.getSettings()));
   ipcMain.handle(SETTINGS_CHANNELS.SET, (_, settings) => {
-    const updated = database.setSettings(settings);
+    const storedSettings = { ...settings };
+    if (typeof storedSettings.startAtLogin === "boolean") setAutostart(storedSettings.startAtLogin);
+    delete storedSettings.startAtLogin;
+    delete storedSettings.startAtLoginAvailable;
+    const updated = withAutostart(database.setSettings(storedSettings));
 
     // Update Electron nativeTheme if theme changed
     if (settings.theme) {

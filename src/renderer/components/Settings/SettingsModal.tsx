@@ -516,6 +516,23 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                         <h3>Window</h3>
                         <div className={styles.setting}>
                             <div className={styles.settingInfo}>
+                                <span className={styles.settingLabel}>Start at Login</span>
+                                <span className={styles.settingHint}>{settings?.startAtLoginAvailable ? 'Open automatically when you sign in' : 'Available in the installed desktop app'}</span>
+                            </div>
+                            <label className={styles.switch}>
+                                <input
+                                    type="checkbox"
+                                    aria-label="Start at Login"
+                                    checked={settings?.startAtLogin ?? false}
+                                    disabled={!settings?.startAtLoginAvailable}
+                                    onChange={(e) => void updateSettings({ startAtLogin: e.target.checked }).catch((error) => window.alert(`Could not change startup setting: ${error}`))}
+                                    data-testid="setting-start-at-login"
+                                />
+                                <span className={styles.slider}></span>
+                            </label>
+                        </div>
+                        <div className={styles.setting}>
+                            <div className={styles.settingInfo}>
                                 <span className={styles.settingLabel}>Minimize to Tray</span>
                                 <span className={styles.settingHint}>Keep running in the background</span>
                             </div>
