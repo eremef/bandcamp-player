@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'bandcamp-remote',
-    version: '1.8.45-beta',
+    version: '1.8.46-beta',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -63,6 +63,7 @@ module.exports = {
         'expo-build-properties',
         {
           android: {
+            cmakeVersion: '3.31.6',
             usesCleartextTraffic: true,
             permissions: [
               'INTERNET',

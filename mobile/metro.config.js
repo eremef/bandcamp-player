@@ -2,12 +2,17 @@ const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
 
 const projectRoot = __dirname;
-const workspaceRoot = path.resolve(projectRoot, '..');
+const sharedSource = path.resolve(projectRoot, '../src');
 
 const config = getDefaultConfig(projectRoot);
 
-// Removed watchFolders to prevent Metro from crashing due to scanning the entire parent directory.
-// Cross-project resolution is handled transparently via a Windows Junction (mobile/src -> src)
-// as created by scripts/create-shared-symlink.js
+// Shared files live outside the mobile package and must be watched by Metro.
+config.watchFolders = [sharedSource];
+
+// Resolve shared-code dependencies from the mobile app's installed packages.
+config.resolver.nodeModulesPaths = [
+    path.resolve(projectRoot, 'node_modules'),
+    path.resolve(projectRoot, '../node_modules'),
+];
 
 module.exports = config;

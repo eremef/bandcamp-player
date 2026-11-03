@@ -83,7 +83,7 @@ try {
   try {
     // 2. Mobile (resolved via the mobile/src/shared junction)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    DefaultConfig = require("../../assets/remote-config.json");
+    DefaultConfig = require("../../mobile/assets/remote-config.json");
   } catch (e) {
     console.error(
       "[RemoteConfig] Failed to load bundled config from all locations:",
