@@ -1,9 +1,11 @@
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileAuthService } from './MobileAuthService';
 
 const BACKGROUND_COLLECTION_SYNC = 'BACKGROUND_COLLECTION_SYNC';
+const LEGACY_BACKGROUND_FETCH_TASK_TYPE = 'backgroundFetch';
+const BACKGROUND_COLLECTION_SYNC_INTERVAL_MINUTES = 24 * 60;
 
 // Define the background task
 TaskManager.defineTask(BACKGROUND_COLLECTION_SYNC, async () => {
@@ -14,7 +16,7 @@ TaskManager.defineTask(BACKGROUND_COLLECTION_SYNC, async () => {
         const authState = await mobileAuthService.checkSession();
         if (!authState.isAuthenticated || !authState.user) {
             console.log('[BackgroundSync] User not authenticated, skipping sync');
-            return BackgroundFetch.BackgroundFetchResult.NoData;
+            return BackgroundTask.BackgroundTaskResult.Success;
         }
 
         console.log(`[BackgroundSync] Syncing collection for ${authState.user.id}...`);
@@ -22,10 +24,10 @@ TaskManager.defineTask(BACKGROUND_COLLECTION_SYNC, async () => {
         await mobileScraperService.fetchCollection(true);
 
         console.log('[BackgroundSync] Sync complete');
-        return BackgroundFetch.BackgroundFetchResult.NewData;
+        return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
         console.error('[BackgroundSync] Task failed:', error);
-        return BackgroundFetch.BackgroundFetchResult.Failed;
+        return BackgroundTask.BackgroundTaskResult.Failed;
     }
 });
 
@@ -34,16 +36,19 @@ TaskManager.defineTask(BACKGROUND_COLLECTION_SYNC, async () => {
  */
 export async function registerBackgroundSync() {
     try {
-        const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_COLLECTION_SYNC);
-        if (isRegistered) {
+        const registeredTasks = await TaskManager.getRegisteredTasksAsync();
+        const registeredTask = registeredTasks.find(task => task.taskName === BACKGROUND_COLLECTION_SYNC);
+
+        if (registeredTask?.taskType === LEGACY_BACKGROUND_FETCH_TASK_TYPE) {
+            await TaskManager.unregisterTaskAsync(BACKGROUND_COLLECTION_SYNC);
+            console.log('[BackgroundSync] Removed legacy background fetch registration');
+        } else if (registeredTask) {
             console.log('[BackgroundSync] Task already registered');
             return;
         }
 
-        await BackgroundFetch.registerTaskAsync(BACKGROUND_COLLECTION_SYNC, {
-            minimumInterval: 60 * 60 * 24, // 24 hours (in seconds)
-            stopOnTerminate: false, // Continue after app is closed
-            startOnBoot: true, // Start after device reboot
+        await BackgroundTask.registerTaskAsync(BACKGROUND_COLLECTION_SYNC, {
+            minimumInterval: BACKGROUND_COLLECTION_SYNC_INTERVAL_MINUTES,
         });
 
         console.log('[BackgroundSync] Task registered successfully');
@@ -57,7 +62,15 @@ export async function registerBackgroundSync() {
  */
 export async function unregisterBackgroundSync() {
     try {
-        await BackgroundFetch.unregisterTaskAsync(BACKGROUND_COLLECTION_SYNC);
+        const registeredTask = (await TaskManager.getRegisteredTasksAsync())
+            .find(task => task.taskName === BACKGROUND_COLLECTION_SYNC);
+        if (!registeredTask) return;
+
+        if (registeredTask.taskType === LEGACY_BACKGROUND_FETCH_TASK_TYPE) {
+            await TaskManager.unregisterTaskAsync(BACKGROUND_COLLECTION_SYNC);
+        } else {
+            await BackgroundTask.unregisterTaskAsync(BACKGROUND_COLLECTION_SYNC);
+        }
         console.log('[BackgroundSync] Task unregistered');
     } catch (err) {
         console.error('[BackgroundSync] Unregistration failed:', err);

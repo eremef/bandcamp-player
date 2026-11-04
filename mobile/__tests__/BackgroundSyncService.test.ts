@@ -1,4 +1,4 @@
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileAuthService } from '../services/MobileAuthService';
@@ -6,15 +6,15 @@ import { registerBackgroundSync, unregisterBackgroundSync } from '../services/Ba
 
 jest.mock('expo-task-manager', () => ({
     defineTask: jest.fn(),
-    isTaskRegisteredAsync: jest.fn(),
+    getRegisteredTasksAsync: jest.fn(),
+    unregisterTaskAsync: jest.fn(),
 }));
 
-jest.mock('expo-background-fetch', () => ({
+jest.mock('expo-background-task', () => ({
     registerTaskAsync: jest.fn(),
     unregisterTaskAsync: jest.fn(),
-    BackgroundFetchResult: {
-        NoData: 'NoData',
-        NewData: 'NewData',
+    BackgroundTaskResult: {
+        Success: 'Success',
         Failed: 'Failed',
     },
 }));
@@ -41,36 +41,41 @@ describe('BackgroundSyncService', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+        (TaskManager.getRegisteredTasksAsync as jest.Mock).mockResolvedValue([]);
     });
 
     it('should register background sync successfully', async () => {
-        (TaskManager.isTaskRegisteredAsync as jest.Mock).mockResolvedValue(false);
-        (BackgroundFetch.registerTaskAsync as jest.Mock).mockResolvedValue(true);
+        (BackgroundTask.registerTaskAsync as jest.Mock).mockResolvedValue(undefined);
 
         await registerBackgroundSync();
 
-        expect(TaskManager.isTaskRegisteredAsync).toHaveBeenCalledWith(BACKGROUND_COLLECTION_SYNC);
-        expect(BackgroundFetch.registerTaskAsync).toHaveBeenCalledWith(BACKGROUND_COLLECTION_SYNC, {
-            minimumInterval: 60 * 60 * 24,
-            stopOnTerminate: false,
-            startOnBoot: true,
+        expect(TaskManager.getRegisteredTasksAsync).toHaveBeenCalled();
+        expect(BackgroundTask.registerTaskAsync).toHaveBeenCalledWith(BACKGROUND_COLLECTION_SYNC, {
+            minimumInterval: 24 * 60,
         });
     });
 
     it('should not register if already registered', async () => {
-        (TaskManager.isTaskRegisteredAsync as jest.Mock).mockResolvedValue(true);
+        (TaskManager.getRegisteredTasksAsync as jest.Mock).mockResolvedValue([{
+            taskName: BACKGROUND_COLLECTION_SYNC,
+            taskType: 'backgroundTask',
+        }]);
 
         await registerBackgroundSync();
 
-        expect(BackgroundFetch.registerTaskAsync).not.toHaveBeenCalled();
+        expect(BackgroundTask.registerTaskAsync).not.toHaveBeenCalled();
     });
 
     it('should unregister background sync successfully', async () => {
-        (BackgroundFetch.unregisterTaskAsync as jest.Mock).mockResolvedValue(true);
+        (TaskManager.getRegisteredTasksAsync as jest.Mock).mockResolvedValue([{
+            taskName: BACKGROUND_COLLECTION_SYNC,
+            taskType: 'backgroundTask',
+        }]);
+        (BackgroundTask.unregisterTaskAsync as jest.Mock).mockResolvedValue(undefined);
 
         await unregisterBackgroundSync();
 
-        expect(BackgroundFetch.unregisterTaskAsync).toHaveBeenCalledWith(BACKGROUND_COLLECTION_SYNC);
+        expect(BackgroundTask.unregisterTaskAsync).toHaveBeenCalledWith(BACKGROUND_COLLECTION_SYNC);
     });
 
     it('task callback should return NoData if user not authenticated', async () => {
@@ -78,7 +83,7 @@ describe('BackgroundSyncService', () => {
 
         const result = await taskCallback();
 
-        expect(result).toBe('NoData');
+        expect(result).toBe('Success');
         expect(mobileScraperService.fetchCollection).not.toHaveBeenCalled();
     });
 
@@ -92,7 +97,7 @@ describe('BackgroundSyncService', () => {
         const result = await taskCallback();
 
         expect(mobileScraperService.fetchCollection).toHaveBeenCalledWith(true);
-        expect(result).toBe('NewData');
+        expect(result).toBe('Success');
     });
 
     it('task callback should return Failed if an error occurs', async () => {

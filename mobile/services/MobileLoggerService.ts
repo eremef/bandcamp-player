@@ -40,11 +40,25 @@ export class MobileLoggerService {
         }
     }
 
+    private formatError(error: Error, seen = new Set<Error>()): string {
+        if (seen.has(error)) return '[Circular Error cause]';
+        seen.add(error);
+
+        const stack = error.stack || `${error.name}: ${error.message}`;
+        const cause = (error as Error & { cause?: unknown }).cause;
+        if (cause === undefined) return stack;
+
+        const formattedCause = cause instanceof Error
+            ? this.formatError(cause, seen)
+            : this.formatArgs([cause]);
+        return `${stack}\nCaused by: ${formattedCause}`;
+    }
+
     private formatArgs(args: any[]): string {
         return args
             .map((arg) => {
                 if (typeof arg === 'string') return arg;
-                if (arg instanceof Error) return arg.stack || `${arg.name}: ${arg.message}`;
+                if (arg instanceof Error) return this.formatError(arg);
                 try {
                     return JSON.stringify(arg);
                 } catch {
