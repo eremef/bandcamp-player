@@ -32,7 +32,7 @@
     "prebuild": "npm run sync-assets",
     "expo:prebuild": "npx expo prebuild --clean -p android",
     "prestart": "npm run sync-assets",
-    "postinstall": "node ../scripts/create-shared-symlink.js"
+    "postinstall": "node ../scripts/create-shared-symlink.js && patch-package"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
@@ -98,6 +98,7 @@
     "jest": "~30.5.2",
     "jest-expo": "~58.0.12",
     "metro-config": "~0.84.6",
+    "patch-package": "^8.0.1",
     "react-test-renderer": "19.3.0",
     "typescript": "~6.0.3"
   },
