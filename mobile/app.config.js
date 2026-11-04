@@ -65,6 +65,10 @@ module.exports = {
         {
           android: {
             cmakeVersion: '3.31.6',
+            extraProguardRules: [
+              '-keep class * extends androidx.room.RoomDatabase { <init>(); }',
+              '-keep class * extends androidx.work.InputMerger { <init>(); }',
+            ].join('\n'),
             usesCleartextTraffic: true,
             permissions: [
               'INTERNET',
