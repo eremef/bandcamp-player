@@ -26,6 +26,7 @@ module.exports = {
       },
     },
     android: {
+      versionCode: 18470,
       package: 'xyz.eremef.beta',
       permissions: [
         'INTERNET',

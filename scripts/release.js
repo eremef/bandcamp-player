@@ -16,6 +16,8 @@ if (!newVersion) {
     process.exit(1);
 }
 
+const androidVersionCode = getAndroidVersionCode(newVersion);
+
 const isAlpha = /-(alpha)/.test(newVersion);
 const isBetaOrRelease = !isAlpha;
 
@@ -76,6 +78,30 @@ function updateJson(filePath, updateFn) {
     fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
 }
 
+function getAndroidVersionCode(version) {
+    const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/);
+    if (!match) {
+        console.error(`\x1b[31mError:\x1b[0m Invalid version format: ${version}`);
+        process.exit(1);
+    }
+
+    const major = Number(match[1]);
+    const minor = Number(match[2]);
+    const patch = Number(match[3]);
+    if (minor > 9 || patch > 99) {
+        console.error(`\x1b[31mError:\x1b[0m Version ${version} is outside the supported Android versionCode range (minor 0-9, patch 0-99).`);
+        process.exit(1);
+    }
+
+    const versionCode = major * 10000 + minor * 1000 + patch * 10;
+    if (!Number.isSafeInteger(versionCode) || versionCode <= 0) {
+        console.error(`\x1b[31mError:\x1b[0m Could not generate a valid Android versionCode for ${version}.`);
+        process.exit(1);
+    }
+
+    return versionCode;
+}
+
 // Helper function to copy and normalize text files
 function copyAndNormalizeTextFile(srcPath, destPath) {
     if (fs.existsSync(srcPath)) {
@@ -94,7 +120,19 @@ updateJson(path.join(rootDir, 'package.json'), (json) => { json.version = newVer
 const appConfigPath = path.join(mobileDir, 'app.config.js');
 log(`Updating ${appConfigPath}...`);
 const appConfigContent = fs.readFileSync(appConfigPath, 'utf8');
-const updatedAppConfig = appConfigContent.replace(/version: '[^']*'/, `version: '${newVersion}'`);
+const lineEnding = appConfigContent.includes('\r\n') ? '\r\n' : '\n';
+let updatedAppConfig = appConfigContent
+    .replace(/version: '[^']*'/, `version: '${newVersion}'`)
+    .replace(/^[ \t]*versionCode:[ \t]*\d+,?[ \t]*\r?\n/gm, '');
+const androidConfigStart = /^([ \t]*)android:[ \t]*\{[ \t]*\r?\n/m.exec(updatedAppConfig);
+if (!androidConfigStart) {
+    console.error(`\x1b[31mError:\x1b[0m Could not find the android config in ${appConfigPath}.`);
+    process.exit(1);
+}
+const versionCodeIndent = `${androidConfigStart[1]}  `;
+const versionCodeLine = `${versionCodeIndent}versionCode: ${androidVersionCode},${lineEnding}`;
+const androidConfigEnd = androidConfigStart.index + androidConfigStart[0].length;
+updatedAppConfig = `${updatedAppConfig.slice(0, androidConfigEnd)}${versionCodeLine}${updatedAppConfig.slice(androidConfigEnd)}`;
 fs.writeFileSync(appConfigPath, updatedAppConfig, 'utf8');
 
 // 2. Ensure app is closed
