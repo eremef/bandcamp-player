@@ -254,8 +254,22 @@ function normalizeDesktopQueueSnapshot(value: unknown): DesktopQueueSnapshot | n
     }
 
     let currentIndex = Number.isInteger(snapshot.currentIndex) ? snapshot.currentIndex : snapshot.queue.currentIndex;
+    if (!currentTrack) {
+        if (snapshot.currentTrack != null || !Number.isInteger(currentIndex) || currentIndex < -1 || currentIndex > items.length) {
+            return null;
+        }
+        const position = Number.isFinite(snapshot.position) ? Math.max(0, snapshot.position) : 0;
+        const duration = Number.isFinite(snapshot.duration) ? Math.max(0, snapshot.duration) : 0;
+        return {
+            queue: { items, currentIndex },
+            currentTrack: null,
+            currentIndex,
+            position,
+            duration,
+        };
+    }
     if (!Number.isInteger(currentIndex) || currentIndex < 0 || currentIndex >= items.length) {
-        currentIndex = currentTrack ? items.findIndex(item => item.track.id === currentTrack.id) : -1;
+        currentIndex = items.findIndex(item => item.track.id === currentTrack.id);
     }
     if (currentIndex < 0 || currentIndex >= items.length) return null;
     if (currentTrack && currentTrack.id !== items[currentIndex].track.id) {

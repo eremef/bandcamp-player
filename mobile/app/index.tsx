@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Switch, Alert, Keyboard, KeyboardAvoidingView, Platform } from 'react-native';
 import { useStore } from '../store';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Wifi, AlertCircle, Globe, LogIn, Camera } from 'lucide-react-native';
@@ -24,6 +24,7 @@ export default function ConnectScreen() {
     const [certificateFingerprint, setCertificateFingerprint] = useState('');
     const [showManualPairing, setShowManualPairing] = useState(false);
     const [connectionError, setConnectionError] = useState('');
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
 
     useEffect(() => {
         // Attempt auto-connect on mount
@@ -47,6 +48,17 @@ export default function ConnectScreen() {
     useEffect(() => webSocketService.on('connection-error', (message: string) => {
         setConnectionError(message);
     }), []);
+
+    useEffect(() => {
+        const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const showSubscription = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
+        const hideSubscription = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+        return () => {
+            showSubscription.remove();
+            hideSubscription.remove();
+        };
+    }, []);
 
     // Auto-redirect to player when connected or authenticated and ready
     useEffect(() => {
@@ -136,53 +148,64 @@ export default function ConnectScreen() {
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                <View style={styles.content}>
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+            <ScrollView
+                contentContainerStyle={[styles.scrollContent, keyboardVisible && styles.keyboardScrollContent]}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+            >
+                <View style={[styles.content, keyboardVisible && styles.keyboardContent]}>
 
-                    {/* App Hero / Title */}
-                    <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                        {mode === 'remote' ? (
-                            <Wifi size={64} color={colors.accent} />
-                        ) : (
-                            <Globe size={64} color={colors.accent} />
-                        )}
-                    </View>
+                    {!keyboardVisible && (
+                        <>
+                            {/* App Hero / Title */}
+                            <View style={[styles.iconContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                                {mode === 'remote' ? (
+                                    <Wifi size={64} color={colors.accent} />
+                                ) : (
+                                    <Globe size={64} color={colors.accent} />
+                                )}
+                            </View>
 
-                    <Text style={[styles.title, { color: colors.text }]}>
-                        {mode === 'remote' ? 'Remote mode' : 'Standalone mode'}
-                    </Text>
+                            <Text style={[styles.title, { color: colors.text }]}>
+                                {mode === 'remote' ? 'Remote mode' : 'Standalone mode'}
+                            </Text>
 
-                    <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        {mode === 'remote'
-                            ? 'Control your desktop player'
-                            : (auth.isAuthenticated
-                                ? `Logged in as ${auth.user?.displayName || auth.user?.username}`
-                                : 'Play your collection directly')}
-                    </Text>
+                            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                                {mode === 'remote'
+                                    ? 'Control your desktop player'
+                                    : (auth.isAuthenticated
+                                        ? `Logged in as ${auth.user?.displayName || auth.user?.username}`
+                                        : 'Play your collection directly')}
+                            </Text>
 
-                    {/* Mode Selector - Now below title for better visibility */}
-                    <View style={[styles.modeContainer, { backgroundColor: colors.input, borderRadius: 16, padding: 4 }]}>
-                        <TouchableOpacity
-                            style={[
-                                styles.modeButtonSmall,
-                                mode === 'remote' && { backgroundColor: colors.card }
-                            ]}
-                            onPress={() => handleModeSelect('remote')}
-                        >
-                            <Text style={[styles.modeTextSmall, { color: mode === 'remote' ? colors.text : colors.textSecondary }]}>Remote</Text>
-                        </TouchableOpacity>
+                            {/* Mode Selector - Now below title for better visibility */}
+                            <View style={[styles.modeContainer, { backgroundColor: colors.input, borderRadius: 16, padding: 4 }]}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.modeButtonSmall,
+                                        mode === 'remote' && { backgroundColor: colors.card }
+                                    ]}
+                                    onPress={() => handleModeSelect('remote')}
+                                >
+                                    <Text style={[styles.modeTextSmall, { color: mode === 'remote' ? colors.text : colors.textSecondary }]}>Remote</Text>
+                                </TouchableOpacity>
 
-                        <TouchableOpacity
-                            style={[
-                                styles.modeButtonSmall,
-                                mode === 'standalone' && { backgroundColor: colors.card }
-                            ]}
-                            onPress={() => handleModeSelect('standalone')}
-                        >
-                            <Text style={[styles.modeTextSmall, { color: mode === 'standalone' ? colors.text : colors.textSecondary }]}>Standalone</Text>
-                        </TouchableOpacity>
-                    </View>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.modeButtonSmall,
+                                        mode === 'standalone' && { backgroundColor: colors.card }
+                                    ]}
+                                    onPress={() => handleModeSelect('standalone')}
+                                >
+                                    <Text style={[styles.modeTextSmall, { color: mode === 'standalone' ? colors.text : colors.textSecondary }]}>Standalone</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
 
                     {mode === 'remote' ? (
                         <View style={{ width: '100%', alignItems: 'center' }}>
@@ -207,49 +230,57 @@ export default function ConnectScreen() {
                                 </View>
                             ) : (
                                 <>
-                                    <View style={[styles.securityOption, { backgroundColor: colors.input, borderColor: colors.border }]}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ color: colors.text, fontWeight: '600' }}>Secure Mode</Text>
-                                            <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Encrypted and paired with this device</Text>
+                                    {!keyboardVisible && (
+                                        <View style={[styles.securityOption, { backgroundColor: colors.input, borderColor: colors.border }]}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{ color: colors.text, fontWeight: '600' }}>Secure Mode</Text>
+                                                <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Encrypted and paired with this device</Text>
+                                            </View>
+                                            <Switch
+                                                accessibilityLabel="Secure Mode"
+                                                value={securityMode === 'safe'}
+                                                onValueChange={handleSecurityModeChange}
+                                                trackColor={{ false: '#b3261e', true: colors.accent }}
+                                            />
                                         </View>
-                                        <Switch
-                                            accessibilityLabel="Secure Mode"
-                                            value={securityMode === 'safe'}
-                                            onValueChange={handleSecurityModeChange}
-                                            trackColor={{ false: '#b3261e', true: colors.accent }}
-                                        />
-                                    </View>
+                                    )}
 
 
 
                                     {securityMode === 'safe' ? (
-                                        <View style={styles.pairingFields}>
-                                            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Scan the QR code here, or with your preferred app.</Text>
-                                            <TouchableOpacity
-                                                style={[styles.scanButton, { borderColor: colors.border }]}
-                                                onPress={() => router.push('/scan')}
-                                            >
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                    <Camera size={18} color={colors.accent} />
-                                                    <Text style={[styles.scanButtonText, { color: colors.accent }]}>Scan pairing QR code</Text>
-                                                </View>
-                                            </TouchableOpacity>
+                                        <View style={[styles.pairingFields, keyboardVisible && styles.keyboardPairingFields]}>
+                                            {!keyboardVisible && (
+                                                <>
+                                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Scan the QR code here, or with your preferred app.</Text>
+                                                    <TouchableOpacity
+                                                        style={[styles.scanButton, { borderColor: colors.border }]}
+                                                        onPress={() => router.push('/scan')}
+                                                    >
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                            <Camera size={18} color={colors.accent} />
+                                                            <Text style={[styles.scanButtonText, { color: colors.accent }]}>Scan pairing QR code</Text>
+                                                        </View>
+                                                    </TouchableOpacity>
 
-                                            <TouchableOpacity
-                                                style={styles.manualPairingToggle}
-                                                onPress={() => setShowManualPairing((visible) => !visible)}
-                                                accessibilityRole="button"
-                                                accessibilityState={{ expanded: showManualPairing }}
-                                            >
-                                                <Text style={[styles.sectionLabel, { color: colors.accent, textDecorationLine: 'underline' }]}>
-                                                    Can&apos;t scan? Enter details manually
-                                                </Text>
-                                            </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={styles.manualPairingToggle}
+                                                        onPress={() => setShowManualPairing((visible) => !visible)}
+                                                        accessibilityRole="button"
+                                                        accessibilityState={{ expanded: showManualPairing }}
+                                                    >
+                                                        <Text style={[styles.sectionLabel, { color: colors.accent, textDecorationLine: 'underline' }]}>
+                                                            Can&apos;t scan? Enter details manually
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </>
+                                            )}
                                             {showManualPairing && (
-                                                <View style={styles.manualPairingFields}>
-                                                    <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings</Text>
+                                                <View style={[styles.manualPairingFields, keyboardVisible && styles.keyboardManualPairingFields]}>
+                                                    <Text style={[styles.sectionLabel, keyboardVisible && styles.keyboardSectionLabel, { color: colors.textSecondary }]}>
+                                                        {keyboardVisible ? 'Enter the pairing details shown in desktop Settings' : 'For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings'}
+                                                    </Text>
                                                     <TextInput
-                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                                                         placeholder="Desktop IP address (e.g. 192.168.1.x)"
                                                         placeholderTextColor={colors.textSecondary}
                                                         value={ipInput}
@@ -258,7 +289,7 @@ export default function ConnectScreen() {
                                                         autoCapitalize="none"
                                                     />
                                                     <TextInput
-                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                                                         placeholder="One-time pairing code"
                                                         placeholderTextColor={colors.textSecondary}
                                                         value={pairingCode}
@@ -267,7 +298,7 @@ export default function ConnectScreen() {
                                                         autoCorrect={false}
                                                     />
                                                     <TextInput
-                                                        style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
+                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
                                                         placeholder="Certificate fingerprint (SHA-256)"
                                                         placeholderTextColor={colors.textSecondary}
                                                         value={certificateFingerprint}
@@ -281,7 +312,7 @@ export default function ConnectScreen() {
                                     ) : (
                                         <View style={styles.unsafeSection}>
                                             <TextInput
-                                                style={[styles.input, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border, marginBottom: 8, }]}
+                                                style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border, marginBottom: 8, }]}
                                                 placeholder="Desktop IP address (e.g. 192.168.1.x)"
                                                 placeholderTextColor={colors.textSecondary}
                                                 value={ipInput}
@@ -294,7 +325,7 @@ export default function ConnectScreen() {
 
 
                                     <TouchableOpacity
-                                        style={[styles.button, { backgroundColor: colors.accent, marginBottom: 8, }, connectionStatus === 'connecting' && styles.buttonDisabled]}
+                                        style={[styles.button, { backgroundColor: colors.accent, marginBottom: 8, }, keyboardVisible && styles.keyboardButton, connectionStatus === 'connecting' && styles.buttonDisabled]}
                                         onPress={() => handleConnect()}
                                         disabled={connectionStatus === 'connecting'}
                                     >
@@ -305,7 +336,7 @@ export default function ConnectScreen() {
                                         )}
                                     </TouchableOpacity>
 
-                                    {securityMode === 'unsafe' && <TouchableOpacity
+                                    {securityMode === 'unsafe' && !keyboardVisible && <TouchableOpacity
                                         style={[styles.scanButton, { borderColor: colors.border }, isScanning && styles.buttonDisabled]}
                                         onPress={() => startScan({ mode: securityMode })}
                                         disabled={connectionStatus === 'connecting' || isScanning}
@@ -328,7 +359,7 @@ export default function ConnectScreen() {
                                     )}
 
                                     {/* Recent IPs */}
-                                    {recentIps.length > 0 && (
+                                    {recentIps.length > 0 && !keyboardVisible && (
                                         <View style={styles.recentContainer}>
                                             <Text style={[styles.recentTitle, { color: colors.textSecondary }]}>Recent Connections</Text>
                                             {recentIps.map((ip) => (
@@ -375,7 +406,7 @@ export default function ConnectScreen() {
                     )}
                 </View>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 
@@ -388,9 +419,17 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 24,
     },
+    keyboardContent: {
+        padding: 12,
+        paddingTop: 4,
+        paddingBottom: 8,
+    },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
+    },
+    keyboardScrollContent: {
+        justifyContent: 'flex-start',
     },
     modeContainer: {
         flexDirection: 'row',
@@ -490,11 +529,31 @@ const styles = StyleSheet.create({
         gap: 10,
         marginBottom: 10,
     },
+    keyboardPairingFields: {
+        gap: 6,
+        marginBottom: 4,
+    },
     manualPairingToggle: {
         paddingVertical: 0,
     },
     manualPairingFields: {
         gap: 10,
+    },
+    keyboardManualPairingFields: {
+        gap: 6,
+    },
+    keyboardSectionLabel: {
+        fontSize: 12,
+        lineHeight: 16,
+        marginBottom: 0,
+    },
+    keyboardInput: {
+        height: 44,
+        paddingVertical: 6,
+        fontSize: 16,
+    },
+    keyboardButton: {
+        height: 48,
     },
     pairingHint: {
         fontSize: 13,
