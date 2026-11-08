@@ -263,7 +263,7 @@ export default function RadioScreen() {
                     <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
                     {item.date && (
                         <Text style={[styles.itemDate, { color: colors.accent }]}>
-                            {item.date}{item.duration ? ` • ${Math.floor(item.duration / 3600)}h ${Math.floor((item.duration % 3600) / 60)}m` : ''}
+                            {item.date}
                         </Text>
                     )}
                     <Text style={[styles.itemSubtitle, { color: colors.textSecondary }]} numberOfLines={2}>{item.description}</Text>

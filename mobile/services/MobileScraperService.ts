@@ -5,6 +5,18 @@ import { mobileDatabase } from './MobileDatabase';
 import { mobileSimulationService } from './MobileSimulationService';
 import { remoteConfigService } from '@shared/remote-config.service';
 
+function formatRadioDate(value: unknown): string | undefined {
+    if (value == null) return undefined;
+    const rawDate = String(value).trim();
+    if (!rawDate) return undefined;
+
+    const isoDate = rawDate.match(/^(\d{4}-\d{2}-\d{2})T/);
+    if (isoDate) return isoDate[1];
+
+    const timeSuffix = rawDate.match(/\s+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s+[A-Z]{2,5})?$/i);
+    return timeSuffix?.index === undefined ? rawDate : rawDate.slice(0, timeSuffix.index).trim();
+}
+
 // ============================================================================
 // Mobile Bandcamp Scraper Service
 // ============================================================================
@@ -854,24 +866,7 @@ export class MobileScraperService {
 
             if (data.results) {
                 for (const episode of data.results) {
-                    let formattedDate = undefined;
-                    if (episode.published_date) {
-                        try {
-                            const dateObj = new Date(episode.published_date);
-                            if (!isNaN(dateObj.getTime())) {
-                                formattedDate = dateObj.toLocaleDateString('en-US', {
-                                    month: 'long',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                });
-                            } else {
-                                // Fallback: try parsing YYYYMMDD or DD MMM YYYY if needed
-                                formattedDate = episode.published_date;
-                            }
-                        } catch {
-                            formattedDate = String(episode.published_date);
-                        }
-                    }
+                    const formattedDate = formatRadioDate(episode.published_date);
 
                     let imageCaption = undefined;
                     if (episode.image_caption) {
