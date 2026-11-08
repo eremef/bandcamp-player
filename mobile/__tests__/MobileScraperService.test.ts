@@ -229,19 +229,25 @@ describe('MobileScraperService', () => {
     });
 
     describe('getRadioStations', () => {
-        it('should fetch stations from api', async () => {
+        it('formats Bandcamp publication dates for radio stations', async () => {
             (global.fetch as jest.Mock).mockResolvedValueOnce({
                 json: jest.fn().mockResolvedValue({
                     results: [
-                        { id: 1, title: 'Show 1', published_date: '2024-01-01' }
+                        { id: 1, title: 'Show 1', published_date: '06 Nov 2026 00:00:00 GMT' },
+                        { id: 2, title: 'Show 2', published_date: '2024-01-01' },
+                        { id: 3, title: 'Show 3', published_date: 'not a date' },
                     ]
                 })
             });
 
             const stations = await mobileScraperService.getRadioStations();
-            expect(stations.length).toBe(1);
+            expect(stations).toHaveLength(3);
             expect(stations[0].name).toBe('Show 1');
-            expect(stations[0].date).toBeDefined();
+            expect(stations.map(station => station.date)).toEqual([
+                'November 6, 2026',
+                'January 1, 2024',
+                undefined,
+            ]);
         });
 
         it('should return empty array on error instead of dummy fallback', async () => {

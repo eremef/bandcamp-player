@@ -3,7 +3,7 @@ import { render, fireEvent, act } from '@testing-library/react-native';
 import RadioScreen from '../../app/(tabs)/radio';
 import { useStore } from '../../store';
 import { RadioStation } from '@shared/types';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 jest.mock('../../components/ActionSheet', () => ({
     ActionSheet: ({ visible, title, actions }: any) => {
@@ -26,7 +26,7 @@ const mockStations: RadioStation[] = [
         id: 'station-1',
         name: 'Cool Station 1',
         description: 'First cool station',
-        date: '2023-01-01',
+        date: 'January 1, 2023',
         imageUrl: 'https://example.com/img1.jpg',
         streamUrl: 'https://example.com/stream1.mp3',
         duration: 3600
@@ -35,7 +35,7 @@ const mockStations: RadioStation[] = [
         id: 'station-2',
         name: 'Awesome Station 2',
         description: 'Second awesome station',
-        date: '2023-02-01',
+        date: 'February 1, 2023',
         imageUrl: '',
         streamUrl: 'https://example.com/stream2.mp3',
         duration: 7200
@@ -78,14 +78,17 @@ describe('RadioScreen', () => {
         } as any);
     });
 
-    it('renders list of radio stations correctly', async () => {
-        const { getByText } = await render(<RadioScreen />);
+    it('renders radio dates without appending episode duration', async () => {
+        const { getByText, queryByText } = await render(<RadioScreen />);
 
         expect(getByText('Cool Station 1')).toBeTruthy();
         expect(getByText('Awesome Station 2')).toBeTruthy();
         expect(getByText(/First cool station/i)).toBeTruthy();
-        // Since Awesome Station 2 has duration 7200, it formats as 2h 0m
-        expect(getByText(/2h 0m/)).toBeTruthy();
+        const firstStationDate = getByText('January 1, 2023');
+        const secondStationDate = getByText('February 1, 2023');
+        expect(StyleSheet.flatten(firstStationDate.props.style).textTransform).toBeUndefined();
+        expect(StyleSheet.flatten(secondStationDate.props.style).textTransform).toBeUndefined();
+        expect(queryByText(/2h 0m/)).toBeNull();
     });
 
     it('shows empty state when no stations', async () => {

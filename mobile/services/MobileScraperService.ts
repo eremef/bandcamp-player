@@ -5,16 +5,49 @@ import { mobileDatabase } from './MobileDatabase';
 import { mobileSimulationService } from './MobileSimulationService';
 import { remoteConfigService } from '@shared/remote-config.service';
 
-function formatRadioDate(value: unknown): string | undefined {
+const RADIO_MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+function createRadioCalendarDate(year: number, month: number, day: number): Date | undefined {
+    const date = new Date(Date.UTC(year, month, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month || date.getUTCDate() !== day) return undefined;
+    return date;
+}
+
+function parseRadioDate(value: unknown): Date | undefined {
     if (value == null) return undefined;
     const rawDate = String(value).trim();
     if (!rawDate) return undefined;
 
-    const isoDate = rawDate.match(/^(\d{4}-\d{2}-\d{2})T/);
-    if (isoDate) return isoDate[1];
+    const isoDate = rawDate.match(/^(\d{4})-(\d{2})-(\d{2})(?=$|[T\s])/) ||
+        rawDate.match(/^(\d{4})(\d{2})(\d{2})(?=$|[T\s])/);
+    if (isoDate) {
+        return createRadioCalendarDate(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
+    }
 
-    const timeSuffix = rawDate.match(/\s+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s+[A-Z]{2,5})?$/i);
-    return timeSuffix?.index === undefined ? rawDate : rawDate.slice(0, timeSuffix.index).trim();
+    const dayFirstDate = rawDate.match(/^(?:[A-Za-z]{3,9},?\s+)?(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})(?=$|[\s,])/);
+    const monthFirstDate = rawDate.match(/^([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})(?=$|[\s,])/);
+    const namedDate = dayFirstDate || monthFirstDate;
+    if (namedDate) {
+        const day = Number(dayFirstDate ? namedDate[1] : namedDate[2]);
+        const monthName = (dayFirstDate ? namedDate[2] : namedDate[1]).slice(0, 3).toLowerCase();
+        const month = RADIO_MONTHS.indexOf(monthName);
+        const year = Number(namedDate[3]);
+        return month < 0 ? undefined : createRadioCalendarDate(year, month, day);
+    }
+
+    const date = new Date(typeof value === 'number' ? value : rawDate);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+function formatRadioDate(value: unknown): string | undefined {
+    const date = parseRadioDate(value);
+    if (!date) return undefined;
+    return date.toLocaleDateString('en-US', {
+        timeZone: 'UTC',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    });
 }
 
 // ============================================================================

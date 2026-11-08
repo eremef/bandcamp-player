@@ -440,7 +440,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
         marginBottom: 2,
-        textTransform: 'uppercase',
     },
     itemSubtitle: {
         color: '#888',

@@ -3,13 +3,13 @@ import { render, fireEvent, act } from '@testing-library/react-native';
 import RadioDetailScreen from '../../app/radio_detail';
 import { useStore } from '../../store';
 import { RadioStation, Track } from '@shared/types';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 const mockStation: RadioStation = {
     id: 'station-1',
     name: 'Cool Station 1',
     description: 'First cool station description',
-    date: '2023-01-01',
+    date: 'January 1, 2023',
     imageUrl: 'https://example.com/img1.jpg',
     streamUrl: 'https://example.com/stream1.mp3',
     duration: 3600,
@@ -45,7 +45,7 @@ jest.mock('expo-router', () => ({
         id: 'station-1',
         name: 'Cool Station 1',
         description: 'First cool station description',
-        date: '2023-01-01',
+        date: 'January 1, 2023',
         imageUrl: 'https://example.com/img1.jpg',
         streamUrl: 'https://example.com/stream1.mp3',
         duration: '3600',
@@ -103,11 +103,12 @@ describe('RadioDetailScreen', () => {
     });
 
     it('renders station header details correctly', async () => {
-        const { getAllByText, findByText } = await render(<RadioDetailScreen />);
+        const { getAllByText, getByText, findByText } = await render(<RadioDetailScreen />);
 
         expect(await findByText('First cool station description')).toBeTruthy();
         expect(getAllByText('Cool Station 1').length).toBeGreaterThan(0);
-        expect(await findByText(/2023-01-01/)).toBeTruthy();
+        const stationDate = getByText('January 1, 2023 • 1h 0m');
+        expect(StyleSheet.flatten(stationDate.props.style).textTransform).toBeUndefined();
         expect(await findByText('Play Mix')).toBeTruthy();
     });
 
