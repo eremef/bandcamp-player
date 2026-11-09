@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
+import { createRemotePairingTicket } from '../../../shared/remote-pairing-ticket';
 import { X, Trash2, Music, User, LogOut, Copy, Check, RefreshCw, Download, CheckCircle, AlertCircle, ShieldAlert } from 'lucide-react';
 import styles from './SettingsModal.module.css';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -16,7 +17,7 @@ interface SettingsModalProps {
     onClose: () => void;
 }
 
-type CopyableField = 'remoteUrl' | 'pairingCode' | 'fingerprint';
+type CopyableField = 'remoteUrl' | 'pairingTicket';
 
 const getBannerCacheDay = () => Math.floor(Date.now() / 86_400_000);
 
@@ -54,8 +55,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
     const [showUnsafeConfirmation, setShowUnsafeConfirmation] = useState(false);
     const [copiedFields, setCopiedFields] = useState<Record<string, boolean>>({
         remoteUrl: false,
-        pairingCode: false,
-        fingerprint: false,
+        pairingTicket: false,
     });
     const [showDevicesModal, setShowDevicesModal] = useState(false);
     const [pairingInvite, setPairingInvite] = useState<{ code: string; expiresAt: string; caCertificate: string; caFingerprint: string } | null>(null);
@@ -185,6 +185,14 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         ? formatPairingExpiration(pairingInvite.expiresAt, currentTime)
         : null;
     const pairingTicket = pairingInvite && !pairingInviteExpired && remoteStatus?.ip
+        ? createRemotePairingTicket({
+            host: remoteStatus.ip,
+            port: remoteStatus.port,
+            code: pairingInvite.code,
+            caFingerprint: pairingInvite.caFingerprint,
+        }) ?? ''
+        : '';
+    const pairingQrTicket = pairingInvite && !pairingInviteExpired && remoteStatus?.ip
         ? btoa(JSON.stringify({
             version: 1,
             host: remoteStatus.ip,
@@ -193,8 +201,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
             caFingerprint: pairingInvite.caFingerprint,
         })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
         : '';
-    const pairingQrValue = pairingTicket
-        ? `beta-app://pair?ticket=${pairingTicket}`
+    const pairingQrValue = pairingQrTicket
+        ? `beta-app://pair?ticket=${pairingQrTicket}`
         : '';
 
     const availableRemoteInterfaces = remoteStatus?.availableInterfaces ?? [];
@@ -763,57 +771,46 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
                                             <div className={styles.remoteText}>
                                                 <p className={styles.remoteHint}>Scan with the mobile app to pair. The desktop app will ask you to approve the device.</p>
                                                 <details className={styles.manualPairingDetails}>
-                                                    <summary>Can&apos;t scan? Enter details manually</summary>
+                                                    <summary>Can&apos;t scan? Copy a pairing code</summary>
                                                     <div className={styles.pairingCodeBlock}>
-                                                        <span className={styles.settingLabel}>Host</span>
-                                                        {remoteStatus.url ? (
-                                                            <div className={styles.remoteUrlContainer}>
-                                                                <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
-                                                                    {remoteStatus.url}
-                                                                </p>
-                                                                <button
-                                                                    className={styles.copyBtn}
-                                                                    onClick={() => handleCopy(remoteStatus.url, 'remoteUrl')}
-                                                                    title="Copy host address"
-                                                                >
-                                                                    {copiedFields.remoteUrl ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <span className={styles.settingHint}>Choose a pairing address above first.</span>
-                                                        )}
-                                                        {pairingInvite ? (
+                                                        <span className={styles.settingLabel}>Mobile pairing code</span>
+                                                        {pairingInviteExpired ? (
+                                                            <span className={styles.settingHint}>Pairing code expired. Generate a new code above.</span>
+                                                        ) : pairingTicket ? (
                                                             <>
-                                                                <span className={styles.settingLabel}>Pairing code</span>
-                                                                {pairingInviteExpired ? (
-                                                                    <span className={styles.settingHint}>Pairing code expired. Generate a new code above.</span>
-                                                                ) : (
-                                                                    <div className={styles.remoteUrlContainer}>
-                                                                        <code className={styles.pairingCode}>{pairingInvite.code}</code>
-                                                                        <button className={styles.copyBtn} onClick={() => handleCopy(pairingInvite.code, 'pairingCode')} title="Copy pairing code">
-                                                                            {copiedFields.pairingCode ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                                <span className={styles.settingLabel}>Certificate fingerprint</span>
                                                                 <div className={styles.remoteUrlContainer}>
-
-                                                                    <code className={styles.fingerprint}>{pairingInvite.caFingerprint.match(/.{1,4}/g)?.join(':')}</code>
-                                                                    <button
-                                                                        className={styles.copyBtn}
-                                                                        onClick={() => handleCopy(pairingInvite.caFingerprint, 'fingerprint')}
-                                                                        title="Copy fingerprint"
-                                                                    >
-                                                                        {copiedFields.fingerprint ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                    <code className={styles.pairingCode}>{pairingTicket}</code>
+                                                                    <button className={styles.copyBtn} onClick={() => handleCopy(pairingTicket, 'pairingTicket')} title="Copy complete pairing code">
+                                                                        {copiedFields.pairingTicket ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
                                                                     </button>
                                                                 </div>
-                                                                <p className={styles.remoteHint}>To use the browser remote, install this local certificate in your operating system once; do not bypass browser certificate warnings.</p>
-                                                                <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
-
+                                                                <p className={styles.remoteHint}>Copy this code and paste it into the mobile app. It includes the desktop address and certificate details.</p>
                                                             </>
                                                         ) : (
-                                                            <span className={styles.settingHint}>Manual pairing details are not available right now.</span>
+                                                            <span className={styles.settingHint}>Choose an available pairing address above to create the code.</span>
                                                         )}
+                                                        <details className={styles.browserPairingDetails}>
+                                                            <summary>Connect a browser instead</summary>
+                                                            <span className={styles.settingLabel}>Browser address</span>
+                                                            {remoteStatus.url ? (
+                                                                <div className={styles.remoteUrlContainer}>
+                                                                    <p className={styles.remoteUrl} onClick={() => handleOpenLink(remoteStatus.url)}>
+                                                                        {remoteStatus.url}
+                                                                    </p>
+                                                                    <button
+                                                                        className={styles.copyBtn}
+                                                                        onClick={() => handleCopy(remoteStatus.url, 'remoteUrl')}
+                                                                        title="Copy browser address"
+                                                                    >
+                                                                        {copiedFields.remoteUrl ? <Check size={14} color="#4bb543" /> : <Copy size={14} />}
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <span className={styles.settingHint}>Choose a pairing address above first.</span>
+                                                            )}
+                                                            <p className={styles.remoteHint}>Install this local certificate in your operating system before connecting. Do not bypass browser certificate warnings.</p>
+                                                            <button className={styles.remoteActionBtn} onClick={handleDownloadRemoteCertificate}>Download browser certificate</button>
+                                                        </details>
                                                     </div>
                                                 </details>
                                                 {pairingError && <p className={styles.remoteError}>{pairingError}</p>}

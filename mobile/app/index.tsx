@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { webSocketService } from '../services/WebSocketService';
 import { loadRemoteSecurityMode, saveRemoteSecurityMode } from '../services/remote-security-mode';
 import type { RemoteSecurityMode } from '../services/remote-security-mode';
+import { isLanIpv4, parseRemotePairingTicket } from '@shared/remote-pairing-ticket';
 
 export default function ConnectScreen() {
     const insets = useSafeAreaInsets();
@@ -21,7 +22,6 @@ export default function ConnectScreen() {
     const [isAutoConnecting, setIsAutoConnecting] = useState(true);
     const [securityMode, setSecurityMode] = useState<RemoteSecurityMode>('safe');
     const [pairingCode, setPairingCode] = useState('');
-    const [certificateFingerprint, setCertificateFingerprint] = useState('');
     const [showManualPairing, setShowManualPairing] = useState(false);
     const [connectionError, setConnectionError] = useState('');
     const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -75,14 +75,43 @@ export default function ConnectScreen() {
     }, [connectionStatus, mode, auth.isAuthenticated, isAutoConnecting, router]);
 
     const handleConnect = (ip?: string) => {
-        const targetIp = ip || ipInput;
-        setHostIp(targetIp);
         setConnectionError('');
-        connect(targetIp, {
-            mode: securityMode,
-            pairingCode: pairingCode.trim() || undefined,
-            caFingerprint: certificateFingerprint.trim() || undefined,
-        });
+
+        if (securityMode === 'safe' && !ip) {
+            const entry = pairingCode.trim();
+            const ticket = parseRemotePairingTicket(entry);
+
+            if (ticket) {
+                setIpInput(ticket.host);
+                setHostIp(ticket.host);
+                connect(ticket.host, {
+                    mode: 'safe',
+                    port: ticket.port,
+                    pairingCode: ticket.code,
+                    caFingerprint: ticket.caFingerprint,
+                });
+                return;
+            }
+
+            const targetIp = entry || ipInput.trim();
+            if (!isLanIpv4(targetIp)) {
+                setConnectionError('Paste the complete pairing code from desktop Settings, or enter the IP address of an already paired desktop.');
+                return;
+            }
+
+            setHostIp(targetIp);
+            connect(targetIp, { mode: 'safe' });
+            return;
+        }
+
+        const targetIp = ip || ipInput.trim();
+        if (!targetIp) {
+            setConnectionError('Enter the desktop IP address.');
+            return;
+        }
+
+        setHostIp(targetIp);
+        connect(targetIp, { mode: securityMode });
     };
 
     const updateSecurityMode = async (newMode: RemoteSecurityMode) => {
@@ -269,7 +298,7 @@ export default function ConnectScreen() {
                                                         accessibilityState={{ expanded: showManualPairing }}
                                                     >
                                                         <Text style={[styles.sectionLabel, { color: colors.accent, textDecorationLine: 'underline' }]}>
-                                                            Can&apos;t scan? Enter details manually
+                                                            Can&apos;t scan? Paste a pairing code manually
                                                         </Text>
                                                     </TouchableOpacity>
                                                 </>
@@ -277,34 +306,19 @@ export default function ConnectScreen() {
                                             {showManualPairing && (
                                                 <View style={[styles.manualPairingFields, keyboardVisible && styles.keyboardManualPairingFields]}>
                                                     <Text style={[styles.sectionLabel, keyboardVisible && styles.keyboardSectionLabel, { color: colors.textSecondary }]}>
-                                                        {keyboardVisible ? 'Enter the pairing details shown in desktop Settings' : 'For manual pairing, enter the code and SHA-256 certificate fingerprint shown in desktop Settings'}
+                                                        {keyboardVisible
+                                                            ? 'Paste the complete pairing code from desktop Settings.'
+                                                            : 'This code includes the desktop address, pairing code and certificate fingerprint. For an already paired desktop, enter its IP address instead.'}
                                                     </Text>
                                                     <TextInput
-                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                                        placeholder="Desktop IP address (e.g. 192.168.1.x)"
-                                                        placeholderTextColor={colors.textSecondary}
-                                                        value={ipInput}
-                                                        onChangeText={setIpInput}
-                                                        keyboardType="numeric"
-                                                        autoCapitalize="none"
-                                                    />
-                                                    <TextInput
-                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                                        placeholder="One-time pairing code"
+                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border, fontSize: 14 }]}
+                                                        placeholder="Pairing code or paired desktop IP"
                                                         placeholderTextColor={colors.textSecondary}
                                                         value={pairingCode}
                                                         onChangeText={setPairingCode}
                                                         autoCapitalize="none"
                                                         autoCorrect={false}
-                                                    />
-                                                    <TextInput
-                                                        style={[styles.input, keyboardVisible && styles.keyboardInput, { backgroundColor: colors.input, color: colors.text, borderColor: colors.border }]}
-                                                        placeholder="Certificate fingerprint (SHA-256)"
-                                                        placeholderTextColor={colors.textSecondary}
-                                                        value={certificateFingerprint}
-                                                        onChangeText={setCertificateFingerprint}
-                                                        autoCapitalize="none"
-                                                        autoCorrect={false}
+                                                        spellCheck={false}
                                                     />
                                                 </View>
                                             )}

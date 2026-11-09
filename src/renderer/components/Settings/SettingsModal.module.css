@@ -576,18 +576,13 @@
     margin-bottom: var(--spacing-sm);
 }
 
-.pairingCode,
-.fingerprint {
+.pairingCode {
     display: block;
     padding-bottom: var(--spacing-xs);
     color: var(--text-secondary);
     overflow-wrap: anywhere;
     user-select: all;
-}
-
-.fingerprint {
-    font-size: 11px;
-    color: var(--text-secondary);
+    font-family: var(--font-monospace);
 }
 
 .approveBtn,

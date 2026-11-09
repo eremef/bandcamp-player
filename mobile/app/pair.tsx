@@ -4,8 +4,9 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Base64 } from 'js-base64';
 import { useStore } from '../store';
 import { webSocketService } from '../services/WebSocketService';
+import { isLanIpv4, parseRemotePairingTicket } from '@shared/remote-pairing-ticket';
 
-interface PairingTicket {
+interface LegacyPairingTicket {
     version: number;
     host: string;
     port: number;
@@ -33,22 +34,30 @@ export default function PairRemoteScreen() {
             return;
         }
 
-        let decoded: PairingTicket;
+        let decoded = parseRemotePairingTicket(ticket);
         try {
-            const normalized = ticket.replace(/-/g, '+').replace(/_/g, '/');
-            const base64 = normalized + '='.repeat((4 - normalized.length % 4) % 4);
-            decoded = JSON.parse(Base64.decode(base64)) as PairingTicket;
-            if (
-                decoded.version !== 1 ||
-                typeof decoded.host !== 'string' ||
-                !isLanIpv4(decoded.host) ||
-                typeof decoded.code !== 'string' ||
-                !/^[A-Za-z0-9_-]{24}$/.test(decoded.code) ||
-                typeof decoded.caFingerprint !== 'string' ||
-                !/^[a-fA-F0-9]{64}$/.test(decoded.caFingerprint.replace(/:/g, '')) ||
-                !Number.isInteger(decoded.port) || decoded.port < 1 || decoded.port > 65535
-            ) throw new Error('Invalid pairing ticket');
+            if (!decoded) {
+                const normalized = ticket.replace(/-/g, '+').replace(/_/g, '/');
+                const base64 = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+                const legacy = JSON.parse(Base64.decode(base64)) as LegacyPairingTicket;
+                if (
+                    legacy.version !== 1 ||
+                    typeof legacy.host !== 'string' ||
+                    !isLanIpv4(legacy.host) ||
+                    typeof legacy.code !== 'string' ||
+                    !/^[A-Za-z0-9_-]{24}$/.test(legacy.code) ||
+                    typeof legacy.caFingerprint !== 'string' ||
+                    !/^[a-fA-F0-9]{64}$/.test(legacy.caFingerprint.replace(/:/g, '')) ||
+                    !Number.isInteger(legacy.port) || legacy.port < 1 || legacy.port > 65535
+                ) throw new Error('Invalid pairing ticket');
+                decoded = legacy;
+            }
         } catch {
+            setError('This pairing QR code is not valid. Create a new code in desktop Settings.');
+            return;
+        }
+
+        if (!decoded) {
             setError('This pairing QR code is not valid. Create a new code in desktop Settings.');
             return;
         }
@@ -89,15 +98,6 @@ export default function PairRemoteScreen() {
             )}
         </View>
     );
-}
-
-function isLanIpv4(host: string): boolean {
-    const octets = host.split('.').map(Number);
-    if (octets.length !== 4 || octets.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) return false;
-    return octets[0] === 10 ||
-        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-        (octets[0] === 192 && octets[1] === 168) ||
-        (octets[0] === 169 && octets[1] === 254);
 }
 
 const styles = StyleSheet.create({
