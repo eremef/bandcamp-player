@@ -13,6 +13,8 @@ vi.mock('lucide-react', () => ({
     Globe: () => <div data-testid="icon-globe" />,
     Clock: () => <div data-testid="icon-clock" />,
     Trash2: () => <div data-testid="icon-trash" />,
+    Pencil: () => <div data-testid="icon-pencil" />,
+    Check: () => <div data-testid="icon-check" />,
 }));
 
 // Mock Store
@@ -23,12 +25,14 @@ vi.mock('../../store/store', () => ({
 describe('ConnectedDevicesModal', () => {
     const mockFetch = vi.fn().mockResolvedValue(undefined);
     const mockDisconnect = vi.fn();
+    const mockRename = vi.fn().mockResolvedValue(true);
     const mockOnClose = vi.fn();
 
     const defaultStore = {
         connectedDevices: [],
         fetchConnectedDevices: mockFetch,
         disconnectDevice: mockDisconnect,
+        renamePairedDevice: mockRename,
         remoteStatus: {},
     };
 
@@ -47,7 +51,7 @@ describe('ConnectedDevicesModal', () => {
     it('renders empty state when no devices', async () => {
         render(<ConnectedDevicesModal onClose={mockOnClose} />);
         await waitFor(() => {
-            expect(document.body.textContent).toContain('No devices connected');
+            expect(document.body.textContent).toContain('No paired devices');
         });
     });
 
@@ -76,6 +80,7 @@ describe('ConnectedDevicesModal', () => {
             expect(getByText('iPhone')).toBeInTheDocument();
             expect(getByText('android · Online')).toBeInTheDocument();
             expect(getByText('ios · Offline')).toBeInTheDocument();
+            expect(document.body.textContent).toContain(`Last seen: ${new Date(mockDevices[0].lastConnectedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`);
         });
     });
 
@@ -99,6 +104,28 @@ describe('ConnectedDevicesModal', () => {
             fireEvent.click(disconnectBtn);
             expect(mockDisconnect).toHaveBeenCalledWith('1');
         });
+    });
+
+    it('renames a paired device', async () => {
+        const mockDevices = [
+            {
+                id: '1', ip: '192.168.1.5', name: 'Android Device', platform: 'android',
+                appVersion: '1.0', device: 'Pixel', createdAt: new Date().toISOString(),
+                lastConnectedAt: new Date().toISOString(), online: false,
+            },
+        ];
+        (useStore as any).mockReturnValue({
+            ...defaultStore,
+            connectedDevices: mockDevices,
+        });
+
+        const { getByRole, getByLabelText } = render(<ConnectedDevicesModal onClose={mockOnClose} />);
+        await waitFor(() => expect(getByRole('button', { name: 'Rename Android Device' })).toBeInTheDocument());
+        fireEvent.click(getByRole('button', { name: 'Rename Android Device' }));
+        fireEvent.change(getByLabelText('Device name'), { target: { value: 'Living room phone' } });
+        fireEvent.click(getByRole('button', { name: 'Save device name' }));
+
+        await waitFor(() => expect(mockRename).toHaveBeenCalledWith('1', 'Living room phone'));
     });
 
     it('closes modal on close button click', async () => {
