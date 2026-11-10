@@ -170,7 +170,7 @@ export default function ConnectedDevicesModal({ onClose }: ConnectedDevicesModal
                                             <span className={styles.deviceIp}>{device.platform} · {device.online ? 'Online' : 'Offline'}</span>
                                             <span className={styles.deviceTime}>
                                                 <Clock size={12} />
-                                                {device.lastConnectedAt ? `Last seen: ${formatDateTime(device.lastConnectedAt)}` : `Paired ${formatDateTime(device.createdAt)}`}
+                                                {device.lastConnectedAt ? `Paired: ${formatDateTime(device.lastConnectedAt)}` : `Paired ${formatDateTime(device.createdAt)}`}
                                             </span>
                                         </div>
                                     </div>

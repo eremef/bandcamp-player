@@ -80,7 +80,7 @@ describe('ConnectedDevicesModal', () => {
             expect(getByText('iPhone')).toBeInTheDocument();
             expect(getByText('android · Online')).toBeInTheDocument();
             expect(getByText('ios · Offline')).toBeInTheDocument();
-            expect(document.body.textContent).toContain(`Last seen: ${new Date(mockDevices[0].lastConnectedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`);
+            expect(document.body.textContent).toContain(`Paired: ${new Date(mockDevices[0].lastConnectedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`);
         });
     });
 
