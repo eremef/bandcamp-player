@@ -186,6 +186,7 @@ export const REMOTE_CHANNELS = {
   ON_CONNECTIONS_CHANGED: "remote:on-connections-changed",
   GET_DEVICES: "remote:get-devices",
   DISCONNECT_DEVICE: "remote:disconnect-device",
+  RENAME_DEVICE: "remote:rename-device",
   CREATE_PAIRING_INVITE: "remote:create-pairing-invite",
   GET_PAIRING_CERTIFICATE: "remote:get-pairing-certificate",
   APPROVE_PAIRING: "remote:approve-pairing",

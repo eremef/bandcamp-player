@@ -191,8 +191,9 @@ interface RemoteSlice {
   stopRemote: () => Promise<void>;
   fetchConnectedDevices: () => Promise<void>;
   disconnectDevice: (clientId: string) => Promise<void>;
+  renamePairedDevice: (clientId: string, name: string) => Promise<boolean>;
   createPairingInvite: () => Promise<RemotePairingInvite>;
-  approvePairing: (requestId: string) => Promise<boolean>;
+  approvePairing: (requestId: string, name?: string) => Promise<boolean>;
   rejectPairing: (requestId: string) => Promise<boolean>;
 }
 
@@ -1157,8 +1158,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   },
   stopRemote: async () => {
     await window.electron.remote.stop();
-    get().fetchRemoteStatus();
-    set({ connectedDevices: [], pairingRequests: [] });
+    await Promise.all([get().fetchRemoteStatus(), get().fetchConnectedDevices()]);
+    set({ pairingRequests: [] });
   },
   fetchConnectedDevices: async () => {
     const devices = await window.electron.remote.getConnectedDevices();
@@ -1167,11 +1168,16 @@ export const useStore = create<StoreState>()((set, get) => ({
   disconnectDevice: async (clientId) => {
     const success = await window.electron.remote.disconnectDevice(clientId);
     if (success) {
-      get().fetchConnectedDevices();
+      await get().fetchConnectedDevices();
     }
   },
+  renamePairedDevice: async (clientId, name) => {
+    const success = await window.electron.remote.renameDevice(clientId, name);
+    if (success) await get().fetchConnectedDevices();
+    return success;
+  },
   createPairingInvite: async () => window.electron.remote.createPairingInvite(),
-  approvePairing: async (requestId) => window.electron.remote.approvePairing(requestId),
+  approvePairing: async (requestId, name) => window.electron.remote.approvePairing(requestId, name),
   rejectPairing: async (requestId) => window.electron.remote.rejectPairing(requestId),
 
   // ---- Update Slice ----

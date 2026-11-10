@@ -244,6 +244,9 @@
 
 .clearCacheBtn {
     width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm);
     background: var(--bg-secondary);
     color: var(--text-secondary);
@@ -638,6 +641,24 @@
     color: var(--text-secondary);
 }
 
+.pairingDeviceName {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.pairingDeviceName input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
 .remoteError {
     color: var(--color-error);
     font-size: var(--font-size-sm);
@@ -823,7 +844,7 @@
 .updateBtn,
 .installBtn,
 .remoteActionBtn {
-    display: block;
+    display: flex;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
     background: var(--bg-secondary);

@@ -712,7 +712,7 @@ export class RemoteControlService extends EventEmitter {
         return Array.from(this.pairingRequests.values()).map(({ request }) => request);
     }
 
-    approvePairing(requestId: string): boolean {
+    approvePairing(requestId: string, name?: string): boolean {
         const pending = this.pairingRequests.get(requestId);
         const client = this.clients.get(requestId);
         if (!pending || !client || !this.tlsMaterial) return false;
@@ -723,7 +723,7 @@ export class RemoteControlService extends EventEmitter {
         const pairing: RemotePairingRecord = {
             id: crypto.randomUUID(),
             tokenHash: this.hashToken(token).toString('hex'),
-            name: pending.request.name,
+            name: this.safeText(name, pending.request.name, 80),
             platform: pending.request.platform,
             appVersion: pending.request.appVersion,
             device: pending.request.device,
@@ -750,6 +750,15 @@ export class RemoteControlService extends EventEmitter {
         this.emit('paired-devices-changed', this.getConnectedDevices());
         this.emit('connections-changed', this.getStatus().connections);
         return true;
+    }
+
+    renamePairedDevice(deviceId: string, name: string): boolean {
+        const normalizedName = this.safeText(name, '', 80);
+        if (!normalizedName) return false;
+
+        const renamed = this.database.renameRemotePairing(deviceId, normalizedName);
+        if (renamed) this.emit('paired-devices-changed', this.getConnectedDevices());
+        return renamed;
     }
 
     rejectPairing(requestId: string): boolean {

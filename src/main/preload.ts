@@ -313,12 +313,14 @@ const electronAPI = {
       ipcRenderer.invoke(REMOTE_CHANNELS.GET_DEVICES),
     disconnectDevice: (clientId: string): Promise<boolean> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.DISCONNECT_DEVICE, clientId),
+    renameDevice: (clientId: string, name: string): Promise<boolean> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.RENAME_DEVICE, clientId, name),
     createPairingInvite: (): Promise<RemotePairingInvite> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.CREATE_PAIRING_INVITE),
     getPairingCertificate: (): Promise<string | null> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.GET_PAIRING_CERTIFICATE),
-    approvePairing: (requestId: string): Promise<boolean> =>
-      ipcRenderer.invoke(REMOTE_CHANNELS.APPROVE_PAIRING, requestId),
+    approvePairing: (requestId: string, name?: string): Promise<boolean> =>
+      ipcRenderer.invoke(REMOTE_CHANNELS.APPROVE_PAIRING, requestId, name),
     rejectPairing: (requestId: string): Promise<boolean> =>
       ipcRenderer.invoke(REMOTE_CHANNELS.REJECT_PAIRING, requestId),
     onStatusChanged: createEventSubscriber<boolean>(

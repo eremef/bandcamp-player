@@ -474,14 +474,17 @@ export function registerIpcHandlers(ipcMain: IpcMain, services: Services) {
   ipcMain.handle(REMOTE_CHANNELS.DISCONNECT_DEVICE, (_, clientId: string) =>
     remoteService.disconnectDevice(clientId),
   );
+  ipcMain.handle(REMOTE_CHANNELS.RENAME_DEVICE, (_, clientId: string, name: string) =>
+    remoteService.renamePairedDevice(clientId, name),
+  );
   ipcMain.handle(REMOTE_CHANNELS.CREATE_PAIRING_INVITE, () =>
     remoteService.createPairingInvite(),
   );
   ipcMain.handle(REMOTE_CHANNELS.GET_PAIRING_CERTIFICATE, () =>
     remoteService.getPairingCertificate(),
   );
-  ipcMain.handle(REMOTE_CHANNELS.APPROVE_PAIRING, (_, requestId: string) =>
-    remoteService.approvePairing(requestId),
+  ipcMain.handle(REMOTE_CHANNELS.APPROVE_PAIRING, (_, requestId: string, name?: string) =>
+    remoteService.approvePairing(requestId, name),
   );
   ipcMain.handle(REMOTE_CHANNELS.REJECT_PAIRING, (_, requestId: string) =>
     remoteService.rejectPairing(requestId),

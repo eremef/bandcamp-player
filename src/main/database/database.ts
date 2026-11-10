@@ -351,6 +351,11 @@ export class Database {
       .run(lastConnectedAt, id);
   }
 
+  renameRemotePairing(id: string, name: string): boolean {
+    return this.db.prepare("UPDATE remote_paired_devices SET name = ? WHERE id = ?").run(name, id)
+      .changes > 0;
+  }
+
   revokeRemotePairing(id: string): boolean {
     return this.db.prepare("DELETE FROM remote_paired_devices WHERE id = ?").run(id)
       .changes > 0;

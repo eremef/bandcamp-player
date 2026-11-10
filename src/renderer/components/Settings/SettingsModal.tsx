@@ -38,6 +38,7 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
         pairingRequests,
         connectedDevices,
         fetchRemoteStatus,
+        fetchConnectedDevices,
         createPairingInvite,
         approvePairing,
         rejectPairing,
@@ -73,7 +74,8 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
 
     useEffect(() => {
         fetchRemoteStatus();
-    }, [fetchRemoteStatus]);
+        fetchConnectedDevices();
+    }, [fetchRemoteStatus, fetchConnectedDevices]);
 
     useEffect(() => {
         if (settings?.remoteEnabled && remoteStatus?.isRunning && remoteStatus.securityMode === 'safe') {

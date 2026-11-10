@@ -131,6 +131,60 @@
     color: var(--text-primary);
 }
 
+.deviceNameRow,
+.deviceNameEditor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.deviceNameRow .deviceName {
+    overflow-wrap: anywhere;
+}
+
+.renameBtn,
+.saveNameBtn,
+.cancelNameBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    padding: 5px;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.renameBtn:hover,
+.saveNameBtn:hover {
+    color: var(--accent-primary);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.cancelNameBtn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.renameInput {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font: inherit;
+}
+
+.renameError {
+    color: var(--color-error);
+    font-size: 0.8rem;
+}
+
 .deviceMeta {
     display: flex;
     align-items: center;

@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { PinnedWebSocket, pinnedWebSocketEmitter } from '../modules/pinned-websocket';
@@ -271,10 +272,11 @@ class WebSocketService {
     }
 
     private getDeviceInfo() {
+        const deviceName = Device.deviceName?.trim() || Device.modelName?.trim();
         return {
             platform: Platform.OS,
             appVersion: Constants.expoConfig?.version || 'unknown',
-            device: Platform.OS === 'android' ? 'Android device' : Platform.OS === 'ios' ? 'iPhone or iPad' : 'Web browser',
+            device: deviceName || (Platform.OS === 'android' ? 'Android device' : Platform.OS === 'ios' ? 'iPhone or iPad' : 'Web browser'),
         };
     }
 

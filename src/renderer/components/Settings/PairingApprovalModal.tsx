@@ -4,7 +4,7 @@ import styles from './SettingsModal.module.css';
 
 interface PairingApprovalModalProps {
     request: RemotePairingRequest;
-    approvePairing: (requestId: string) => Promise<boolean>;
+    approvePairing: (requestId: string, name?: string) => Promise<boolean>;
     rejectPairing: (requestId: string) => Promise<boolean>;
 }
 
@@ -13,6 +13,7 @@ export default function PairingApprovalModal({ request, approvePairing, rejectPa
     const actionPendingRef = useRef(false);
     const [isPending, setIsPending] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [deviceName, setDeviceName] = useState(request.name);
 
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -29,7 +30,9 @@ export default function PairingApprovalModal({ request, approvePairing, rejectPa
         setIsPending(true);
         setError(null);
         try {
-            const resolved = await (decision === 'approve' ? approvePairing : rejectPairing)(request.id);
+            const resolved = decision === 'approve'
+                ? await approvePairing(request.id, deviceName.trim() || request.name)
+                : await rejectPairing(request.id);
             if (!resolved) {
                 setError('This pairing request is no longer available.');
             }
@@ -59,9 +62,17 @@ export default function PairingApprovalModal({ request, approvePairing, rejectPa
                     This device wants to control playback and access your library. Approve only if you started this pairing.
                 </p>
                 <div className={styles.pairingRequest}>
-                    <strong>{request.name}</strong>
                     <span>{request.platform} · {request.ip}</span>
                 </div>
+                <label className={styles.pairingDeviceName}>
+                    <span>Device name</span>
+                    <input
+                        autoFocus
+                        maxLength={80}
+                        value={deviceName}
+                        onChange={(event) => setDeviceName(event.target.value)}
+                    />
+                </label>
                 {error && <p className={styles.remoteError} role="alert">{error}</p>}
                 <div className={styles.pairingApprovalActions}>
                     <button className={styles.rejectBtn} disabled={isPending} data-autofocus onClick={() => void handleDecision('reject')}>Reject</button>
