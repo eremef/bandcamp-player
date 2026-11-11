@@ -106,6 +106,78 @@ test.describe('Artists View Layout', () => {
         }
     });
 
+    test('wraps long artist names to two lines and keeps grid cards aligned', async ({ electronApp, window }, testInfo) => {
+        const names = [
+            'A',
+            'A Very Long Band Name With Several More Words That Require More Than Two Lines Even On A Large Artist Card',
+            `A${'VeryLongBandNameWithoutSpaces'.repeat(6)}`,
+        ];
+        const collection = {
+            ...MOCK_COLLECTION,
+            items: MOCK_COLLECTION.items.slice(0, 3).map((item, index) => ({
+                ...item,
+                track: { ...item.track, artist: names[index] },
+            })),
+            totalCount: names.length,
+        };
+        await electronApp.evaluate(({ ipcMain }, fixture) => {
+            ipcMain.removeHandler('collection:refresh');
+            ipcMain.handle('collection:refresh', event => {
+                event.sender.send('collection:on-updated', fixture);
+                return fixture;
+            });
+        }, collection);
+        await window.evaluate(() => window.electron.collection.refresh());
+        await expect(window.getByTestId('artists-card')).toHaveCount(3);
+
+        for (const [size, width, fontSize] of [['small', 260, '12px'], ['medium', 400, '14px'], ['large', 560, '14px']] as const) {
+            await window.getByTestId('artists-view-toggle-btn').click();
+            await window.getByTestId(`artists-cover-${size}-btn`).click();
+            const layout = window.getByTestId('artists-layout');
+            await layout.evaluate((element, layoutWidth) => { element.style.width = `${layoutWidth}px`; }, width);
+            const cards = window.getByTestId('artists-card');
+            const geometry = await cards.evaluateAll(elements => elements.map(card => {
+                const label = card.querySelector<HTMLElement>('[class*="artistName"]')!;
+                const count = card.querySelector<HTMLElement>('[class*="itemCount"]')!;
+                const cardRect = card.getBoundingClientRect();
+                return {
+                    width: cardRect.width,
+                    height: cardRect.height,
+                    labelHeight: label.getBoundingClientRect().height,
+                    lineHeight: parseFloat(getComputedStyle(label).lineHeight),
+                    countOffset: count.getBoundingClientRect().top - cardRect.top,
+                };
+            }));
+            for (const item of geometry) {
+                expect(item.width).toBeCloseTo(geometry[0].width, 1);
+                expect(item.height).toBeCloseTo(geometry[0].height, 1);
+                expect(item.labelHeight).toBeCloseTo(item.lineHeight * 2, 1);
+                expect(item.countOffset).toBeCloseTo(geometry[0].countOffset, 1);
+            }
+            for (const name of names) {
+                const label = window.getByTitle(name, { exact: true });
+                await expect(label).toHaveCSS('font-size', fontSize);
+                await expect(label).toHaveCSS('-webkit-line-clamp', '2');
+                await expect(label).toHaveCSS('overflow', 'hidden');
+                await expect(label).toHaveCSS('text-overflow', 'ellipsis');
+                await expect(label).toHaveAttribute('title', name);
+                const dimensions = await label.evaluate(element => ({
+                    scrollHeight: element.scrollHeight,
+                    clientHeight: element.clientHeight,
+                }));
+                if (name !== 'A') expect(dimensions.scrollHeight).toBeGreaterThan(dimensions.clientHeight);
+            }
+            expect(await layout.evaluate(element => element.scrollWidth)).toBe(width);
+            await window.screenshot({ path: testInfo.outputPath(`artists-two-line-${size}.png`) });
+        }
+
+        await window.getByTestId('artists-view-toggle-btn').click();
+        await window.getByTestId('artists-view-list-btn').click();
+        const listName = window.getByTitle(names[1], { exact: true });
+        await expect(listName).toHaveCSS('white-space', 'nowrap');
+        await expect(listName).toHaveCSS('-webkit-line-clamp', 'none');
+    });
+
     test('keeps search and artist navigation working in list mode', async ({ window }) => {
         await window.getByTestId('artists-view-toggle-btn').click();
         await window.getByTestId('artists-view-list-btn').click();

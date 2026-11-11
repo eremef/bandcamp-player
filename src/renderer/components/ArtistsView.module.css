@@ -243,6 +243,16 @@
     gap: var(--spacing-2xs);
 }
 
+.grid[data-layout='grid'] .artistName {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    height: 2lh;
+}
+
 .artistDetails {
     width: 100%;
     min-width: 0;

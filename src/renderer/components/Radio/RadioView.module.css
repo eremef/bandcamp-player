@@ -321,35 +321,6 @@
     gap: var(--spacing-xs);
 }
 
-/* 
-.gridMode.sizeSmall .cardActions {
-    --play-size: 28px;
-}
-
-
-
-.gridMode.sizeSmall .menuButton,
-.gridMode.sizeSmall .externalLink {
-    right: var(--spacing-xs);
-    width: 20px;
-    min-width: 0;
-    height: 20px;
-}
-
-.gridMode.sizeSmall .menuButton {
-    top: var(--spacing-xs);
-}
-
-.gridMode.sizeSmall .externalLink {
-    bottom: var(--spacing-xs);
-}
-
-.gridMode.sizeSmall .menuButton svg,
-.gridMode.sizeSmall .externalLink svg {
-    width: 12px;
-    height: 12px;
-} */
-
 .listMode .card {
     display: grid;
     grid-template-columns: var(--thumbnail-size) minmax(0, 1fr) max-content;
