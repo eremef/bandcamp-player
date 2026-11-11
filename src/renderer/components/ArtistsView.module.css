@@ -120,7 +120,7 @@
     min-width: 0;
     background: var(--bg-tertiary);
     border-radius: var(--radius-lg);
-    padding: var(--spacing-md);
+    padding: var(--spacing-xs);
     cursor: pointer;
     transition: background 0.2s;
     display: flex;
