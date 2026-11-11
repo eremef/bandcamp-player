@@ -216,7 +216,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--view-row-padding);
     border-radius: var(--radius-md);
     transition: background var(--transition-fast);
 }
@@ -228,8 +228,8 @@
 .rowArtwork {
     position: relative;
     flex: 0 0 auto;
-    width: var(--thumb, 48px);
-    height: var(--thumb, 48px);
+    width: var(--thumb, var(--view-thumb-medium));
+    height: var(--thumb, var(--view-thumb-medium));
     border-radius: var(--radius-md);
     overflow: hidden;
     background: var(--bg-tertiary);

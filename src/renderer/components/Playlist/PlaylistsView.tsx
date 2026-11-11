@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import { useStore } from '../../store/store';
 import { useShallow } from 'zustand/react/shallow';
 import { Check, X, Plus, ListMusic, Music, Play, Trash2, Pencil, RefreshCw, Upload, Download } from 'lucide-react';
+import { ViewLayoutControl } from '../UI/ViewLayoutControl';
 import styles from './PlaylistsView.module.css';
 
 export function PlaylistsView() {
-    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, isLoadingBandcampPlaylists, loadingBandcampPlaylistId, importPlaylist, exportPlaylist } = useStore(useShallow(state => ({
+    const { playlists, selectPlaylist, createPlaylist, deletePlaylist, playPlaylist, updatePlaylist, bandcampPlaylists, fetchBandcampPlaylists, isLoadingBandcampPlaylists, loadingBandcampPlaylistId, importPlaylist, exportPlaylist, playlistsViewMode, playlistsCoverSize, setPlaylistsViewMode, setPlaylistsCoverSize } = useStore(useShallow(state => ({
         playlists: state.playlists,
         selectPlaylist: state.selectPlaylist,
         createPlaylist: state.createPlaylist,
@@ -17,8 +18,19 @@ export function PlaylistsView() {
         isLoadingBandcampPlaylists: state.isLoadingBandcampPlaylists,
         loadingBandcampPlaylistId: state.loadingBandcampPlaylistId,
         importPlaylist: state.importPlaylist,
-        exportPlaylist: state.exportPlaylist
+        exportPlaylist: state.exportPlaylist,
+        playlistsViewMode: state.playlists_view_mode,
+        playlistsCoverSize: state.playlists_cover_size,
+        setPlaylistsViewMode: state.setPlaylistsViewMode,
+        setPlaylistsCoverSize: state.setPlaylistsCoverSize,
     })));
+
+    const layoutClass = playlistsViewMode === 'list' ? styles.list : styles.grid;
+    const sizeClass = playlistsCoverSize === 'small'
+        ? styles.sizeSmall
+        : playlistsCoverSize === 'large'
+            ? styles.sizeLarge
+            : styles.sizeMedium;
 
     const [isCreating, setIsCreating] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
@@ -74,28 +86,17 @@ export function PlaylistsView() {
         setImportConflictData(null);
     };
 
-    useEffect(() => {
-        if (isCreating) {
-            // Use setTimeout to ensure the element is in the DOM and ready to be focused
-            const timer = setTimeout(() => {
-                if (createInputRef.current) {
-                    createInputRef.current.focus();
-                    createInputRef.current.select();
-                }
-            }, 50);
-            return () => clearTimeout(timer);
+    useLayoutEffect(() => {
+        if (isCreating && createInputRef.current) {
+            createInputRef.current.focus();
+            createInputRef.current.select();
         }
     }, [isCreating]);
 
-    useEffect(() => {
-        if (isEditingId) {
-            const timer = setTimeout(() => {
-                if (editInputRef.current) {
-                    editInputRef.current.focus();
-                    editInputRef.current.select();
-                }
-            }, 50);
-            return () => clearTimeout(timer);
+    useLayoutEffect(() => {
+        if (isEditingId && editInputRef.current) {
+            editInputRef.current.focus();
+            editInputRef.current.select();
         }
     }, [isEditingId]);
 
@@ -189,6 +190,13 @@ export function PlaylistsView() {
                             </button>
                         </>
                     )}
+                    <ViewLayoutControl
+                        viewMode={playlistsViewMode}
+                        coverSize={playlistsCoverSize}
+                        onViewModeChange={setPlaylistsViewMode}
+                        onCoverSizeChange={setPlaylistsCoverSize}
+                        testIdPrefix="playlists"
+                    />                    
                     <button
                         className={styles.actionButton}
                         onClick={handleRefreshBandcamp}
@@ -215,9 +223,21 @@ export function PlaylistsView() {
                     </button>
                 </div>
             ) : (
-                <div className={styles.grid}>
+                <div
+                    className={`${layoutClass} ${sizeClass}`}
+                    data-testid="playlists-layout"
+                    data-layout={playlistsViewMode}
+                    data-size={playlistsCoverSize}
+                >
                     {playlists.map((playlist) => (
-                        <div key={playlist.id} className={styles.card} onClick={() => selectPlaylist(playlist.id)}>
+                        <div
+                            key={playlist.id}
+                            className={styles.card}
+                            data-testid="playlists-card"
+                            data-layout={playlistsViewMode}
+                            data-size={playlistsCoverSize}
+                            onClick={() => selectPlaylist(playlist.id)}
+                        >
                             <div className={styles.cardArtwork}>
                                 {playlist.artworkUrl ? (
                                     <img src={playlist.artworkUrl} alt="" />
@@ -257,7 +277,20 @@ export function PlaylistsView() {
                                     </div>
                                 ) : (
                                     <>
-                                        <h3 className={styles.cardTitle}>{playlist.name}</h3>
+                                        <h3 className={styles.cardTitle}>
+                                            <button
+                                                type="button"
+                                                className={styles.cardTitleButton}
+                                                aria-label={`Open playlist ${playlist.name}`}
+                                                title={playlist.name}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    selectPlaylist(playlist.id);
+                                                }}
+                                            >
+                                                {playlist.name}
+                                            </button>
+                                        </h3>
                                         <p className={styles.cardMeta}>
                                             {playlist.trackCount} tracks • {formatDuration(playlist.totalDuration)}
                                             {playlist.description && ` • ${playlist.description}`}
@@ -266,6 +299,18 @@ export function PlaylistsView() {
                                 )}
                             </div>
                             <div className={styles.cardActions}>
+                                {playlistsViewMode === 'list' && (
+                                    <button
+                                        className={styles.actionBtn}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            playPlaylist(playlist.id);
+                                        }}
+                                        title="Play"
+                                    >
+                                        <Play size={18} fill="currentColor" />
+                                    </button>
+                                )}
                                 <button
                                     className={styles.actionBtn}
                                     onClick={(e) => handleRenameClick(e, playlist)}
@@ -319,11 +364,23 @@ export function PlaylistsView() {
                             <p>Loading your Bandcamp playlists…</p>
                         </div>
                     ) : (
-                    <div className={styles.grid}>
+                    <div
+                        className={`${layoutClass} ${sizeClass}`}
+                        data-testid="playlists-layout"
+                        data-layout={playlistsViewMode}
+                        data-size={playlistsCoverSize}
+                    >
                         {bandcampPlaylists.map((playlist) => {
                             const isLoadingTracks = loadingBandcampPlaylistId === playlist.id;
                             return (
-                            <div key={playlist.id} className={styles.card} onClick={() => selectPlaylist(playlist.id)}>
+                            <div
+                                key={playlist.id}
+                                className={styles.card}
+                                data-testid="playlists-card"
+                                data-layout={playlistsViewMode}
+                                data-size={playlistsCoverSize}
+                                onClick={() => selectPlaylist(playlist.id)}
+                            >
                                 <div className={styles.cardArtwork}>
                                     {playlist.artworkUrl ? (
                                         <img src={playlist.artworkUrl} alt="" />
@@ -354,7 +411,20 @@ export function PlaylistsView() {
                                     )}
                                 </div>
                                 <div className={styles.cardInfo}>
-                                    <h3 className={styles.cardTitle}>{playlist.name}</h3>
+                                    <h3 className={styles.cardTitle}>
+                                        <button
+                                            type="button"
+                                            className={styles.cardTitleButton}
+                                            aria-label={`Open playlist ${playlist.name}`}
+                                            title={playlist.name}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                selectPlaylist(playlist.id);
+                                            }}
+                                        >
+                                            {playlist.name}
+                                        </button>
+                                    </h3>
                                     <p className={styles.cardMeta}>
                                         {isLoadingTracks
                                             ? 'Loading tracks…'
@@ -362,6 +432,20 @@ export function PlaylistsView() {
                                         {playlist.description && ` • ${playlist.description}`}
                                     </p>
                                 </div>
+                                {playlistsViewMode === 'list' && !isLoadingTracks && (
+                                    <div className={styles.cardActions}>
+                                        <button
+                                            className={styles.actionBtn}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                playPlaylist(playlist.id);
+                                            }}
+                                            title="Play"
+                                        >
+                                            <Play size={18} fill="currentColor" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                             );
                         })}

@@ -21,14 +21,9 @@ import {
   SkipForward,
   List,
   Download,
-  LayoutGrid,
-  Rows3,
-  Rows2,
-  Grid3X3,
-  Grid2X2,
-  Square,
 } from "lucide-react";
 import { ItemsGrid } from "./ItemsGrid";
+import { ViewLayoutControl } from '../UI/ViewLayoutControl';
 import { AddToPlaylistModal } from "../Playlist/AddToPlaylistModal";
 import styles from "./CollectionView.module.css";
 import { dedupeCollectionItems, sortCollectionItems } from "../../utils/collection-utils";
@@ -161,10 +156,8 @@ export function CollectionView() {
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
-  const [viewOpen, setViewOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<HTMLDivElement>(null);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [isBulkOperating, setIsBulkOperating] = useState(false);
   const isOfflineMode = settings?.offlineMode ?? false;
@@ -172,7 +165,7 @@ export function CollectionView() {
   const bulkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!filterOpen && !sortOpen && !viewOpen && !showBulkMenu) return;
+    if (!filterOpen && !sortOpen && !showBulkMenu) return;
     const handler = (e: MouseEvent) => {
       if (filterOpen && filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setFilterOpen(false);
@@ -180,16 +173,13 @@ export function CollectionView() {
       if (sortOpen && sortRef.current && !sortRef.current.contains(e.target as Node)) {
         setSortOpen(false);
       }
-      if (viewOpen && viewRef.current && !viewRef.current.contains(e.target as Node)) {
-        setViewOpen(false);
-      }
       if (showBulkMenu && bulkRef.current && !bulkRef.current.contains(e.target as Node)) {
         setShowBulkMenu(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [filterOpen, sortOpen, viewOpen, showBulkMenu]);
+  }, [filterOpen, sortOpen, showBulkMenu]);
 
   const handleRefresh = () => {
     fetchCollection(true);
@@ -543,68 +533,12 @@ export function CollectionView() {
               )}
             </div>
 
-            <div className={styles.viewDropdownWrapper} ref={viewRef}>
-              <button
-                data-testid="view-toggle-btn"
-                className={styles.viewToggleBtn}
-                onClick={() => setViewOpen((o) => !o)}
-                title="Layout and cover size"
-              >
-                {viewMode === "list" ? <Rows3 size={14} /> : <LayoutGrid size={14} />}
-              </button>
-              {viewOpen && (
-                <div className={styles.viewDropdown}>
-                  <div className={styles.dropdownLabel}>Layout</div>
-                  <button
-                    data-testid="view-grid-btn"
-                    className={styles.dropdownRow}
-                    onClick={() => { setViewMode("grid"); setViewOpen(false); }}
-                  >
-                    <span className={`${styles.dropdownCheck} ${viewMode === "grid" ? styles.checked : ""}`}>
-                      {viewMode === "grid" && <Check size={10} strokeWidth={3} />}
-                    </span>
-                    <LayoutGrid size={13} />
-                    <span>Grid</span>
-                  </button>
-                  <button
-                    data-testid="view-list-btn"
-                    className={styles.dropdownRow}
-                    onClick={() => { setViewMode("list"); setViewOpen(false); }}
-                  >
-                    <span className={`${styles.dropdownCheck} ${viewMode === "list" ? styles.checked : ""}`}>
-                      {viewMode === "list" && <Check size={10} strokeWidth={3} />}
-                    </span>
-                    <Rows3 size={13} />
-                    <span>List</span>
-                  </button>
-
-                  <div className={styles.dropdownDivider} />
-                  <div className={styles.dropdownLabel}>
-                    {viewMode === "list" ? "Thumbnail Size" : "Cover Size"}
-                  </div>
-                  {(
-                    [
-                      { size: "small", icon: viewMode === "list" ? Rows3 : Grid3X3 },
-                      { size: "medium", icon: viewMode === "list" ? Rows2 : Grid2X2 },
-                      { size: "large", icon: Square },
-                    ] as const
-                  ).map(({ size, icon: Icon }) => (
-                    <button
-                      key={size}
-                      data-testid={`cover-${size}-btn`}
-                      className={styles.dropdownRow}
-                      onClick={() => { setCoverSize(size); setViewOpen(false); }}
-                    >
-                      <span className={`${styles.dropdownCheck} ${coverSize === size ? styles.checked : ""}`}>
-                        {coverSize === size && <Check size={10} strokeWidth={3} />}
-                      </span>
-                      <Icon size={13} />
-                      <span>{size.charAt(0).toUpperCase() + size.slice(1)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ViewLayoutControl
+              viewMode={viewMode}
+              coverSize={coverSize}
+              onViewModeChange={setViewMode}
+              onCoverSizeChange={setCoverSize}
+            />
 
             <button
               className={styles.actionButton}

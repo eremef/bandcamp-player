@@ -65,6 +65,18 @@ interface QueueSlice {
   addTracksToQueue: (tracks: Track[], playNext?: boolean) => Promise<void>;
 }
 
+const normalizeViewMode = (value: unknown): CollectionViewMode => value === 'list' ? 'list' : 'grid';
+const normalizeCoverSize = (value: unknown): CoverSize => value === 'small' || value === 'large' ? value : 'medium';
+
+const getViewPreferences = (settings: AppSettings) => ({
+  artists_view_mode: normalizeViewMode(settings.artistsViewMode),
+  artists_cover_size: normalizeCoverSize(settings.artistsCoverSize),
+  playlists_view_mode: normalizeViewMode(settings.playlistsViewMode),
+  playlists_cover_size: normalizeCoverSize(settings.playlistsCoverSize),
+  radio_view_mode: normalizeViewMode(settings.radioViewMode),
+  radio_cover_size: normalizeCoverSize(settings.radioCoverSize),
+});
+
 interface CollectionSlice {
   collection: Collection | null;
   selectedAlbum: Album | null;
@@ -82,6 +94,18 @@ interface CollectionSlice {
   collectionFilterDownloaded: boolean;
   collection_view_mode: CollectionViewMode;
   collection_cover_size: CoverSize;
+  artists_view_mode: CollectionViewMode;
+  artists_cover_size: CoverSize;
+  playlists_view_mode: CollectionViewMode;
+  playlists_cover_size: CoverSize;
+  radio_view_mode: CollectionViewMode;
+  radio_cover_size: CoverSize;
+  setArtistsViewMode: (mode: CollectionViewMode) => void;
+  setArtistsCoverSize: (size: CoverSize) => void;
+  setPlaylistsViewMode: (mode: CollectionViewMode) => void;
+  setPlaylistsCoverSize: (size: CoverSize) => void;
+  setRadioViewMode: (mode: CollectionViewMode) => void;
+  setRadioCoverSize: (size: CoverSize) => void;
   setCollectionSortKey: (key: SortKey) => void;
   setCollectionSortDirection: (dir: "asc" | "desc") => void;
   setCollectionFilterAlbums: (show: boolean) => void;
@@ -502,6 +526,36 @@ export const useStore = create<StoreState>()((set, get) => ({
   collectionFilterDownloaded: false,
   collection_view_mode: "grid",
   collection_cover_size: "medium",
+  artists_view_mode: "grid",
+  artists_cover_size: "medium",
+  playlists_view_mode: "grid",
+  playlists_cover_size: "medium",
+  radio_view_mode: "grid",
+  radio_cover_size: "medium",
+  setArtistsViewMode: (mode) => {
+    set({ artists_view_mode: mode });
+    void get().updateSettings({ artistsViewMode: mode });
+  },
+  setArtistsCoverSize: (size) => {
+    set({ artists_cover_size: size });
+    void get().updateSettings({ artistsCoverSize: size });
+  },
+  setPlaylistsViewMode: (mode) => {
+    set({ playlists_view_mode: mode });
+    void get().updateSettings({ playlistsViewMode: mode });
+  },
+  setPlaylistsCoverSize: (size) => {
+    set({ playlists_cover_size: size });
+    void get().updateSettings({ playlistsCoverSize: size });
+  },
+  setRadioViewMode: (mode) => {
+    set({ radio_view_mode: mode });
+    void get().updateSettings({ radioViewMode: mode });
+  },
+  setRadioCoverSize: (size) => {
+    set({ radio_cover_size: size });
+    void get().updateSettings({ radioCoverSize: size });
+  },
   setCollectionSortKey: (key: SortKey) => {
     set({ collection_sort_key: key });
     get().updateSettings({ collectionSortKey: key });
@@ -1085,6 +1139,7 @@ export const useStore = create<StoreState>()((set, get) => ({
             : false,
         collection_view_mode: settings.collectionViewMode || "grid",
         collection_cover_size: settings.collectionCoverSize || "medium",
+        ...getViewPreferences(settings),
       });
     }
   },
@@ -1428,6 +1483,7 @@ export async function initializeStoreSubscriptions() {
           : false,
       collection_view_mode: settings.collectionViewMode || "grid",
       collection_cover_size: settings.collectionCoverSize || "medium",
+      ...getViewPreferences(settings),
     });
   });
 

@@ -289,6 +289,12 @@ export interface AppSettings {
   collectionFilterDownloaded: boolean;
   collectionViewMode: CollectionViewMode;
   collectionCoverSize: CoverSize;
+  artistsViewMode: CollectionViewMode;
+  artistsCoverSize: CoverSize;
+  playlistsViewMode: CollectionViewMode;
+  playlistsCoverSize: CoverSize;
+  radioViewMode: CollectionViewMode;
+  radioCoverSize: CoverSize;
 
   // Offline mode
   offlineMode: boolean;

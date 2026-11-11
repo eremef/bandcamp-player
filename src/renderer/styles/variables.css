@@ -88,6 +88,17 @@
   /* 48px */
 
   /* ---- Sizing ---- */
+  --view-card-small: 120px;
+  --view-card-medium: 180px;
+  --view-card-large: 260px;
+  --view-thumb-small: 40px;
+  --view-thumb-medium: 48px;
+  --view-thumb-large: 64px;
+  --view-gap-small: var(--spacing-lg);
+  --view-gap-medium: var(--spacing-xl);
+  --view-gap-large: var(--spacing-xl);
+  --view-row-padding: var(--spacing-xs) var(--spacing-sm);
+  --view-action-size: 32px;
   --sidebar-width: 240px;
   --player-bar-height: 90px;
   --titlebar-height: 40px;

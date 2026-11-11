@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { PlaylistsView } from './PlaylistsView';
 import { useStore } from '../../store/store';
 
@@ -9,19 +10,23 @@ vi.mock('../../store/store', () => ({
 }));
 
 // Mock Lucide icons
-vi.mock('lucide-react', () => ({
-    Check: () => <span data-testid="icon-check" />,
-    X: () => <span data-testid="icon-x" />,
-    Plus: () => <span data-testid="icon-plus" />,
-    Upload: () => <span data-testid="icon-upload" />,
-    Download: () => <span data-testid="icon-download" />,
-    ListMusic: () => <span data-testid="icon-list-music" />,
-    Music: () => <span data-testid="icon-music" />,
-    Play: () => <span data-testid="icon-play" />,
-    Trash2: () => <span data-testid="icon-trash" />,
-    Pencil: () => <span data-testid="icon-pencil" />,
-    RefreshCw: () => <span data-testid="icon-refresh-cw" />,
-}));
+vi.mock('lucide-react', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('lucide-react')>();
+    return {
+        ...actual,
+        Check: () => <span data-testid="icon-check" />,
+        X: () => <span data-testid="icon-x" />,
+        Plus: () => <span data-testid="icon-plus" />,
+        Upload: () => <span data-testid="icon-upload" />,
+        Download: () => <span data-testid="icon-download" />,
+        ListMusic: () => <span data-testid="icon-list-music" />,
+        Music: () => <span data-testid="icon-music" />,
+        Play: () => <span data-testid="icon-play" />,
+        Trash2: () => <span data-testid="icon-trash" />,
+        Pencil: () => <span data-testid="icon-pencil" />,
+        RefreshCw: () => <span data-testid="icon-refresh-cw" />,
+    };
+});
 
 describe('PlaylistsView', () => {
     const mockStore = {
@@ -38,6 +43,12 @@ describe('PlaylistsView', () => {
         deletePlaylist: vi.fn(),
         updatePlaylist: vi.fn(),
         playPlaylist: vi.fn(),
+        playlistsViewMode: 'grid',
+        playlistsCoverSize: 'medium',
+        setPlaylistsViewMode: vi.fn(),
+        setPlaylistsCoverSize: vi.fn(),
+        importPlaylist: vi.fn(),
+        exportPlaylist: vi.fn(),
     };
 
     beforeEach(() => {
@@ -55,12 +66,99 @@ describe('PlaylistsView', () => {
         expect(screen.getByText('Workout')).toBeInTheDocument();
         expect(screen.getByText(/5 tracks • 10 min/)).toBeInTheDocument();
         expect(screen.getByText(/10 tracks • 1h 0m/)).toBeInTheDocument();
+        expect(screen.getByTestId('icon-music')).toBeInTheDocument();
     });
 
     it('shows empty state when no playlists', () => {
         (useStore as any).mockReturnValue({ ...mockStore, playlists: [] });
         render(<PlaylistsView />);
         expect(screen.getByText('No playlists yet')).toBeInTheDocument();
+        expect(screen.getByTestId('playlists-view-toggle-btn')).toBeInTheDocument();
+    });
+
+    it.each([
+        ['grid', 'small'],
+        ['grid', 'medium'],
+        ['grid', 'large'],
+        ['list', 'small'],
+        ['list', 'medium'],
+        ['list', 'large'],
+    ] as const)('applies %s/%s to local and Bandcamp playlists', (mode, size) => {
+        (useStore as any).mockReturnValue({
+            ...mockStore,
+            bandcampPlaylists: [
+                { id: 'bc-1', name: 'BC List', trackCount: 7, isBandcampPlaylist: true, bandcampUrl: 'https://bandcamp.com/list' },
+            ],
+            playlistsViewMode: mode,
+            playlistsCoverSize: size,
+        });
+
+        render(<PlaylistsView />);
+
+        const layouts = screen.getAllByTestId('playlists-layout');
+        expect(layouts).toHaveLength(2);
+        for (const layout of layouts) {
+            expect(layout).toHaveAttribute('data-layout', mode);
+            expect(layout).toHaveAttribute('data-size', size);
+        }
+        expect(screen.getAllByTestId('playlists-card')).toHaveLength(3);
+        expect(screen.getByText('Bandcamp Playlists')).toBeInTheDocument();
+    });
+
+    it('persists layout and cover size choices through the playlist control', () => {
+        render(<PlaylistsView />);
+
+        fireEvent.click(screen.getByTestId('playlists-view-toggle-btn'));
+        fireEvent.click(screen.getByTestId('playlists-view-list-btn'));
+        expect(mockStore.setPlaylistsViewMode).toHaveBeenCalledWith('list');
+        expect(screen.queryByTestId('playlists-view-list-btn')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('playlists-view-toggle-btn'));
+        fireEvent.click(screen.getByTestId('playlists-cover-large-btn'));
+        expect(mockStore.setPlaylistsCoverSize).toHaveBeenCalledWith('large');
+    });
+
+    it('keeps create and rename input values mounted while changing layout', () => {
+        const { rerender } = render(<PlaylistsView />);
+        fireEvent.click(screen.getByText('Create Playlist'));
+        const createInput = screen.getByPlaceholderText('Playlist Name');
+        fireEvent.change(createInput, { target: { value: 'Draft name' } });
+        fireEvent.click(screen.getByTestId('playlists-view-toggle-btn'));
+        fireEvent.click(screen.getByTestId('playlists-view-list-btn'));
+        expect(screen.getByPlaceholderText('Playlist Name')).toHaveValue('Draft name');
+
+        fireEvent.click(screen.getByTitle('Cancel'));
+        fireEvent.click(screen.getAllByTitle('Rename playlist')[0]);
+        const renameInput = screen.getByDisplayValue('Chill');
+        fireEvent.change(renameInput, { target: { value: 'Draft rename' } });
+        rerender(<PlaylistsView />);
+        expect(screen.getByDisplayValue('Draft rename')).toBeInTheDocument();
+    });
+
+    it('does not let delayed input focus dismiss the layout popover', async () => {
+        vi.useFakeTimers();
+        try {
+            render(<PlaylistsView />);
+            fireEvent.click(screen.getByText('Create Playlist'));
+            const input = screen.getByPlaceholderText('Playlist Name');
+            expect(input).toHaveFocus();
+
+            fireEvent.click(screen.getByTestId('playlists-view-toggle-btn'));
+            const gridOption = screen.getByTestId('playlists-view-grid-btn');
+            expect(gridOption).toHaveFocus();
+
+            await act(async () => {
+                await vi.advanceTimersByTimeAsync(100);
+            });
+
+            expect(screen.getByRole('group', { name: 'Layout' })).toBeInTheDocument();
+            expect(gridOption).toHaveFocus();
+            fireEvent.click(screen.getByTestId('playlists-view-list-btn'));
+            expect(mockStore.setPlaylistsViewMode).toHaveBeenCalledWith('list');
+            expect(input).toBeInTheDocument();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 
     it('opens create form and submits new playlist', async () => {
@@ -93,6 +191,31 @@ describe('PlaylistsView', () => {
         render(<PlaylistsView />);
         fireEvent.click(screen.getByText('Chill'));
         expect(mockStore.selectPlaylist).toHaveBeenCalledWith('1');
+    });
+
+    it('opens a playlist card with Enter and Space', async () => {
+        render(<PlaylistsView />);
+        const card = screen.getByRole('button', { name: 'Open playlist Chill' });
+        const user = userEvent.setup();
+        card.focus();
+
+        await user.keyboard('{Enter}');
+        await user.keyboard(' ');
+
+        expect(mockStore.selectPlaylist).toHaveBeenNthCalledWith(1, '1');
+        expect(mockStore.selectPlaylist).toHaveBeenNthCalledWith(2, '1');
+    });
+
+    it('keeps play, rename, and export actions from selecting the card', () => {
+        render(<PlaylistsView />);
+
+        fireEvent.click(screen.getAllByTitle('Play')[0]);
+        fireEvent.click(screen.getAllByTitle('Rename playlist')[0]);
+        fireEvent.click(screen.getAllByTitle('Export playlist')[0]);
+
+        expect(mockStore.playPlaylist).toHaveBeenCalledWith('1');
+        expect(mockStore.exportPlaylist).toHaveBeenCalledWith('1');
+        expect(mockStore.selectPlaylist).not.toHaveBeenCalled();
     });
 
     it('calls updatePlaylist when inline rename is submitted', async () => {
@@ -174,6 +297,9 @@ describe('PlaylistsView', () => {
             expect(screen.queryByTestId('playlist-loading-bc-1')).not.toBeInTheDocument();
             expect(screen.getByText('7 tracks')).toBeInTheDocument();
             expect(screen.getByTitle('Play')).toBeInTheDocument();
+            fireEvent.click(screen.getByTitle('Play'));
+            expect(mockStore.playPlaylist).toHaveBeenCalledWith('bc-1');
+            expect(mockStore.selectPlaylist).not.toHaveBeenCalled();
         });
     });
 

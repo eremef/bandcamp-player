@@ -50,6 +50,35 @@ describe('Database', () => {
     });
 
     describe('Settings', () => {
+        it('initializes independent layout defaults', () => {
+            const call = mockRun.mock.calls.find(args => args[0] === 'app_settings');
+            expect(call).toBeDefined();
+            const defaults: unknown = JSON.parse(String(call?.[1]));
+            expect(defaults).toMatchObject({
+                artistsViewMode: 'grid', artistsCoverSize: 'medium',
+                playlistsViewMode: 'grid', playlistsCoverSize: 'medium',
+                radioViewMode: 'grid', radioCoverSize: 'medium',
+            });
+        });
+
+        it('merges new defaults into legacy settings without overwriting saved values', () => {
+            const legacy = { theme: 'light', collectionViewMode: 'list', collectionCoverSize: 'small', artistsViewMode: 'list' };
+            mockRun.mockClear();
+            mockGet.mockReturnValue({ value: JSON.stringify(legacy) });
+            new Database('/mock/legacy.db');
+            const call = mockRun.mock.calls.find(args => typeof args[0] === 'string' && args[0].startsWith('{'));
+            expect(call).toBeDefined();
+            const merged: unknown = JSON.parse(String(call?.[0]));
+            expect(merged).toMatchObject({
+                ...legacy, artistsCoverSize: 'medium', playlistsViewMode: 'grid',
+                playlistsCoverSize: 'medium', radioViewMode: 'grid', radioCoverSize: 'medium',
+            });
+            mockGet.mockReturnValue({ value: JSON.stringify(merged) });
+            mockRun.mockClear();
+            new Database('/mock/legacy.db');
+            expect(mockRun.mock.calls.some(args => typeof args[0] === 'string' && args[0].startsWith('{'))).toBe(false);
+        });
+
         it('should get settings from database', () => {
             // Database uses { value: string } for settings storage
             const mockSettings = { value: '{"scrobblingEnabled":true}' };

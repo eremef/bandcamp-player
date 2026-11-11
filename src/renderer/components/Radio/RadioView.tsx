@@ -3,6 +3,8 @@ import { useStore } from '../../store/store';
 import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 import { Radio, Play, MoreHorizontal, Search, X, ExternalLink, RefreshCw, List, SkipForward, Music, ListPlus } from 'lucide-react';
 import { AddToPlaylistModal } from '../Playlist/AddToPlaylistModal';
+import { ViewLayoutControl } from '../UI/ViewLayoutControl';
+import type { RadioStation } from '../../../shared/types';
 import styles from './RadioView.module.css';
 
 export function RadioView() {
@@ -23,9 +25,13 @@ export function RadioView() {
         clearQueue,
         extractRadioToPlaylist,
         selectRadioStation,
+        radio_view_mode: viewMode,
+        radio_cover_size: coverSize,
+        setRadioViewMode,
+        setRadioCoverSize,
     } = useStore();
     const [visibleCount, setVisibleCount] = useState(20);
-    const [contextMenu, setContextMenu] = useState<{ station: any } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ station: any; side: 'left' | 'right' } | null>(null);
     const [showBulkMenu, setShowBulkMenu] = useState(false);
 
     // Add to Playlist modal states
@@ -68,16 +74,68 @@ export function RadioView() {
         return () => window.removeEventListener('click', handleClick);
     }, []);
 
+    const getContextMenuSide = (target: Element): 'left' | 'right' => {
+        const card = target.closest<HTMLElement>('[data-testid="radio-card"]');
+        const layout = card?.closest<HTMLElement>('[data-testid="radio-layout"]');
+        if (!card || !layout) return 'left';
+        const cardRect = card.getBoundingClientRect();
+        const layoutRect = layout.getBoundingClientRect();
+        return cardRect.left + cardRect.width / 2 > layoutRect.left + layoutRect.width / 2 ? 'right' : 'left';
+    };
+
     const handleContextMenu = (e: React.MouseEvent, station: any) => {
         e.preventDefault();
-        setContextMenu({ station });
+        setContextMenu({ station, side: getContextMenuSide(e.currentTarget) });
     };
 
     const handleMenuClick = (e: React.MouseEvent, station: any) => {
         e.preventDefault();
         e.stopPropagation();
-        setContextMenu({ station });
+        setContextMenu({ station, side: getContextMenuSide(e.currentTarget) });
     };
+
+    const renderStationActions = (station: RadioStation) => (
+        <div className={styles.cardActions} data-testid="radio-card-actions">
+            <div className={styles.playButtons}>
+                <button
+                    className={`${styles.cardAction} ${styles.playBtn}`}
+                    onClick={(e) => { e.stopPropagation(); playRadioStation(station); }}
+                    title="Play Mix"
+                    aria-label={`Play Mix: ${station.name}`}
+                >
+                    <Play size={32} fill="currentColor" />
+                </button>
+                <button
+                    className={`${styles.cardAction} ${styles.playBtn}`}
+                    onClick={(e) => { e.stopPropagation(); window.electron.radio.extractTracks(station, false); }}
+                    title="Play Tracks"
+                    aria-label={`Play Tracks: ${station.name}`}
+                >
+                    <ListPlus size={32} />
+                </button>
+            </div>
+            <button
+                className={`${styles.cardAction} ${styles.menuButton}`}
+                onClick={(e) => handleMenuClick(e, station)}
+                title="More options"
+                aria-label={`More options: ${station.name}`}
+            >
+                <MoreHorizontal size={20} />
+            </button>
+            <button
+                className={`${styles.cardAction} ${styles.externalLink}`}
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.electron.system.openExternal(`https://bandcamp.com/?show=${station.id}`);
+                }}
+                title="View on Bandcamp"
+                aria-label={`View ${station.name} on Bandcamp`}
+            >
+                <ExternalLink size={16} />
+            </button>
+        </div>
+    );
 
     const handlePlayNext = async (station: any) => {
         await addRadioToQueue(station, true);
@@ -153,11 +211,19 @@ export function RadioView() {
                             onChange={(e) => setRadioSearchQuery(e.target.value)}
                         />
                         {radioSearchQuery && (
-                            <button className={styles.clearSearch} onClick={() => setRadioSearchQuery('')}>
+                            <button className={styles.clearSearch} onClick={() => setRadioSearchQuery('')} title="Clear search" aria-label="Clear search">
                                 <X size={16} />
                             </button>
                         )}
                     </div>
+
+                    <ViewLayoutControl
+                        viewMode={viewMode}
+                        coverSize={coverSize}
+                        onViewModeChange={setRadioViewMode}
+                        onCoverSizeChange={setRadioCoverSize}
+                        testIdPrefix="radio"
+                    />
 
                     <button
                         className={styles.refreshBtn}
@@ -228,62 +294,43 @@ export function RadioView() {
 
             <div className={`${styles.scrollContainer} custom-scrollbar`}>
                 {/* Stations grid */}
-                <div className={styles.grid}>
+                <div
+                    className={`${styles.grid} ${viewMode === 'list' ? styles.listMode : styles.gridMode} ${styles[`size${coverSize.charAt(0).toUpperCase()}${coverSize.slice(1)}`]}`}
+                    data-testid="radio-layout"
+                    data-layout={viewMode}
+                    data-size={coverSize}
+                >
                     {filteredStations.slice(0, visibleCount).map((station: any) => (
                         <div
                             key={station.id}
                             className={`${styles.card} ${radioState.currentStation?.id === station.id ? styles.active : ''}`}
                             onClick={() => selectRadioStation(station)}
+                            onKeyDown={(e) => {
+                                if (e.target !== e.currentTarget) return;
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    selectRadioStation(station);
+                                }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                            aria-label={station.name}
                             onContextMenu={(e) => handleContextMenu(e, station)}
                             onMouseLeave={() => setContextMenu(null)}
                             style={{ zIndex: contextMenu?.station?.id === station.id ? 50 : 1 }}
                             data-testid="radio-card"
+                            title={station.name}
                         >
-                            <div className={styles.cardImage}>
+                            <div className={styles.cardImage} data-testid="radio-card-image">
                                 {station.imageUrl ? (
                                     <img src={station.imageUrl} alt="" loading="lazy" />
                                 ) : (
                                     <div className={styles.placeholderImage}><Radio size={48} /></div>
                                 )}
-                                <div className={styles.cardOverlay}>
-                                    <div className={styles.playButtons}>
-                                        <button
-                                            className={styles.playBtn}
-                                            onClick={(e) => { e.stopPropagation(); playRadioStation(station); }}
-                                            title="Play Mix"
-                                        >
-                                            <Play size={32} fill="currentColor" />
-                                        </button>
-                                        <button
-                                            className={styles.playBtn}
-                                            onClick={(e) => { e.stopPropagation(); window.electron.radio.extractTracks(station, false); }}
-                                            title="Play Tracks"
-                                        >
-                                            <ListPlus size={32} />
-                                        </button>
-                                    </div>
-                                    <button
-                                        className={styles.menuButton}
-                                        onClick={(e) => handleMenuClick(e, station)}
-                                        title="More options"
-                                    >
-                                        <MoreHorizontal size={20} />
-                                    </button>
-                                    <button
-                                        className={styles.externalLink}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            window.electron.system.openExternal(`https://bandcamp.com/?show=${station.id}`);
-                                        }}
-                                        title="View on Bandcamp"
-                                    >
-                                        <ExternalLink size={16} />
-                                    </button>
-                                </div>
+                                {viewMode === 'grid' && renderStationActions(station)}
                             </div>
                             <div className={styles.cardInfo}>
-                                <h3 className={styles.cardTitle}>{station.name}</h3>
+                                <h3 className={styles.cardTitle} title={station.name}>{station.name}</h3>
                                 {station.date && (
                                     <p className={styles.cardDate}>
                                         {station.date}
@@ -294,8 +341,12 @@ export function RadioView() {
                                     <p className={styles.cardDescription}>{station.description}</p>
                                 )}
                             </div>
+                            {viewMode === 'list' && renderStationActions(station)}
                             {contextMenu?.station?.id === station.id && (
-                                <div className={styles.contextMenu} onClick={(e) => e.stopPropagation()}>
+                                <div
+                                    className={`${styles.contextMenu} ${contextMenu?.side === 'right' ? styles.contextMenuRight : styles.contextMenuLeft}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                     <span className={styles.menuLabel}>Mix</span>
                                     <button onClick={() => { playRadioStation(station); setContextMenu(null); }}>
                                         <Play size={16} /> Play
@@ -333,9 +384,12 @@ export function RadioView() {
                 </div>
 
                 {visibleCount < filteredStations.length && (
-                    <div ref={targetRef} className={styles.loadMoreContainer} style={{ height: '20px', margin: '20px 0' }}>
-                        {/* Sentinel element for infinite scroll */}
-                    </div>
+                    <div
+                        key={`${radioSearchQuery}-${viewMode}-${coverSize}`}
+                        ref={targetRef}
+                        className={styles.loadMoreContainer}
+                        data-testid="radio-load-more-sentinel"
+                    />
                 )}
 
                 {filteredStations.length === 0 && radioStations.length > 0 && (

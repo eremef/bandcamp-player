@@ -18,12 +18,16 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
 }
 
 .headerActions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
     gap: var(--spacing-md);
 }
 
@@ -101,12 +105,37 @@
 /* Grid */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: var(--spacing-xl);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr));
+    gap: var(--grid-gap);
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.sizeSmall {
+    --card-min: var(--view-card-small);
+    --grid-gap: var(--view-gap-small);
+    --thumb: var(--view-thumb-small);
+}
+
+.sizeMedium {
+    --card-min: var(--view-card-medium);
+    --grid-gap: var(--view-gap-medium);
+    --thumb: var(--view-thumb-medium);
+}
+
+.sizeLarge {
+    --card-min: var(--view-card-large);
+    --grid-gap: var(--view-gap-large);
+    --thumb: var(--view-thumb-large);
 }
 
 .card {
     position: relative;
+    box-sizing: border-box;
     cursor: pointer;
     border-radius: var(--radius-lg);
     background: var(--bg-secondary);
@@ -120,6 +149,18 @@
     box-shadow: var(--shadow-lg);
 }
 
+.cardTitleButton:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.card[data-layout='list'] {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: var(--view-row-padding);
+}
+
 .cardArtwork {
     position: relative;
     aspect-ratio: 1;
@@ -130,6 +171,28 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.card[data-layout='list'] .cardArtwork {
+    width: var(--thumb);
+    height: var(--thumb);
+    flex: 0 0 var(--thumb);
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+}
+
+.card[data-layout='list'] .cardOverlay {
+    display: none;
+}
+
+.card[data-layout='list'] .cardArtwork .placeholderArtwork {
+    font-size: var(--font-size-xl);
+}
+
+.card[data-layout='list'] .cardArtwork .placeholderArtwork svg {
+    width: min(70%, 32px);
+    height: min(70%, 32px);
 }
 
 .placeholderArtwork {
@@ -153,7 +216,8 @@
     transition: opacity var(--transition-fast);
 }
 
-.card:hover .cardOverlay {
+.card:hover .cardOverlay,
+.card:focus-within .cardOverlay {
     opacity: 1;
 }
 
@@ -204,8 +268,24 @@
     transform: scale(1.1);
 }
 
+.grid.sizeSmall .playBtn {
+    width: 34px;
+    height: 34px;
+}
+
+.grid.sizeSmall .playBtn svg {
+    width: 16px;
+    height: 16px;
+}
+
 .cardInfo {
     padding: var(--spacing-lg);
+}
+
+.card[data-layout='list'] .cardInfo {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 var(--spacing-sm);
 }
 
 .cardEditInfo {
@@ -259,12 +339,45 @@
     text-overflow: ellipsis;
 }
 
+.cardTitleButton {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    white-space: inherit;
+    overflow: inherit;
+    text-overflow: inherit;
+    cursor: pointer;
+}
+
+.card[data-layout='list'] .cardTitle,
+.card[data-layout='list'] .cardMeta {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.card[data-layout='list'] .cardTitleButton {
+    overflow-wrap: anywhere;
+}
+
 .cardMeta {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.grid.sizeSmall .cardTitle {
+    font-size: var(--font-size-xs);
+}
+
+.grid.sizeSmall .cardMeta {
+    font-size: calc(var(--font-size-xs) - 1px);
 }
 
 .cardActions {
@@ -277,14 +390,25 @@
     transition: opacity var(--transition-fast);
 }
 
-.card:hover .cardActions {
+.card:hover .cardActions,
+.card:focus-within .cardActions {
+    opacity: 1;
+}
+
+.card[data-layout='list'] .cardActions {
+    position: static;
+    flex: 0 0 auto;
+    margin-left: auto;
+    padding-left: var(--spacing-sm);
     opacity: 1;
 }
 
 .actionBtn,
 .deleteBtn {
-    width: 32px;
-    height: 32px;
+    width: var(--view-action-size);
+    height: var(--view-action-size);
+    min-width: var(--view-action-size);
+    min-height: var(--view-action-size);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -20,33 +20,12 @@
     width: 100%;
 }
 
-.viewModeTabs {
+.headerActions {
     display: flex;
-    gap: var(--spacing-xs);
-    background: var(--bg-tertiary);
-    padding: var(--spacing-2xs);
-    border-radius: var(--radius-lg);
-    align-self: flex-start;
-}
-
-.tabButton {
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--text-secondary);
-    background: transparent;
-    transition: all var(--transition-fast);
-}
-
-.tabButton:hover {
-    color: var(--text-primary);
-}
-
-.activeTab {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    min-width: 0;
 }
 
 .title {
@@ -108,17 +87,42 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr));
+    gap: var(--grid-gap);
+}
+
+.sizeSmall {
+    --card-min: var(--view-card-small);
+    --grid-gap: var(--view-gap-small);
+    --thumb: var(--view-thumb-small);
+}
+
+.sizeMedium {
+    --card-min: var(--view-card-medium);
+    --grid-gap: var(--view-gap-medium);
+    --thumb: var(--view-thumb-medium);
+}
+
+.sizeLarge {
+    --card-min: var(--view-card-large);
+    --grid-gap: var(--view-gap-large);
+    --thumb: var(--view-thumb-large);
+}
+
+.list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--spacing-sm);
 }
 
 .artistCard {
     position: relative;
+    box-sizing: border-box;
+    min-width: 0;
     background: var(--bg-tertiary);
     border-radius: var(--radius-lg);
     padding: var(--spacing-md);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -128,11 +132,32 @@
     background: var(--bg-hover);
 }
 
+.artistCard:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.list .artistCard {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+    padding: var(--view-row-padding);
+    text-align: left;
+}
+
 /* Wrapper sits outside overflow:hidden so the dot is never clipped by the circle */
 .imageWrapper {
     position: relative;
     width: 100%;
     margin-bottom: var(--spacing-md);
+}
+
+.list .imageWrapper {
+    width: var(--thumb);
+    height: var(--thumb);
+    flex: 0 0 var(--thumb);
+    margin: 0;
 }
 
 .imageContainer {
@@ -143,6 +168,10 @@
     background: var(--bg-secondary);
     position: relative;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.list .imageContainer {
+    height: 100%;
 }
 
 /* Cached dot — sits at the bottom-left of the circular image, outside the clip */
@@ -214,6 +243,20 @@
     gap: var(--spacing-2xs);
 }
 
+.artistDetails {
+    width: 100%;
+    min-width: 0;
+}
+
+.list .artistDetails {
+    flex: 1;
+}
+
+.list .artistName {
+    text-align: left;
+    justify-content: flex-start;
+}
+
 .labelBadge {
     font-size: 0.6rem;
     font-weight: 700;
@@ -229,6 +272,18 @@
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
     text-align: center;
+}
+
+.list .itemCount {
+    text-align: left;
+}
+
+.sizeSmall[data-layout='grid'] .artistName {
+    font-size: var(--font-size-xs);
+}
+
+.sizeSmall[data-layout='grid'] .itemCount {
+    font-size: calc(var(--font-size-xs) - 1px);
 }
 
 /* Card Overlay & Menu */
@@ -248,9 +303,15 @@
     opacity: 1;
 }
 
+.artistCard:focus-within .cardOverlay {
+    opacity: 1;
+}
+
 .cardPlayButton {
     width: 40px;
     height: 40px;
+    min-width: var(--view-action-size);
+    min-height: var(--view-action-size);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -274,8 +335,8 @@
     position: absolute;
     top: var(--spacing-sm);
     right: var(--spacing-sm);
-    width: 28px;
-    height: 28px;
+    width: var(--view-action-size);
+    height: var(--view-action-size);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -292,6 +353,38 @@
     opacity: 1;
 }
 
+.artistCard:focus-within .cardMenuButton {
+    opacity: 1;
+}
+
+.listActions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex-shrink: 0;
+}
+
+.listPlayButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--view-action-size);
+    height: var(--view-action-size);
+    border-radius: var(--radius-full);
+    background: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.listPlayButton:hover {
+    background: var(--accent-hover);
+}
+
+.list .cardMenuButton {
+    position: static;
+    opacity: 1;
+    flex-shrink: 0;
+}
+
 .cardMenuButton:hover {
     background: var(--accent-primary);
 }
@@ -299,28 +392,45 @@
 .cardMenu {
     position: absolute;
     top: calc(var(--spacing-sm) + 32px);
-    left: var(--spacing-sm);
-    width: 200px;
+    box-sizing: border-box;
+    width: min(200px, calc(100vw - var(--spacing-xl)));
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
     padding: var(--spacing-sm);
     box-shadow: var(--shadow-lg);
-    z-index: 1;
+    z-index: var(--z-dropdown);
     animation: menuFadeIn var(--transition-fast) ease-out;
     text-align: left;
+}
+
+.list .cardMenu {
+    top: calc(100% - var(--spacing-xs));
+}
+
+.cardMenuLeft {
+    left: var(--spacing-sm);
+    right: auto;
+}
+
+.cardMenuRight {
+    right: var(--spacing-sm);
+    left: auto;
 }
 
 .cardMenu button {
     display: flex;
     align-items: center;
+    box-sizing: border-box;
     gap: var(--spacing-sm);
     width: 100%;
+    min-width: 0;
     padding: var(--spacing-sm) var(--spacing-md);
     background: transparent;
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
     text-align: left;
+    white-space: nowrap;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
 }

@@ -1,0 +1,92 @@
+.root {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--spacing-md);
+    height: 35px;
+    min-width: 35px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.trigger:hover,
+.option:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.trigger:focus-visible,
+.option:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 160px;
+    max-width: calc(100vw - 16px);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-default);
+    background: var(--bg-elevated);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown);
+}
+
+.label {
+    padding: 5px var(--spacing-sm) 4px;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    min-height: var(--view-action-size);
+    padding: 5px var(--spacing-sm);
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+}
+
+.check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-default);
+    border-radius: 3px;
+}
+
+.option[aria-pressed='true'] .check {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.divider {
+    height: 1px;
+    margin: var(--spacing-xs) 0;
+    background: var(--border-subtle);
+}

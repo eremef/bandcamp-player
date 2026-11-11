@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { useStore } from "../store/store";
-import type { CollectionItem, Track } from "../../shared/types";
+import type { CollectionItem, CoverSize, Track } from "../../shared/types";
 import { ItemsGrid } from "./Collection/ItemsGrid";
 import { AddToPlaylistModal } from "./Playlist/AddToPlaylistModal";
+import { ViewLayoutControl } from "./UI/ViewLayoutControl";
 import {
   ArrowLeft,
   ExternalLink,
@@ -24,6 +25,12 @@ interface DerivedArtist {
   items: CollectionItem[];
 }
 
+const SIZE_CLASS: Record<CoverSize, string> = {
+  small: "sizeSmall",
+  medium: "sizeMedium",
+  large: "sizeLarge",
+};
+
 export const ArtistsView: React.FC = () => {
   const [playlistTargetArtistItems, setPlaylistTargetArtistItems] = useState<CollectionItem[] | null>(null);
   const {
@@ -40,6 +47,10 @@ export const ArtistsView: React.FC = () => {
     cachedAlbumIds,
     downloadingTracks,
     downloadingAlbumIds,
+    artists_view_mode: viewMode,
+    artists_cover_size: coverSize,
+    setArtistsViewMode,
+    setArtistsCoverSize,
     settings,
     goBack,
   } = useStore();
@@ -49,6 +60,64 @@ export const ArtistsView: React.FC = () => {
   const [isActionsLoading, setIsActionsLoading] = useState(false);
   const [showDetailMenu, setShowDetailMenu] = useState(false);
   const [cardMenuArtistId, setCardMenuArtistId] = useState<string | null>(null);
+  const [cardMenuSide, setCardMenuSide] = useState<'left' | 'right'>('left');
+
+  const openCardMenu = (artistId: string, target: Element) => {
+    const card = target.closest<HTMLElement>('[data-testid="artists-card"]');
+    const layout = card?.closest<HTMLElement>('[data-testid="artists-layout"]');
+    if (card && layout) {
+      const cardRect = card.getBoundingClientRect();
+      const layoutRect = layout.getBoundingClientRect();
+      const isRightSide = viewMode === 'list'
+        || cardRect.left + cardRect.width / 2 > layoutRect.left + layoutRect.width / 2;
+      setCardMenuSide(isRightSide ? 'right' : 'left');
+    }
+    setCardMenuArtistId(artistId);
+  };
+
+  const handleArtistCardKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, artistId: string) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      selectArtist(artistId);
+    }
+  };
+
+  const renderPlayButton = (artist: DerivedArtist, className: string) => (
+    <button
+      className={className}
+      disabled={isActionsLoading}
+      onClick={(event) => {
+        event.stopPropagation();
+        handleCardAction(artist.id, "play");
+      }}
+      title="Play"
+      aria-label={`Play ${artist.name}`}
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M8 5v14l11-7z" />
+      </svg>
+    </button>
+  );
+
+  const renderMenuButton = (artist: DerivedArtist) => (
+    <button
+      className={styles.cardMenuButton}
+      onClick={(event) => {
+        event.stopPropagation();
+        if (cardMenuArtistId === artist.id) {
+          setCardMenuArtistId(null);
+        } else {
+          openCardMenu(artist.id, event.currentTarget);
+        }
+      }}
+      title="More options"
+      aria-label={`More options for ${artist.name}`}
+      aria-expanded={cardMenuArtistId === artist.id}
+    >
+      <MoreHorizontal size={16} />
+    </button>
+  );
 
   const dedupedItems = React.useMemo(
     () => (settings?.deduplicateCollection ? dedupeCollectionItems(collection?.items ?? []) : (collection?.items ?? [])),
@@ -438,15 +507,24 @@ export const ArtistsView: React.FC = () => {
       <div className={styles.header}>
         <div className={styles.headerTop}>
           <h1 className={styles.title}>Artists</h1>
-          <div className={styles.searchContainer}>
-            <Search className={styles.searchIcon} size={18} />
-            <input
-              type="text"
-              placeholder="Search.."
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className={styles.input}
-            />
+          <div className={styles.headerActions}>
+            <div className={styles.searchContainer}>
+              <Search className={styles.searchIcon} size={18} />
+              <input
+                type="text"
+                placeholder="Search.."
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className={styles.input}
+              />
+            </div>
+            <ViewLayoutControl
+              viewMode={viewMode}
+              coverSize={coverSize}
+              onViewModeChange={setArtistsViewMode}
+              onCoverSizeChange={setArtistsCoverSize}
+              testIdPrefix="artists"
+            />            
           </div>
         </div>
       </div>
@@ -455,22 +533,35 @@ export const ArtistsView: React.FC = () => {
         {groupedArtists.map((group) => (
           <div key={group.letter} className={styles.group}>
             <h2 className={styles.groupHeader}>{group.letter}</h2>
-            <div className={styles.grid}>
+            <div
+              className={`${styles.grid} ${styles[viewMode]} ${styles[SIZE_CLASS[coverSize]]}`}
+              data-testid="artists-layout"
+              data-layout={viewMode}
+              data-size={coverSize}
+            >
               {group.artists.map((artist) => (
                 <div
                   key={artist.id}
                   className={styles.artistCard}
+                  style={{ zIndex: cardMenuArtistId === artist.id ? 50 : 1 }}
+                  data-testid="artists-card"
+                  data-artist-id={artist.id}
+                  role="group"
+                  tabIndex={0}
+                  aria-label={`${artist.name}, ${artist.items.length} ${artist.items.length === 1 ? "item" : "items"}`}
                   onClick={() => selectArtist(artist.id)}
-                  onMouseLeave={() => {
-                    if (cardMenuArtistId === artist.id) setCardMenuArtistId(null);
+                  onKeyDown={(event) => handleArtistCardKeyDown(event, artist.id)}
+                  onMouseLeave={(event) => {
+                    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return;
+                    setCardMenuArtistId(current => current === artist.id ? null : current);
                   }}
                   onContextMenu={(e) => {
                     e.preventDefault();
-                    setCardMenuArtistId(artist.id);
+                    openCardMenu(artist.id, e.currentTarget);
                   }}
                 >
                   <div className={styles.imageWrapper}>
-                    <div className={styles.imageContainer}>
+                    <div className={styles.imageContainer} data-testid="artists-artwork">
                       {artist.imageUrl ? (
                         <img
                           src={artist.imageUrl}
@@ -483,54 +574,44 @@ export const ArtistsView: React.FC = () => {
                           {artist.name.charAt(0).toUpperCase()}
                         </div>
                       )}
+                    </div>
+                    {viewMode === "grid" && (
                       <div className={styles.cardOverlay}>
-                        <button
-                          className={styles.cardPlayButton}
-                          disabled={isActionsLoading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCardAction(artist.id, "play");
-                          }}
-                          title="Play"
-                        >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </button>
+                        {renderPlayButton(artist, styles.cardPlayButton)}
                       </div>
+                    )}
+                  </div>
+                  <div className={styles.artistDetails}>
+                    <div className={styles.artistName} title={artist.name}>
+                      {artist.name}
+                    </div>
+                    <div className={styles.itemCount}>
+                      {artist.items.length}{" "}
+                      {artist.items.length === 1 ? "item" : "items"}
                     </div>
                   </div>
-                  <button
-                    className={styles.cardMenuButton}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setCardMenuArtistId(cardMenuArtistId === artist.id ? null : artist.id);
-                    }}
-                    title="More options"
-                  >
-                    <MoreHorizontal size={16} />
-                  </button>
-                  <div className={styles.artistName} title={artist.name}>
-                    {artist.name}
-                  </div>
-                  <div className={styles.itemCount}>
-                    {artist.items.length}{" "}
-                    {artist.items.length === 1 ? "item" : "items"}
-                  </div>
+                  {viewMode === "grid" ? renderMenuButton(artist) : (
+                    <div className={styles.listActions}>
+                      {renderPlayButton(artist, styles.listPlayButton)}
+                      {renderMenuButton(artist)}
+                    </div>
+                  )}
                   {downloadingArtistIds.has(artist.id) ? (
                     <div
                       className={`${styles.cachedDot} ${styles.cachedDotDownloading}`}
                       title="Downloading…"
+                      aria-label="Downloading"
                     />
                   ) : cachedArtistIds.has(artist.id) ? (
                     <div
                       className={styles.cachedDot}
                       title="All content available offline"
+                      aria-label="All content available offline"
                     />
                   ) : null}
                   {cardMenuArtistId === artist.id && (
                     <div
-                      className={styles.cardMenu}
+                      className={`${styles.cardMenu} ${cardMenuSide === 'right' ? styles.cardMenuRight : styles.cardMenuLeft}`}
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button onClick={() => handleCardAction(artist.id, "play")}>

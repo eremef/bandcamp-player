@@ -11,6 +11,7 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    min-width: 0;
     padding-right: var(--spacing-xs);
 }
 
@@ -38,6 +39,8 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 .searchBox {
@@ -92,15 +95,50 @@
     color: var(--text-on-accent);
 }
 
-/* Grid */
 .grid {
+    --card-min: var(--view-card-medium);
+    --card-gap: var(--view-gap-medium);
+    --thumbnail-size: var(--view-thumb-medium);
+    min-width: 0;
+}
+
+.gridMode {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--spacing-xl);
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr));
+    gap: var(--card-gap);
+    align-items: start;
+}
+
+.listMode {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sizeSmall {
+    --card-min: var(--view-card-small);
+    --card-gap: var(--view-gap-small);
+    --thumbnail-size: var(--view-thumb-small);
+}
+
+.sizeMedium {
+    --card-min: var(--view-card-medium);
+    --card-gap: var(--view-gap-medium);
+    --thumbnail-size: var(--view-thumb-medium);
+}
+
+.sizeLarge {
+    --card-min: var(--view-card-large);
+    --card-gap: var(--view-gap-large);
+    --thumbnail-size: var(--view-thumb-large);
 }
 
 .card {
     position: relative;
+    min-width: 0;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
     cursor: pointer;
@@ -114,6 +152,11 @@
     box-shadow: var(--shadow-lg);
 }
 
+.card:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
 .card.active {
     border-color: var(--accent-primary);
     background: var(--accent-muted);
@@ -121,15 +164,18 @@
 
 .cardImage {
     position: relative;
-    aspect-ratio: 16/9;
+    container-type: inline-size;
+    aspect-ratio: 1/1;
     background: var(--bg-tertiary);
+    overflow: hidden;
 }
 
 .cardImage img {
     border-radius: var(--radius-lg);
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    display: block;
 }
 
 .placeholderImage {
@@ -142,78 +188,218 @@
     opacity: 0.3;
 }
 
-.cardOverlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+.cardActions {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: 0 var(--spacing-md) var(--spacing-md);
+    opacity: 1;
     transition: opacity var(--transition-fast);
 }
 
-.card:hover .cardOverlay {
-    opacity: 1;
+.cardAction {
+    width: var(--view-action-size);
+    min-width: var(--view-action-size);
+    height: var(--view-action-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 var(--view-action-size);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
+
+.cardAction:hover,
+.cardAction:focus-visible {
+    background: var(--accent-primary);
+    border-color: var(--accent-primary);
+    color: var(--text-on-accent);
+}
+
+.cardAction:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
 .playButtons {
     display: flex;
+    gap: var(--spacing-xs);
+}
+
+.cardAction svg {
+    width: 18px;
+    height: 18px;
+}
+
+.gridMode .cardActions {
+    --play-size: clamp(34px, calc((100cqw - 96px) / 2), 56px);
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: nowrap;
+    padding: 0;
+    gap: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+}
+
+.gridMode .card:hover .cardActions,
+.gridMode .card:focus-within .cardActions {
+    opacity: 1;
+}
+
+.gridMode .playButtons {
     gap: var(--spacing-sm);
 }
 
-.playBtn {
-    width: 56px;
-    height: 56px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.gridMode .playBtn {
+    width: var(--play-size);
+    height: var(--play-size);
+    min-width: 0;
+    flex-basis: var(--play-size);
     background: var(--accent-primary);
     color: var(--text-on-accent);
+    border: none;
     border-radius: var(--radius-full);
-    font-size: 1.5rem;
-    transition: all var(--transition-fast);
     box-shadow: var(--shadow-lg);
 }
 
-.playBtn:hover {
+.gridMode .playBtn svg {
+    width: calc(var(--play-size) * 0.5714);
+    height: calc(var(--play-size) * 0.5714);
+}
+
+.gridMode .playBtn:hover {
     transform: scale(1.1);
 }
 
-.externalLink {
+.gridMode .menuButton,
+.gridMode .externalLink {
     position: absolute;
-    bottom: var(--spacing-sm);
     right: var(--spacing-sm);
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: rgba(0, 0, 0, 0.5);
     color: var(--text-secondary);
-    border-radius: var(--radius-sm);
+    border: none;
     backdrop-filter: blur(4px);
-    transition: all var(--transition-fast);
-    z-index: 10;
 }
 
-.externalLink:hover {
+.gridMode .menuButton {
+    top: var(--spacing-sm);
+    border-radius: var(--radius-full);
+}
+
+.gridMode .externalLink {
+    bottom: var(--spacing-sm);
+    width: 28px;
+    min-width: 0;
+    height: 28px;
+    border-radius: var(--radius-sm);
+}
+
+.gridMode .menuButton svg {
+    width: 20px;
+    height: 20px;
+}
+
+.gridMode .externalLink svg {
+    width: 16px;
+    height: 16px;
+}
+
+.gridMode .menuButton:hover,
+.gridMode .externalLink:hover {
     background: var(--accent-primary);
     color: var(--text-on-accent);
 }
 
-.menuButton:hover {
-    background: var(--accent-primary);
-    color: var(--text-on-accent);
+.gridMode.sizeSmall .playButtons {
+    gap: var(--spacing-xs);
+}
+
+/* 
+.gridMode.sizeSmall .cardActions {
+    --play-size: 28px;
+}
+
+
+
+.gridMode.sizeSmall .menuButton,
+.gridMode.sizeSmall .externalLink {
+    right: var(--spacing-xs);
+    width: 20px;
+    min-width: 0;
+    height: 20px;
+}
+
+.gridMode.sizeSmall .menuButton {
+    top: var(--spacing-xs);
+}
+
+.gridMode.sizeSmall .externalLink {
+    bottom: var(--spacing-xs);
+}
+
+.gridMode.sizeSmall .menuButton svg,
+.gridMode.sizeSmall .externalLink svg {
+    width: 12px;
+    height: 12px;
+} */
+
+.listMode .card {
+    display: grid;
+    grid-template-columns: var(--thumbnail-size) minmax(0, 1fr) max-content;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--view-row-padding);
+}
+
+.listMode .cardImage {
+    width: var(--thumbnail-size);
+    height: auto;
+    aspect-ratio: 16/9;
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.listMode .cardInfo {
+    min-width: 0;
+    padding: 0;
+    grid-column: 2;
+    grid-row: 1;
+}
+
+.listMode .cardActions {
+    justify-content: flex-end;
+    padding: 0;
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.listMode .cardTitle {
+    overflow-wrap: anywhere;
 }
 
 .cardInfo {
     padding: var(--spacing-lg);
+    min-width: 0;
 }
 
 .cardTitle {
     font-size: var(--font-size-md);
     font-weight: var(--font-weight-medium);
     margin-bottom: var(--spacing-xs);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
 }
 
 .cardDate {
@@ -233,6 +419,16 @@
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+}
+
+.gridMode.sizeSmall .cardTitle {
+    font-size: var(--font-size-xs);
+}
+
+.gridMode.sizeSmall .cardDate,
+.gridMode.sizeSmall .cardDescription {
+    font-size: calc(var(--font-size-xs) - 1px);
+    line-height: var(--line-height-normal);
 }
 
 /* Loading */
@@ -270,29 +466,11 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.menuButton {
-    position: absolute;
-    top: var(--spacing-sm);
-    right: var(--spacing-sm);
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    color: var(--text-secondary);
-    border-radius: var(--radius-full);
-    font-size: 1.2rem;
-    backdrop-filter: blur(4px);
-    transition: all var(--transition-fast);
-}
-
 /* Context menu */
 .contextMenu {
     position: absolute;
     top: calc(var(--spacing-sm) + 36px);
-    right: var(--spacing-sm);
-    width: 200px;
+    width: min(200px, calc(100vw - var(--spacing-xl)));
     background: var(--bg-elevated);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-lg);
@@ -300,6 +478,16 @@
     box-shadow: var(--shadow-lg);
     z-index: var(--z-modal);
     animation: scaleIn var(--transition-fast) ease-out;
+}
+
+.contextMenuLeft {
+    left: var(--spacing-sm);
+    right: auto;
+}
+
+.contextMenuRight {
+    right: var(--spacing-sm);
+    left: auto;
 }
 
 @keyframes scaleIn {
@@ -445,13 +633,14 @@
     background: var(--bg-tertiary);
     border: 1px solid var(--border-default);
     border-radius: var(--radius-full);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .bulkMoreButton:hover {
     background: var(--accent-primary);
+    color: var(--text-primary);    
     border-color: var(--accent-primary);
 }
 
@@ -522,13 +711,14 @@
     background: var(--bg-tertiary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-full);
-    color: var(--text-primary);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .refreshBtn:hover {
     background: var(--accent-primary);
+    color: var(--text-primary);
     border-color: var(--accent-primary);
 }
 

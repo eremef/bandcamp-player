@@ -254,13 +254,11 @@
 }
 
 
-.sortDropdownWrapper,
-.viewDropdownWrapper {
+.sortDropdownWrapper {
     position: relative;
 }
 
-.sortToggleBtn,
-.viewToggleBtn {
+.sortToggleBtn {
     display: flex;
     align-items: center;
     gap: 8px;
@@ -277,8 +275,7 @@
     white-space: nowrap;
 }
 
-.sortToggleBtn:hover,
-.viewToggleBtn:hover {
+.sortToggleBtn:hover {
     background: var(--bg-hover);
     color: var(--text-primary);
 }
@@ -298,8 +295,7 @@
     line-height: 1;
 }
 
-.sortDropdown,
-.viewDropdown {
+.sortDropdown {
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
@@ -310,10 +306,6 @@
     box-shadow: var(--shadow-lg);
     z-index: var(--z-dropdown);
     animation: filterMenuIn var(--transition-fast) ease-out;
-}
-
-.viewDropdown {
-    width: 145px;
 }
 
 .sortDropdown {

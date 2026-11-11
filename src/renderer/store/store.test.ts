@@ -177,6 +177,12 @@ describe("useStore", () => {
       loadingBandcampPlaylistId: null,
       selectedAlbum: null,
       settings: null,
+      artists_view_mode: 'grid',
+      artists_cover_size: 'medium',
+      playlists_view_mode: 'grid',
+      playlists_cover_size: 'medium',
+      radio_view_mode: 'grid',
+      radio_cover_size: 'medium',
       radioStations: [],
       collection: null,
       isLoadingCollection: false,
@@ -692,6 +698,95 @@ describe("useStore", () => {
 
     expect(useStore.getState().collection_sort_key).toBe("artist");
     expect(useStore.getState().collection_sort_direction).toBe("asc");
+  });
+
+  describe('overview layout preferences', () => {
+    const preferences = {
+      artistsViewMode: 'list', artistsCoverSize: 'small',
+      playlistsViewMode: 'grid', playlistsCoverSize: 'large',
+      radioViewMode: 'list', radioCoverSize: 'medium',
+    };
+    const expected = {
+      artists_view_mode: 'list', artists_cover_size: 'small',
+      playlists_view_mode: 'grid', playlists_cover_size: 'large',
+      radio_view_mode: 'list', radio_cover_size: 'medium',
+    };
+
+    it.each([
+      ['artistsViewMode', 'artists_view_mode', 'list', () => useStore.getState().setArtistsViewMode('list')],
+      ['artistsCoverSize', 'artists_cover_size', 'small', () => useStore.getState().setArtistsCoverSize('small')],
+      ['playlistsViewMode', 'playlists_view_mode', 'list', () => useStore.getState().setPlaylistsViewMode('list')],
+      ['playlistsCoverSize', 'playlists_cover_size', 'large', () => useStore.getState().setPlaylistsCoverSize('large')],
+      ['radioViewMode', 'radio_view_mode', 'list', () => useStore.getState().setRadioViewMode('list')],
+      ['radioCoverSize', 'radio_cover_size', 'small', () => useStore.getState().setRadioCoverSize('small')],
+    ] as const)('persists only %s while updating the view immediately', async (key, field, value, change) => {
+      mockElectron.settings.set.mockResolvedValue({ [key]: value });
+      const before = useStore.getState();
+      await act(async () => {
+        change();
+        expect(useStore.getState()[field]).toBe(value);
+      });
+      expect(mockElectron.settings.set).toHaveBeenCalledExactlyOnceWith({ [key]: value });
+      for (const other of [
+        'artists_view_mode', 'artists_cover_size', 'playlists_view_mode',
+        'playlists_cover_size', 'radio_view_mode', 'radio_cover_size',
+        'collection_view_mode', 'collection_cover_size',
+      ] as const) {
+        if (other !== field) expect(useStore.getState()[other]).toBe(before[other]);
+      }
+    });
+
+    it('restores independent saved preferences through both settings paths', async () => {
+      mockElectron.settings.get.mockResolvedValue(preferences);
+      await useStore.getState().fetchSettings();
+      expect(useStore.getState()).toMatchObject(expected);
+      await initializeStoreSubscriptions();
+      const listener = mockElectron.settings.onChanged.mock.calls.at(-1)?.[0];
+      expect(listener).toEqual(expect.any(Function));
+      listener({ ...preferences, radioCoverSize: 'large', theme: 'light' });
+      expect(useStore.getState()).toMatchObject({ ...expected, radio_cover_size: 'large' });
+      listener({ ...preferences, theme: 'dark' });
+      expect(useStore.getState()).toMatchObject(expected);
+    });
+
+    it.each([{}, {
+      artistsViewMode: 'rows', artistsCoverSize: 'huge', playlistsViewMode: false,
+      playlistsCoverSize: null, radioViewMode: 1, radioCoverSize: '',
+    }])('defaults missing and invalid saved preferences in both hydration paths', async saved => {
+      const defaults = {
+        artists_view_mode: 'grid', artists_cover_size: 'medium',
+        playlists_view_mode: 'grid', playlists_cover_size: 'medium',
+        radio_view_mode: 'grid', radio_cover_size: 'medium',
+      };
+      useStore.setState({ artists_view_mode: 'list', radio_cover_size: 'large' });
+      mockElectron.settings.get.mockResolvedValue(saved);
+      await useStore.getState().fetchSettings();
+      expect(useStore.getState()).toMatchObject(defaults);
+      await initializeStoreSubscriptions();
+      const listener = mockElectron.settings.onChanged.mock.calls.at(-1)?.[0];
+      useStore.setState({ playlists_view_mode: 'list', artists_cover_size: 'small' });
+      listener(saved);
+      expect(useStore.getState()).toMatchObject(defaults);
+    });
+
+    it('preserves all preferences across rapid partial updates and an unrelated update', async () => {
+      let saved = { ...preferences, collectionViewMode: 'grid', collectionCoverSize: 'large' };
+      mockElectron.settings.set.mockImplementation(async patch => {
+        saved = { ...saved, ...patch };
+        return { ...saved };
+      });
+      await act(async () => {
+        useStore.getState().setArtistsViewMode('grid');
+        useStore.getState().setArtistsCoverSize('large');
+        useStore.getState().setRadioCoverSize('small');
+        await useStore.getState().updateSettings({ showNotifications: false });
+      });
+      expect(saved).toMatchObject({
+        ...preferences, artistsViewMode: 'grid', artistsCoverSize: 'large', radioCoverSize: 'small',
+        collectionViewMode: 'grid', collectionCoverSize: 'large', showNotifications: false,
+      });
+      expect(useStore.getState().settings).toMatchObject(saved);
+    });
   });
 
   it("should persist sort key change", async () => {

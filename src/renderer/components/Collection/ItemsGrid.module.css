@@ -1,7 +1,7 @@
 /* Grid */
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--cover-min), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--cover-min)), 1fr));
     gap: var(--grid-gap);
 }
 
@@ -14,21 +14,21 @@
 
 /* Cover size scale — sizeMedium reproduces the original fixed layout. */
 .sizeSmall {
-    --cover-min: 120px;
-    --grid-gap: var(--spacing-lg);
-    --thumb: 40px;
+    --cover-min: var(--view-card-small);
+    --grid-gap: var(--view-gap-small);
+    --thumb: var(--view-thumb-small);
 }
 
 .sizeMedium {
-    --cover-min: 180px;
-    --grid-gap: var(--spacing-xl);
-    --thumb: 48px;
+    --cover-min: var(--view-card-medium);
+    --grid-gap: var(--view-gap-medium);
+    --thumb: var(--view-thumb-medium);
 }
 
 .sizeLarge {
-    --cover-min: 260px;
-    --grid-gap: var(--spacing-xl);
-    --thumb: 64px;
+    --cover-min: var(--view-card-large);
+    --grid-gap: var(--view-gap-large);
+    --thumb: var(--view-thumb-large);
 }
 
 /* Loading */
