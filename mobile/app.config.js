@@ -2,7 +2,7 @@ module.exports = {
   expo: {
     name: 'Beta Player',
     slug: 'bandcamp-remote',
-    version: '1.8.50',
+    version: '1.8.51-beta',
     orientation: 'portrait',
     icon: './assets/icon.png',
     scheme: 'beta-app',
@@ -26,7 +26,7 @@ module.exports = {
       },
     },
     android: {
-      versionCode: 18500,
+      versionCode: 18510,
       package: 'xyz.eremef.beta',
       permissions: [
         'INTERNET',
