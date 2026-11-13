@@ -26,22 +26,29 @@ async function processIcon() {
         process.exit(1);
     }
 
-    const saveResized = async (name, width, height, destDir, radius = false) => {
-        console.log(`\nProcessing ${name} (${width}x${height})...`);
+    const saveResized = async (name, width, height, destDir, radius = false, scale = 1) => {
+        console.log(`\nProcessing ${name} (${width}x${height}) with scale ${scale}...`);
         try {
+            const canvas = new Jimp({ width, height, color: 0x00000000 });
+
+            const innerWidth = Math.floor(width * scale);
+            const innerHeight = Math.floor(height * scale);
+
             const workImg = baseImage.clone();
 
-            // Jimp v1 resize({ w, h })
-            workImg.resize({ w: width, h: height });
-
+            workImg.resize({ w: innerWidth, h: innerHeight });
             if (radius) {
                 workImg.circle();
             }
 
+            const x = Math.round((width - innerWidth) / 2);
+            const y = Math.round((height - innerHeight) / 2);
+            canvas.composite(workImg, x, y);
+
             const destPath = path.join(destDir, name);
 
             // Try await getBuffer
-            const buffer = await workImg.getBuffer("image/png");
+            const buffer = await canvas.getBuffer("image/png");
             fs.writeFileSync(destPath, buffer);
             console.log(`Saved ${destPath}`);
             return destPath;
@@ -78,7 +85,7 @@ async function processIcon() {
 
     // Mobile
     await saveResized('icon.png', 256, 256, MOBILE_ICON_DIR);
-    await saveResized('splash-icon.png', 512, 512, MOBILE_ICON_DIR, true);
+    await saveResized('splash-icon.png', 512, 512, MOBILE_ICON_DIR, true, 0.95);
     await saveResized('favicon.png', 48, 48, MOBILE_ICON_DIR);
 
     // Adaptive
