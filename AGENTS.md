@@ -43,7 +43,8 @@ Beta Player is an unofficial Bandcamp player with an Electron desktop app and an
 - Use ESM imports only. Follow `eslint.config.mjs`: four spaces, single quotes, trailing commas, type-only imports, and narrowed `unknown`.
 - Use PascalCase for components/types, camelCase for functions/variables, UPPER_SNAKE_CASE for constants, and `kebab-case` for services.
 - Use functional React components, Zustand `useStore()`, and CSS Modules. Do not add code comments unless requested.
-- Quote PowerShell paths containing `(tabs)`. Never stage, commit, or push unless explicitly requested.
+- Quote PowerShell paths containing `(tabs)`. 
+- Never stage, commit, or push unless explicitly requested.
 
 ## Testing Notes
 
