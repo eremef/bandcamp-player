@@ -1,51 +1,23 @@
-import TrackPlayer, { PlayerCommand } from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer } from './NitroPlayerAdapter';
+import type { NativeMediaItem } from './NitroPlayerAdapter';
 import { Track } from '@shared/types';
 import { useStore } from '../store';
 
 export async function setupPlayer() {
-    let isSetup = false;
     try {
-        TrackPlayer.setupPlayer({
-            handleAudioBecomingNoisy: true,
-            audioMixing: 'mix',
-            progressSync: {
-                intervalSeconds: 1,
-            },
-            android: {
-                wakeMode: 'network',
-                taskRemovedBehavior: 'stop',
-            }
-        });
-        TrackPlayer.setCommands({
-            capabilities: [
-                PlayerCommand.PlayPause,
-                PlayerCommand.Next,
-                PlayerCommand.Previous,
-                PlayerCommand.Seek,
-                PlayerCommand.Stop,
-                PlayerCommand.SkipForward,
-                PlayerCommand.SkipBackward,
-            ],
-            handling: 'js'
-        });
-        isSetup = true;
-    } catch (e: any) {
-        if (e?.message?.includes('already been initialized') || e?.message?.includes('already initialized') || e?.message?.includes('already set up')) {
-            isSetup = true;
-        } else {
-            console.error('Error setting up player:', e);
-        }
+        await TrackPlayer.setupPlayer();
+        return true;
+    } catch (error) {
+        console.error('Error setting up player:', error);
+        return false;
     }
-    return isSetup;
 }
 
 export async function addTrack(track: Track, hostIp?: string, queueItems: any[] = [], currentIndex: number = 0) {
     // Ensure player is set up before adding track
     await setupPlayer();
 
-    // We add a "dummy" track that represents the remote state
-    // We don't actually play audio on the phone (to avoid double audio), 
-    // but TrackPlayer needs some URL to show metadata.
+    // Keep a native proxy item for remote metadata; its volume remains zero to avoid double audio.
 
     let streamUrl = track.streamUrl || 'http://localhost/dummy.mp3';
 
@@ -59,7 +31,7 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
     // To support native Next/Previous buttons and correct lock screen metadata in remote mode,
     // we feed the entire queue to the native player. We only provide the real URL
     // for the current track.
-    let nativeQueue = queueItems.map((qTrack, idx) => {
+    let nativeQueue: NativeMediaItem[] = queueItems.map((qTrack, idx) => {
         let dur = qTrack.track.duration;
         if ((!dur || dur <= 0) && (idx === currentIndex || qTrack.track.id === track.id) && storeDuration > 0) {
             dur = storeDuration;
@@ -72,6 +44,7 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
             albumTitle: qTrack.track.album,
             artworkUrl: qTrack.track.artworkUrl,
             duration: dur && dur > 0 ? dur : 0,
+            extraPayload: { queueIndex: idx },
         };
     });
 
@@ -86,14 +59,30 @@ export async function addTrack(track: Track, hostIp?: string, queueItems: any[] 
             albumTitle: track.album,
             artworkUrl: track.artworkUrl,
             duration: dur && dur > 0 ? dur : 0,
+            extraPayload: { queueIndex: 0 },
         }];
         currentIndex = 0;
     }
 
-    TrackPlayer.setMediaItems(nativeQueue, currentIndex);
+    const activeIndex = Math.min(Math.max(0, currentIndex), nativeQueue.length - 1);
+    const remoteQueue: NativeMediaItem[] = [
+        {
+            ...nativeQueue[0],
+            mediaId: `__beta_remote_previous__${nativeQueue[0].mediaId}`,
+            extraPayload: { remoteCommand: 'previous', queueIndex: 0 },
+        },
+        ...nativeQueue,
+        {
+            ...nativeQueue[nativeQueue.length - 1],
+            mediaId: `__beta_remote_next__${nativeQueue[nativeQueue.length - 1].mediaId}`,
+            extraPayload: { remoteCommand: 'next', queueIndex: nativeQueue.length - 1 },
+        },
+    ];
+
+    await TrackPlayer.setMediaItems(remoteQueue, activeIndex + 1);
 
     // Set volume to 0 on the mobile device so we only hear the desktop.
     // The phone still "plays" the track to keep the media session active
     // and provide lock screen controls/metadata, but without outputting sound.
-    TrackPlayer.setVolume(0);
+    await TrackPlayer.setVolume(0);
 }

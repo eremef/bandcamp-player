@@ -405,7 +405,7 @@ Since the application only allows users to stream and cache music they have alre
 
 This application is an unofficial project intended for personal use only. It is not affiliated with, authorized, maintained, sponsored, or endorsed by Bandcamp Ventures LLC. Users are responsible for complying with Bandcamp's Terms of Service and all applicable local and international laws regarding digital content and copyright.
 
-This project is licensed under the MIT License. However, please note that it utilizes [@rntp/player](https://github.com/doublesymmetry/react-native-track-player#readme) (v5+), which is under a proprietary source-available license. While this application is strictly non-commercial and free for personal use, any commercial forks or derivative works must comply with Double Symmetry's commercial licensing terms.
+This project is licensed under the MIT License. The mobile app uses the MIT-licensed [`react-native-nitro-player`](https://github.com/riteshshukla04/react-native-nitro-player) package. See [mobile playback documentation](docs/MOBILE_NITRO_PLAYBACK.md) for its native setup and [third-party licenses](THIRD-PARTY-LICENSES.md) for dependency notices.
 
 ## [Third-party licenses](THIRD-PARTY-LICENSES.md)
 

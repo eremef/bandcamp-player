@@ -1,11 +1,10 @@
-import TrackPlayer, {
-    PlaybackState
-} from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer, PlaybackState } from './NitroPlayerAdapter';
 import { useStore } from '../store';
 import { mobileScraperService } from './MobileScraperService';
 import { mobileDatabase } from './MobileDatabase';
 import { Track, RepeatMode } from '@shared/types';
 import { addTrack, setupPlayer } from './player';
+import type { NativeMediaItem } from './NitroPlayerAdapter';
 
 class MobilePlayerService {
     private isInitialized = false;
@@ -130,7 +129,7 @@ class MobilePlayerService {
             return false;
         }
         if (snapshot.wasPlaying) {
-            TrackPlayer.setVolume(current.volume);
+            await TrackPlayer.setVolume(current.volume);
             await TrackPlayer.play();
             const latest = useStore.getState();
             const latestItem = latest.queue.items[latest.queue.currentIndex];
@@ -255,14 +254,14 @@ class MobilePlayerService {
 
         const safePosition = Number.isFinite(position) ? Math.max(0, position) : 0;
         if (safePosition > 0) {
-            TrackPlayer.seekTo(safePosition);
+            await TrackPlayer.seekTo(safePosition);
             this.authoritativeResume = { mediaId: item.id, position: safePosition, seekIssued: true };
             this.pausedPosition = safePosition;
             useStore.setState({ currentTime: safePosition });
             if (!await this.waitForPosition(safePosition) || generation !== this.loadGeneration) return false;
         }
 
-        TrackPlayer.setVolume(latestStore.volume);
+        await TrackPlayer.setVolume(latestStore.volume);
         await TrackPlayer.play();
         const afterPlay = useStore.getState();
         if (generation !== this.loadGeneration || afterPlay.mode !== 'standalone' ||
@@ -378,7 +377,7 @@ class MobilePlayerService {
         this.lastSetVolume = -1;
 
         try {
-            TrackPlayer.destroy();
+            await TrackPlayer.destroy();
             await this.setupPlayer();
             if (!this.isInitialized) {
                 if (this.controllerRecoveryGeneration === recoveryGeneration) this.failControllerRecovery();
@@ -404,13 +403,13 @@ class MobilePlayerService {
                         currentStore.queue.items.length !== queuedItemIds.length ||
                         currentStore.queue.items.some((item, index) => item.id !== queuedItemIds[index]) ||
                         this.controllerRecoveryFailed || this.controllerRecoveryGeneration !== recoveryGeneration) return false;
-                    TrackPlayer.setRepeatMode(currentStore.repeatMode as any);
-                    if (position > 0) TrackPlayer.seekTo(position);
+                    await TrackPlayer.setRepeatMode(currentStore.repeatMode as any);
+                    if (position > 0) await TrackPlayer.seekTo(position);
                 }
                 if (useStore.getState().isPlaying) {
-                    TrackPlayer.play();
+                    await TrackPlayer.play();
                 } else {
-                    TrackPlayer.pause();
+                    await TrackPlayer.pause();
                 }
                 return true;
             }
@@ -421,13 +420,13 @@ class MobilePlayerService {
 
             const recoveryLoadGeneration = this.loadGeneration;
             const resumeReady = position > 0 ? this.waitForResumeReady() : Promise.resolve(true);
-            void resumeReady.then(ready => {
+            void resumeReady.then(async ready => {
                 const current = useStore.getState();
                 if (!ready || !shouldPlay || this.controllerRecoveryFailed || this.loadGeneration !== recoveryLoadGeneration ||
                     this.controllerRecoveryGeneration !== recoveryGeneration ||
                     current.mode !== 'standalone' || current.currentTrack?.id !== track.id ||
                     current.userIntendedPause) return;
-                TrackPlayer.play();
+                await TrackPlayer.play();
                 useStore.setState({ isPlaying: true });
             }).catch(error => {
                 console.warn('[MobilePlayer] Controller recovery resume failed:', error);
@@ -499,7 +498,9 @@ class MobilePlayerService {
             TrackPlayer.getPlaybackState() !== PlaybackState.Ready ||
             !this.isNativeItemActive(pending.mediaId)) return false;
 
-        TrackPlayer.seekTo(pending.position);
+        void TrackPlayer.seekTo(pending.position).catch(error => {
+            console.warn('[MobilePlayer] Resume seek failed:', error);
+        });
         this.authoritativeResume = { mediaId: pending.mediaId, position: pending.position, seekIssued: true };
         this.pendingResume = null;
         pending.resolve(true);
@@ -530,7 +531,7 @@ class MobilePlayerService {
 
         const { volume, mode } = useStore.getState();
         const playerVolume = mode === 'remote' ? 0 : volume;
-        TrackPlayer.setVolume(playerVolume);
+        await TrackPlayer.setVolume(playerVolume);
         this.lastSetVolume = playerVolume;
 
         this.isInitialized = true;
@@ -543,7 +544,7 @@ class MobilePlayerService {
         if (Math.abs(this.lastSetVolume - targetVolume) > 0.01) {
             this.lastSetVolume = targetVolume;
             try {
-                TrackPlayer.setVolume(targetVolume);
+                void TrackPlayer.setVolume(targetVolume).catch(() => undefined);
             } catch {
                 // Ignore volume errors
             }
@@ -577,81 +578,133 @@ class MobilePlayerService {
 
         if (this.prefetchedQueueIndex === nextIndex) return;
 
-        const nextQueueItem = queue.items[nextIndex];
-        const nextTrack = nextQueueItem.track;
-
-        let streamUrl = nextTrack.streamUrl;
-
         this.isPrefetching = true;
         try {
-            const isCached = store.cachedTrackIds?.has?.(nextTrack.id) || false;
-
-            if (store.offlineMode && !isCached) {
-                // In offline mode, don't prefetch non-cached tracks
-                this.isPrefetching = false;
-                return;
-            }
-
-            if (isCached) {
-                const { mobileCacheService } = require('./MobileCacheService');
-                const cachedUri = await mobileCacheService?.getCachedTrackUri?.(nextTrack.id);
-                if (cachedUri) {
-                    streamUrl = cachedUri;
-                }
-            }
-
-            if (!streamUrl && nextTrack.bandcampUrl) {
-                const { mobileScraperService } = require('./MobileScraperService');
-                const urlToFetch = nextTrack.bandcampUrl;
-                if (urlToFetch?.includes?.('show=')) {
-                    const showId = urlToFetch?.split?.('show=')?.pop()?.split?.('&')?.[0];
-                    if (showId) {
-                        const result = await mobileScraperService?.getStationStreamUrl?.(showId);
-                        if (result?.streamUrl) streamUrl = result.streamUrl;
-                    }
-                } else {
-                    const albumDetails = await mobileScraperService?.getAlbumDetails?.(urlToFetch);
-                    if (albumDetails) {
-                        const foundTrack = albumDetails.tracks?.find?.((t: any) => t.title?.toLowerCase?.() === nextTrack.title?.toLowerCase?.() || t.id === nextTrack.id);
-                        if (foundTrack?.streamUrl) streamUrl = foundTrack.streamUrl;
-                        else if (albumDetails.tracks?.length === 1) streamUrl = albumDetails.tracks[0].streamUrl;
-                    }
-                }
-            }
-
-            if (streamUrl) {
-                const updatedItem = {
-                    mediaId: nextQueueItem.id,
-                    url: streamUrl,
-                    title: nextTrack.title || 'Untitled',
-                    artist: nextTrack.artist || 'Unknown Artist',
-                    albumTitle: nextTrack.album,
-                    artworkUrl: nextTrack.artworkUrl,
-                    duration: nextTrack.duration,
-                };
-                try {
-                    if (typeof TrackPlayer.replaceMediaItem === 'function') {
-                        TrackPlayer.replaceMediaItem(nextIndex, updatedItem);
-                    } else if (typeof TrackPlayer.updateMetadata === 'function') {
-                        TrackPlayer.updateMetadata(nextIndex, updatedItem);
-                    }
-                } catch (err) {
-                    console.warn('[MobilePlayer] Error replacing media item:', err);
-                }
-
-                const newItems = [...queue.items];
-                newItems[nextIndex] = {
-                    ...nextQueueItem,
-                    track: { ...nextTrack, streamUrl }
-                };
-                useStore.setState({ queue: { ...queue, items: newItems } });
-                this.prefetchedQueueIndex = nextIndex;
-            }
-        } catch (e: any) {
-            console.log('[MobilePlayer] Prefetch failed', e?.message || e);
-            if (e?.stack) console.log(e.stack);
+            await this.handleTracksNeedUpdate([{ id: queue.items[nextIndex].id }]);
+        } catch (error) {
+            console.log('[MobilePlayer] Prefetch failed', error);
         } finally {
             this.isPrefetching = false;
+        }
+    }
+
+    public async handleTracksNeedUpdate(requestedTracks: Array<{ id: string; url?: string }>) {
+        if (!Array.isArray(requestedTracks) || requestedTracks.length === 0) return;
+        const generation = this.loadGeneration;
+
+        for (const requestedTrack of requestedTracks) {
+            const store = useStore.getState();
+            if (store.mode !== 'standalone' || generation !== this.loadGeneration) return;
+
+            const queueItem = store.queue.items.find((item) => item.id === requestedTrack.id);
+            if (!queueItem || requestedTrack.url || queueItem.track.hasStream === false) continue;
+
+            const track = queueItem.track;
+            const isCached = store.cachedTrackIds.has(track.id);
+            if (store.offlineMode && !isCached) continue;
+
+            let streamUrl = track.streamUrl || '';
+            let duration = track.duration;
+            try {
+                if (isCached) {
+                    const { mobileCacheService } = require('./MobileCacheService');
+                    const cachedUri = await mobileCacheService.getCachedUri(track.id);
+                    if (cachedUri) streamUrl = cachedUri;
+                }
+
+                if (!streamUrl && track.bandcampUrl) {
+                    if (track.bandcampUrl.includes('show=')) {
+                        const showId = track.bandcampUrl.split('show=').pop()?.split('&')[0];
+                        if (showId) {
+                            const result = await mobileScraperService.getStationStreamUrl(showId);
+                            if (result?.streamUrl) {
+                                streamUrl = result.streamUrl;
+                                if (result.duration) duration = result.duration;
+                            }
+                        }
+                    } else {
+                        let albumUrl = track.bandcampUrl;
+                        if (albumUrl.includes('/album/') && albumUrl.includes('/track/')) {
+                            try {
+                                const url = new URL(albumUrl);
+                                const trackIndex = url.pathname.indexOf('/track/');
+                                if (trackIndex > 0) {
+                                    url.pathname = url.pathname.substring(trackIndex);
+                                    albumUrl = url.href;
+                                }
+                            } catch {
+                                albumUrl = track.bandcampUrl;
+                            }
+                        }
+
+                        const albumDetails = await mobileScraperService.getAlbumDetails(albumUrl);
+                        const foundTrack = albumDetails?.tracks.find((item) =>
+                            item.title.toLowerCase() === track.title.toLowerCase() || item.id === track.id,
+                        );
+                        if (foundTrack?.streamUrl) {
+                            streamUrl = foundTrack.streamUrl;
+                        } else if (albumDetails?.tracks.length === 1) {
+                            streamUrl = albumDetails.tracks[0].streamUrl;
+                        }
+                    }
+                }
+
+                if (generation !== this.loadGeneration) continue;
+                const latest = useStore.getState();
+                const latestQueueItem = latest.queue.items.find((item) => item.id === queueItem.id);
+                if (latest.mode !== 'standalone' || latestQueueItem?.track.id !== track.id) continue;
+
+                if (!streamUrl) {
+                    const queueItems = latest.queue.items.map((item) => item.id === queueItem.id
+                        ? { ...item, track: { ...item.track, hasStream: false } }
+                        : item);
+                    const isActive = latest.queue.items[latest.queue.currentIndex]?.id === queueItem.id;
+                    useStore.setState({
+                        queue: { ...latest.queue, items: queueItems },
+                        ...(isActive ? {
+                            collectionError: latest.offlineMode
+                                ? 'Track not available offline.'
+                                : `"${track.title}" is unreleased (pre-order track)`,
+                        } : {}),
+                    });
+                    void useStore.getState().saveQueue();
+                    if (isActive) {
+                        void this.next().catch(error => {
+                            console.warn('[MobilePlayer] Could not skip an unavailable track:', error);
+                        });
+                    }
+                    continue;
+                }
+
+                const queueIndex = TrackPlayer.getQueue().findIndex((item) => item.mediaId === queueItem.id);
+                if (queueIndex < 0) continue;
+
+                await TrackPlayer.replaceMediaItem(queueIndex, {
+                    mediaId: queueItem.id,
+                    url: streamUrl,
+                    title: track.title || 'Untitled',
+                    artist: track.artist || 'Unknown Artist',
+                    albumTitle: track.album,
+                    artworkUrl: track.artworkUrl,
+                    duration,
+                });
+
+                const current = useStore.getState();
+                if (current.mode !== 'standalone' || generation !== this.loadGeneration) continue;
+                const queueItems = current.queue.items.map((item) => item.id === queueItem.id
+                    ? { ...item, track: { ...item.track, streamUrl, duration } }
+                    : item);
+                const activeItem = queueItems[current.queue.currentIndex];
+                useStore.setState({
+                    queue: { ...current.queue, items: queueItems },
+                    ...(activeItem?.id === queueItem.id && current.currentTrack?.id === track.id
+                        ? { currentTrack: { ...current.currentTrack, streamUrl, duration } }
+                        : {}),
+                });
+                this.prefetchedQueueIndex = current.queue.items.findIndex((item) => item.id === queueItem.id);
+            } catch (error) {
+                console.warn(`[MobilePlayer] Lazy URL resolution failed for ${track.id}:`, error);
+            }
         }
     }
 
@@ -760,10 +813,10 @@ class MobilePlayerService {
             if (savedResume > 0 && expectedMediaId && this.isNativeItemActive(expectedMediaId)) {
                 const currentPosition = TrackPlayer.getProgress().position;
                 if (currentPosition < savedResume - 2 && !this.authoritativeResume?.seekIssued) {
-                    TrackPlayer.seekTo(savedResume);
+                    await TrackPlayer.seekTo(savedResume);
                 }
             }
-            TrackPlayer.play();
+            await TrackPlayer.play();
             useStore.setState({ isPlaying: true });
         } else if (store.currentTrack) {
             await this.playTrack(store.currentTrack, resumePosition);
@@ -781,7 +834,9 @@ class MobilePlayerService {
             : this.getPositionForSnapshot(nativePosition);
         this.pausedPosition = position;
         useStore.setState({ userIntendedPause: true, currentTime: position });
-        TrackPlayer.pause();
+        void TrackPlayer.pause().catch(error => {
+            console.warn('[MobilePlayer] Pause failed:', error);
+        });
         useStore.setState({ isPlaying: false });
         useStore.getState().saveQueue();
     }
@@ -898,14 +953,16 @@ class MobilePlayerService {
             this.authoritativeResume = { mediaId: this.pendingResume.mediaId, position, seekIssued: false };
         } else {
             this.authoritativeResume = null;
-            TrackPlayer.seekTo(position);
+            void TrackPlayer.seekTo(position).catch(error => {
+                console.warn('[MobilePlayer] Seek failed:', error);
+            });
         }
         useStore.setState({ currentTime: position });
     }
 
     async setVolume(level: number) {
         this.lastSetVolume = level;
-        TrackPlayer.setVolume(level);
+        await TrackPlayer.setVolume(level);
         useStore.setState({ volume: level });
         await mobileDatabase.setSetting('standalone_volume', level);
     }
@@ -920,7 +977,9 @@ class MobilePlayerService {
     setRepeat(mode: RepeatMode) {
         useStore.setState({ repeatMode: mode });
         try {
-            TrackPlayer.setRepeatMode(mode as any);
+            void TrackPlayer.setRepeatMode(mode as any).catch(e => {
+                console.log('[MobilePlayer] Failed to set native repeat mode', e);
+            });
         } catch (e) {
             console.log('[MobilePlayer] Failed to set native repeat mode', e);
         }
@@ -938,7 +997,7 @@ class MobilePlayerService {
 
         if (repeatMode === 'one' && currentTrack) {
             this.seek(0);
-            TrackPlayer.play();
+            await TrackPlayer.play();
         } else {
             // Delay slightly to prevent race conditions?
             await this.next();
@@ -1071,7 +1130,7 @@ class MobilePlayerService {
             console.log(`[MobilePlayer] Final stream URL: ${streamUrl}`);
 
             const nativeQueue = await Promise.all(queueItems.map(async (qTrack, idx) => {
-                let itemUrl = 'http://localhost/dummy.mp3';
+                let itemUrl = '';
                 if (idx === currentIndex) {
                     itemUrl = streamUrl;
                 } else if (qTrack.track.streamUrl) {
@@ -1096,6 +1155,7 @@ class MobilePlayerService {
                     albumTitle: qTrack.track.album,
                     artworkUrl: qTrack.track.artworkUrl,
                     duration: qTrack.track.duration,
+                    extraPayload: { queueIndex: idx },
                 };
             }));
             if (generation !== this.loadGeneration) return false;
@@ -1107,7 +1167,7 @@ class MobilePlayerService {
                 latestStore.queue.items[currentIndex]?.track.id !== track.id
             )) return false;
 
-            let finalQueue = [...nativeQueue];
+            let finalQueue: NativeMediaItem[] = [...nativeQueue];
             let finalIndex = currentIndex;
             if (finalQueue.length === 0) {
                 finalQueue = [{
@@ -1118,9 +1178,26 @@ class MobilePlayerService {
                     albumTitle: track.album,
                     artworkUrl: track.artworkUrl,
                     duration: track.duration,
+                    extraPayload: { queueIndex: 0 },
                 }];
                 finalIndex = 0;
             }
+
+            const appIndex = finalIndex;
+            const firstQueueItem = finalQueue[0];
+            const lastQueueItem = finalQueue[finalQueue.length - 1];
+            finalQueue = [{
+                ...firstQueueItem,
+                mediaId: `__beta_queue_previous__${firstQueueItem.mediaId}`,
+                url: streamUrl,
+                extraPayload: { remoteCommand: 'previous', queueIndex: 0 },
+            }, ...finalQueue, {
+                ...lastQueueItem,
+                mediaId: `__beta_queue_end__${lastQueueItem.mediaId}`,
+                url: streamUrl,
+                extraPayload: { remoteCommand: 'next', queueIndex: finalQueue.length - 1 },
+            }];
+            finalIndex = appIndex + 1;
 
             const resumePosition = Number.isFinite(initialPosition) ? Math.max(0, initialPosition) : 0;
             const resumeMediaId = finalQueue[finalIndex]?.mediaId;
@@ -1128,16 +1205,15 @@ class MobilePlayerService {
                 this.createPendingResume(resumeMediaId, resumePosition);
             }
 
+            await TrackPlayer.setRepeatMode(latestStore.repeatMode as any);
+            await TrackPlayer.setMediaItems(finalQueue, finalIndex);
             const artistName = track.artist || 'Unknown Artist';
             useStore.setState({
                 currentTrack: { ...track, streamUrl, artist: artistName },
                 duration: track.duration,
                 currentTime: resumePosition,
-                collectionError: null
+                collectionError: null,
             });
-
-            TrackPlayer.setMediaItems(finalQueue, finalIndex);
-            TrackPlayer.setRepeatMode(latestStore.repeatMode as any);
             this.applyPendingResume();
 
             return true;
@@ -1173,12 +1249,12 @@ class MobilePlayerService {
                 (initialPosition > 0 && latestStore.userIntendedPause)) return;
 
             const { volume } = useStore.getState();
-            TrackPlayer.setVolume(volume);
+            await TrackPlayer.setVolume(volume);
 
             useStore.setState({ isPlaying: true, userIntendedPause: false });
             useStore.getState().saveQueue();
             console.log('[MobilePlayer] Calling TrackPlayer.play()');
-            TrackPlayer.play();
+            await TrackPlayer.play();
             console.log('[MobilePlayer] Playback started');
         } else {
             useStore.setState({ isPlaying: false });

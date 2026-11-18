@@ -1,13 +1,14 @@
 import { mobilePlayerService } from '../services/MobilePlayerService';
-import TrackPlayer, { PlaybackState } from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer, PlaybackState } from '../services/NitroPlayerAdapter';
 import { useStore } from '../store';
 import { mobileScraperService } from '../services/MobileScraperService';
 import { mobileDatabase } from '../services/MobileDatabase';
+import { mobileCacheService } from '../services/MobileCacheService';
 import { addTrack, setupPlayer } from '../services/player';
 
-jest.mock('@rntp/player', () => ({
+jest.mock('../services/NitroPlayerAdapter', () => ({
     __esModule: true,
-    default: {
+    nativePlayerAdapter: {
         setVolume: jest.fn().mockResolvedValue(undefined),
         play: jest.fn().mockResolvedValue(undefined),
         pause: jest.fn().mockResolvedValue(undefined),
@@ -19,6 +20,7 @@ jest.mock('@rntp/player', () => ({
         getActiveMediaItemIndex: jest.fn().mockReturnValue(null),
         setMediaItem: jest.fn().mockResolvedValue(undefined),
         setMediaItems: jest.fn().mockResolvedValue(undefined),
+        replaceMediaItem: jest.fn().mockResolvedValue(undefined),
         setRepeatMode: jest.fn().mockResolvedValue(undefined),
         skipToIndex: jest.fn().mockResolvedValue(undefined),
         removeMediaItems: jest.fn().mockResolvedValue(undefined),
@@ -62,9 +64,16 @@ jest.mock('@rntp/player', () => ({
 jest.mock('../store');
 jest.mock('../services/MobileScraperService');
 jest.mock('../services/MobileDatabase');
+jest.mock('../services/MobileCacheService', () => ({
+    mobileCacheService: {
+        getCachedUri: jest.fn().mockResolvedValue(null),
+        onProgress: jest.fn(),
+        onStatsUpdate: jest.fn(),
+    },
+}));
 jest.mock('../services/player');
 
-let mockNativeQueue: Array<{ mediaId: string }> = [];
+let mockNativeQueue: Array<{ mediaId: string; extraPayload?: Record<string, unknown> }> = [];
 let mockActiveIndex: number | null = null;
 
 function setMutableStoreState(initialState: Record<string, any>) {
@@ -110,6 +119,7 @@ describe('MobilePlayerService', () => {
         });
 
         (setupPlayer as jest.Mock).mockResolvedValue(true);
+        (mobileCacheService.getCachedUri as jest.Mock).mockResolvedValue(null);
     });
 
     afterEach(() => {
@@ -281,8 +291,12 @@ describe('MobilePlayerService', () => {
 
             expect(TrackPlayer.destroy).toHaveBeenCalledTimes(1);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                [expect.objectContaining({ mediaId: 'q1', url: track.streamUrl })],
-                0,
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__q1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ mediaId: 'q1', url: track.streamUrl, extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__q1', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ]),
+                1,
             );
             expect(TrackPlayer.play).not.toHaveBeenCalled();
 
@@ -614,8 +628,12 @@ describe('MobilePlayerService', () => {
 
             expect(success).toBe(true);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'url', duration: 100 })]),
-                0
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ mediaId: '1', url: 'url', duration: 100, extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__1', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ]),
+                1
             );
             expect(useStore.setState).toHaveBeenCalledWith(expect.objectContaining({
                 currentTrack: expect.objectContaining({ streamUrl: 'url' })
@@ -675,29 +693,34 @@ describe('MobilePlayerService', () => {
 
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledTimes(1);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ mediaId: 'q2', url: 'fresh-url' })]),
-                1
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__q1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ mediaId: 'q1', extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: 'q2', url: 'fresh-url', extraPayload: { queueIndex: 1 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__q2', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 1 }) }),
+                ]),
+                2
             );
             expect(mobilePlayerService.isLoadingTrack).toBe(false);
-            expect(mobilePlayerService.isNativeTransitionCurrent(1, 'q2')).toBe(true);
+            expect(mobilePlayerService.isNativeTransitionCurrent(2, 'q2')).toBe(true);
             expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(45);
-            expect(mobilePlayerService.handleNativeMediaItemTransition(0, 'q1')).toBe(true);
-            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+            expect(mobilePlayerService.handleNativeMediaItemTransition(1, 'q1')).toBe(true);
+            expect(mobilePlayerService.isNativeTransitionCurrent(1, 'q1')).toBe(false);
             expect(TrackPlayer.seekTo).not.toHaveBeenCalled();
 
             (TrackPlayer.getPlaybackState as jest.Mock).mockReturnValue(PlaybackState.Ready);
             mobilePlayerService.handlePlaybackStateChanged(PlaybackState.Ready);
             expect(TrackPlayer.seekTo).toHaveBeenCalledWith(45);
-            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+            expect(mobilePlayerService.isNativeTransitionCurrent(1, 'q1')).toBe(false);
 
-            mockNativeQueue.push({ mediaId: 'q3' });
-            mockActiveIndex = 2;
-            expect(mobilePlayerService.handleNativeMediaItemTransition(2, 'q3')).toBe(false);
+            mockNativeQueue.splice(mockNativeQueue.length - 1, 0, { mediaId: 'q3' });
+            mockActiveIndex = 3;
+            expect(mobilePlayerService.handleNativeMediaItemTransition(3, 'q3')).toBe(false);
             expect(mobilePlayerService.getPositionForSnapshot(0)).toBe(0);
 
             mockNativeQueue = [];
             mockActiveIndex = null;
-            expect(mobilePlayerService.isNativeTransitionCurrent(0, 'q1')).toBe(false);
+            expect(mobilePlayerService.isNativeTransitionCurrent(1, 'q1')).toBe(false);
         });
 
         it('queues a Play press until the matching resume seek is applied', async () => {
@@ -842,8 +865,12 @@ describe('MobilePlayerService', () => {
             expect(success).toBe(true);
             expect(mobileScraperService.getStationStreamUrl).toHaveBeenCalledWith('50');
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'radio_url' })]),
-                0
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__r1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ url: 'radio_url', extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__r1', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ]),
+                1
             );
         });
 
@@ -859,8 +886,12 @@ describe('MobilePlayerService', () => {
 
             expect(success).toBe(true);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'album_stream' })]),
-                0
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__t1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ url: 'album_stream', extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__t1', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ]),
+                1
             );
         });
 
@@ -876,8 +907,12 @@ describe('MobilePlayerService', () => {
 
             expect(success).toBe(true);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                expect.arrayContaining([expect.objectContaining({ url: 'fallback_stream' })]),
-                0
+                expect.arrayContaining([
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__t1', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ url: 'fallback_stream', extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__t1', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ]),
+                1
             );
         });
 
@@ -891,13 +926,41 @@ describe('MobilePlayerService', () => {
         });
 
         it('should fail and set error on exception', async () => {
+            const previousTrack = { id: 'previous', title: 'Previous', streamUrl: 'previous-url' };
             const track = { id: 't1', title: 'Fail', streamUrl: 'url' };
+            setMutableStoreState({
+                cachedTrackIds: new Set(),
+                offlineMode: false,
+                saveQueue: jest.fn(),
+                volume: 0.8,
+                isPlaying: true,
+                currentTrack: previousTrack,
+                currentTime: 24,
+                duration: 100,
+                collectionError: null,
+                repeatMode: 'off',
+                isShuffled: false,
+                queue: {
+                    items: [
+                        { id: 'queue-previous', track: previousTrack, source: 'album' },
+                        { id: 'queue-fail', track, source: 'album' },
+                    ],
+                    currentIndex: 1,
+                },
+            });
+            mockNativeQueue = [{ mediaId: 'queue-previous', extraPayload: { queueIndex: 0 } }];
+            mockActiveIndex = 0;
             (TrackPlayer.setMediaItems as jest.Mock).mockImplementationOnce(() => { throw new Error('Crash'); });
 
             const success = await mobilePlayerService.loadTrack(track as any);
+            const state = useStore.getState();
 
             expect(success).toBe(false);
-            expect(useStore.setState).toHaveBeenCalledWith({ collectionError: 'Failed to load track.' });
+            expect(state.currentTrack).toBe(previousTrack);
+            expect(state.currentTime).toBe(24);
+            expect(state.queue.currentIndex).toBe(1);
+            expect(state.collectionError).toBe('Failed to load track.');
+            expect(mockNativeQueue).toEqual([{ mediaId: 'queue-previous', extraPayload: { queueIndex: 0 } }]);
         });
 
         it('should abort if current track in queue does not match track being loaded', async () => {
@@ -934,10 +997,113 @@ describe('MobilePlayerService', () => {
 
             expect(success).toBe(true);
             expect(TrackPlayer.setMediaItems).toHaveBeenCalledWith(
-                [{ mediaId: 't-empty', url: 'url', title: 'Single Track', artist: 'Unknown Artist', albumTitle: undefined, artworkUrl: undefined, duration: 200 }],
-                0
+                [
+                    expect.objectContaining({ mediaId: '__beta_queue_previous__t-empty', extraPayload: expect.objectContaining({ remoteCommand: 'previous', queueIndex: 0 }) }),
+                    expect.objectContaining({ mediaId: 't-empty', url: 'url', title: 'Single Track', artist: 'Unknown Artist', duration: 200, extraPayload: { queueIndex: 0 } }),
+                    expect.objectContaining({ mediaId: '__beta_queue_end__t-empty', url: 'url', extraPayload: expect.objectContaining({ remoteCommand: 'next', queueIndex: 0 }) }),
+                ],
+                1
             );
         });
 
+    });
+
+    describe('lazy URL resolution', () => {
+        function setResolverState(options: { offlineMode?: boolean; cached?: boolean; mode?: 'standalone' | 'remote' } = {}) {
+            const track = {
+                id: 'track-1',
+                title: 'Track One',
+                artist: 'Artist',
+                album: 'Album',
+                bandcampUrl: 'https://artist.bandcamp.com/album/album',
+                streamUrl: '',
+            };
+            const queueItem = { id: 'queue-1', track, source: 'album' };
+            setMutableStoreState({
+                mode: options.mode || 'standalone',
+                cachedTrackIds: options.cached ? new Set(['track-1']) : new Set(),
+                offlineMode: options.offlineMode || false,
+                saveQueue: jest.fn(),
+                volume: 0.8,
+                isPlaying: true,
+                currentTrack: track,
+                currentTime: 10,
+                duration: 90,
+                repeatMode: 'off',
+                isShuffled: false,
+                queue: { items: [queueItem], currentIndex: 0 },
+            });
+            mockNativeQueue = [{ mediaId: 'queue-1', extraPayload: { queueIndex: 0 } }];
+            mockActiveIndex = 0;
+            return { track, queueItem };
+        }
+
+        it('resolves Bandcamp URLs and updates the matching native and app queue item', async () => {
+            const { track } = setResolverState();
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce({
+                tracks: [{ id: 'track-1', title: 'Track One', streamUrl: 'https://audio.example/track-1.mp3' }],
+            });
+
+            await mobilePlayerService.handleTracksNeedUpdate([{ id: 'queue-1' }]);
+
+            expect(TrackPlayer.replaceMediaItem).toHaveBeenCalledWith(0, expect.objectContaining({
+                mediaId: 'queue-1',
+                url: 'https://audio.example/track-1.mp3',
+            }));
+            expect(useStore.getState().queue.items[0].track.streamUrl).toBe('https://audio.example/track-1.mp3');
+            expect(useStore.getState().currentTrack?.streamUrl).toBe('https://audio.example/track-1.mp3');
+            expect(track.streamUrl).toBe('');
+        });
+
+        it('uses cached audio in offline mode and does not scrape Bandcamp', async () => {
+            setResolverState({ offlineMode: true, cached: true });
+            (mobileCacheService.getCachedUri as jest.Mock).mockResolvedValueOnce('file:///cache/track-1.mp3');
+
+            await mobilePlayerService.handleTracksNeedUpdate([{ id: 'queue-1' }]);
+
+            expect(TrackPlayer.replaceMediaItem).toHaveBeenCalledWith(0, expect.objectContaining({
+                url: 'file:///cache/track-1.mp3',
+            }));
+            expect(mobileScraperService.getAlbumDetails).not.toHaveBeenCalled();
+        });
+
+        it('leaves uncached tracks untouched while offline', async () => {
+            setResolverState({ offlineMode: true });
+
+            await mobilePlayerService.handleTracksNeedUpdate([{ id: 'queue-1' }]);
+
+            expect(mobileCacheService.getCachedUri).not.toHaveBeenCalled();
+            expect(mobileScraperService.getAlbumDetails).not.toHaveBeenCalled();
+            expect(TrackPlayer.replaceMediaItem).not.toHaveBeenCalled();
+        });
+
+        it('ignores an asynchronous URL result after mode changes', async () => {
+            setResolverState();
+            let resolveDetails!: (value: { tracks: Array<{ title: string; streamUrl: string }> }) => void;
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockReturnValueOnce(new Promise(resolve => {
+                resolveDetails = resolve;
+            }));
+
+            const resolution = mobilePlayerService.handleTracksNeedUpdate([{ id: 'queue-1' }]);
+            useStore.setState({ mode: 'remote' } as any);
+            resolveDetails({ tracks: [{ title: 'Track One', streamUrl: 'https://audio.example/stale.mp3' }] });
+            await resolution;
+
+            expect(TrackPlayer.replaceMediaItem).not.toHaveBeenCalled();
+            expect(useStore.getState().queue.items[0].track.streamUrl).toBe('');
+        });
+
+        it('marks an unresolved active track unavailable and skips through app queue logic', async () => {
+            const { track } = setResolverState();
+            (mobileScraperService.getAlbumDetails as jest.Mock).mockResolvedValueOnce(null);
+            const nextSpy = jest.spyOn(mobilePlayerService, 'next').mockResolvedValue(undefined);
+
+            await mobilePlayerService.handleTracksNeedUpdate([{ id: 'queue-1' }]);
+
+            expect(useStore.getState().queue.items[0].track.hasStream).toBe(false);
+            expect(useStore.getState().collectionError).toContain(track.title);
+            expect(nextSpy).toHaveBeenCalledTimes(1);
+            expect(TrackPlayer.replaceMediaItem).not.toHaveBeenCalled();
+        });
     });
 });

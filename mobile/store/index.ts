@@ -385,7 +385,7 @@ function serializeDesktopQueueTransfer(queue: Queue): SerializedDesktopQueueTran
 import { DiscoveryService } from '../services/discovery.service';
 import { AppState as RNAppState, ToastAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import TrackPlayer, { PlaybackState } from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer, PlaybackState } from '../services/NitroPlayerAdapter';
 import { addTrack } from '../services/player';
 // import { mobilePlayerService } from '../services/MobilePlayerService';
 
@@ -1052,11 +1052,11 @@ export const useStore = create<AppState>((set, get) => ({
         // - remote→standalone: clear remote track to prevent progress bleed
         const { mobilePlayerService } = require('../services/MobilePlayerService');
         mobilePlayerService.prepareForModeChange();
-        TrackPlayer.pause();
-        TrackPlayer.clear();
+        await TrackPlayer.pause();
+        await TrackPlayer.clear();
 
         if (mode === 'remote') {
-            TrackPlayer.setVolume(0);
+            await TrackPlayer.setVolume(0);
         }
 
         // ── STEP 3: Atomic state transition ──
@@ -2819,8 +2819,8 @@ export const useStore = create<AppState>((set, get) => ({
                     queueHandoffSignature(get().queue) !== queueHandoffSignature(rollbackState.queue)) return;
                 if (rollbackState.isPlaying && ready) {
                     const latestSettings = get();
-                    TrackPlayer.setRepeatMode(latestSettings.repeatMode as any);
-                    TrackPlayer.setVolume(latestSettings.volume);
+                    await TrackPlayer.setRepeatMode(latestSettings.repeatMode as any);
+                    await TrackPlayer.setVolume(latestSettings.volume);
                     await TrackPlayer.play();
                     set({ isPlaying: true, userIntendedPause: false });
                 } else {
@@ -3639,10 +3639,14 @@ webSocketService.on('state-changed', async (payload: Partial<PlayerState>) => {
             if (isDead && isBackground) {
                 console.log('[RemoteMode] Ignoring play command from desktop: app is in background and foreground service is dead');
             } else {
-                TrackPlayer.play();
+                void TrackPlayer.play().catch(error => {
+                    console.warn('[RemoteMode] Failed to resume mirrored playback:', error);
+                });
             }
         } else {
-            TrackPlayer.pause();
+            void TrackPlayer.pause().catch(error => {
+                console.warn('[RemoteMode] Failed to pause mirrored playback:', error);
+            });
         }
     } catch (e) {
         console.error('Failed to sync TrackPlayer state', e);
@@ -3804,7 +3808,7 @@ webSocketService.on('time-update', async (payload) => {
 
             if (timeDiff > 2) {
                 // console.log(`Syncing time: remote=${payload.currentTime}, local=${currentPosition}, diff=${timeDiff}`);
-                TrackPlayer.seekTo(payload.currentTime);
+                void TrackPlayer.seekTo(payload.currentTime).catch(() => undefined);
             }
         } catch {
             // Ignore errors (e.g. if player not ready)

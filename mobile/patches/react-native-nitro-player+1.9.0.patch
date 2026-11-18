@@ -1,0 +1,85 @@
+diff --git a/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt b/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
+index 6202379..8769347 100644
+--- a/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
++++ b/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
+@@ -255,10 +255,8 @@ class NitroPlayerPlaybackService : MediaSessionService() {
+     }
+
+     override fun onTaskRemoved(rootIntent: Intent?) {
+-        val session = mediaSession
+-        if (session == null || !session.player.playWhenReady) {
+-            stopSelf()
+-        }
++        mediaSession?.player?.pause()
++        stopSelf()
+         super.onTaskRemoved(rootIntent)
+     }
+
+diff --git a/node_modules/react-native-nitro-player/ios/core/TrackPlayerCore.swift b/node_modules/react-native-nitro-player/ios/core/TrackPlayerCore.swift
+index 91f163a..1b3a736 100644
+--- a/node_modules/react-native-nitro-player/ios/core/TrackPlayerCore.swift
++++ b/node_modules/react-native-nitro-player/ios/core/TrackPlayerCore.swift
+@@ -171,7 +171,7 @@ class TrackPlayerCore: NSObject {
+     do {
+       // Category only — setActive(true) is deferred to first play so merely
+       // loading the module doesn't silence other apps' audio.
+-      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [])
++      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
+     } catch {
+       NitroPlayerLogger.log("TrackPlayerCore", "❌ Failed to setup audio session - \(error)")
+     }
+diff --git a/node_modules/react-native-nitro-player/ios/media/MediaSessionManager.swift b/node_modules/react-native-nitro-player/ios/media/MediaSessionManager.swift
+index e224d7d..1b9874c 100644
+--- a/node_modules/react-native-nitro-player/ios/media/MediaSessionManager.swift
++++ b/node_modules/react-native-nitro-player/ios/media/MediaSessionManager.swift
+@@ -380,6 +380,7 @@ class MediaSessionManager {
+
+     commandCenter.playCommand.removeTarget(nil)
+     commandCenter.pauseCommand.removeTarget(nil)
++    commandCenter.stopCommand.removeTarget(nil)
+     commandCenter.togglePlayPauseCommand.removeTarget(nil)
+     commandCenter.nextTrackCommand.removeTarget(nil)
+     commandCenter.previousTrackCommand.removeTarget(nil)
+@@ -416,6 +417,20 @@ class MediaSessionManager {
+       return .success
+     }
+
++    commandCenter.stopCommand.isEnabled = true
++    commandCenter.stopCommand.addTarget { [weak self] _ in
++      guard let core = self?.trackPlayerCore else { return .commandFailed }
++      Task {
++        await core.withPlayerQueueNoThrow {
++          guard let track = core.getCurrentTrack() else { return }
++          core.notifyNotificationButtonPress(
++            "remote-stop", track,
++            NotificationButtonEvent(isActive: nil, rating: nil, repeatMode: nil))
++        }
++      }
++      return .success
++    }
++
+     // Toggle play/pause
+     commandCenter.togglePlayPauseCommand.isEnabled = true
+     commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+@@ -570,9 +585,10 @@ class MediaSessionManager {
+
+     commandCenter.nextTrackCommand.isEnabled = hasCurrentTrack && isNotLast
+     commandCenter.previousTrackCommand.isEnabled = hasCurrentTrack
+-    // iOS shows enabled skip-interval commands in place of next/previous, so they stay off unless the app prefers them
+-    commandCenter.skipForwardCommand.isEnabled = hasCurrentTrack && preferRemoteSkipIntervals
+-    commandCenter.skipBackwardCommand.isEnabled = hasCurrentTrack && preferRemoteSkipIntervals
++    commandCenter.stopCommand.isEnabled = hasCurrentTrack
++    // Keep both track and interval-skip commands available; the OS chooses which controls to present.
++    commandCenter.skipForwardCommand.isEnabled = hasCurrentTrack
++    commandCenter.skipBackwardCommand.isEnabled = hasCurrentTrack
+     commandCenter.changePlaybackRateCommand.isEnabled = hasCurrentTrack
+     commandCenter.changePlaybackPositionCommand.isEnabled = hasCurrentTrack && hasDuration
+
+@@ -597,6 +613,7 @@ class MediaSessionManager {
+
+   private func disableAllCommands() {
+     let commandCenter = MPRemoteCommandCenter.shared()
++    commandCenter.stopCommand.isEnabled = false
+     commandCenter.nextTrackCommand.isEnabled = false
+     commandCenter.previousTrackCommand.isEnabled = false
+     commandCenter.skipForwardCommand.isEnabled = false

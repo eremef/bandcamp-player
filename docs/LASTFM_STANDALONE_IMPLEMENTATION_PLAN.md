@@ -2,6 +2,8 @@
 
 Research date: 2026-09-16. Reviewed checkout: `bc8d1f4`, application version `1.8.37-beta`. Scope: the mobile standalone client, with Android as the first device-validation target. No application behavior has been changed by this investigation.
 
+Historical note: this investigation predates the RNTP-to-Nitro playback migration. For current mobile player architecture and native setup, see [MOBILE_NITRO_PLAYBACK.md](./MOBILE_NITRO_PLAYBACK.md).
+
 **Assessment**
 
 There are confirmed defects at several stages. The strongest explanations for losing a connection are destructive error handling during session restoration and an unmigrated SecureStore key rename. Connecting during playback does not activate the current play or flush the queue. Separately, the submission code silently treats Last.fm error responses as success, including when deleting queued scrobbles.

@@ -30,7 +30,7 @@ The project uses a split testing architecture to accommodate the distinct runtim
 - **Configuration**: `mobile/jest.config.js`
 - **Setup**: `mobile/jest.setup.js`
   - Mocks `AsyncStorage`.
-  - Mocks `react-native-track-player`.
+  - Mocks `react-native-nitro-player` at the native module boundary and tests the `NitroPlayerAdapter` separately.
   - Mocks shared dependencies.
 - **Scope**: Covers `mobile/` directory logic.
 
@@ -112,10 +112,10 @@ Since the mobile app imports code from `src/shared` (outside its root), we use a
 
 ### Native Modules
 
-Native modules (Electron IPC, TrackPlayer) are mocked in the global setup files:
+Native modules (Electron IPC, Nitro Player) are mocked in the global setup files:
 
 - `src/test/setup.ts`: Mocks `window.electron` methods (`invoke`, `on`, `removeListener`).
-- `mobile/jest.setup.js`: Mocks `react-native-track-player`, `AsyncStorage`, and Expo modules (including `@expo/vector-icons`).
+- `mobile/jest.setup.js`: Mocks `react-native-nitro-player`, `AsyncStorage`, and Expo modules (including `@expo/vector-icons`).
 
 ## Coverage Map
 
@@ -170,7 +170,7 @@ The latest full unit runs for this update reported 30 desktop test files / 471 t
 Testing Standalone mode requires verifying state persistence across app restarts:
 
 1. **State Snapshotting**: Tests in `mobile/store/index.test.ts` verify that `saveQueue` is called correctly on queue changes.
-2. **Restoration**: `restoreStandaloneState` is tested by mocking `AsyncStorage.getItem('standalone_queue')` and verifying that the store and `TrackPlayer` are initialized with the correct track and position.
+2. **Restoration**: `restoreStandaloneState` is tested by mocking `AsyncStorage.getItem('standalone_queue')` and verifying that the store and Nitro Player adapter are initialized with the correct track and position.
 3. **Volume Persistence**: Tests verify that `standalone_volume` is correctly saved to and loaded from `MobileDatabase`.
 
 ### SQLite Scalability (Mobile)

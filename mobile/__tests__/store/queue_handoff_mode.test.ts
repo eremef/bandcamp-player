@@ -203,7 +203,7 @@ describe('queue handoff capability across mode changes', () => {
         socket.emit('capabilities', { capabilities: ['queue-handoff-v1'] });
 
         const transition = useStore.getState().setMode('standalone');
-        for (let i = 0; i < 10 && !finishSettings; i++) await Promise.resolve();
+        for (let i = 0; i < 100 && !finishSettings; i++) await Promise.resolve();
         expect(mobileDatabase.getSettings).toHaveBeenCalled();
 
         socket.setConnected(false);

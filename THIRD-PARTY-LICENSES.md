@@ -7,6 +7,8 @@ Date generated | Revision ID
 :---: | :---:
 06/17/26 | f1c8edcf9197878bca116388b00a7fd0b17946f8
 
+Mobile playback entries were refreshed from `mobile/package-lock.json` on 2026-11-18. The other entries retain the original report date and revision.
+
 ---
 
 ## Dependencies
@@ -19,7 +21,6 @@ Package|Licenses
 **[@preeternal/react-native-cookie-manager (6.3.0)](#preeternalreact-native-cookie-manager-630)**|MIT
 **[@react-native-async-storage/async-storage (2.2.0)](#react-native-async-storageasync-storage-220)**|MIT
 **[@react-native-community/slider (5.1.2)](#react-native-communityslider-512)**|MIT
-**[@rntp/player (5.5.0)](#rntpplayer-550)**|-
 **[@testing-library/jest-dom (6.9.1)](#testing-libraryjest-dom-691)**|MIT
 **[@testing-library/react (16.3.2)](#testing-libraryreact-1632)**|MIT
 **[@testing-library/react-native (13.3.3)](#testing-libraryreact-native-1333)**|MIT
@@ -82,6 +83,7 @@ Package|Licenses
 **[lucide-react (0.563.0)](#lucide-react-05630)**|MIT, ISC
 **[lucide-react-native (0.577.0)](#lucide-react-native-05770)**|MIT, ISC
 **[metro-config (0.83.7)](#metro-config-0837)**|MIT
+**[nitro-core (0.37.2)](#nitro-core-0372)**|MIT
 **[playwright (1.59.1)](#playwright-1591)**|Apache-2.0
 **[png-to-ico (3.0.1)](#png-to-ico-301)**|MIT
 **[qrcode.react (4.2.0)](#qrcodereact-420)**|ISC
@@ -92,6 +94,8 @@ Package|Licenses
 **[react-native (0.83.6)](#react-native-0836)**|MIT
 **[react-native-draggable-flatlist (4.0.3)](#react-native-draggable-flatlist-403)**|MIT
 **[react-native-gesture-handler (2.30.0)](#react-native-gesture-handler-2300)**|MIT
+**[react-native-nitro-modules (0.37.2)](#react-native-nitro-modules-0372)**|MIT
+**[react-native-nitro-player (1.9.0)](#react-native-nitro-player-190)**|MIT
 **[react-native-reanimated (4.2.1)](#react-native-reanimated-421)**|MIT
 **[react-native-safe-area-context (5.6.2)](#react-native-safe-area-context-562)**|MIT
 **[react-native-screens (4.23.0)](#react-native-screens-4230)**|MIT
@@ -233,25 +237,6 @@ Copyright (c)  Meta Platforms, Inc. and affiliates.
 **Package Homepage**: https://github.com/callstack/react-native-slider#readme
 **Package Download URL**: https://registry.npmjs.org/@react-native-community/slider/-/slider-5.1.2.tgz
 **Dependency Paths**: @react-native-community/slider
-
----
-
-### [@rntp/player (5.5.0)](https://github.com/doublesymmetry/react-native-track-player#readme)
-The premium audio player for React Native
-**Usage**: Direct
-
-#### Other Licenses
-instabug
-#### Copyrights
-  License: instabug
-Copyright (c)  Double Symmetry GmbH
-### Package Info
-
-**Authors**: david@dcvz.io
-**Package Manager**: NPM
-**Package Homepage**: https://github.com/doublesymmetry/react-native-track-player#readme
-**Package Download URL**: https://registry.npmjs.org/@rntp/player/-/player-5.5.0.tgz
-**Dependency Paths**: @rntp/player
 
 ---
 
@@ -5970,5 +5955,41 @@ Copyright (c) 2019 Paul Henschel
 **Package Homepage**: https://github.com/pmndrs/zustand
 **Package Download URL**: https://registry.npmjs.org/zustand/-/zustand-5.0.12.tgz
 **Dependency Paths**: zustand
+
+---
+
+### [nitro-core (0.37.2)](https://www.npmjs.com/package/nitro-core)
+Native JSI runtime used by Nitro Modules
+**Usage**: Transitive mobile dependency
+#### Declared Licenses
+MIT
+
+**Package Manager**: NPM
+**Package Download URL**: https://registry.npmjs.org/nitro-core/-/nitro-core-0.37.2.tgz
+**Dependency Paths**: mobile/react-native-nitro-modules > nitro-core
+
+---
+
+### [react-native-nitro-modules (0.37.2)](https://github.com/mrousavy/nitro)
+TurboModule-style native module runtime for React Native
+**Usage**: Direct mobile dependency
+#### Declared Licenses
+MIT
+
+**Package Manager**: NPM
+**Package Download URL**: https://registry.npmjs.org/react-native-nitro-modules/-/react-native-nitro-modules-0.37.2.tgz
+**Dependency Paths**: mobile/react-native-nitro-modules
+
+---
+
+### [react-native-nitro-player (1.9.0)](https://github.com/riteshshukla04/react-native-nitro-player)
+Native audio player for React Native
+**Usage**: Direct mobile dependency
+#### Declared Licenses
+MIT
+
+**Package Manager**: NPM
+**Package Download URL**: https://registry.npmjs.org/react-native-nitro-player/-/react-native-nitro-player-1.9.0.tgz
+**Dependency Paths**: mobile/react-native-nitro-player
 
 ---

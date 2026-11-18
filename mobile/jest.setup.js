@@ -3,7 +3,8 @@ jest.mock('@react-native-async-storage/async-storage', () =>
     require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
-// React Native Track Player is mocked via __mocks__/@rntp/player.ts
+// Nitro Player is mocked via __mocks__/react-native-nitro-player.ts
+jest.mock('react-native-nitro-player');
 
 // Mock Expo modules if necessary
 jest.mock('expo-linking', () => ({

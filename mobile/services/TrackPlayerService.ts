@@ -1,4 +1,4 @@
-import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer, Event, PlaybackState } from './NitroPlayerAdapter';
 import { useStore } from '../store';
 
 let isPlayingTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -11,12 +11,16 @@ function handleIsPlayingChanged(event: any) {
     if (event.playing) {
         const { mobilePlayerService } = require('./MobilePlayerService');
         if (mobilePlayerService.shouldSuppressNativePlayback()) {
-            TrackPlayer.pause();
+            void TrackPlayer.pause().catch(error => {
+                console.warn('[TrackPlayerService] Could not pause suppressed playback:', error);
+            });
             return;
         }
         if (useStore.getState().userIntendedPause) {
             console.log('[TrackPlayerService] Spontaneous play detected while userIntendedPause is true. Forcing pause.');
-            TrackPlayer.pause();
+            void TrackPlayer.pause().catch(error => {
+                console.warn('[TrackPlayerService] Could not pause unexpected playback:', error);
+            });
             return;
         }
 
@@ -37,7 +41,6 @@ function handleIsPlayingChanged(event: any) {
         }
     }
 }
-
 async function handlePlaybackError(event: any) {
     const store = useStore.getState();
     if (event?.code === 'controller-connection-failed') {
@@ -67,8 +70,19 @@ async function handlePlaybackError(event: any) {
 
     console.warn('[TrackPlayerService] PlaybackError event received:', event);
     const { mobilePlayerService } = require('./MobilePlayerService');
-    const targetIndex = (typeof event?.index === 'number' && event.index >= 0 && event.index < store.queue.items.length)
-        ? event.index
+    const itemQueueIndex = event?.item?.extraPayload?.queueIndex;
+    const matchingQueueIndex = typeof event?.mediaId === 'string'
+        ? store.queue.items.findIndex((item) => item.id === event.mediaId)
+        : -1;
+    const candidateIndex = Number.isInteger(event?.queueIndex)
+        ? event.queueIndex
+        : Number.isInteger(itemQueueIndex)
+            ? itemQueueIndex
+            : matchingQueueIndex >= 0
+                ? matchingQueueIndex
+                : event?.index;
+    const targetIndex = (typeof candidateIndex === 'number' && candidateIndex >= 0 && candidateIndex < store.queue.items.length)
+        ? candidateIndex
         : store.queue.currentIndex;
     const targetTrack = store.queue.items[targetIndex]?.track || store.currentTrack;
 
@@ -91,7 +105,7 @@ async function handlePlaybackError(event: any) {
             if (!resumeReady || latestStore.mode !== 'standalone' || latestStore.currentTrack?.id !== targetTrack.id) return;
             consecutiveErrors = 0;
             if (!latestStore.userIntendedPause) {
-                TrackPlayer.play();
+                await TrackPlayer.play();
                 useStore.setState({ isPlaying: true });
             }
             return;
@@ -101,12 +115,15 @@ async function handlePlaybackError(event: any) {
     console.warn('[TrackPlayerService] Unrecoverable error. Skipping track...');
     await mobilePlayerService.next();
 }
-
 async function handleStateChanged(event: any) {
     const { mobilePlayerService } = require('./MobilePlayerService');
     mobilePlayerService.handlePlaybackStateChanged(event.state);
     if (useStore.getState().mode !== 'standalone') return;
     if (event.state === PlaybackState.Ended) {
+        const nativeQueue = TrackPlayer.getQueue();
+        const activeIndex = TrackPlayer.getActiveMediaItemIndex();
+        if (nativeQueue[activeIndex]?.extraPayload?.remoteCommand === 'next') return;
+
         const store = useStore.getState();
         const { queue, repeatMode } = store;
 
@@ -128,6 +145,15 @@ async function handleMediaItemTransition(event: any) {
     const store = useStore.getState();
     const { mobilePlayerService } = require('./MobilePlayerService');
 
+    if (store.mode === 'remote') {
+        if (event?.nativeCommand && event.direction === 'next') {
+            useStore.getState().next();
+        } else if (event?.nativeCommand && event.direction === 'previous') {
+            useStore.getState().previous();
+        }
+        return;
+    }
+
     // Standalone mode logic
     if (store.mode === 'standalone') {
         if (mobilePlayerService.handleNativeMediaItemTransition(event.index, event.item?.mediaId)) return;
@@ -139,17 +165,40 @@ async function handleMediaItemTransition(event: any) {
             console.log('[MobilePlayer] Ignoring transition: currentTrack is null');
             return;
         }
+
+        const queueIndex = Number.isInteger(event.queueIndex) ? event.queueIndex : event.index;
+        const remoteCommand = event.item?.extraPayload?.remoteCommand;
+        const targetQueueItem = store.queue.items[queueIndex];
+        const targetTrackNeedsAppResolution = !!targetQueueItem?.track &&
+            !targetQueueItem.track.streamUrl && !store.cachedTrackIds?.has?.(targetQueueItem.track.id);
+        const requiresAppQueueLogic = store.isShuffled || remoteCommand === 'next' || remoteCommand === 'previous' ||
+            targetQueueItem?.track?.hasStream === false || targetTrackNeedsAppResolution;
+        if (event?.nativeCommand && requiresAppQueueLogic) {
+            const previousQueueItemId = store.queue.items[store.queue.currentIndex]?.id;
+            if (remoteCommand) await TrackPlayer.setVolume(0);
+            if (event.direction === 'previous') await mobilePlayerService.previous();
+            else await mobilePlayerService.next();
+
+            const latest = useStore.getState();
+            const currentItem = latest.queue.items[latest.queue.currentIndex];
+            if (currentItem && currentItem.id !== previousQueueItemId && latest.currentTrack) {
+                const { mobileScrobblerService } = require('./MobileScrobblerService');
+                await mobileScrobblerService.handleTrackTransition(currentItem.id, latest.queue.currentIndex);
+            }
+            return;
+        }
+
         const { mobileScrobblerService } = require('./MobileScrobblerService');
-        await mobileScrobblerService.handleTrackTransition(event.item?.mediaId, event.index);
+        await mobileScrobblerService.handleTrackTransition(event.item?.mediaId, queueIndex);
         if (useStore.getState().mode !== 'standalone' ||
             !mobilePlayerService.isNativeTransitionCurrent(event.index, event.item?.mediaId)) return;
         console.log(`[MobilePlayer] Native transitioned to index: ${event.index}. Current JS index: ${store.queue.currentIndex}`);
-        if (event.index !== undefined && event.index !== null && event.index !== store.queue.currentIndex) {
+        if (queueIndex !== undefined && queueIndex !== null && queueIndex !== store.queue.currentIndex) {
             if (store.userIntendedPause || !store.isPlaying) {
-                if (event.index >= 0 && event.index < store.queue.items.length) {
-                    const item = store.queue.items[event.index];
+                if (queueIndex >= 0 && queueIndex < store.queue.items.length) {
+                    const item = store.queue.items[queueIndex];
                     useStore.setState({
-                        queue: { ...store.queue, currentIndex: event.index },
+                        queue: { ...store.queue, currentIndex: queueIndex },
                         currentTrack: item?.track || null,
                         duration: item?.track?.duration || 0,
                         currentTime: 0,
@@ -159,14 +208,14 @@ async function handleMediaItemTransition(event: any) {
                 return;
             }
 
-            if (event.index === mobilePlayerService.prefetchedQueueIndex) {
-                store.syncNativeTransition(event.index);
+            if (queueIndex === mobilePlayerService.prefetchedQueueIndex) {
+                store.syncNativeTransition(queueIndex);
             } else {
                 setTimeout(() => {
                     if (useStore.getState().userIntendedPause || !useStore.getState().isPlaying) {
                         return;
                     }
-                    mobilePlayerService.playQueueIndex(event.index);
+                    mobilePlayerService.playQueueIndex(queueIndex);
                 }, 0);
             }
         }
@@ -204,6 +253,11 @@ export async function PlaybackService(event?: any) {
         case Event.PlaybackProgressUpdated:
             await handleProgressUpdated(event);
             break;
+        case Event.TracksNeedUpdate: {
+            const { mobilePlayerService } = require('./MobilePlayerService');
+            await mobilePlayerService.handleTracksNeedUpdate(event.tracks || []);
+            break;
+        }
         case Event.RemotePlay:
             useStore.getState().play();
             break;
@@ -240,42 +294,3 @@ export async function PlaybackService(event?: any) {
         }
     }
 }
-
-// Clean up previous listeners during hot-reloading in dev environment
-if ((global as any).trackPlayerSubscriptions) {
-    console.log('[TrackPlayerService] Cleaning up old TrackPlayer listeners before attaching new ones');
-    (global as any).trackPlayerSubscriptions.forEach((sub: any) => {
-        if (sub && typeof sub.remove === 'function') {
-            sub.remove();
-        }
-    });
-}
-
-// Foreground Listeners
-const subs = [
-    TrackPlayer.addEventListener(Event.IsPlayingChanged, handleIsPlayingChanged),
-    TrackPlayer.addEventListener(Event.PlaybackStateChanged, handleStateChanged),
-    TrackPlayer.addEventListener(Event.PlaybackError, handlePlaybackError),
-    TrackPlayer.addEventListener(Event.MediaItemTransition, handleMediaItemTransition),
-    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, handleProgressUpdated),
-
-    TrackPlayer.addEventListener(Event.RemotePlay, () => useStore.getState().play()),
-    TrackPlayer.addEventListener(Event.RemotePause, () => useStore.getState().pause()),
-    TrackPlayer.addEventListener(Event.RemoteNext, () => useStore.getState().next()),
-    TrackPlayer.addEventListener(Event.RemotePrevious, () => useStore.getState().previous()),
-    TrackPlayer.addEventListener(Event.RemoteSeek, (event) => useStore.getState().seek(event.position)),
-    TrackPlayer.addEventListener(Event.RemoteSkipForward, async (event) => {
-        const progress = TrackPlayer.getProgress();
-        useStore.getState().seek(progress.position + event.interval);
-    }),
-    TrackPlayer.addEventListener(Event.RemoteSkipBackward, async (event) => {
-        const progress = TrackPlayer.getProgress();
-        useStore.getState().seek(progress.position - event.interval);
-    }),
-    TrackPlayer.addEventListener(Event.RemoteStop, async () => {
-        const { mobilePlayerService } = require('./MobilePlayerService');
-        await mobilePlayerService.stop();
-    })
-];
-
-(global as any).trackPlayerSubscriptions = subs;

@@ -41,7 +41,7 @@ The Beta Player is a desktop application built with **Electron**, leveraging a *
 
 - **Mobile App**:
   - **Player**: Current playback control (synchronized via WebSocket).
-  - **Native Integration**: `react-native-track-player` for background audio and system media controls (Lock Screen, Notification Center).
+  - **Native Integration**: `react-native-nitro-player` for background audio and system media controls (Lock Screen, Notification Center), routed through the mobile Nitro adapter.
   - **Collection**: Browse user's collection (Grid view) with real-time search. Supports bulk actions (Play Now, Play Next, Add to Queue, Add to Playlist) when filtering results. Supports synchronized sorting and filtering with the desktop host.
   - **Artists**: Browse collection by Artist with detailed views. Search filtering reveals a bulk actions bar to operate on all matching items at once. Support for national characters in alphabet headers.
   - **Playlists**: Manage and play playlists.
@@ -327,15 +327,15 @@ When playing a cached album in offline mode:
 4. **Control**: Mobile sends commands (`play`, `pause`, `set-volume`) which Desktop executes via `player.service`.
 5. **Updates**: Desktop broadcasts state changes (`time-update`, `track-changed`). Changes to sorting or filtering on either platform are synchronized in real-time.
 6. **Paginated Sorting**: When the Mobile app requests a paginated collection view, the `RemoteService` on the Desktop host performs server-side sorting and deduplication based on the synchronized state before returning items.
-7. **Native UI**: In Remote mode, the mobile app updates its local background service (`TrackPlayer`) to reflect Desktop playback so System Media Controls (Lock Screen) remain functional. In Standalone mode, desktop state does not replace local playback state.
+7. **Native UI**: In Remote mode, the mobile app updates its local Nitro Player session to reflect Desktop playback so System Media Controls (Lock Screen) remain functional. In Standalone mode, desktop state does not replace local playback state.
 8. **Hybrid Connectivity**: The mobile app maintains its WebSocket connection to the Desktop host while in Standalone mode. It tracks desktop queue availability for queue handoff, but does not continuously synchronize desktop progress to the local player. This also allows users to switch back to Remote mode without a new connection.
 
 ### Hybrid Remote/Standalone Architecture (Mobile)
 
 The mobile application operates in two distinct modes, managed via a unified `MobileStore`:
 
-1. **Remote Mode**: Commands are sent via WebSocket to the Desktop Host. Playback state is pushed from the Host to the mobile client. Local audio engine (`TrackPlayer`) is used only as a proxy for System Media Controls.
-2. **Standalone Mode**: The app fetches stream URLs directly from Bandcamp (via `MobileScraperService`) and plays them using the local `TrackPlayer`.
+1. **Remote Mode**: Commands are sent via WebSocket to the Desktop Host. Playback state is pushed from the Host to the mobile client. The local Nitro Player session is used only as a proxy for System Media Controls.
+2. **Standalone Mode**: The app fetches stream URLs directly from Bandcamp (via `MobileScraperService`) and plays them using Nitro Player through `NitroPlayerAdapter`.
 3. **Seamless Switching**: When switching modes:
     - **Standalone → Remote**: Local audio stops, and the store resets to Remote mode. If a background WebSocket connection exists, the Remote state is restored instantly.
     - **Remote → Standalone**: Remote playback (if any) is paused on the server, and the mobile app restores its last saved Standalone queue and track position.
@@ -355,7 +355,7 @@ Queue transfer is staged and version-checked before playback changes. Phone-to-d
 3. **Restoration**: On app launch (`autoConnect` workflow):
     - Background connection to the last Remote host is initiated.
     - If `mode` is `standalone`, `restoreStandaloneState` pulls the snapshot from `AsyncStorage`.
-    - The `MobilePlayerService.loadTrack` method is called to initialize `TrackPlayer` with the restored track details and stream URL, but in a **paused** state.
+    - The `MobilePlayerService.loadTrack` method is called to initialize Nitro Player with the restored track details and stream URL, but in a **paused** state.
     - UI is populated immediately, allowing the user to resume playback instantly without re-searching their collection.
 
 ### Chromecast Integration

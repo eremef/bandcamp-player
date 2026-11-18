@@ -1,13 +1,62 @@
-import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer, Event, PlaybackState } from '../../services/NitroPlayerAdapter';
 import { PlaybackService } from '../../services/TrackPlayerService';
 import { useStore } from '../../store';
 
+jest.mock('../../services/NitroPlayerAdapter', () => ({
+    __esModule: true,
+    nativePlayerAdapter: {
+        setupPlayer: jest.fn().mockResolvedValue(true),
+        addEventListener: jest.fn(),
+        play: jest.fn().mockResolvedValue(undefined),
+        pause: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn().mockResolvedValue(undefined),
+        seekTo: jest.fn().mockResolvedValue(undefined),
+        getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0, buffered: 0 }),
+        getPlaybackState: jest.fn().mockReturnValue('ready'),
+        getQueue: jest.fn().mockReturnValue([]),
+        getActiveMediaItemIndex: jest.fn().mockReturnValue(0),
+        isPlaying: jest.fn().mockReturnValue(false),
+        setVolume: jest.fn().mockResolvedValue(undefined),
+        setRepeatMode: jest.fn().mockResolvedValue(undefined),
+        setMediaItems: jest.fn().mockResolvedValue(undefined),
+        destroy: jest.fn().mockResolvedValue(undefined),
+    },
+    Event: {
+        PlaybackStateChanged: 'playback-state-changed',
+        IsPlayingChanged: 'is-playing-changed',
+        MediaItemTransition: 'media-item-transition',
+        PlaybackError: 'playback-error',
+        PlaybackProgressUpdated: 'playback-progress-updated',
+        TracksNeedUpdate: 'tracks-need-update',
+        RemotePlay: 'remote-play',
+        RemotePause: 'remote-pause',
+        RemoteStop: 'remote-stop',
+        RemoteNext: 'remote-next',
+        RemotePrevious: 'remote-previous',
+        RemoteSeek: 'remote-seek',
+        RemoteSkipForward: 'remote-skip-forward',
+        RemoteSkipBackward: 'remote-skip-backward',
+    },
+    PlaybackState: {
+        Idle: 'idle',
+        Ready: 'ready',
+        Buffering: 'buffering',
+        Playing: 'playing',
+        Paused: 'paused',
+        Stopped: 'stopped',
+        Ended: 'ended',
+        Error: 'error',
+        None: 'none',
+    },
+}));
 jest.mock('../../services/MobilePlayerService', () => ({
     mobilePlayerService: {
         handleTrackEnd: jest.fn(),
         playQueueIndex: jest.fn(),
         loadTrack: jest.fn(),
         next: jest.fn(),
+        previous: jest.fn(),
+        handleTracksNeedUpdate: jest.fn().mockResolvedValue(undefined),
         isLoadingTrack: false,
         prefetchedQueueIndex: -1,
         handlePlaybackStateChanged: jest.fn(),
@@ -33,15 +82,6 @@ describe('TrackPlayerService (PlaybackService)', () => {
     let mockNext: jest.Mock;
     let mockPrevious: jest.Mock;
     let mockSeek: jest.Mock;
-
-    // Helper to trigger foreground events
-    const triggerForegroundEvent = async (eventName: string, payload?: any) => {
-        const calls = (TrackPlayer.addEventListener as jest.Mock).mock.calls;
-        const call = calls.find(c => c[0] === eventName);
-        if (call && call[1]) {
-            await call[1](payload);
-        }
-    };
 
     beforeEach(() => {
         const { mobilePlayerService } = require('../../services/MobilePlayerService');
@@ -155,13 +195,36 @@ describe('TrackPlayerService (PlaybackService)', () => {
 
             await PlaybackService({ type: Event.RemoteNext });
             await PlaybackService({ type: Event.RemotePrevious });
-            await triggerForegroundEvent(Event.RemoteNext);
-            await triggerForegroundEvent(Event.RemotePrevious);
 
-            expect(mockNext).toHaveBeenCalledTimes(2);
-            expect(mockPrevious).toHaveBeenCalledTimes(2);
+            expect(mockNext).toHaveBeenCalledTimes(1);
+            expect(mockPrevious).toHaveBeenCalledTimes(1);
         });
 
+        it('forwards Nitro-inferred native Next and Previous actions in remote mode', async () => {
+            useStore.setState({ mode: 'remote' });
+
+            await PlaybackService({ type: Event.MediaItemTransition, nativeCommand: true, direction: 'next' });
+            await PlaybackService({ type: Event.MediaItemTransition, nativeCommand: true, direction: 'previous' });
+
+            expect(mockNext).toHaveBeenCalledTimes(1);
+            expect(mockPrevious).toHaveBeenCalledTimes(1);
+        });
+
+        it('does not forward app-issued transitions as remote commands', async () => {
+            useStore.setState({ mode: 'remote' });
+
+            await PlaybackService({ type: Event.MediaItemTransition, nativeCommand: false, direction: 'next' });
+
+            expect(mockNext).not.toHaveBeenCalled();
+        });
+        it('forwards Nitro URL lookahead requests to mobile stream resolution', async () => {
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+            const requestedTracks = [{ id: 'queue-2', url: '' }];
+
+            await PlaybackService({ type: Event.TracksNeedUpdate, tracks: requestedTracks, lookahead: 5 });
+
+            expect(mobilePlayerService.handleTracksNeedUpdate).toHaveBeenCalledWith(requestedTracks);
+        });
         it('calls seek on RemoteSeek', async () => {
             await PlaybackService({ type: Event.RemoteSeek, position: 50 });
             expect(mockSeek).toHaveBeenCalledWith(50);
@@ -231,6 +294,52 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 } as any);
             });
 
+            it('routes the standalone queue-end sentinel through next', async () => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.next.mockClear();
+                useStore.setState({
+                    mode: 'standalone',
+                    isPlaying: true,
+                    userIntendedPause: false,
+                    currentTrack: { id: 'track-1' } as any,
+                    queue: { items: [{ id: 'queue-1', track: { id: 'track-1' } }], currentIndex: 0 },
+                } as any);
+
+                await PlaybackService({
+                    type: Event.MediaItemTransition,
+                    index: 2,
+                    queueIndex: 0,
+                    item: { mediaId: '__beta_queue_end__queue-1', extraPayload: { remoteCommand: 'next' } },
+                    nativeCommand: true,
+                    direction: 'next',
+                });
+
+                expect(mobilePlayerService.next).toHaveBeenCalledTimes(1);
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
+
+            it('routes the standalone previous sentinel through previous', async () => {
+                const { mobilePlayerService } = require('../../services/MobilePlayerService');
+                mobilePlayerService.previous.mockClear();
+                useStore.setState({
+                    mode: 'standalone',
+                    isPlaying: true,
+                    userIntendedPause: false,
+                    currentTrack: { id: 'track-1' } as any,
+                    queue: { items: [{ id: 'queue-1', track: { id: 'track-1' } }], currentIndex: 0 },
+                } as any);
+
+                await PlaybackService({
+                    type: Event.MediaItemTransition,
+                    index: 0,
+                    item: { mediaId: '__beta_queue_previous__queue-1', extraPayload: { remoteCommand: 'previous' } },
+                    nativeCommand: true,
+                    direction: 'previous',
+                });
+
+                expect(mobilePlayerService.previous).toHaveBeenCalledTimes(1);
+                expect(mobilePlayerService.playQueueIndex).not.toHaveBeenCalled();
+            });
             it.each([true, false])('keeps desktop progress when the remote mirror transitions (playing=%s)', async (isPlaying) => {
                 const playQueueIndex = jest.fn();
                 useStore.setState({
@@ -242,7 +351,6 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 } as any);
 
                 await PlaybackService({ type: Event.MediaItemTransition, index: 0, item: { mediaId: '1' } });
-                await triggerForegroundEvent(Event.MediaItemTransition, { index: 0, item: { mediaId: '1' } });
 
                 expect(playQueueIndex).not.toHaveBeenCalled();
                 expect(useStore.getState()).toMatchObject({ currentTime: 45, isPlaying, queue: { currentIndex: 1 } });
@@ -351,6 +459,34 @@ describe('TrackPlayerService (PlaybackService)', () => {
                 expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 't1' }), 37, true);
             });
 
+        it('maps sentinel-adjusted native error indices to the app queue item', async () => {
+            const firstTrack = { id: 't1', title: 'First' };
+            const failedTrack = { id: 't2', title: 'Second' };
+            useStore.setState({
+                isPlaying: true,
+                userIntendedPause: false,
+                currentTrack: firstTrack as any,
+                queue: {
+                    items: [
+                        { id: 'queue-1', track: firstTrack },
+                        { id: 'queue-2', track: failedTrack },
+                    ],
+                    currentIndex: 1,
+                },
+            } as any);
+            const { mobilePlayerService } = require('../../services/MobilePlayerService');
+
+            await PlaybackService({
+                type: Event.PlaybackError,
+                index: 2,
+                queueIndex: 1,
+                mediaId: 'queue-2',
+                item: { mediaId: 'queue-2', extraPayload: { queueIndex: 1 } },
+            });
+
+            expect(mobilePlayerService.loadTrack).toHaveBeenCalledWith(expect.objectContaining({ id: 't2' }), 0, true);
+        });
+
             it('resumes an error recovery after readiness even if the pause debounce fires while buffering', async () => {
                 useStore.setState({
                     isPlaying: true,
@@ -392,17 +528,4 @@ describe('TrackPlayerService (PlaybackService)', () => {
         });
     });
 
-    describe('Event listeners via Foreground AddEventListener', () => {
-        it('calls seek on RemoteSeek', async () => {
-            await triggerForegroundEvent(Event.RemoteSeek, { position: 50 });
-            expect(mockSeek).toHaveBeenCalledWith(50);
-        });
-
-        it('updates isPlaying on IsPlayingChanged', async () => {
-            useStore.setState({ userIntendedPause: false });
-            await triggerForegroundEvent(Event.IsPlayingChanged, { playing: true });
-            const state = useStore.getState();
-            expect(state.isPlaying).toBe(true);
-        });
-    });
 });

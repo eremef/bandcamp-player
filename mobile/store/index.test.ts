@@ -3,50 +3,41 @@ import { webSocketService } from '../services/WebSocketService';
 import { DiscoveryService } from '../services/discovery.service';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { act, waitFor } from '@testing-library/react-native';
-import TrackPlayer from '@rntp/player';
+import { nativePlayerAdapter as TrackPlayer } from '../services/NitroPlayerAdapter';
 import { addTrack } from '../services/player';
 
-// Mock TrackPlayer
-jest.mock('@rntp/player', () => ({
-    setupPlayer: jest.fn().mockResolvedValue(undefined),
-    updateOptions: jest.fn().mockResolvedValue(undefined),
-    add: jest.fn().mockResolvedValue(undefined),
-    play: jest.fn().mockResolvedValue(undefined),
-    pause: jest.fn().mockResolvedValue(undefined),
-    stop: jest.fn().mockResolvedValue(undefined),
-    clear: jest.fn().mockResolvedValue(undefined),
-    reset: jest.fn().mockResolvedValue(undefined),
-    seekTo: jest.fn().mockResolvedValue(undefined),
-    setVolume: jest.fn().mockResolvedValue(undefined),
-    setMediaItems: jest.fn().mockResolvedValue(undefined),
-    isPlaying: jest.fn().mockReturnValue(false),
-    setMediaItem: jest.fn().mockResolvedValue(undefined),
-    getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0 }),
-    getPlaybackState: jest.fn().mockReturnValue('ready'),
-    addEventListener: jest.fn(),
-    State: {
-        None: 'none',
-        Ready: 'ready',
-        Playing: 'playing',
-        Paused: 'paused',
-        Stopped: 'stopped',
-        Buffering: 'buffering',
-        Connecting: 'connecting',
+// Mock Nitro adapter
+jest.mock('../services/NitroPlayerAdapter', () => ({
+    __esModule: true,
+    nativePlayerAdapter: {
+        setupPlayer: jest.fn().mockResolvedValue(true),
+        play: jest.fn().mockResolvedValue(undefined),
+        pause: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn().mockResolvedValue(undefined),
+        clear: jest.fn().mockResolvedValue(undefined),
+        destroy: jest.fn().mockResolvedValue(undefined),
+        seekTo: jest.fn().mockResolvedValue(undefined),
+        setVolume: jest.fn().mockResolvedValue(undefined),
+        setMediaItems: jest.fn().mockResolvedValue(undefined),
+        setRepeatMode: jest.fn().mockResolvedValue(undefined),
+        isPlaying: jest.fn().mockReturnValue(false),
+        getProgress: jest.fn().mockReturnValue({ position: 0, duration: 0, buffered: 0 }),
+        getPlaybackState: jest.fn().mockReturnValue('ready'),
+        getQueue: jest.fn().mockReturnValue([]),
+        getActiveMediaItemIndex: jest.fn().mockReturnValue(-1),
     },
     PlaybackState: {
         Idle: 'idle',
         Ready: 'ready',
         Buffering: 'buffering',
+        Playing: 'playing',
+        Paused: 'paused',
+        Stopped: 'stopped',
         Ended: 'ended',
         Error: 'error',
+        None: 'none',
     },
-    Capability: {},
-    Event: {},
-    RepeatMode: {},
-    AppKilledPlaybackBehavior: {},
 }));
-
-
 // Mock WebSocketService
 const socketListeners: Record<string, (...args: any[]) => void> = {};
 
