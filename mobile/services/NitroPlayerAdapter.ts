@@ -195,9 +195,17 @@ class NitroPlayerAdapter {
             this.emit({ type: Event.TracksNeedUpdate, tracks, lookahead });
         });
         TrackPlayer.onNotificationButtonPress((buttonId, track) => {
-            if (buttonId !== 'remote-stop') return;
+            const buttonEvents: Record<string, EventValue> = {
+                'remote-play': Event.RemotePlay,
+                'remote-pause': Event.RemotePause,
+                'remote-next': Event.RemoteNext,
+                'remote-previous': Event.RemotePrevious,
+                'remote-stop': Event.RemoteStop,
+            };
+            const type = buttonEvents[buttonId];
+            if (!type) return;
             this.emit({
-                type: Event.RemoteStop,
+                type,
                 item: track ? toNativeMediaItem(track) : undefined,
                 nativeCommand: true,
                 inferred: false,
@@ -474,6 +482,7 @@ class NitroPlayerAdapter {
     }
 
     private handleStateChange(state: NitroPlaybackState, reason?: string) {
+        if (reason === 'error') this.clearExpectedCallbacks('state');
         const previousPlaying = this.isCurrentlyPlaying;
         const nextPlaying = state === 'playing';
         const suppressed = this.consumeExpectedCallback('state', state);
@@ -584,6 +593,12 @@ class NitroPlayerAdapter {
 
     private markExpectedCallback(kind: ExpectedCallback['kind'], value: string | number) {
         this.expectedCallbacks.push({ kind, value, expiresAt: Date.now() + SUPPRESSION_TTL_MS });
+    }
+
+    private clearExpectedCallbacks(kind: ExpectedCallback['kind']) {
+        for (let index = this.expectedCallbacks.length - 1; index >= 0; index--) {
+            if (this.expectedCallbacks[index].kind === kind) this.expectedCallbacks.splice(index, 1);
+        }
     }
 
     private consumeExpectedCallback(kind: ExpectedCallback['kind'], value: string | number): boolean {

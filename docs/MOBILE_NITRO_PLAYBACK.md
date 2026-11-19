@@ -12,7 +12,7 @@ npx expo install react-native-nitro-player react-native-nitro-modules
 
 Nitro Player includes native code, so use Beta Player’s Expo development client or a production native build; Expo Go alone cannot load it. Rebuild after installing or changing native dependencies. The [Nitro installation guide](https://nitroplayer.riteshshukla.in/docs/installation) documents iOS CocoaPods installation and Android autolinking. Background playback also needs Android `INTERNET`, `FOREGROUND_SERVICE`, and `FOREGROUND_SERVICE_MEDIA_PLAYBACK` permissions. Keep the iOS `audio` background mode enabled in app configuration and verify it survives prebuild. Beta Player’s version-specific patch also stops Android playback when the task is removed, matching RNTP’s `taskRemovedBehavior: 'stop'`.
 
-`mobile/patches/react-native-nitro-player+1.9.0.patch` uses the existing `patch-package` workflow to add iOS audio mixing with other apps, forward iOS Stop commands, keep interval-skip commands enabled alongside track commands, and stop Android playback when the task is removed. The patch is version-specific; recheck it when Nitro Player changes and rebuild native targets after it is applied.
+`mobile/patches/react-native-nitro-player+1.9.0.patch` uses the existing `patch-package` workflow to add iOS audio mixing with other apps, forward iOS Stop commands, keep interval-skip commands enabled alongside track commands, intercept Android Play/Pause/Next/Previous and Stop actions for the app-level adapter, and stop Android playback when the task is removed. The patch is version-specific; recheck it when Nitro Player changes and rebuild native targets after it is applied.
 
 ## Map the app queue to a native playlist
 
@@ -43,7 +43,7 @@ Keep URL resolution and policy in the mobile service, not the native adapter. As
 
 Register Nitro callbacks once in the app entry layer and normalize them through one adapter. The documented callbacks include track changes (with reasons such as `skip`, `end`, and `error`), playback-state changes, seek, and periodic progress. Use those to update the app queue index, Zustand playback state, resume/scrobble progress, and end-of-track handling.
 
-The documented `onChangeTrack` and `onPlaybackStateChange` callbacks report state changes; they are not raw, cancellable media-button commands. The adapter infers next/previous/seek/play/pause intent from unsuppressed callbacks, then routes actions through Beta Player’s store. Nitro’s `onNotificationButtonPress` handles the Android Stop button; the local iOS patch forwards `MPRemoteCommandCenter.stopCommand` through the same callback. Suppress callbacks caused by adapter-issued commands to prevent event loops and duplicate Zustand/WebSocket actions.
+On Android, Nitro 1.9.0 reports Next/Previous track changes with the reason `user_action`, and a track skip can also produce an `onSeek` callback. The package patch intercepts Android Play/Pause/Next/Previous before ExoPlayer changes the proxy queue and sends them through Nitro's notification-button callback; the adapter converts those callbacks into explicit app commands. Other state and seek changes are normalized by the adapter, with app-issued callbacks suppressed to avoid loops and duplicate Zustand/WebSocket actions. The notification callback and iOS patch also route Stop.
 
 ## Remote mode: behavior to prove
 

@@ -1,8 +1,81 @@
 diff --git a/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt b/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
-index 6202379..8769347 100644
+index 6202379..54a68a5 100644
 --- a/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
 +++ b/node_modules/react-native-nitro-player/android/src/main/java/com/margelo/nitro/nitroplayer/media/PlaybackService.kt
-@@ -255,10 +255,8 @@ class NitroPlayerPlaybackService : MediaSessionService() {
+@@ -18,13 +18,14 @@ import androidx.media3.session.DefaultMediaNotificationProvider
+ import androidx.media3.session.MediaSession
+ import androidx.media3.session.MediaSessionService
+ import com.google.android.gms.cast.framework.CastContext
++import com.margelo.nitro.nitroplayer.NotificationButtonEvent
+ import com.margelo.nitro.nitroplayer.core.NitroPlayerLogger
++import com.margelo.nitro.nitroplayer.core.notifyNotificationButtonPress
+ import com.margelo.nitro.nitroplayer.core.checkUpcomingTracksForUrls
+ import com.margelo.nitro.nitroplayer.core.TrackPlayerCore
++import com.margelo.nitro.nitroplayer.core.getCurrentTrack
+ import com.margelo.nitro.nitroplayer.core.playFromMediaId
+ import com.margelo.nitro.nitroplayer.core.playOnQueue
+-import com.margelo.nitro.nitroplayer.core.skipToNextOnQueue
+-import com.margelo.nitro.nitroplayer.core.skipToPreviousOnQueue
+ import com.margelo.nitro.nitroplayer.playlist.PlaylistManager
+
+ /**
+@@ -92,25 +93,32 @@ class NitroPlayerPlaybackService : MediaSessionService() {
+         // Build ExoPlayer on main looper (default)
+         player = ExoPlayerBuilder.build(this)
+
+-        // The timeline is a window over the logical queue, so ExoPlayer's own prev/next would
+-        // only ever move inside it — remote Previous seeks to 0 instead of the previous track.
+-        // Route the remote controls through the same logical skips JS uses.
++        // Route media controls to JS so remote mode can forward commands to the desktop and
++        // standalone mode can update the authoritative app queue before reloading the player.
+         sessionPlayer =
+             object : ForwardingPlayer(player) {
++                private fun dispatchRemoteButton(buttonId: String): Boolean {
++                    val core = trackPlayerCore ?: return false
++                    val track = core.getCurrentTrack() ?: return false
++                    core.startJsRuntimeIfNeeded()
++                    core.notifyNotificationButtonPress(buttonId, track, NotificationButtonEvent(null, null, null))
++                    return true
++                }
++
+                 override fun seekToPrevious() {
+-                    trackPlayerCore?.skipToPreviousOnQueue() ?: super.seekToPrevious()
++                    if (!dispatchRemoteButton("remote-previous")) super.seekToPrevious()
+                 }
+
+                 override fun seekToPreviousMediaItem() {
+-                    trackPlayerCore?.skipToPreviousOnQueue() ?: super.seekToPreviousMediaItem()
++                    if (!dispatchRemoteButton("remote-previous")) super.seekToPreviousMediaItem()
+                 }
+
+                 override fun seekToNext() {
+-                    trackPlayerCore?.skipToNextOnQueue() ?: super.seekToNext()
++                    if (!dispatchRemoteButton("remote-next")) super.seekToNext()
+                 }
+
+                 override fun seekToNextMediaItem() {
+-                    trackPlayerCore?.skipToNextOnQueue() ?: super.seekToNextMediaItem()
++                    if (!dispatchRemoteButton("remote-next")) super.seekToNextMediaItem()
+                 }
+
+                 // A controller's pick would otherwise load every track at once, bypassing the window and lazy URLs
+@@ -135,9 +143,15 @@ class NitroPlayerPlaybackService : MediaSessionService() {
+                 }
+
+                 override fun play() {
++                    if (dispatchRemoteButton("remote-play")) return
+                     trackPlayerCore?.let { core -> core.enqueue { core.playOnQueue() } } ?: super.play()
+                 }
+
++                override fun pause() {
++                    if (dispatchRemoteButton("remote-pause")) return
++                    super.pause()
++                }
++
+                 // Transcoded streams lack a length header, so ExoPlayer reads them as live: no bar or position in the car
+                 override fun isCurrentMediaItemLive(): Boolean = super.isCurrentMediaItemLive() && knownDurationMs() == null
+
+@@ -255,10 +269,8 @@ class NitroPlayerPlaybackService : MediaSessionService() {
      }
 
      override fun onTaskRemoved(rootIntent: Intent?) {

@@ -4,7 +4,7 @@
 
 Replace the mobile app's commercial `@rntp/player` dependency with the MIT-licensed `react-native-nitro-player` package while preserving every RNTP behavior currently used by Beta Player. The desktop Electron player and shared playback protocol remain unchanged. The existing mobile Zustand queue remains the application source of truth; Nitro Player is the native playback engine and media-session surface.
 
-Implementation is on `feature/switch_to_nitro`. The repository already targets Expo SDK 58 / React Native 0.88.1, enables the New Architecture, and has an Expo development client. Nitro Player requires native code, so native builds must be regenerated or rebuilt after dependency changes. The Expo app config already declares iOS background audio and Android media foreground-service permissions; verify that generated native projects retain them. A small `patch-package` patch preserves iOS audio mixing, Stop and skip-command handling, and Android stop-on-task-removal because Nitro 1.9.0 does not expose those RNTP behaviors directly.
+Implementation is on `feature/switch_to_nitro`. The repository already targets Expo SDK 58 / React Native 0.88.1, enables the New Architecture, and has an Expo development client. Nitro Player requires native code, so native builds must be regenerated or rebuilt after dependency changes. The Expo app config already declares iOS background audio and Android media foreground-service permissions; verify that generated native projects retain them. A small `patch-package` patch preserves iOS audio mixing, Stop and skip-command handling, Android Play/Pause/Next/Previous command forwarding, and Android stop-on-task-removal because Nitro 1.9.0 does not expose those RNTP behaviors directly.
 
 ## Current RNTP contract to preserve
 
@@ -62,6 +62,12 @@ Runtime callsites are `mobile/index.js`, `mobile/services/player.ts`, `mobile/se
 ## Implementation status (2026-11-18)
 
 - Implemented on `feature/switch_to_nitro` with `react-native-nitro-player` 1.9.0 and `react-native-nitro-modules` 0.37.2. The adapter now owns Nitro setup, queue snapshots, staging-playlist replacement, volume/repeat conversion, normalized callbacks, lazy URL updates, native-only boundary sentinels, and logical stop/clear/recovery behavior.
-- Runtime call sites use the adapter; RNTP was removed from the mobile package, lockfile, mocks, active architecture docs, and license list. The version-specific package patch restores iOS audio mixing and Stop/skip handling and Android stop-on-task-removal.
+- Runtime call sites use the adapter; RNTP was removed from the mobile package, lockfile, mocks, active architecture docs, and license list. The version-specific package patch restores iOS audio mixing and Stop/skip handling and forwards Android Play/Pause/Next/Previous/Stop commands before ExoPlayer applies them to the local proxy queue.
 - Verification passed: mobile Jest (36 suites / 488 tests), TypeScript, ESLint, Android debug build, patch parse/reverse check, and Pixel 10 Pro emulator startup with the Metro JavaScript bundle.
 - Remaining device validation: iOS was unavailable on this Windows host. Real playback, lock-screen/headset command presentation, audio mixing, Android notification Stop/task removal, remote command forwarding during actual playback, and current-track expired-URL recovery still need device-level checks. Do not treat the passing emulator startup as proof of those flows.
+
+### Android control follow-up (2026-11-19)
+
+The emulator log showed that Nitro 1.9.0 maps Android Next/Previous transitions to `user_action` and also reports a seek-to-zero; the adapter consequently forwarded a seek instead of a queue command. The package patch now forwards Android Play/Pause/Next/Previous media-session actions to the adapter before ExoPlayer mutates the mirrored playlist. The adapter clears an unmatched expected play/pause callback after native source errors so a subsequent user action is not swallowed.
+
+The rebuilt Pixel 10 Pro emulator confirmed that Android `MEDIA_NEXT` produces `remote-next` without a `remote-seek` or native track-transition event; `MEDIA_PREVIOUS`, `MEDIA_PAUSE`, and `MEDIA_PLAY` produced their matching app events. Mobile tests (36 suites / 492 tests), TypeScript, and ESLint pass. The Android Nitro Kotlin target compiles. A live connected desktop acknowledgment and physical-device notification/headset behavior remain unverified.

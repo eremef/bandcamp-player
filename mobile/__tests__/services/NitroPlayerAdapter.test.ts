@@ -173,6 +173,23 @@ describe('NitroPlayerAdapter', () => {
         jest.restoreAllMocks();
     });
 
+    it('does not mistake a Nitro user_action transition for an Android media command', async () => {
+        await adapter.setMediaItems([
+            { ...createItem('queue-a'), extraPayload: { queueIndex: 0 } },
+            { ...createItem('queue-b'), extraPayload: { queueIndex: 1 } },
+        ], 0);
+        const serviceEvents: Array<Record<string, unknown>> = [];
+        adapter.registerPlaybackService((nativeEvent) => { serviceEvents.push(nativeEvent); });
+
+        playerMock.__emitTrackChange({ ...createNitroTrack('queue-b'), extraPayload: { queueIndex: 1 } }, 'user_action');
+
+        expect(serviceEvents.find((nativeEvent) => nativeEvent.type === event.MediaItemTransition)).toMatchObject({
+            index: 1,
+            queueIndex: 1,
+            nativeCommand: false,
+        });
+    });
+
     it('infers external play, pause, stop, and seek only when callbacks are unsuppressed', async () => {
         await adapter.setMediaItems([createItem('queue-a')], 0);
         const serviceEvents: Array<Record<string, unknown>> = [];
@@ -193,6 +210,46 @@ describe('NitroPlayerAdapter', () => {
         ]));
         expect(serviceEvents.filter((nativeEvent) => nativeEvent.nativeCommand === true)).toHaveLength(4);
         jest.restoreAllMocks();
+    });
+
+    it('clears a missed programmatic play expectation after a native source error', async () => {
+        await adapter.setMediaItems([createItem('queue-a')], 0);
+        const serviceEvents: Array<Record<string, unknown>> = [];
+        adapter.registerPlaybackService((nativeEvent) => { serviceEvents.push(nativeEvent); });
+        await adapter.play();
+
+        playerMock.__emitPlaybackStateChange('stopped', 'error');
+        playerMock.__emitPlaybackStateChange('playing', 'user_action');
+
+        expect(serviceEvents.some((nativeEvent) => nativeEvent.type === event.RemotePlay && nativeEvent.nativeCommand)).toBe(true);
+    });
+
+    it('routes explicit Android media next and previous callbacks as commands', async () => {
+        await adapter.setupPlayer();
+        const serviceEvents: Array<Record<string, unknown>> = [];
+        adapter.registerPlaybackService((nativeEvent) => { serviceEvents.push(nativeEvent); });
+
+        playerMock.__emitNotificationButtonPress('remote-next', createNitroTrack('queue-a'), {});
+        playerMock.__emitNotificationButtonPress('remote-previous', createNitroTrack('queue-a'), {});
+
+        expect(serviceEvents.map((nativeEvent) => nativeEvent.type)).toEqual([
+            event.RemoteNext,
+            event.RemotePrevious,
+        ]);
+    });
+
+    it('routes Android play and pause callbacks without waiting for a state transition', async () => {
+        await adapter.setupPlayer();
+        const serviceEvents: Array<Record<string, unknown>> = [];
+        adapter.registerPlaybackService((nativeEvent) => { serviceEvents.push(nativeEvent); });
+
+        playerMock.__emitNotificationButtonPress('remote-play', createNitroTrack('queue-a'), {});
+        playerMock.__emitNotificationButtonPress('remote-pause', createNitroTrack('queue-a'), {});
+
+        expect(serviceEvents.map((nativeEvent) => nativeEvent.type)).toEqual([
+            event.RemotePlay,
+            event.RemotePause,
+        ]);
     });
 
     it('routes the patched iOS system Stop command from Nitro notification callbacks', async () => {
